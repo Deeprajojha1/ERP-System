@@ -110,12 +110,21 @@ export const login = async (req, res) => {
     );
 
     /* Store cookie */
-    res.cookie("token", token, {
+    const isProduction = process.env.NODE_ENV === "production";
+    const cookieOptions = {
       httpOnly: true,
-      secure: false,
-      sameSite: "strict",
+      secure: isProduction, // required for SameSite "none" on HTTPS
+      sameSite: isProduction ? "none" : "lax", // allow cross-site cookies in production
       maxAge: 24 * 60 * 60 * 1000,
+    };
+
+    console.log("[LOGIN] Setting auth cookie", {
+      origin: req.headers.origin,
+      isProduction,
+      cookieOptions,
     });
+
+    res.cookie("token", token, cookieOptions);
 
 /* Fetch role-specific details */
     let roleDetails = null;
