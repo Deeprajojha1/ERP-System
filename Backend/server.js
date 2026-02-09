@@ -12,7 +12,7 @@ dotenv.config();
 const app = express();
 // CORS configuration
 const allowedOrigins = [ // Local development
-  "https://hu-erp.vercel.app", // Production Vercel (update with your actual Vercel domain)
+  "https://hu-erp1-d8op.vercel.app/", // Production Vercel (update with your actual Vercel domain)
   process.env.FRONTEND_URL // Additional flexibility via environment variable
 ].filter(Boolean);
 
