@@ -3,7 +3,7 @@ import { createSlice } from "@reduxjs/toolkit";
 const configSlice = createSlice({
   name: "config",
   initialState: {
-    apiBase: "http://localhost:3000/api",
+    apiBase: "https://hu-erp.onrender.com/api",
   },
   reducers: {
     setApiBase: (state, action) => {
