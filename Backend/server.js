@@ -14,6 +14,7 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173", // Local development
   "https://hu-erp1.vercel.app/", // Production Vercel
+  "https://hu-erp1.vercel.app/login", // Production Vercel
   process.env.FRONTEND_URL // Additional flexibility via environment variable
 ].filter(Boolean);
 
