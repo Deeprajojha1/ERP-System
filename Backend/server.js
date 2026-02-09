@@ -11,22 +11,34 @@ dotenv.config();
 
 const app = express();
 // CORS configuration
+// NOTE: Origin is only scheme + host (+ optional port), no path.
 const allowedOrigins = [
-  "http://localhost:5173", // Local development
-  "https://hu-erp1.vercel.app/", // Production Vercel
-  "https://hu-erp1.vercel.app/login", // Production Vercel
-  process.env.FRONTEND_URL // Additional flexibility via environment variable
+  "http://localhost:5173", // Local development (Vite)
+  "https://hu-erp1.vercel.app", // Production Vercel
+  process.env.FRONTEND_URL, // Optional override via env on Render
 ].filter(Boolean);
+
+console.log("[CORS] Allowed origins:", allowedOrigins);
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.indexOf(origin) === -1) {
-        const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+    origin(origin, callback) {
+      // Allow requests with no origin (e.g., curl, mobile apps)
+      if (!origin) {
+        console.log("[CORS] Request with no origin allowed");
+        return callback(null, true);
+      }
+
+      console.log("[CORS] Incoming origin:", origin);
+
+      if (!allowedOrigins.includes(origin)) {
+        console.error("[CORS] Blocked origin:", origin, "Allowed:", allowedOrigins);
+        const msg =
+          "The CORS policy for this site does not allow access from the specified Origin.";
         return callback(new Error(msg), false);
       }
+
+      console.log("[CORS] Origin allowed:", origin);
       return callback(null, true);
     },
     credentials: true,
