@@ -1,0 +1,468 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;700&display=swap");
+
+:root {
+  --ink: #0f172a;
+  --muted: #5b6b7a;
+  --line: #e2e8f0;
+  --accent: #14b8a6;
+  --accent-strong: #0ea5a6;
+  --warn: #ef4444;
+  --panel: #ffffff;
+  --shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+}
+
+/* ==============================
+   PAGE PANEL
+============================== */
+
+.panel.attendance {
+  width: 100%;
+  min-height: 100vh;
+  padding: 24px;
+  background:
+    radial-gradient(1200px 500px at -10% -10%, rgba(14, 165, 166, 0.16), transparent 60%),
+    radial-gradient(800px 400px at 110% -10%, rgba(251, 146, 60, 0.16), transparent 55%),
+    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  color: var(--ink);
+}
+
+.panel {
+  background: var(--panel);
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  padding: 24px;
+  box-shadow: var(--shadow);
+  font-family: "Space Grotesk", "Segoe UI", sans-serif;
+  color: var(--ink);
+}
+
+.panel:not(.attendance) {
+  max-width: 520px;
+  margin: 40px auto;
+}
+
+/* ==============================
+   HERO HEADER
+============================== */
+
+.attendance-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+  padding: 20px;
+  background: var(--panel);
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.attendance-heading h2 {
+  margin: 6px 0;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--ink);
+  font-family: "Fraunces", "Space Grotesk", serif;
+}
+
+.muted {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--accent-strong);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.link-button:hover {
+  text-decoration: underline;
+}
+
+.icon {
+  font-size: 14px;
+}
+
+.btn .icon {
+  margin-right: 8px;
+  font-size: 12px;
+}
+
+.status .icon {
+  margin-right: 6px;
+  font-size: 12px;
+}
+
+/* ==============================
+   SUMMARY CARDS
+============================== */
+
+.summary-cards {
+  display: flex;
+  gap: 14px;
+}
+
+.summary-card {
+  background: #f8fafc;
+  padding: 16px 22px;
+  border-radius: 16px;
+  min-width: 120px;
+  text-align: center;
+  border: 1px solid var(--line);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  animation: rise 0.5s ease both;
+}
+
+.summary-card .metric {
+  font-size: 26px;
+  font-weight: 800;
+  margin: 0;
+  font-family: "Fraunces", "Space Grotesk", serif;
+}
+
+.summary-icon {
+  margin: 0 0 6px;
+  font-size: 18px;
+  color: rgba(15, 23, 42, 0.6);
+}
+
+.summary-card.present .summary-icon {
+  color: var(--accent-strong);
+}
+
+.summary-card.absent .summary-icon {
+  color: var(--warn);
+}
+
+.summary-card.present .metric {
+  color: var(--accent-strong);
+}
+
+.summary-card.absent .metric {
+  color: var(--warn);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ==============================
+   TOOLBAR
+============================== */
+
+.attendance-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-bottom: 18px;
+  padding: 16px;
+  background: var(--panel);
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+
+.attendance-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.attendance-status .saved {
+  color: var(--accent-strong);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* ==============================
+   BUTTONS
+============================== */
+
+.btn {
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn.primary {
+  background: linear-gradient(135deg, #14b8a6, #0ea5a6);
+  color: #ffffff;
+  box-shadow: 0 10px 18px rgba(14, 165, 166, 0.35);
+}
+
+.btn.primary:hover {
+  transform: translateY(-1px);
+}
+
+.btn.ghost {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.btn.ghost:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+/* ==============================
+   TABLE WRAPPER
+============================== */
+
+.attendance-table {
+  width: 100%;
+  overflow-x: auto;
+  background: var(--panel);
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  animation: rise 0.55s ease both;
+}
+
+/* ==============================
+   TABLE
+============================== */
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 840px;
+}
+
+thead {
+  background: #f1f5f9;
+}
+
+th {
+  text-align: left;
+  padding: 14px;
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+td {
+  padding: 14px;
+  border-top: 1px solid #f1f5f9;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.table-row:hover {
+  background: #f8fafc;
+}
+
+/* ==============================
+   STUDENT CELL
+============================== */
+
+.student-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar-sm {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #14b8a6, #0ea5e9);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.student-name {
+  font-weight: 700;
+}
+
+/* ==============================
+   ACTION CELL
+============================== */
+
+.action-cell {
+  display: inline-flex;
+  align-items: center;
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.switch input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.slider {
+  position: relative;
+  width: 84px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0 10px 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #b91c1c;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.slider::before {
+  content: "";
+  position: absolute;
+  left: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 6px 12px rgba(15, 23, 42, 0.15);
+  transition: transform 0.2s ease;
+}
+
+.switch input:checked + .slider {
+  background: rgba(20, 184, 166, 0.2);
+  border-color: rgba(20, 184, 166, 0.45);
+  color: #0f766e;
+  justify-content: flex-start;
+  padding: 0 6px 0 10px;
+}
+
+.switch input:checked + .slider::before {
+  transform: translateX(48px);
+}
+
+.state {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ==============================
+   STATUS BUTTON
+============================== */
+
+.status {
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+}
+
+.status.present {
+  background: rgba(20, 184, 166, 0.16);
+  color: #0f766e;
+}
+
+.status.absent {
+  background: rgba(239, 68, 68, 0.15);
+  color: #b91c1c;
+}
+
+/* ==============================
+   RESPONSIVE - TABLET
+============================== */
+
+@media (max-width: 900px) {
+  .attendance-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .summary-cards {
+    width: 100%;
+  }
+
+  .summary-card {
+    flex: 1;
+  }
+}
+
+/* ==============================
+   RESPONSIVE - MOBILE
+============================== */
+
+@media (max-width: 600px) {
+  .panel.attendance {
+    padding: 16px;
+  }
+
+  .attendance-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .attendance-actions {
+    width: 100%;
+  }
+
+  .btn {
+    flex: 1;
+    width: 100%;
+  }
+
+  table {
+    min-width: 760px;
+  }
+}
+
+/* ==============================
+   SMALL MOBILE
+============================== */
+
+@media (max-width: 420px) {
+  .summary-card {
+    padding: 12px;
+  }
+
+  .summary-card .metric {
+    font-size: 20px;
+  }
+
+  th,
+  td {
+    padding: 10px;
+    font-size: 12px;
+  }
+}

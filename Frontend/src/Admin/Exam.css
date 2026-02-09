@@ -1,0 +1,248 @@
+.exam-page {
+  padding: 8px 4px 24px;
+}
+
+.exam-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.exam-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.exam-add-btn {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.exam-filters {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+  align-items: end;
+}
+
+.exam-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.exam-search-icon {
+  font-size: 16px;
+  color: #64748b;
+}
+
+.exam-search input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.exam-select,
+.exam-date {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.exam-select select,
+.exam-date input {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.exam-table-wrap {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+}
+
+.exam-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+
+.exam-table thead th {
+  text-align: left;
+  font-size: 12px;
+  letter-spacing: 0.6px;
+  color: #334155;
+  padding: 14px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.exam-table tbody td {
+  padding: 16px 18px;
+  border-bottom: 1px solid #e2e8f0;
+  color: #0f172a;
+}
+
+.exam-name {
+  font-weight: 600;
+}
+
+.exam-action-btn {
+  border: none;
+  background: #f1f5f9;
+  color: #0f172a;
+  padding: 6px 12px;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.exam-action-btn.export {
+  background: #e0e7ff;
+  color: #1d4ed8;
+}
+
+.exam-empty {
+  text-align: center;
+  padding: 20px;
+  color: #64748b;
+}
+
+.exam-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exam-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.exam-modal-card {
+  position: relative;
+  z-index: 1;
+  width: min(720px, 92vw);
+  background: #ffffff;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.exam-modal-head {
+  padding: 18px 20px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+}
+
+.exam-modal-head h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.exam-modal-head p {
+  margin: 0;
+  opacity: 0.9;
+}
+
+.exam-form {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.exam-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.exam-form input {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.exam-form-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.exam-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.btn-secondary {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.btn-primary {
+  border: none;
+  background: #2563eb;
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .exam-filters {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .exam-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .exam-form-row {
+    grid-template-columns: 1fr;
+  }
+}

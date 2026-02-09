@@ -1,0 +1,627 @@
+import React, { useEffect, useMemo, useState } from "react";
+import axios from "axios";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  setStudents,
+  setStudentsError,
+  setStudentsLoading,
+} from "../redux/studentSlice";
+import emptyStateImg from "../assets/empty-state.svg";
+import "./Student.css";
+
+const Student = () => {
+  const [search, setSearch] = useState("");
+  const [department, setDepartment] = useState("All Departments");
+  const [isOpen, setIsOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null);
+  const [departments, setDepartments] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const dispatch = useDispatch();
+  const { students, loading } = useSelector(
+    (state) => state.student
+  );
+  const apiBase = useSelector((state) => state.config.apiBase);
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    password: "",
+    aadharNumber: "",
+    phoneNumber: "",
+    DOB: "",
+    enrollmentNumber: "",
+    department: "",
+    program: "",
+    semester: "",
+    academicYear: "",
+    fatherName: "",
+    fatherPhoneNumber: "",
+    collegeEmail: "",
+    group: "",
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const fetchAll = async () => {
+      try {
+        dispatch(setStudentsLoading(true));
+        const [studentRes, deptRes, groupRes] = await Promise.all([
+          axios.get(`${apiBase}/admin/student`, {
+            withCredentials: true,
+          }),
+          axios.get(`${apiBase}/admin/department`, {
+            withCredentials: true,
+          }),
+          axios.get(`${apiBase}/admin/group`, {
+            withCredentials: true,
+          }),
+        ]);
+        dispatch(setStudents(studentRes.data?.students || []));
+        setDepartments(deptRes.data?.departments || []);
+        setGroups(groupRes.data?.groups || []);
+      } catch (error) {
+        console.error(
+          "Fetch data failed:",
+          error.response?.data || error.message
+        );
+        dispatch(
+          setStudentsError(
+            error.response?.data?.message ||
+              "Failed to load students"
+          )
+        );
+      } finally {
+        dispatch(setStudentsLoading(false));
+      }
+    };
+
+    fetchAll();
+  }, []);
+
+  const filtered = useMemo(() => {
+    return students.filter((s) => {
+      const term = search.toLowerCase();
+      const matchSearch =
+        (s.user?.name || s.name || "")
+          .toLowerCase()
+          .includes(term) ||
+        (s.enrollmentNumber || s.roll || "")
+          .toLowerCase()
+          .includes(term) ||
+        (s.department?.name || s.department || "")
+          .toLowerCase()
+          .includes(term);
+      const matchDept =
+        department === "All Departments" ||
+        s.department?._id === department ||
+        s.department?.name === department ||
+        s.department === department;
+      return matchSearch && matchDept;
+    });
+  }, [students, search, department]);
+
+  const filteredGroups = useMemo(() => {
+    if (!formData.department) return groups;
+    return groups.filter(
+      (g) =>
+        g.department?._id === formData.department ||
+        g.department === formData.department
+    );
+  }, [groups, formData.department]);
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const openAddModal = () => {
+    setEditTarget(null);
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+      aadharNumber: "",
+      phoneNumber: "",
+      DOB: "",
+      enrollmentNumber: "",
+      department: "",
+      program: "",
+      semester: "",
+      academicYear: "",
+      fatherName: "",
+      fatherPhoneNumber: "",
+      collegeEmail: "",
+      group: "",
+    });
+    setIsOpen(true);
+  };
+
+  const openEditModal = (student) => {
+    setEditTarget(student);
+    setFormData({
+      name: student.user?.name || student.name || "",
+      email: student.user?.email || student.email || "",
+      password: "",
+      aadharNumber:
+        student.user?.aadharNumber || student.aadharNumber || "",
+      phoneNumber:
+        student.user?.phoneNumber || student.phoneNumber || "",
+      DOB: student.user?.DOB ? student.user.DOB.slice(0, 10) : "",
+      enrollmentNumber: student.enrollmentNumber || "",
+      department: student.department?._id || student.department || "",
+      program: student.program || "",
+      semester: student.semester || "",
+      academicYear: student.academicYear || "",
+      fatherName: student.fatherName || "",
+      fatherPhoneNumber: student.fatherPhoneNumber || "",
+      collegeEmail: student.collegeEmail || "",
+      group: student.group?._id || student.group || "",
+    });
+    setIsOpen(true);
+  };
+
+  const handleDelete = async (student) => {
+    if (!student?._id) return;
+    const ok = window.confirm(
+      `Delete student "${student.user?.name || student.name}"?`
+    );
+    if (!ok) return;
+    try {
+      await axios.delete(
+        `${apiBase}/admin/student/${student._id}`,
+        { withCredentials: true }
+      );
+      const res = await axios.get(
+        `${apiBase}/admin/student`,
+        { withCredentials: true }
+      );
+      dispatch(setStudents(res.data?.students || []));
+    } catch (error) {
+      console.error(
+        "Delete student failed:",
+        error.response?.data || error.message
+      );
+      alert(
+        error.response?.data?.message ||
+          "Failed to delete student"
+      );
+    }
+  };
+
+  const buildPayload = () => {
+    const base = {
+      enrollmentNumber: formData.enrollmentNumber,
+      department: formData.department,
+      program: formData.program,
+      semester: formData.semester
+        ? Number(formData.semester)
+        : "",
+      academicYear: formData.academicYear,
+      fatherName: formData.fatherName,
+      fatherPhoneNumber: formData.fatherPhoneNumber,
+      collegeEmail: formData.collegeEmail,
+      group: formData.group || null,
+    };
+
+    if (editTarget) return base;
+
+    return {
+      ...base,
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+      aadharNumber: formData.aadharNumber,
+      phoneNumber: formData.phoneNumber,
+      DOB: formData.DOB,
+    };
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setSubmitting(true);
+      const payload = buildPayload();
+
+      if (editTarget?._id) {
+        await axios.put(
+          `${apiBase}/admin/student/${editTarget._id}`,
+          payload,
+          { withCredentials: true }
+        );
+      } else {
+        await axios.post(
+          `${apiBase}/admin/student`,
+          payload,
+          { withCredentials: true }
+        );
+      }
+
+      const res = await axios.get(
+        `${apiBase}/admin/student`,
+        { withCredentials: true }
+      );
+      dispatch(setStudents(res.data?.students || []));
+
+      setIsOpen(false);
+      setEditTarget(null);
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        aadharNumber: "",
+        phoneNumber: "",
+        DOB: "",
+        enrollmentNumber: "",
+        department: "",
+        program: "",
+        semester: "",
+        academicYear: "",
+        fatherName: "",
+        fatherPhoneNumber: "",
+        collegeEmail: "",
+        group: "",
+      });
+    } catch (error) {
+      console.error(
+        "Add student failed:",
+        error.response?.data || error.message
+      );
+      alert(
+        error.response?.data?.message ||
+          "Failed to add student"
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="student-page">
+      <div className="student-header">
+        <div>
+          <h1 className="student-title">Students</h1>
+          <p className="student-subtitle">
+            Manage enrolled students
+          </p>
+        </div>
+        <button
+          className="student-add-btn"
+          type="button"
+          onClick={openAddModal}
+        >
+          + Add Student
+        </button>
+      </div>
+
+      <div className="student-panel">
+        <div className="student-filters">
+          <input
+            className="student-search"
+            type="text"
+            placeholder="Search by name, roll or dept"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <select
+            className="student-select"
+            value={department}
+            onChange={(e) => setDepartment(e.target.value)}
+          >
+            <option value="All Departments">
+              All Departments
+            </option>
+            {departments.map((d) => (
+              <option key={d._id} value={d._id}>
+                {d.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="student-table-wrap">
+          {filtered.length === 0 ? (
+            <div className="student-empty-state">
+              <img src={emptyStateImg} alt="No data" />
+              <h3>Oops! Data not found</h3>
+              <p>No students match your filters.</p>
+            </div>
+          ) : (
+            <table className="student-table">
+              <thead>
+                <tr>
+                  <th>ROLL NO</th>
+                  <th>NAME</th>
+                  <th>DEPARTMENT</th>
+                  <th>SEMESTER</th>
+                  <th>STATUS</th>
+                  <th>ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map((s) => (
+                  <tr key={s._id || s.enrollmentNumber || s.roll}>
+                    <td className="student-roll">
+                      {s.enrollmentNumber || s.roll}
+                    </td>
+                    <td>{s.user?.name || s.name}</td>
+                    <td>{s.department?.name || s.department}</td>
+                    <td>{s.semester}</td>
+                    <td>
+                      <span className="student-status">
+                        {(s.user?.status || s.status || "active").toUpperCase()}
+                      </span>
+                    </td>
+                    <td>
+                      <div className="student-actions">
+                        <button
+                          className="student-action-btn ghost"
+                          type="button"
+                          onClick={() => openEditModal(s)}
+                        >
+                          Edit
+                        </button>
+                        <button
+                          className="student-action-btn danger"
+                          type="button"
+                          onClick={() => handleDelete(s)}
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
+      {isOpen && (
+        <div className="student-modal">
+          <div
+            className="student-modal-backdrop"
+            onClick={() => setIsOpen(false)}
+            role="button"
+            tabIndex={0}
+            aria-label="Close"
+          />
+          <div className="student-modal-card">
+            <div className="student-modal-head">
+              <h2>
+                {editTarget ? "Edit Student" : "Add New Student"}
+              </h2>
+              <p>
+                Student academic & personal information
+              </p>
+            </div>
+            <form className="student-form" onSubmit={handleSubmit}>
+              <div className="student-form-row">
+                <label>
+                  Name
+                  <input
+                    type="text"
+                    placeholder="Subesh"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    disabled={!!editTarget}
+                  />
+                </label>
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    placeholder="subesh@domain.com"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    disabled={!!editTarget}
+                  />
+                </label>
+              </div>
+              {!editTarget && (
+                <div className="student-form-row">
+                  <label>
+                    Password
+                    <input
+                      type="password"
+                      placeholder="pass123"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                    />
+                  </label>
+                  <label>
+                    Aadhar Number
+                    <input
+                      type="text"
+                      placeholder="123756589012"
+                      name="aadharNumber"
+                      value={formData.aadharNumber}
+                      onChange={handleChange}
+                    />
+                  </label>
+                </div>
+              )}
+              <div className="student-form-row">
+                <label>
+                  Phone Number
+                  <input
+                    type="tel"
+                    placeholder="9276543210"
+                    name="phoneNumber"
+                    value={formData.phoneNumber}
+                    onChange={handleChange}
+                    disabled={!!editTarget}
+                  />
+                </label>
+                <label>
+                  DOB
+                  <input
+                    type="date"
+                    name="DOB"
+                    value={formData.DOB}
+                    onChange={handleChange}
+                    disabled={!!editTarget}
+                  />
+                </label>
+              </div>
+              <div className="student-form-row">
+                <label>
+                  Enrollment Number
+                  <input
+                    type="text"
+                    placeholder="2024CT90134"
+                    name="enrollmentNumber"
+                    value={formData.enrollmentNumber}
+                    onChange={handleChange}
+                  />
+                </label>
+                <label>
+                  Department
+                  <select
+  name="department"
+  value={formData.department}
+  onChange={handleChange}
+>
+  <option value="" disabled>
+    Select Department
+  </option>
+  {departments.map((d) => (
+    <option key={d._id} value={d._id}>
+      {d.name}
+    </option>
+  ))}
+</select>
+                </label>
+              </div>
+              <div className="student-form-row">
+                <label>
+                  Program
+                  <select
+                    name="program"
+                    value={formData.program}
+                    onChange={handleChange}
+                  >
+                    <option value="" disabled>
+                      Select Program
+                    </option>
+                    <option value="btech">B.Tech</option>
+                    <option value="mtech">M.Tech</option>
+                    <option value="mba">MBA</option>
+                  </select>
+                </label>
+                <label>
+                  Semester
+                  <div className="student-split">
+                    <select
+                      name="semester"
+                      value={formData.semester}
+                      onChange={handleChange}
+                    >
+                      <option value="" disabled>
+                        Sem
+                      </option>
+                      <option value="1">1</option>
+                      <option value="2">2</option>
+                      <option value="3">3</option>
+                      <option value="4">4</option>
+                      <option value="5">5</option>
+                      <option value="6">6</option>
+                      <option value="7">7</option>
+                      <option value="8">8</option>
+                    </select>
+                    <select
+                      name="group"
+                      value={formData.group}
+                      onChange={handleChange}
+                    >
+                      <option value="">
+                        No Group
+                      </option>
+                      {filteredGroups.map((g) => (
+                        <option key={g._id} value={g._id}>
+                          {g.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </label>
+              </div>
+              <div className="student-form-row">
+                <label>
+                  Academic Year
+                  <input
+                    type="text"
+                    placeholder="2024-2025"
+                    name="academicYear"
+                    value={formData.academicYear}
+                    onChange={handleChange}
+                  />
+                </label>
+                <label>
+                  Father Name
+                  <input
+                    type="text"
+                    placeholder="James Doe"
+                    name="fatherName"
+                    value={formData.fatherName}
+                    onChange={handleChange}
+                  />
+                </label>
+              </div>
+              <div className="student-form-row">
+                <label>
+                  Father Phone Number
+                  <input
+                    type="tel"
+                    placeholder="9876543211"
+                    name="fatherPhoneNumber"
+                    value={formData.fatherPhoneNumber}
+                    onChange={handleChange}
+                  />
+                </label>
+                <label>
+                  College Email
+                  <input
+                    type="email"
+                    placeholder="john@college.edu"
+                    name="collegeEmail"
+                    value={formData.collegeEmail}
+                    onChange={handleChange}
+                  />
+                </label>
+              </div>
+              <div className="student-modal-actions">
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={() => setIsOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={submitting}
+                >
+                  {submitting
+                    ? "Saving..."
+                    : editTarget
+                    ? "Update Student"
+                    : "Add Student"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Student;
+

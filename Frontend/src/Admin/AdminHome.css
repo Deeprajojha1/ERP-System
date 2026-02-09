@@ -1,0 +1,513 @@
+/* ===== NAV CONTAINER ===== */
+.admin-nav {
+    width: 100%;
+    min-height: 70px;
+    padding: 0 28px;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+
+    background: linear-gradient(135deg,
+            #0b5cff,
+            #0039a6);
+
+    color: #fff;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    font-family: "Segoe UI", sans-serif;
+}
+
+/* ===== LEFT SECTION ===== */
+.admin-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 0;
+}
+
+.admin-logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.admin-logo svg {
+    font-size: 26px;
+}
+
+.admin-university {
+    font-size: 13px;
+    opacity: 0.85;
+}
+
+/* Menu Button */
+.admin-menu-btn {
+    border: none;
+    background: rgba(255, 255, 255, 0.15);
+    color: #fff;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.admin-menu-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+/* ===== RIGHT SECTION ===== */
+.admin-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+}
+
+/* User Name */
+.admin-user {
+    font-size: 15px;
+    font-weight: 500;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 6px 14px;
+    border-radius: 20px;
+}
+
+/* Logout Button */
+.logout-btn {
+    border: none;
+    outline: none;
+    cursor: pointer;
+
+    background: #fff;
+    color: #0039a6;
+
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    white-space: nowrap;
+
+    transition: 0.25s ease;
+}
+
+.logout-btn:hover {
+    background: #ff4d4f;
+    color: #fff;
+}
+.logout-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 57, 166, 0.25);
+}
+
+/* ===== OVERLAY ===== */
+.admin-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 8;
+}
+
+.admin-overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ===== RESPONSIVE ===== */
+@media (max-width: 768px) {
+    .admin-nav {
+        padding: 8px 16px;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .admin-logo {
+        font-size: 18px;
+        white-space: normal;
+    }
+
+    .admin-university {
+        display: none;
+    }
+
+    .admin-user {
+        display: none;
+    }
+
+    .logout-btn {
+        padding: 6px 12px;
+        font-size: 14px;
+    }
+}
+
+@media (max-width: 480px) {
+    .admin-nav {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    .admin-left {
+        flex: 1;
+    }
+
+    .admin-right {
+        margin-left: auto;
+    }
+}
+
+@media (max-width: 360px) {
+    .admin-university {
+        display: none;
+    }
+}
+/* =========================
+   GLOBAL LAYOUT
+========================= */
+
+.admin-layout {
+  display: flex;
+  height: 100vh;
+  padding-top: 70px;
+  background: #f4f7fb;
+  font-family: "Segoe UI", sans-serif;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* =========================
+   SIDEBAR CONTAINER
+========================= */
+
+.admin-sidebar {
+  width: 260px;
+  background: #0f172a;
+  color: #fff;
+  padding: 18px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  transition: 0.3s ease;
+  height: 100%;
+}
+
+/* Scroll if overflow */
+.admin-sidebar {
+  overflow-y: auto;
+}
+
+/* Sidebar Header */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 6px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-title {
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.sidebar-close {
+  border: none;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.sidebar-close:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+/* =========================
+   SECTION BLOCK
+========================= */
+
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Section Label */
+
+.sidebar-label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: #94a3b8;
+  font-weight: 600;
+  margin-left: 6px;
+}
+
+/* =========================
+   SIDEBAR BUTTON
+========================= */
+
+.sidebar-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  border: none;
+  outline: none;
+  cursor: pointer;
+
+  background: transparent;
+  color: #e2e8f0;
+
+  padding: 10px 12px;
+  border-radius: 10px;
+
+  font-size: 14px;
+  font-weight: 500;
+
+  transition: 0.25s ease;
+}
+.sidebar-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+}
+
+/* Icon size */
+.sidebar-btn svg {
+  font-size: 18px;
+}
+
+/* Hover */
+.sidebar-btn:hover {
+  background: #1e293b;
+  color: #fff;
+}
+
+/* Active example */
+.sidebar-btn.active {
+  background: linear-gradient(
+    135deg,
+    #2563eb,
+    #1d4ed8
+  );
+  color: #fff;
+}
+
+/* =========================
+   CONTENT AREA
+========================= */
+
+.admin-content {
+  flex: 1;
+  padding: 24px;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  box-sizing: border-box;
+}
+
+/* Stats Cards */
+.admin-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-stat-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+}
+
+.admin-stat-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-stat-title {
+  margin: 0;
+  font-size: 16px;
+  color: #0f172a;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.admin-stat-icon {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+}
+
+.admin-stat-value {
+  margin: 8px 0 0;
+  font-size: 28px;
+  color: #111827;
+}
+
+.admin-stat-subtitle {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+/* Card + Chart */
+.admin-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  margin-top: 18px;
+}
+
+.admin-card-title {
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: #0f172a;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.admin-chart {
+  width: 100%;
+  min-height: 260px;
+}
+
+/* Remove focus border inside charts */
+.admin-card .recharts-wrapper:focus,
+.admin-card .recharts-wrapper:focus-visible,
+.admin-card .recharts-surface:focus,
+.admin-card .recharts-surface:focus-visible,
+.admin-card svg:focus,
+.admin-card svg:focus-visible,
+.admin-card [tabindex]:focus,
+.admin-card [tabindex]:focus-visible {
+  outline: none;
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+/* Tablet */
+@media (max-width: 1024px) {
+  .admin-sidebar {
+    width: 220px;
+  }
+
+  .admin-content {
+    padding: 20px;
+  }
+
+  .admin-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+
+  .admin-sidebar {
+    position: fixed;
+    top: 70px;
+    left: 0;
+    height: calc(100vh - 70px);
+    width: 260px;
+    transform: translateX(-100%);
+    z-index: 9;
+  }
+
+  .admin-layout.sidebar-open .admin-sidebar {
+    transform: translateX(0);
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  .admin-sidebar {
+    width: 240px;
+  }
+
+  .admin-content {
+    padding: 16px;
+  }
+
+  .admin-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar-text {
+    display: none;
+  }
+
+  .sidebar-btn {
+    justify-content: center;
+  }
+}
+
+/* Collapsed state */
+.admin-layout.sidebar-collapsed .admin-sidebar {
+  transform: translateX(-100%);
+}
+
+/* Center content when sidebar is collapsed (desktop) */
+.admin-layout.sidebar-collapsed .admin-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.admin-layout.sidebar-collapsed .admin-content > * {
+  max-width: 1100px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+
+/* Desktop: hide overlay */
+@media (min-width: 769px) {
+  .admin-overlay {
+    display: none;
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 360px) {
+  .admin-nav {
+    padding: 6px 12px;
+  }
+
+  .admin-logo {
+    font-size: 16px;
+  }
+
+  .logout-btn {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
