@@ -68,7 +68,7 @@ function FacultyDashboard() {
   );
 
   return (
-    <section className="grid">
+    <section className="grid faculty-split">
       <article className="panel profile">
         <div className="profile-header">
           <div className="avatar">{name.charAt(0)}</div>

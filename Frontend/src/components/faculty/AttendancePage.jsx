@@ -242,8 +242,9 @@ function AttendancePage() {
         </div>
       </div>
 
-      <div className="attendance-table">
-        <table>
+      <div className="attendance-table-wrap">
+        <div className="attendance-table">
+          <table>
           <thead>
             <tr>
               <th>Roll No</th>
@@ -302,7 +303,8 @@ function AttendancePage() {
               )
             })}
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     </section>
   )
