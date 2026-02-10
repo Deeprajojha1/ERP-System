@@ -64,31 +64,20 @@
   color: #0f172a;
 }
 
-.leaves-chips {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #334155;
-  font-size: 13px;
-}
-
-.leaves-chip-label {
-  font-weight: 600;
-}
-
-.leaves-chip {
-  border: none;
-  background: #f1f5f9;
-  color: #0f172a;
-  padding: 8px 12px;
+.leaves-select {
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  min-width: 180px;
+  outline: none;
 }
 
-.leaves-chip.active {
-  background: #3b82f6;
-  color: #ffffff;
+.leaves-select:focus-visible {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  border-color: #3b82f6;
 }
 
 .leaves-table-wrap {
@@ -97,6 +86,8 @@
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  width: 100%;
+  overflow-x: auto;
 }
 
 .leaves-table {
@@ -123,6 +114,25 @@
 
 .leaves-name {
   font-weight: 600;
+}
+
+.leaves-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.leaves-status.approved {
+  color: #16a34a;
+}
+
+.leaves-status.rejected {
+  color: #dc2626;
+}
+
+.leaves-status.pending {
+  color: #f59e0b;
 }
 
 .leaves-empty {
@@ -245,5 +255,26 @@
 
   .leaves-row {
     grid-template-columns: 1fr;
+  }
+
+  .leaves-search {
+    min-width: 0;
+  }
+
+  .leaves-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .leaves-modal {
+    align-items: flex-start;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .leaves-modal-card {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
   }
 }

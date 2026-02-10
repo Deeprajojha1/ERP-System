@@ -1,4 +1,7 @@
 import React, { useMemo, useState } from "react";
+import { FiDownload, FiPrinter } from "react-icons/fi";
+import { Oval } from "react-loader-spinner";
+import emptyStateImg from "../assets/empty-state.svg";
 import jsPDF from "jspdf";
 import "./Exam.css";
 
@@ -8,6 +11,7 @@ const Exam = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [isOpen, setIsOpen] = useState(false);
+  const [loadState, setLoadState] = useState("success");
 
   const subjects = [
     "All Subjects",
@@ -140,115 +144,164 @@ const Exam = () => {
     doc.save(`${exam.name.replace(/\s+/g, "_")}.pdf`);
   };
 
+
+  const renderState = () => {
+    if (loadState === "pending") {
+      return (
+        <div className="exam-state pending">
+          <Oval
+            height={64}
+            width={64}
+            color="#2563eb"
+            secondaryColor="#bfdbfe"
+            strokeWidth={4}
+            strokeWidthSecondary={4}
+            ariaLabel="Loading"
+            visible
+          />
+          <p>Loading exams...</p>
+        </div>
+      );
+    }
+    if (loadState === "failure") {
+      return (
+        <div className="exam-state error">
+          <img src={emptyStateImg} alt="Failed" className="exam-state-img" />
+          <h3>Failed to load exams</h3>
+          <p>Please try again in a moment.</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="exam-header">
+          <h1 className="exam-title">Examinations</h1>
+          <button
+            className="exam-add-btn"
+            type="button"
+            onClick={() => setIsOpen(true)}
+          >
+            + Create Exam
+          </button>
+        </div>
+
+        <div className="exam-filters">
+          <div className="exam-search">
+            <span className="exam-search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Search by exam name or subject..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <div className="exam-select">
+            <label>Subject</label>
+            <select
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+            >
+              {subjects.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="exam-date">
+            <label>From</label>
+            <input
+              type="text"
+              placeholder="dd-mm-yyyy"
+              value={fromDate}
+              onFocus={(e) => (e.target.type = "date")}
+              onBlur={(e) => {
+                if (!e.target.value) e.target.type = "text";
+              }}
+              onChange={(e) => setFromDate(e.target.value)}
+            />
+          </div>
+
+          <div className="exam-date">
+            <label>To</label>
+            <input
+              type="text"
+              placeholder="dd-mm-yyyy"
+              value={toDate}
+              onFocus={(e) => (e.target.type = "date")}
+              onBlur={(e) => {
+                if (!e.target.value) e.target.type = "text";
+              }}
+              onChange={(e) => setToDate(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <div className="exam-table-wrap">
+          <table className="exam-table">
+            <thead>
+              <tr>
+                <th>EXAM NAME</th>
+                <th>SUBJECT</th>
+                <th>DATE</th>
+                <th>TIME</th>
+                <th>DURATION</th>
+                <th>STATUS</th>
+                <th>ACTIONS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((e) => (
+                <tr key={`${e.name}-${e.date}`}>
+                  <td className="exam-name">{e.name}</td>
+                  <td>{e.subject}</td>
+                  <td>{e.date}</td>
+                  <td>{e.time}</td>
+                  <td>{e.duration}</td>
+                  <td>{e.status.toUpperCase()}</td>
+                  <td>
+                    <div className="exam-actions">
+                      <button
+                        className="exam-action-btn"
+                        type="button"
+                        onClick={() => handlePrint(e)}
+                      >
+                        <FiPrinter />
+                        Print
+                      </button>
+                      <button
+                        className="exam-action-btn export"
+                        type="button"
+                        onClick={() => handleDownload(e)}
+                      >
+                        <FiDownload />
+                        Download
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="exam-empty">
+                    No exams found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="exam-page">
-      <div className="exam-header">
-        <h1 className="exam-title">Examinations</h1>
-        <button
-          className="exam-add-btn"
-          type="button"
-          onClick={() => setIsOpen(true)}
-        >
-          + Create Exam
-        </button>
-      </div>
-
-      <div className="exam-filters">
-        <div className="exam-search">
-          <span className="exam-search-icon">??</span>
-          <input
-            type="text"
-            placeholder="Search by exam name or subject..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="exam-select">
-          <label>Subject</label>
-          <select
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-          >
-            {subjects.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="exam-date">
-          <label>From</label>
-          <input
-            type="date"
-            value={fromDate}
-            onChange={(e) => setFromDate(e.target.value)}
-          />
-        </div>
-
-        <div className="exam-date">
-          <label>To</label>
-          <input
-            type="date"
-            value={toDate}
-            onChange={(e) => setToDate(e.target.value)}
-          />
-        </div>
-      </div>
-
-      <div className="exam-table-wrap">
-        <table className="exam-table">
-          <thead>
-            <tr>
-              <th>EXAM NAME</th>
-              <th>SUBJECT</th>
-              <th>DATE</th>
-              <th>TIME</th>
-              <th>DURATION</th>
-              <th>STATUS</th>
-              <th>ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((e) => (
-              <tr key={`${e.name}-${e.date}`}>
-                <td className="exam-name">{e.name}</td>
-                <td>{e.subject}</td>
-                <td>{e.date}</td>
-                <td>{e.time}</td>
-                <td>{e.duration}</td>
-                <td>{e.status.toUpperCase()}</td>
-                <td>
-                  <button
-                    className="exam-action-btn"
-                    type="button"
-                    onClick={() => handlePrint(e)}
-                  >
-                    Print
-                  </button>
-                  <button
-                    className="exam-action-btn export"
-                    type="button"
-                    onClick={() => handleDownload(e)}
-                  >
-                    Download
-                  </button>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={7} className="exam-empty">
-                  No exams found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {isOpen && (
+      {renderState()}
+{isOpen && (
         <div className="exam-modal">
           <div
             className="exam-modal-backdrop"

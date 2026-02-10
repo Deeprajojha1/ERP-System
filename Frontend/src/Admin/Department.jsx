@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { Oval } from "react-loader-spinner";
+import emptyStateImg from "../assets/empty-state.svg";
 import "./Department.css";
 
 const Department = () => {
@@ -10,6 +13,7 @@ const Department = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  const [loadState, setLoadState] = useState("success");
   const [isOpen, setIsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [formData, setFormData] = useState({
@@ -23,6 +27,7 @@ const Department = () => {
   const fetchAll = async () => {
     try {
       setLoading(true);
+      setLoadState("pending");
       setError("");
       const [deptRes, facRes] = await Promise.all([
         axios.get(`${apiBase}/admin/department`, {
@@ -34,6 +39,7 @@ const Department = () => {
       ]);
       setDepartments(deptRes.data?.departments || []);
       setFaculty(facRes.data?.faculty || []);
+      setLoadState("success");
     } catch (err) {
       console.error(
         "Fetch departments failed:",
@@ -43,6 +49,7 @@ const Department = () => {
         err.response?.data?.message ||
           "Failed to load departments"
       );
+      setLoadState("failure");
     } finally {
       setLoading(false);
     }
@@ -203,114 +210,149 @@ const Department = () => {
   const isExistingSelection =
     !editTarget && nameMode === "existing";
 
+  const renderState = () => {
+    switch (loadState) {
+      case "pending":
+        return (
+          <div className="dept-state pending">
+            <Oval
+              height={64}
+              width={64}
+              color="#2563eb"
+              secondaryColor="#bfdbfe"
+              strokeWidth={4}
+              strokeWidthSecondary={4}
+              ariaLabel="Loading"
+              visible
+            />
+            <p>Loading departments...</p>
+          </div>
+        );
+      case "failure":
+        return (
+          <div className="dept-state error">
+            <img
+              src={emptyStateImg}
+              alt="Failed"
+              className="dept-state-img"
+            />
+            <h3>Failed to load departments</h3>
+            <p>Please try again in a moment.</p>
+          </div>
+        );
+      default:
+        return (
+          <>
+            <div className="dept-header">
+              <div>
+                <h1 className="dept-title">Departments</h1>
+                <p className="dept-subtitle">
+                  {deptCountLabel} in the organization
+                </p>
+              </div>
+              <button
+                className="dept-add-btn"
+                type="button"
+                onClick={openAddModal}
+              >
+                + Add Department
+              </button>
+            </div>
+
+            <div className="dept-toolbar">
+              <div className="dept-search">
+                <span className="dept-search-icon">🔍</span>
+                <input
+                  type="text"
+                  placeholder="Search department or HOD"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {filteredDepartments.length === 0 && (
+              <div className="dept-state empty">
+                No departments match your search.
+              </div>
+            )}
+
+            {filteredDepartments.length > 0 && (
+              <div className="dept-grid">
+                {filteredDepartments.map((dept) => {
+                  const hodName =
+                    dept.hod?.user?.name ||
+                    dept.hod?.name ||
+                    dept.hod?.employeeId ||
+                    "Not Assigned";
+                  return (
+                    <div className="dept-card" key={dept._id}>
+                      <div className="dept-card-top">
+                        <div className="dept-icon">
+                          {getInitials(dept.name)}
+                        </div>
+                        <span className="dept-status">Active</span>
+                      </div>
+
+                      <div className="dept-info">
+                        <h2 className="dept-name">{dept.name}</h2>
+                        <span className="dept-code">
+                          HOD: {hodName}
+                        </span>
+                      </div>
+
+                      <div className="dept-divider" />
+
+                      <div className="dept-metrics">
+                        <div className="dept-metric">
+                          <span className="dept-metric-label">
+                            Created
+                          </span>
+                          <span className="dept-metric-value">
+                            {formatDate(dept.createdAt)}
+                          </span>
+                        </div>
+                        <div className="dept-metric">
+                          <span className="dept-metric-label">
+                            Updated
+                          </span>
+                          <span className="dept-metric-value">
+                            {formatDate(dept.updatedAt)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="dept-actions">
+                        <button
+                          type="button"
+                          className="dept-action-btn ghost"
+                          onClick={() => openEditModal(dept)}
+                        >
+                          <FiEdit2 />
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          className="dept-action-btn danger"
+                          onClick={() => handleDelete(dept)}
+                        >
+                          <FiTrash2 />
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        );
+    }
+  };
+
   return (
     <div className="dept-page">
-      <div className="dept-header">
-        <div>
-          <h1 className="dept-title">Departments</h1>
-          <p className="dept-subtitle">
-            {deptCountLabel} in the organization
-          </p>
-        </div>
-        <button
-          className="dept-add-btn"
-          type="button"
-          onClick={openAddModal}
-        >
-          + Add Department
-        </button>
-      </div>
-
-      <div className="dept-toolbar">
-        <input
-          className="dept-search"
-          type="text"
-          placeholder="Search department or HOD"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
-      </div>
-
-      {loading && (
-        <div className="dept-state">Loading departments...</div>
-      )}
-
-      {error && !loading && (
-        <div className="dept-state error">{error}</div>
-      )}
-
-      {!loading && !error && filteredDepartments.length === 0 && (
-        <div className="dept-state empty">
-          No departments match your search.
-        </div>
-      )}
-
-      {!loading && !error && filteredDepartments.length > 0 && (
-        <div className="dept-grid">
-          {filteredDepartments.map((dept) => {
-            const hodName =
-              dept.hod?.user?.name ||
-              dept.hod?.name ||
-              dept.hod?.employeeId ||
-              "Not Assigned";
-            return (
-              <div className="dept-card" key={dept._id}>
-                <div className="dept-card-top">
-                  <div className="dept-icon">
-                    {getInitials(dept.name)}
-                  </div>
-                  <span className="dept-status">Active</span>
-                </div>
-
-                <div className="dept-info">
-                  <h2 className="dept-name">{dept.name}</h2>
-                  <span className="dept-code">
-                    HOD: {hodName}
-                  </span>
-                </div>
-
-                <div className="dept-divider" />
-
-                <div className="dept-metrics">
-                  <div className="dept-metric">
-                    <span className="dept-metric-label">
-                      Created
-                    </span>
-                    <span className="dept-metric-value">
-                      {formatDate(dept.createdAt)}
-                    </span>
-                  </div>
-                  <div className="dept-metric">
-                    <span className="dept-metric-label">
-                      Updated
-                    </span>
-                    <span className="dept-metric-value">
-                      {formatDate(dept.updatedAt)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="dept-actions">
-                  <button
-                    type="button"
-                    className="dept-action-btn ghost"
-                    onClick={() => openEditModal(dept)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="dept-action-btn danger"
-                    onClick={() => handleDelete(dept)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {renderState()}
 
       {isOpen && (
         <div className="dept-modal">

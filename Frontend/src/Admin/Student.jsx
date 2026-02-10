@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { Oval } from "react-loader-spinner";
 import {
   setStudents,
   setStudentsError,
@@ -17,7 +19,7 @@ const Student = () => {
   const [departments, setDepartments] = useState([]);
   const [groups, setGroups] = useState([]);
   const dispatch = useDispatch();
-  const { students, loading } = useSelector(
+  const { students, loading, error } = useSelector(
     (state) => state.student
   );
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -277,109 +279,134 @@ const Student = () => {
     }
   };
 
+
+  const renderState = () => {
+    if (loading) {
+      return (
+        <div className="student-state pending">
+          <Oval
+            height={64}
+            width={64}
+            color="#2563eb"
+            secondaryColor="#bfdbfe"
+            strokeWidth={4}
+            strokeWidthSecondary={4}
+            ariaLabel="Loading"
+            visible
+          />
+          <p>Loading students...</p>
+        </div>
+      );
+    }
+    if (error) {
+      return (
+        <div className="student-state error">
+          <img
+            src={emptyStateImg}
+            alt="Failed"
+            className="student-state-img"
+          />
+          <h3>Failed to load students</h3>
+          <p>Please try again in a moment.</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="student-header">
+          <div>
+            <h1 className="student-title">Students</h1>
+            <p className="student-subtitle">Manage enrolled students</p>
+          </div>
+          <button className="student-add-btn" type="button" onClick={openAddModal}>
+            + Add Student
+          </button>
+        </div>
+
+        <div className="student-panel">
+          <div className="student-filters">
+            <div className="student-search">
+              <span className="student-search-icon">??</span>
+              <input
+                type="text"
+                placeholder="Search by name, roll or dept"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <select
+              className="student-select"
+              value={department}
+              onChange={(e) => setDepartment(e.target.value)}
+            >
+              <option value="All Departments">All Departments</option>
+              {departments.map((d) => (
+                <option key={d._id} value={d._id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="student-table-wrap">
+            {filtered.length == 0 ? (
+              <div className="student-empty-state">
+                <img src={emptyStateImg} alt="No data" />
+                <h3>Oops! Data not found</h3>
+                <p>No students match your filters.</p>
+              </div>
+            ) : (
+              <table className="student-table">
+                <thead>
+                  <tr>
+                    <th>STUDENT NAME</th>
+                    <th>ROLL NO</th>
+                    <th>DEPARTMENT</th>
+                    <th>SEMESTER</th>
+                    <th>STATUS</th>
+                    <th>ACTIONS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((s) => (
+                    <tr key={s._id || s.user?._id}>
+                      <td className="student-roll">{s.user?.name || s.name}</td>
+                      <td>{s.enrollmentNumber || s.roll || "N/A"}</td>
+                      <td>{s.department?.name || s.department}</td>
+                      <td>{s.semester}</td>
+                      <td>
+                        <span className="student-status">
+                          {(s.user?.status || s.status || "active").toUpperCase()}
+                        </span>
+                      </td>
+                      <td>
+                        <div className="student-actions">
+                          <button className="student-action-btn ghost" type="button" onClick={() => openEditModal(s)}>
+                            <FiEdit2 />
+                            Edit
+                          </button>
+                          <button className="student-action-btn danger" type="button" onClick={() => handleDelete(s)}>
+                            <FiTrash2 />
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="student-page">
-      <div className="student-header">
-        <div>
-          <h1 className="student-title">Students</h1>
-          <p className="student-subtitle">
-            Manage enrolled students
-          </p>
-        </div>
-        <button
-          className="student-add-btn"
-          type="button"
-          onClick={openAddModal}
-        >
-          + Add Student
-        </button>
-      </div>
-
-      <div className="student-panel">
-        <div className="student-filters">
-          <input
-            className="student-search"
-            type="text"
-            placeholder="Search by name, roll or dept"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <select
-            className="student-select"
-            value={department}
-            onChange={(e) => setDepartment(e.target.value)}
-          >
-            <option value="All Departments">
-              All Departments
-            </option>
-            {departments.map((d) => (
-              <option key={d._id} value={d._id}>
-                {d.name}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="student-table-wrap">
-          {filtered.length === 0 ? (
-            <div className="student-empty-state">
-              <img src={emptyStateImg} alt="No data" />
-              <h3>Oops! Data not found</h3>
-              <p>No students match your filters.</p>
-            </div>
-          ) : (
-            <table className="student-table">
-              <thead>
-                <tr>
-                  <th>ROLL NO</th>
-                  <th>NAME</th>
-                  <th>DEPARTMENT</th>
-                  <th>SEMESTER</th>
-                  <th>STATUS</th>
-                  <th>ACTIONS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((s) => (
-                  <tr key={s._id || s.enrollmentNumber || s.roll}>
-                    <td className="student-roll">
-                      {s.enrollmentNumber || s.roll}
-                    </td>
-                    <td>{s.user?.name || s.name}</td>
-                    <td>{s.department?.name || s.department}</td>
-                    <td>{s.semester}</td>
-                    <td>
-                      <span className="student-status">
-                        {(s.user?.status || s.status || "active").toUpperCase()}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="student-actions">
-                        <button
-                          className="student-action-btn ghost"
-                          type="button"
-                          onClick={() => openEditModal(s)}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="student-action-btn danger"
-                          type="button"
-                          onClick={() => handleDelete(s)}
-                        >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      </div>
-
-      {isOpen && (
+      {renderState()}
+{isOpen && (
         <div className="student-modal">
           <div
             className="student-modal-backdrop"

@@ -7,6 +7,8 @@ import {
   setFacultyLoading,
 } from "../redux/facultySlice";
 import emptyStateImg from "../assets/empty-state.svg";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { Oval } from "react-loader-spinner";
 import "./Faculty.css";
 
 const Faculty = () => {
@@ -17,7 +19,7 @@ const Faculty = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
   const dispatch = useDispatch();
-  const { faculty, loading } = useSelector(
+  const { faculty, loading, error } = useSelector(
     (state) => state.faculty
   );
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -243,146 +245,171 @@ const Faculty = () => {
     });
   }, [faculty, search, department, status]);
 
+
+  const renderState = () => {
+    if (loading) {
+      return (
+        <div className="faculty-state pending">
+          <Oval
+            height={64}
+            width={64}
+            color="#2563eb"
+            secondaryColor="#bfdbfe"
+            strokeWidth={4}
+            strokeWidthSecondary={4}
+            ariaLabel="Loading"
+            visible
+          />
+          <p>Loading faculty...</p>
+        </div>
+      );
+    }
+    if (error) {
+      return (
+        <div className="faculty-state error">
+          <img
+            src={emptyStateImg}
+            alt="Failed"
+            className="faculty-state-img"
+          />
+          <h3>Failed to load faculty</h3>
+          <p>Please try again in a moment.</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="faculty-header">
+          <div>
+            <h1 className="faculty-title">Faculty Directory</h1>
+            <p className="faculty-subtitle">Manage all faculty members</p>
+          </div>
+          <button
+            className="faculty-add-btn"
+            type="button"
+            onClick={openAddModal}
+          >
+            + Add Faculty
+          </button>
+        </div>
+
+        <div className="faculty-panel">
+          <div className="faculty-filters">
+            <div className="faculty-search">
+              <span className="faculty-search-icon">??</span>
+              <input
+                type="text"
+                placeholder="Search faculty..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="faculty-selects">
+              <select
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+              >
+                <option value="All Departments">All Departments</option>
+                {departments.map((d) => (
+                  <option key={d._id} value={d._id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+              <select value={status} onChange={(e) => setStatus(e.target.value)}>
+                {statuses.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="faculty-empty">
+              <img src={emptyStateImg} alt="No data" />
+              <h3>Oops! Data not found</h3>
+              <p>No faculty records match your filters.</p>
+            </div>
+          ) : (
+            <div className="faculty-grid">
+              {filtered.map((f) => (
+                <div className="faculty-card" key={f._id || f.user?._id}>
+                  <div className="faculty-card-top">
+                    <div className="faculty-avatar">
+                      {(f.user?.name || f.name || "NA")
+                        .split(" ")
+                        .map((p) => p[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()}
+                    </div>
+                    <span
+                      className={`faculty-status ${
+                        (f.user?.status || f.status) === "Active"
+                          ? "status-active"
+                          : (f.user?.status || f.status) === "On Leave"
+                          ? "status-leave"
+                          : "status-inactive"
+                      }`}
+                    >
+                      {(f.user?.status || f.status || "active").toUpperCase()}
+                    </span>
+                  </div>
+
+                  <div className="faculty-info">
+                    <h2 className="faculty-name">{f.user?.name || f.name}</h2>
+                    <span className="faculty-role">
+                      {(f.designation || "Faculty").toUpperCase()}
+                    </span>
+                    <span className="faculty-dept">
+                      {f.department?.name || f.department}
+                    </span>
+                  </div>
+
+                  <div className="faculty-divider" />
+
+                  <div className="faculty-meta">
+                    <span>{f.qualification || "Qualification N/A"}</span>
+                    <span className="faculty-courses">
+                      {(f.courseIds?.length || 0)} Courses
+                    </span>
+                  </div>
+
+                  <div className="faculty-actions">
+                    <button
+                      className="faculty-action-btn ghost"
+                      type="button"
+                      onClick={() => openEditModal(f)}
+                    >
+                      <FiEdit2 />
+                      Edit
+                    </button>
+                    <button
+                      className="faculty-action-btn danger"
+                      type="button"
+                      onClick={() => handleDelete(f)}
+                    >
+                      <FiTrash2 />
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="faculty-page">
-      <div className="faculty-header">
-        <div>
-          <h1 className="faculty-title">Faculty Directory</h1>
-          <p className="faculty-subtitle">
-            Manage all faculty members
-          </p>
-        </div>
-        <button
-          className="faculty-add-btn"
-          type="button"
-          onClick={openAddModal}
-        >
-          + Add Faculty
-        </button>
-      </div>
-
-      <div className="faculty-panel">
-        <div className="faculty-filters">
-          <div className="faculty-search">
-            <span className="faculty-search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Search faculty..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
-
-          <div className="faculty-selects">
-            <select
-              value={department}
-              onChange={(e) =>
-                setDepartment(e.target.value)
-              }
-            >
-              <option value="All Departments">
-                All Departments
-              </option>
-              {departments.map((d) => (
-                <option key={d._id} value={d._id}>
-                  {d.name}
-                </option>
-              ))}
-            </select>
-            <select
-              value={status}
-              onChange={(e) =>
-                setStatus(e.target.value)
-              }
-            >
-              {statuses.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {filtered.length === 0 ? (
-          <div className="faculty-empty">
-            <img src={emptyStateImg} alt="No data" />
-            <h3>Oops! Data not found</h3>
-            <p>No faculty records match your filters.</p>
-          </div>
-        ) : (
-          <div className="faculty-grid">
-            {filtered.map((f) => (
-              <div className="faculty-card" key={f._id || f.user?._id}>
-                <div className="faculty-card-top">
-                  <div className="faculty-avatar">
-                    {(f.user?.name || f.name || "NA")
-                      .split(" ")
-                      .map((p) => p[0])
-                      .join("")
-                      .slice(0, 2)
-                      .toUpperCase()}
-                  </div>
-                  <span
-                    className={`faculty-status ${
-                      (f.user?.status || f.status) === "Active"
-                        ? "status-active"
-                        : (f.user?.status || f.status) ===
-                          "On Leave"
-                        ? "status-leave"
-                        : "status-inactive"
-                    }`}
-                  >
-                    {(f.user?.status || f.status || "active").toUpperCase()}
-                  </span>
-                </div>
-
-                <div className="faculty-info">
-                  <h2 className="faculty-name">
-                    {f.user?.name || f.name}
-                  </h2>
-                  <span className="faculty-role">
-                    {(f.designation || "Faculty").toUpperCase()}
-                  </span>
-                  <span className="faculty-dept">
-                    {f.department?.name || f.department}
-                  </span>
-                </div>
-
-                <div className="faculty-divider" />
-
-                <div className="faculty-meta">
-                  <span>
-                    {f.qualification || "Qualification N/A"}
-                  </span>
-                  <span className="faculty-courses">
-                    {(f.courseIds?.length || 0)} Courses
-                  </span>
-                </div>
-
-                <div className="faculty-actions">
-                  <button
-                    className="faculty-action-btn ghost"
-                    type="button"
-                    onClick={() => openEditModal(f)}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    className="faculty-action-btn danger"
-                    type="button"
-                    onClick={() => handleDelete(f)}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {isOpen && (
+      {renderState()}
+{isOpen && (
         <div className="faculty-modal">
           <div
             className="faculty-modal-backdrop"

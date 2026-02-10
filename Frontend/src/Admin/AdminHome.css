@@ -53,22 +53,46 @@
 
 /* Menu Button */
 .admin-menu-btn {
-    border: none;
-    background: rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #0b2d6b;
     color: #fff;
     width: 36px;
     height: 36px;
     border-radius: 8px;
     cursor: pointer;
-    font-size: 18px;
-    line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+    transition: 0.2s ease;
+}
+.admin-menu-btn:hover {
+    background: #10398a;
 }
 .admin-menu-btn:focus-visible {
   outline: none;
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.35);
+}
+
+.sidebar-toggle-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.admin-menu-float {
+  position: fixed;
+  top: 70px;
+  left: 0;
+  z-index: 11;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+@media (max-width: 480px) {
+  .admin-menu-float {
+    left: 0;
+    top: 70px;
+  }
 }
 
 /* ===== RIGHT SECTION ===== */
@@ -184,6 +208,7 @@
 .admin-layout {
   display: flex;
   height: 100vh;
+  min-height: 100dvh;
   padding-top: 70px;
   background: #f4f7fb;
   font-family: "Segoe UI", sans-serif;
@@ -196,15 +221,17 @@
 ========================= */
 
 .admin-sidebar {
-  width: 260px;
-  background: #0f172a;
-  color: #fff;
-  padding: 18px 14px;
+  width: clamp(220px, 26vw, 280px);
+  background: linear-gradient(180deg, #1c2a4a 0%, #14223d 100%);
+  color: #e7eefc;
+  padding: 16px 12px 20px;
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 18px;
   transition: 0.3s ease;
   height: 100%;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 6px 0 18px rgba(9, 20, 40, 0.35);
 }
 
 /* Scroll if overflow */
@@ -217,25 +244,33 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4px 6px 8px;
+  padding: 6px 10px 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .sidebar-title {
-  font-size: 13px;
-  letter-spacing: 1px;
-  color: #94a3b8;
+  font-size: 12px;
+  letter-spacing: 1.2px;
+  color: #8fb3ff;
   font-weight: 600;
+  text-transform: uppercase;
 }
 
 .sidebar-close {
-  border: none;
-  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: #122a5a;
   color: #fff;
-  width: 28px;
-  height: 28px;
-  border-radius: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.2s ease;
+}
+.sidebar-close:hover {
+  background: #173b7a;
 }
 .sidebar-close:focus-visible {
   outline: none;
@@ -249,17 +284,17 @@
 .sidebar-section {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 /* Section Label */
 
 .sidebar-label {
   font-size: 11px;
-  letter-spacing: 1px;
-  color: #94a3b8;
+  letter-spacing: 1.1px;
+  color: #9bb3d9;
   font-weight: 600;
-  margin-left: 6px;
+  margin-left: 8px;
 }
 
 /* =========================
@@ -278,17 +313,17 @@
   background: transparent;
   color: #e2e8f0;
 
-  padding: 10px 12px;
-  border-radius: 10px;
+  padding: 12px 12px;
+  border-radius: 12px;
 
   font-size: 14px;
   font-weight: 500;
 
-  transition: 0.25s ease;
+  transition: 0.2s ease;
 }
 .sidebar-btn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
 }
 
 /* Icon size */
@@ -298,18 +333,15 @@
 
 /* Hover */
 .sidebar-btn:hover {
-  background: #1e293b;
+  background: rgba(59, 130, 246, 0.16);
   color: #fff;
 }
 
 /* Active example */
 .sidebar-btn.active {
-  background: linear-gradient(
-    135deg,
-    #2563eb,
-    #1d4ed8
-  );
+  background: rgba(59, 130, 246, 0.28);
   color: #fff;
+  box-shadow: inset 0 0 0 1px rgba(147, 197, 253, 0.5);
 }
 
 /* =========================
@@ -318,7 +350,7 @@
 
 .admin-content {
   flex: 1;
-  padding: 24px;
+  padding: clamp(16px, 2.2vw, 24px);
   min-width: 0;
   height: 100%;
   overflow-y: auto;
@@ -394,6 +426,26 @@
   min-height: 260px;
 }
 
+.admin-chart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.admin-chart-card {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 12px 14px 6px;
+}
+
+.admin-chart-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
 /* Remove focus border inside charts */
 .admin-card .recharts-wrapper:focus,
 .admin-card .recharts-wrapper:focus-visible,
@@ -436,7 +488,7 @@
     top: 70px;
     left: 0;
     height: calc(100vh - 70px);
-    width: 260px;
+    width: min(80vw, 260px);
     transform: translateX(-100%);
     z-index: 9;
   }
@@ -449,11 +501,11 @@
 /* Small Mobile */
 @media (max-width: 480px) {
   .admin-sidebar {
-    width: 240px;
+    width: min(82vw, 240px);
   }
 
   .admin-content {
-    padding: 16px;
+    padding: 14px;
   }
 
   .admin-cards {
@@ -461,11 +513,17 @@
   }
 
   .sidebar-text {
-    display: none;
+    display: inline;
   }
 
   .sidebar-btn {
-    justify-content: center;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-chart-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -486,6 +544,66 @@
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+}
+
+
+.admin-state {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 28px;
+  text-align: center;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.admin-state.error {
+  border-color: #fecaca;
+  background: #fff1f2;
+}
+
+.admin-state-img {
+  width: min(320px, 80%);
+  height: auto;
+  display: block;
+  margin: 0 auto 12px;
+}
+
+.admin-state-text {
+  color: #64748b;
+  margin: 8px 0 0;
+}
+
+.admin-dots {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.admin-dots span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2563eb;
+  animation: admin-bounce 1s infinite ease-in-out;
+}
+
+.admin-dots span:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.admin-dots span:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes admin-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+  40% { transform: translateY(-6px); opacity: 1; }
 }
 
 

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { FiCheckCircle, FiXCircle } from "react-icons/fi";
 import "./Attendance.css";
 
 const Attendance = () => {
@@ -89,7 +90,7 @@ const Attendance = () => {
 
       <div className="attendance-toolbar">
         <div className="attendance-search">
-          <span className="attendance-search-icon">??</span>
+          <span className="attendance-search-icon">🔍</span>
           <input
             type="text"
             placeholder="Search by name or department..."
@@ -146,7 +147,16 @@ const Attendance = () => {
                 <td className="attendance-name">{r.name}</td>
                 <td>{r.type}</td>
                 <td>{r.department}</td>
-                <td>{r.status}</td>
+                <td>
+                  <span
+                    className={`attendance-status-badge ${
+                      r.status === "Present" ? "present" : "absent"
+                    }`}
+                  >
+                    {r.status === "Present" ? <FiCheckCircle /> : <FiXCircle />}
+                    {r.status}
+                  </span>
+                </td>
                 <td>{r.monthly}</td>
               </tr>
             ))}

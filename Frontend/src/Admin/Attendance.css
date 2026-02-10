@@ -91,6 +91,8 @@
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  width: 100%;
+  overflow-x: auto;
 }
 
 .attendance-table {
@@ -119,6 +121,21 @@
   font-weight: 600;
 }
 
+.attendance-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.attendance-status-badge.present {
+  color: #16a34a;
+}
+
+.attendance-status-badge.absent {
+  color: #dc2626;
+}
+
 .attendance-empty {
   text-align: center;
   padding: 20px;
@@ -135,5 +152,14 @@
 @media (max-width: 640px) {
   .attendance-title {
     font-size: 22px;
+  }
+
+  .attendance-search {
+    min-width: 0;
+  }
+
+  .attendance-select select {
+    min-width: 0;
+    width: 100%;
   }
 }

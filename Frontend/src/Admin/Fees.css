@@ -2,16 +2,6 @@
   padding: 8px 4px 24px;
 }
 
-.fees-debug {
-  background: #e0f2fe;
-  color: #0369a1;
-  border: 1px solid #bae6fd;
-  padding: 8px 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  font-size: 13px;
-}
-
 .fees-title {
   margin: 0 0 16px;
   font-size: 24px;
@@ -34,10 +24,29 @@
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
 }
 
+.fees-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
 .fees-card-label {
   margin: 0;
   color: #475569;
   font-size: 14px;
+}
+
+.fees-card-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #eef2ff;
+  color: #1d4ed8;
+  font-size: 18px;
 }
 
 .fees-card-value {
@@ -89,27 +98,20 @@
   color: #0f172a;
 }
 
-.fees-status {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: #334155;
-  font-size: 13px;
-}
-
-.fees-chip {
-  border: none;
-  background: #f1f5f9;
-  color: #0f172a;
-  padding: 8px 12px;
+.fees-select {
+  border: 1px solid #cbd5e1;
   border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  min-width: 180px;
+  outline: none;
 }
 
-.fees-chip.active {
-  background: #3b82f6;
-  color: #ffffff;
+.fees-select:focus-visible {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  border-color: #3b82f6;
 }
 
 .fees-table-wrap {
@@ -118,6 +120,8 @@
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  width: 100%;
+  overflow-x: auto;
 }
 
 .fees-table {
@@ -146,6 +150,25 @@
   font-weight: 600;
 }
 
+.fees-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.fees-status-badge.paid {
+  color: #16a34a;
+}
+
+.fees-status-badge.partial {
+  color: #f59e0b;
+}
+
+.fees-status-badge.pending {
+  color: #dc2626;
+}
+
 .fees-empty {
   text-align: center;
   padding: 20px;
@@ -172,5 +195,14 @@
 
   .fees-title {
     font-size: 22px;
+  }
+
+  .fees-search {
+    min-width: 0;
+  }
+
+  .fees-select {
+    width: 100%;
+    min-width: 0;
   }
 }

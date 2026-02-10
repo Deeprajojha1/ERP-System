@@ -5,7 +5,6 @@ import { MdDashboardCustomize } from "react-icons/md";
 import { GoOrganization } from "react-icons/go";
 import { GiTeacher } from "react-icons/gi";
 import { PiStudentFill } from "react-icons/pi";
-import { MdSubject } from "react-icons/md";
 import { GiJusticeStar } from "react-icons/gi";
 import { MdOutlineSchedule } from "react-icons/md";
 import { PiExamFill } from "react-icons/pi";
@@ -58,15 +57,6 @@ const AdminLayout = () => {
       <nav className="admin-nav">
         {/* Left */}
         <div className="admin-left">
-          <button
-            className="admin-menu-btn"
-            type="button"
-            onClick={() => setIsSidebarOpen((prev) => !prev)}
-            aria-label="Toggle sidebar"
-            aria-expanded={isSidebarOpen}
-          >
-            ☰
-          </button>
           <h1 className="admin-logo">
             <MdCastForEducation />
             Admin Dashboard
@@ -84,6 +74,31 @@ const AdminLayout = () => {
           </button>
         </div>
       </nav>
+
+      {!isSidebarOpen && (
+        <button
+          className="admin-menu-btn admin-menu-float"
+          type="button"
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Open sidebar"
+          aria-expanded={isSidebarOpen}
+        >
+          <svg
+            className="sidebar-toggle-icon"
+            viewBox="0 0 24 24"
+            aria-hidden="true"
+          >
+            <path
+              d="M6 4v16M10 12h8m0 0-4-4m4 4-4 4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      )}
 
       <div
         className={`admin-layout ${
@@ -108,7 +123,20 @@ const AdminLayout = () => {
               onClick={() => setIsSidebarOpen(false)}
               aria-label="Close sidebar"
             >
-              ✕
+              <svg
+                className="sidebar-toggle-icon"
+                viewBox="0 0 24 24"
+                aria-hidden="true"
+              >
+                <path
+                  d="M18 4v16M14 12H6m0 0 4-4m-4 4 4 4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
             </button>
           </div>
 
@@ -155,13 +183,6 @@ const AdminLayout = () => {
           <div className="sidebar-section">
             <label className="sidebar-label">ACADEMICS</label>
 
-            <button className="sidebar-btn" onClick={() => {
-                navigate("/admin/subject");
-              }}>
-              <MdSubject />
-              <span className="sidebar-text">Subjects</span>
-            </button>
-
             <button
               className="sidebar-btn"
               onClick={() => {
@@ -172,7 +193,12 @@ const AdminLayout = () => {
               <span className="sidebar-text">Courses</span>
             </button>
 
-            <button className="sidebar-btn">
+            <button
+              className="sidebar-btn"
+              onClick={() => {
+                navigate("/admin/timetable");
+              }}
+            >
               <MdOutlineSchedule />
               <span className="sidebar-text">Timetable</span>
             </button>
