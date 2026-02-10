@@ -25,6 +25,7 @@ const userSchema = new mongoose.Schema(
     },
     status: {
       type: String,
+      enum: ["active", "inactive", "leave"],
       default: "active",
     },
      resetOtp: {

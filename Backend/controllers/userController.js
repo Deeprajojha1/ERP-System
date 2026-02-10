@@ -302,6 +302,45 @@ export const login = async (req, res) => {
           routine: await buildPopulatedRoutine(facultyDoc.routine),
         };
       }
+    } else if (user.role === "admin") {
+      const [
+        totalFaculty,
+        totalActiveFaculty,
+        totalInactiveFaculty,
+        totalOnLeaveFaculty,
+        totalStudentsEnrolled,
+        totalDepartments,
+      ] = await Promise.all([
+        User.countDocuments({ role: "faculty" }),
+        User.countDocuments({ role: "faculty", status: "active" }),
+        User.countDocuments({ role: "faculty", status: "inactive" }),
+        User.countDocuments({ role: "faculty", status: "onleave" }),
+        Student.countDocuments(),
+        Department.countDocuments(),
+      ]);
+
+      const departments = await Department.find({}, "name");
+
+      const departmentFacultyStats = await Promise.all(
+        departments.map(async (dept) => {
+          const facultyCount = await Faculty.countDocuments({ department: dept._id });
+          return {
+            id: dept._id,
+            name: dept.name,
+            facultyCount,
+          };
+        })
+      );
+
+      additionalData = {
+        totalFaculty,
+        totalActiveFaculty,
+        totalInactiveFaculty,
+        totalOnLeaveFaculty,
+        totalStudentsEnrolled,
+        totalDepartments,
+        departmentFacultyStats,
+      };
     }
 
     res.json({

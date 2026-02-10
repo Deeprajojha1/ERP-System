@@ -6,7 +6,13 @@ import User from "../models/userModel.js";
 
 export const getAllDepartments = async (req, res) => {
   try {
-    const departments = await Department.find().populate("hod");
+    const departments = await Department.find().populate({
+      path: "hod",
+      populate: {
+        path: "user",
+        select: "name email status",
+      },
+    });
 
     res.json({
       message: "Departments fetched successfully",
@@ -26,7 +32,13 @@ export const getDepartmentById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const department = await Department.findById(id).populate("hod");
+    const department = await Department.findById(id).populate({
+      path: "hod",
+      populate: {
+        path: "user",
+        select: "name email status",
+      },
+    });
 
     if (!department) {
       return res.status(404).json({
@@ -85,7 +97,13 @@ export const updateDepartment = async (req, res) => {
     const department = await Department.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
-    }).populate("hod");
+    }).populate({
+      path: "hod",
+      populate: {
+        path: "user",
+        select: "name email status",
+      },
+    });
 
     if (!department) {
       return res.status(404).json({
