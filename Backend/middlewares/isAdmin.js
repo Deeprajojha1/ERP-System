@@ -16,30 +16,41 @@ const isAdmin = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    console.log("[isAdmin] Decoded token", decoded);
+      console.log("[isAdmin] Decoded token", decoded);
 
-    if (decoded.role !== "admin") {
-      console.warn("[isAdmin] Non-admin role attempted access", decoded.role);
-      return res.status(403).json({
-        message: "Access denied. Admin privileges required.",
+      if (decoded.role !== "admin") {
+        console.warn("[isAdmin] Non-admin role attempted access", decoded.role);
+        return res.status(403).json({
+          message: "Access denied. Admin privileges required.",
+        });
+      }
+
+      req.userId = decoded.userId;
+      req.role = decoded.role;
+
+      console.log("[isAdmin] Admin authorized", {
+        userId: req.userId,
+        role: req.role,
+      });
+
+      next();
+    } catch (err) {
+      console.error("[isAdmin] Error verifying admin token", err.message);
+
+      // Clear invalid/expired cookie so the client can log in again cleanly
+      res.clearCookie("token");
+
+      return res.status(401).json({
+        message: "Invalid or expired token",
       });
     }
-
-    req.userId = decoded.userId;
-    req.role = decoded.role;
-
-    console.log("[isAdmin] Admin authorized", {
-      userId: req.userId,
-      role: req.role,
-    });
-
-    next();
   } catch (error) {
-    console.error("[isAdmin] Error verifying admin token", error.message);
-    return res.status(401).json({
-      message: "Invalid or expired token",
+    console.error("[isAdmin] Unexpected error", error.message);
+    return res.status(500).json({
+      message: "Internal Server Error",
     });
   }
 };

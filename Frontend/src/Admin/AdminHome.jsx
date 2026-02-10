@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useSelector } from "react-redux";
 import { Oval } from "react-loader-spinner";
 import "./AdminHome.css";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -17,8 +18,38 @@ import {
 } from "recharts";
 
 const AdminHome = () => {
-  const [loadState, setLoadState] = useState("success");
-  const facultyData = [
+  const [loadState] = useState("success");
+
+  const userData = useSelector((state) => state.user.userData);
+
+  const shortenDeptName = (name = "") => {
+    const map = {
+      "Computer Science & Engineering": "CSE",
+      "Electronics & Communication": "ECE",
+      "Mechanical Engineering": "ME",
+      "Civil Engineering": "CE",
+      "Electrical Engineering": "EE",
+      "Chemical Engineering": "ChemE",
+      Biotechnology: "Biotech",
+      "Master of Business Administration": "MBA",
+      "Applied Sciences": "Applied Sci",
+    };
+
+    if (map[name]) return map[name];
+
+    // Fallback: if still long, keep first 2 words or trim length
+    if (name.length > 18) {
+      const words = name.split(" ");
+      if (words.length > 2) {
+        return `${words[0]} ${words[1]}`;
+      }
+      return `${name.slice(0, 16)}…`;
+    }
+
+    return name;
+  };
+
+  const fallbackFacultyData = [
     { dept: "Humanities", count: 11 },
     { dept: "Agriculture", count: 13 },
     { dept: "Mechanical", count: 11 },
@@ -26,6 +57,15 @@ const AdminHome = () => {
     { dept: "Civil Engg", count: 7 },
     { dept: "Comp Sci", count: 8 },
   ];
+
+  const facultyData =
+    userData?.departmentFacultyStats?.length
+      ? userData.departmentFacultyStats.map((dept) => ({
+          dept: shortenDeptName(dept.name),
+          count: dept.facultyCount ?? 0,
+        }))
+      : fallbackFacultyData;
+
   const barColors = [
     "#3b82f6",
     "#10b981",
@@ -35,14 +75,13 @@ const AdminHome = () => {
     "#ef4444",
   ];
   const facultyStatusData = [
-    { name: "Active", value: 60 },
-    { name: "On Leave", value: 22 },
-    { name: "Inactive", value: 18 },
+    { name: "Active", value: userData?.totalActiveFaculty ?? 0 },
+    { name: "On Leave", value: userData?.totalOnLeaveFaculty ?? 0 },
+    { name: "Inactive", value: userData?.totalInactiveFaculty ?? 0 },
   ];
   const studentStatusData = [
-    { name: "Active", value: 240 },
-    { name: "On Leave", value: 40 },
-    { name: "Inactive", value: 40 },
+    { name: "Active", value: userData?.totalActiveStudents ?? 0 },
+    { name: "Inactive", value: userData?.totalInactiveStudents ?? 0 },
   ];
   const statusColors = ["#10b981", "#f59e0b", "#ef4444"];
 
@@ -89,7 +128,7 @@ const AdminHome = () => {
                     alt="faculty-img"
                   />
                 </div>
-                <h1 className="admin-stat-value">55</h1>
+                <h1 className="admin-stat-value">{userData?.totalFaculty ?? 0}</h1>
                 <p className="admin-stat-subtitle">Active Members</p>
               </div>
 
@@ -102,7 +141,7 @@ const AdminHome = () => {
                     alt="enrolled student-img"
                   />
                 </div>
-                <h1 className="admin-stat-value">320</h1>
+                <h1 className="admin-stat-value">{userData?.totalStudentsEnrolled ?? 0}</h1>
                 <p className="admin-stat-subtitle">This semester</p>
               </div>
 
@@ -115,7 +154,7 @@ const AdminHome = () => {
                     alt="braches-img"
                   />
                 </div>
-                <h1 className="admin-stat-value">6</h1>
+                <h1 className="admin-stat-value">{userData?.totalDepartments ?? 0}</h1>
                 <p className="admin-stat-subtitle">Branches</p>
               </div>
             </div>
@@ -123,10 +162,10 @@ const AdminHome = () => {
             <div className="admin-card">
               <h1 className="admin-card-title">Faculty Distribution</h1>
               <div className="admin-chart">
-                <ResponsiveContainer width="100%" height={280}>
+                <ResponsiveContainer width="100%" height={300}>
                   <BarChart
                     data={facultyData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 40 }}
+                    margin={{ top: 10, right: 20, left: 0, bottom: 80 }}
                   >
                     <CartesianGrid vertical={false} stroke="none" />
                     <XAxis
@@ -134,9 +173,9 @@ const AdminHome = () => {
                       interval={0}
                       angle={-35}
                       textAnchor="end"
-                      height={70}
-                      tickMargin={8}
-                      tick={{ fontSize: 12 }}
+                      height={90}
+                      tickMargin={12}
+                      tick={{ fontSize: 11 }}
                     />
                     <YAxis allowDecimals={false} />
                     <Tooltip cursor={{ fill: "transparent" }} />

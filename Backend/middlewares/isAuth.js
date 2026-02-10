@@ -7,31 +7,40 @@ const isAuth = async (req, res, next) => {
     const { token } = req.cookies;
 
     if (!token) {
-      return res.status(400).json({
-        message: "User doesn't have token",
+      return res.status(401).json({
+        message: "Authentication required",
       });
     }
 
-    const verifyToken = jwt.verify(
-      token,
-      process.env.JWT_SECRET
-    );
+    try {
+      const verifyToken = jwt.verify(
+        token,
+        process.env.JWT_SECRET
+      );
 
-    console.log("Decoded Token:", verifyToken);
+      console.log("Decoded Token:", verifyToken);
 
-    /* FIX HERE */
-    req.userId = verifyToken.userId;
-    req.role = verifyToken.role;
+      req.userId = verifyToken.userId;
+      req.role = verifyToken.role;
 
-    console.log("req.userId:", req.userId);
+      console.log("req.userId:", req.userId);
 
-    next();
+      next();
+    } catch (err) {
+      console.log(
+        "JWT verification error:",
+        err.message
+      );
+
+      // Clear any invalid/expired token so client can obtain a fresh one
+      res.clearCookie("token");
+
+      return res.status(401).json({
+        message: "Invalid or expired token",
+      });
+    }
   } catch (error) {
-    console.log(
-      "JWT verification error:",
-      error.message
-    );
-
+    console.log("isAuth middleware error:", error.message);
     return res.status(500).json({
       message: "Internal Server Error",
     });
