@@ -34,6 +34,8 @@ import {
   addGroup,
   updateGroup,
   deleteGroup,
+  getTimetableGroups,
+  getGroupTimetable,
 } from "../controllers/groupController.js";
 import { getAdminProfile } from "../controllers/profileController.js";
 import {
@@ -89,6 +91,10 @@ router.get("/group/:id", isAdmin, getGroupById);
 router.post("/group", isAdmin, addGroup);
 router.put("/group/:id", isAdmin, updateGroup);
 router.delete("/group/:id", isAdmin, deleteGroup);
+
+/* Timetable Routes (Group-wise) */
+router.get("/timetable/group", isAdmin, getTimetableGroups);
+router.get("/timetable/group/:groupId", isAdmin, getGroupTimetable);
 
 /* Attendance Routes */
 router.post("/attendance", isAdmin, markAttendance);

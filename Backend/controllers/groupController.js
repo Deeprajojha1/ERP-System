@@ -39,6 +39,183 @@ export const getAllGroups = async (req, res) => {
   }
 };
 
+/* ================= ADMIN TIMETABLE: GROUP CARDS ================= */
+
+// GET /api/admin/timetable/group
+// Returns minimal info needed to render group cards for timetable selection.
+export const getTimetableGroups = async (req, res) => {
+  try {
+    const groups = await Group.find()
+      .select("name roomNo courseIds")
+      .populate({ path: "courseIds", select: "semester" });
+
+    const cards = groups.map((group) => {
+      let semester = null;
+
+      if (group.courseIds && group.courseIds.length > 0) {
+        const counts = {};
+        group.courseIds.forEach((course) => {
+          if (typeof course.semester === "number") {
+            counts[course.semester] = (counts[course.semester] || 0) + 1;
+          }
+        });
+
+        const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+        if (entries.length > 0) {
+          semester = Number(entries[0][0]);
+        }
+      }
+
+      return {
+        id: group._id,
+        groupCode: group.name,
+        semester,
+        roomNo: group.roomNo || null,
+      };
+    });
+
+    res.json({
+      message: "Timetable groups fetched successfully",
+      count: cards.length,
+      groups: cards,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================= ADMIN TIMETABLE: GROUP WEEK VIEW ================= */
+
+// GET /api/admin/timetable/group/:groupId
+// Returns full week timetable for the given group with
+// day -> lectures (lectureNumber, courseCode, courseName, facultyName).
+export const getGroupTimetable = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+
+    const group = await Group.findById(groupId)
+      .populate({ path: "courseIds", select: "code courseName semester" })
+      .populate({
+        path: "courseFaculty.course",
+        select: "code courseName",
+      })
+      .populate({
+        path: "courseFaculty.faculty",
+        populate: { path: "user", select: "name" },
+      });
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const courseMap = {};
+    if (group.courseIds && group.courseIds.length > 0) {
+      group.courseIds.forEach((course) => {
+        courseMap[course._id.toString()] = course;
+      });
+    }
+
+    const courseFacultyMap = {};
+    const facultyNameMap = {};
+
+    if (group.courseFaculty && group.courseFaculty.length > 0) {
+      group.courseFaculty.forEach((cf) => {
+        const courseId = cf.course?._id ? cf.course._id.toString() : cf.course.toString();
+        const facultyId = cf.faculty?._id ? cf.faculty._id.toString() : cf.faculty.toString();
+
+        courseFacultyMap[courseId] = facultyId;
+
+        if (cf.faculty && cf.faculty.user) {
+          facultyNameMap[facultyId] = cf.faculty.user.name;
+        }
+      });
+    }
+
+    const timetable = [];
+
+    const schedule = group.scheduleSlots || new Map();
+
+    WEEKDAY_ORDER.forEach((day) => {
+      let daySlots = null;
+
+      if (schedule instanceof Map) {
+        daySlots = schedule.get(day) || null;
+      } else if (typeof schedule === "object" && schedule !== null) {
+        daySlots = schedule[day] || null;
+      }
+
+      if (!daySlots) {
+        timetable.push({ day, lectures: [] });
+        return;
+      }
+
+      const entries = [];
+
+      if (daySlots instanceof Map) {
+        for (const [lectureNumber, courseId] of daySlots.entries()) {
+          entries.push([lectureNumber, courseId]);
+        }
+      } else if (typeof daySlots === "object" && daySlots !== null) {
+        for (const [lectureNumber, courseId] of Object.entries(daySlots)) {
+          entries.push([lectureNumber, courseId]);
+        }
+      }
+
+      entries.sort((a, b) => Number(a[0]) - Number(b[0]));
+
+      const lectures = entries.map(([lectureNumber, courseId]) => {
+        const idStr = courseId.toString();
+        const course =
+          courseMap[idStr] ||
+          group.courseFaculty?.find((cf) => {
+            const cfCourseId = cf.course?._id ? cf.course._id.toString() : cf.course.toString();
+            return cfCourseId === idStr;
+          })?.course || null;
+
+        const facultyId = courseFacultyMap[idStr];
+        const facultyName = facultyId ? facultyNameMap[facultyId] || null : null;
+
+        return {
+          lectureNumber: Number(lectureNumber),
+          courseCode: course?.code || null,
+          courseName: course?.courseName || null,
+          facultyName,
+        };
+      });
+
+      timetable.push({ day, lectures });
+    });
+
+    let semester = null;
+    if (group.courseIds && group.courseIds.length > 0) {
+      const counts = {};
+      group.courseIds.forEach((course) => {
+        if (typeof course.semester === "number") {
+          counts[course.semester] = (counts[course.semester] || 0) + 1;
+        }
+      });
+
+      const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+      if (entries.length > 0) {
+        semester = Number(entries[0][0]);
+      }
+    }
+
+    res.json({
+      message: "Group timetable fetched successfully",
+      group: {
+        id: group._id,
+        groupCode: group.name,
+        semester,
+        roomNo: group.roomNo || null,
+        timetable,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 /* ================= GET GROUP BY ID ================= */
 
 export const getGroupById = async (req, res) => {
