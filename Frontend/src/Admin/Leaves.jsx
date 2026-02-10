@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { FiClock, FiCheckCircle, FiXCircle } from "react-icons/fi";
 import "./Leaves.css";
 
 const Leaves = () => {
@@ -103,7 +104,7 @@ const Leaves = () => {
 
       <div className="leaves-toolbar">
         <div className="leaves-search">
-          <span className="leaves-search-icon">??</span>
+          <span className="leaves-search-icon">🔍</span>
           <input
             type="text"
             placeholder="Search by faculty name or department..."
@@ -112,41 +113,33 @@ const Leaves = () => {
           />
         </div>
 
-        <div className="leaves-chips">
-          <span className="leaves-chip-label">Request</span>
+        <select
+          className="leaves-select"
+          value={requestStatus}
+          onChange={(e) => setRequestStatus(e.target.value)}
+        >
           {["All", "Pending", "Approved", "Rejected"].map(
             (s) => (
-              <button
-                key={s}
-                type="button"
-                className={`leaves-chip ${
-                  requestStatus === s ? "active" : ""
-                }`}
-                onClick={() => setRequestStatus(s)}
-              >
+              <option key={s} value={s}>
                 {s}
-              </button>
+              </option>
             )
           )}
-        </div>
+        </select>
 
-        <div className="leaves-chips">
-          <span className="leaves-chip-label">Faculty Status</span>
+        <select
+          className="leaves-select"
+          value={facultyStatus}
+          onChange={(e) => setFacultyStatus(e.target.value)}
+        >
           {["All", "Active", "Inactive", "On Leave"].map(
             (s) => (
-              <button
-                key={s}
-                type="button"
-                className={`leaves-chip ${
-                  facultyStatus === s ? "active" : ""
-                }`}
-                onClick={() => setFacultyStatus(s)}
-              >
-                {s.toUpperCase()}
-              </button>
+              <option key={s} value={s}>
+                {s}
+              </option>
             )
           )}
-        </div>
+        </select>
       </div>
 
       <div className="leaves-table-wrap">
@@ -169,7 +162,26 @@ const Leaves = () => {
                 <td>{r.type}</td>
                 <td>{r.from}</td>
                 <td>{r.to}</td>
-                <td>{r.status}</td>
+                <td>
+                  <span
+                    className={`leaves-status ${
+                      r.status === "Approved"
+                        ? "approved"
+                        : r.status === "Rejected"
+                        ? "rejected"
+                        : "pending"
+                    }`}
+                  >
+                    {r.status === "Approved" ? (
+                      <FiCheckCircle />
+                    ) : r.status === "Rejected" ? (
+                      <FiXCircle />
+                    ) : (
+                      <FiClock />
+                    )}
+                    {r.status}
+                  </span>
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (

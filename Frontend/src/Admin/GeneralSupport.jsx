@@ -131,27 +131,42 @@ const GeneralSupport = () => {
           <div className="gs-row">
             <label>
               From Date
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              <input
+                type="text"
+                placeholder="dd-mm-yyyy"
+                value={fromDate}
+                onFocus={(e) => (e.target.type = "date")}
+                onBlur={(e) => {
+                  if (!e.target.value) e.target.type = "text";
+                }}
+                onChange={(e) => setFromDate(e.target.value)}
+              />
             </label>
             <label>
               To Date
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              <input
+                type="text"
+                placeholder="dd-mm-yyyy"
+                value={toDate}
+                onFocus={(e) => (e.target.type = "date")}
+                onBlur={(e) => {
+                  if (!e.target.value) e.target.type = "text";
+                }}
+                onChange={(e) => setToDate(e.target.value)}
+              />
             </label>
           </div>
 
-          <div className="gs-format">
-            <span>Export Format</span>
-            {"Excel,CSV,PDF".split(",").map((f) => (
-              <button
-                key={f}
-                type="button"
-                className={`gs-pill ${format === f ? "active" : ""}`}
-                onClick={() => setFormat(f)}
-              >
-                {f}
-              </button>
-            ))}
-          </div>
+          <label>
+            Export Format
+            <select value={format} onChange={(e) => setFormat(e.target.value)}>
+              {["Excel", "CSV", "PDF"].map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <button className="gs-generate" type="button" onClick={handleGenerate}>
             Generate & Download Report

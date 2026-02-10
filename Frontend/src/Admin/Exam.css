@@ -85,6 +85,8 @@
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  width: 100%;
+  overflow-x: auto;
 }
 
 .exam-table {
@@ -121,7 +123,9 @@
   border-radius: 999px;
   font-weight: 600;
   cursor: pointer;
-  margin-right: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .exam-action-btn.export {
@@ -129,10 +133,48 @@
   color: #1d4ed8;
 }
 
+.exam-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
 .exam-empty {
   text-align: center;
   padding: 20px;
   color: #64748b;
+}
+
+.exam-state {
+  padding: 16px;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #475569;
+  border: 1px solid #e2e8f0;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+}
+
+.exam-state.error {
+  background: #fee2e2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.exam-state.pending {
+  background: #ffffff;
+}
+
+.exam-state-img {
+  width: min(320px, 80%);
+  height: auto;
+  display: block;
+  margin: 0 auto 12px;
 }
 
 .exam-modal {
@@ -244,5 +286,17 @@
 
   .exam-form-row {
     grid-template-columns: 1fr;
+  }
+
+  .exam-modal {
+    align-items: flex-start;
+    padding: 12px;
+    overflow-y: auto;
+  }
+
+  .exam-modal-card {
+    width: 100%;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
   }
 }

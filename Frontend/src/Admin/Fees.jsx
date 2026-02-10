@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from "react";
+import { FiAlertCircle, FiDollarSign, FiTrendingUp } from "react-icons/fi";
+import { FiCheckCircle, FiClock, FiMinusCircle } from "react-icons/fi";
 import "./Fees.css";
 
 const Fees = () => {
@@ -6,9 +8,24 @@ const Fees = () => {
   const [status, setStatus] = useState("All");
 
   const summary = [
-    { label: "Total Collections", value: "Rs 48.5L", note: "This semester" },
-    { label: "Pending Fees", value: "Rs 12.3L", note: "Due" },
-    { label: "Collection Rate", value: "79.7%", note: "Completed" },
+    {
+      label: "Total Collections",
+      value: "Rs 48.5L",
+      note: "This semester",
+      icon: <FiDollarSign />,
+    },
+    {
+      label: "Pending Fees",
+      value: "Rs 12.3L",
+      note: "Due",
+      icon: <FiAlertCircle />,
+    },
+    {
+      label: "Collection Rate",
+      value: "79.7%",
+      note: "Completed",
+      icon: <FiTrendingUp />,
+    },
   ];
 
   const rows = [
@@ -69,13 +86,17 @@ const Fees = () => {
 
   return (
     <div className="fees-page">
-      <div className="fees-debug">Fees page render OK</div>
       <h1 className="fees-title">Fee Management</h1>
 
       <div className="fees-summary">
         {summary.map((card) => (
           <div className="fees-card" key={card.label}>
-            <p className="fees-card-label">{card.label}</p>
+            <div className="fees-card-head">
+              <p className="fees-card-label">{card.label}</p>
+              <span className="fees-card-icon" aria-hidden="true">
+                {card.icon}
+              </span>
+            </div>
             <h2 className="fees-card-value">{card.value}</h2>
             <span className="fees-card-note">{card.note}</span>
           </div>
@@ -84,7 +105,7 @@ const Fees = () => {
 
       <div className="fees-toolbar">
         <div className="fees-search">
-          <span className="fees-search-icon">??</span>
+          <span className="fees-search-icon">🔍</span>
           <input
             type="text"
             placeholder="Search by student name or roll no..."
@@ -93,19 +114,17 @@ const Fees = () => {
           />
         </div>
 
-        <div className="fees-status">
-          <span>Status</span>
+        <select
+          className="fees-select"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
           {["All", "PAID", "PARTIAL", "PENDING"].map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={`fees-chip ${status === s ? "active" : ""}`}
-              onClick={() => setStatus(s)}
-            >
+            <option key={s} value={s}>
               {s}
-            </button>
+            </option>
           ))}
-        </div>
+        </select>
       </div>
 
       <div className="fees-table-wrap">
@@ -126,7 +145,26 @@ const Fees = () => {
                 <td>{r.roll}</td>
                 <td>{r.due}</td>
                 <td>{r.paid}</td>
-                <td>{r.status}</td>
+                <td>
+                  <span
+                    className={`fees-status-badge ${
+                      r.status === "PAID"
+                        ? "paid"
+                        : r.status === "PARTIAL"
+                        ? "partial"
+                        : "pending"
+                    }`}
+                  >
+                    {r.status === "PAID" ? (
+                      <FiCheckCircle />
+                    ) : r.status === "PARTIAL" ? (
+                      <FiMinusCircle />
+                    ) : (
+                      <FiClock />
+                    )}
+                    {r.status}
+                  </span>
+                </td>
               </tr>
             ))}
             {filtered.length === 0 && (

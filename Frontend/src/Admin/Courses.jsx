@@ -1,10 +1,13 @@
 import React, { useMemo, useState } from "react";
 import "./Courses.css";
+import { Oval } from "react-loader-spinner";
+import emptyStateImg from "../assets/empty-state.svg";
 
 const Courses = () => {
   const [search, setSearch] = useState("");
   const [activeBranch, setActiveBranch] = useState("All Branches");
   const [isOpen, setIsOpen] = useState(false);
+  const [loadState, setLoadState] = useState("success");
 
   const branches = [
     "All Branches",
@@ -23,7 +26,6 @@ const Courses = () => {
       department: "CSE",
       students: 77,
       instructor: "Faculty 1",
-      status: "Active",
     },
     {
       code: "MECH102-S1-A",
@@ -31,7 +33,6 @@ const Courses = () => {
       department: "MECH",
       students: 60,
       instructor: "Faculty 2",
-      status: "Active",
     },
     {
       code: "ECE103-S4-B",
@@ -39,7 +40,6 @@ const Courses = () => {
       department: "ECE",
       students: 22,
       instructor: "Faculty 3",
-      status: "Active",
     },
     {
       code: "CIVIL104-S4-C",
@@ -47,7 +47,6 @@ const Courses = () => {
       department: "CIVIL",
       students: 75,
       instructor: "Faculty 4",
-      status: "Active",
     },
     {
       code: "MECH105-S6-A",
@@ -55,7 +54,6 @@ const Courses = () => {
       department: "MECH",
       students: 54,
       instructor: "Faculty 5",
-      status: "Active",
     },
     {
       code: "MECH106-S8-A",
@@ -63,7 +61,6 @@ const Courses = () => {
       department: "MECH",
       students: 42,
       instructor: "Faculty 6",
-      status: "Active",
     },
     {
       code: "AGR107-S2-C",
@@ -71,7 +68,6 @@ const Courses = () => {
       department: "AGR",
       students: 59,
       instructor: "Faculty 7",
-      status: "Active",
     },
     {
       code: "CSE108-S5-C",
@@ -79,7 +75,6 @@ const Courses = () => {
       department: "CSE",
       students: 73,
       instructor: "Faculty 8",
-      status: "Active",
     },
   ];
 
@@ -97,85 +92,111 @@ const Courses = () => {
     });
   }, [search, activeBranch]);
 
+
+  const renderState = () => {
+    if (loadState == "pending") {
+      return (
+        <div className="courses-state pending">
+          <Oval
+            height={64}
+            width={64}
+            color="#2563eb"
+            secondaryColor="#bfdbfe"
+            strokeWidth={4}
+            strokeWidthSecondary={4}
+            ariaLabel="Loading"
+            visible
+          />
+          <p>Loading courses...</p>
+        </div>
+      );
+    }
+    if (loadState == "failure") {
+      return (
+        <div className="courses-state error">
+          <img src={emptyStateImg} alt="Failed" className="courses-state-img" />
+          <h3>Failed to load courses</h3>
+          <p>Please try again in a moment.</p>
+        </div>
+      );
+    }
+
+    return (
+      <>
+        <div className="courses-header">
+          <h1 className="courses-title">Courses</h1>
+          <button
+            className="courses-add-btn"
+            type="button"
+            onClick={() => setIsOpen(true)}
+          >
+            + Add Course
+          </button>
+        </div>
+
+        <div className="courses-toolbar">
+          <div className="courses-search">
+            <span className="courses-search-icon">??</span>
+            <input
+              type="text"
+              placeholder="Search courses by name, department, or branch..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+
+          <select
+            className="courses-select"
+            value={activeBranch}
+            onChange={(e) => setActiveBranch(e.target.value)}
+          >
+            {branches.map((b) => (
+              <option key={b} value={b}>
+                {b}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="courses-table-wrap">
+          <table className="courses-table">
+            <thead>
+              <tr>
+                <th>COURSE CODE</th>
+                <th>COURSE NAME</th>
+                <th>DEPARTMENT</th>
+                <th>STUDENTS</th>
+                <th>INSTRUCTOR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((c) => (
+                <tr key={c.code}>
+                  <td className="courses-code">{c.code}</td>
+                  <td>{c.name}</td>
+                  <td>{c.department}</td>
+                  <td>{c.students}</td>
+                  <td>{c.instructor}</td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="courses-empty">
+                    No courses found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </>
+    );
+  };
+
   return (
     <div className="courses-page">
-      <div className="courses-header">
-        <h1 className="courses-title">Courses</h1>
-        <button
-          className="courses-add-btn"
-          type="button"
-          onClick={() => setIsOpen(true)}
-        >
-          + Add Course
-        </button>
-      </div>
-
-      <div className="courses-toolbar">
-        <div className="courses-search">
-          <span className="courses-search-icon">??</span>
-          <input
-            type="text"
-            placeholder="Search courses by name, department, or branch..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <div className="courses-tabs">
-          {branches.map((b) => (
-            <button
-              key={b}
-              type="button"
-              className={`courses-tab ${
-                activeBranch === b ? "active" : ""
-              }`}
-              onClick={() => setActiveBranch(b)}
-            >
-              {b}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="courses-table-wrap">
-        <table className="courses-table">
-          <thead>
-            <tr>
-              <th>COURSE CODE</th>
-              <th>COURSE NAME</th>
-              <th>DEPARTMENT</th>
-              <th>STUDENTS</th>
-              <th>INSTRUCTOR</th>
-              <th>STATUS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((c) => (
-              <tr key={c.code}>
-                <td className="courses-code">{c.code}</td>
-                <td>{c.name}</td>
-                <td>{c.department}</td>
-                <td>{c.students}</td>
-                <td>{c.instructor}</td>
-                <td>
-                  <span className="courses-status">
-                    {c.status.toUpperCase()}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={6} className="courses-empty">
-                  No courses found
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      {isOpen && (
+      {renderState()}
+{isOpen && (
         <div className="courses-modal">
           <div
             className="courses-modal-backdrop"

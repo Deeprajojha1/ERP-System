@@ -13,9 +13,9 @@ import useGetCurrentUser from "./components/customHooks/getCurrentUser";
 import Department from "./Admin/Department";
 import AdminLayout from "./Admin/AdminLayout";
 import Faculty from "./Admin/Faculty";
-import Subject from "./Admin/Subject";
 import Student from "./Admin/Student";
 import Courses from "./Admin/Courses";
+import Timetable from "./Admin/Timetable";
 import Exam from "./Admin/Exam";
 import Result from "./Admin/Result";
 import Attendance from "./Admin/Attendance";
@@ -141,12 +141,12 @@ function App() {
               element={<Student />}
             />
             <Route
-              path="subject"
-              element={<Subject />}
-            />
-            <Route
               path="courses"
               element={<Courses />}
+            />
+            <Route
+              path="timetable"
+              element={<Timetable />}
             />
             <Route
               path="exam"
