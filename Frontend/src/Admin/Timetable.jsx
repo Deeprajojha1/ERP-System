@@ -2,13 +2,14 @@ import React, { useMemo, useState } from "react";
 import jsPDF from "jspdf";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
+import Slider from "react-slick";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 import {
   FiCalendar,
   FiDownload,
-  FiEdit3,
   FiGrid,
   FiSearch,
-  FiUser,
   FiUsers,
 } from "react-icons/fi";
 import { MdOutlineSchedule } from "react-icons/md";
@@ -16,10 +17,9 @@ import "./Timetable.css";
 
 const Timetable = () => {
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState("Group");
   const [selectedGroup, setSelectedGroup] = useState("BCSE-6A");
   const [loadState, setLoadState] = useState("success");
-  const [isEditing, setIsEditing] = useState(false);
+  const isEditing = false;
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
     slotIndex: 0,
@@ -177,6 +177,21 @@ const Timetable = () => {
     "t-item c-rose",
   ];
 
+  const sliderSettings = {
+    className: "center",
+    centerMode: true,
+    infinite: true,
+    centerPadding: "24px",
+    slidesToShow: 3,
+    speed: 500,
+    arrows: true,
+    dots: false,
+    responsive: [
+      { breakpoint: 1200, settings: { slidesToShow: 2, centerPadding: "20px" } },
+      { breakpoint: 900, settings: { slidesToShow: 1, centerPadding: "20px" } },
+      { breakpoint: 640, settings: { slidesToShow: 1, centerPadding: "12px" } },
+    ],
+  };
 
   const renderState = () => {
     if (loadState === "pending") {
@@ -215,24 +230,7 @@ const Timetable = () => {
               Plan, edit and visualize weekly schedules
             </p>
           </div>
-          <div className="tt-head-actions">
-            <button
-              className="tt-download-btn"
-              type="button"
-              onClick={downloadTimetable}
-            >
-              <FiDownload />
-              Download
-            </button>
-            <button
-              className="tt-edit-btn"
-              type="button"
-              onClick={() => setIsEditing((prev) => !prev)}
-            >
-              <FiEdit3 />
-              {isEditing ? "Editing" : "Edit"}
-            </button>
-          </div>
+          <div className="tt-head-actions" />
         </div>
 
         <div className="tt-top">
@@ -248,20 +246,12 @@ const Timetable = () => {
 
           <div className="tt-toggle">
             <button
+              className="tt-download-btn"
               type="button"
-              className={`tt-pill ${mode === "Group" ? "active" : ""}`}
-              onClick={() => setMode("Group")}
+              onClick={downloadTimetable}
             >
-              <FiUsers />
-              Group
-            </button>
-            <button
-              type="button"
-              className={`tt-pill ${mode === "Faculty" ? "active" : ""}`}
-              onClick={() => setMode("Faculty")}
-            >
-              <FiUser />
-              Faculty
+              <FiDownload />
+              Download
             </button>
           </div>
         </div>
@@ -276,35 +266,37 @@ const Timetable = () => {
               Sample groups for timetable overview
             </span>
           </div>
-          <div className="tt-group-grid">
-            {filteredGroups.length === 0 ? (
-              <div className="tt-empty">No groups found.</div>
-            ) : (
-              filteredGroups.map((g) => (
-                <button
-                  key={g.group}
-                  type="button"
-                  className={`tt-group-card ${
-                    selectedGroup === g.group ? "active" : ""
-                  }`}
-                  onClick={() => {
-                    setSelectedGroup(g.group);
-                    setMode("Group");
-                  }}
-                >
-                  <div className="tt-group-badge">
-                    <FiGrid />
-                    {g.group}
+          {filteredGroups.length === 0 ? (
+            <div className="tt-empty">No groups found.</div>
+          ) : (
+            <div className="tt-group-slider">
+              <Slider {...sliderSettings}>
+                {filteredGroups.map((g) => (
+                  <div key={g.group}>
+                    <button
+                      type="button"
+                      className={`tt-group-card ${
+                        selectedGroup === g.group ? "active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedGroup(g.group);
+                      }}
+                    >
+                      <div className="tt-group-badge">
+                        <FiGrid />
+                        {g.group}
+                      </div>
+                      <div className="tt-group-meta">
+                        <span>{g.sem}</span>
+                        <span>Room {g.room}</span>
+                        <span>{g.students} Students</span>
+                      </div>
+                    </button>
                   </div>
-                  <div className="tt-group-meta">
-                    <span>{g.sem}</span>
-                    <span>Room {g.room}</span>
-                    <span>{g.students} Students</span>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
+                ))}
+              </Slider>
+            </div>
+          )}
         </div>
 
         <div className="tt-flow">

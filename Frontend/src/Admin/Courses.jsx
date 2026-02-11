@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import "./Courses.css";
 import { Oval } from "react-loader-spinner";
+import { FiSearch } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 
 const Courses = () => {
@@ -136,7 +137,9 @@ const Courses = () => {
 
         <div className="courses-toolbar">
           <div className="courses-search">
-            <span className="courses-search-icon">??</span>
+            <span className="courses-search-icon">
+              <FiSearch />
+            </span>
             <input
               type="text"
               placeholder="Search courses by name, department, or branch..."

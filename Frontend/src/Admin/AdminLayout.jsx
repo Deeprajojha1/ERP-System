@@ -19,6 +19,7 @@ import { useDispatch } from "react-redux";
 import { clearUserData } from "../redux/userSlice";
 import { clearStudents } from "../redux/studentSlice";
 import { clearFaculty } from "../redux/facultySlice";
+import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
 
@@ -58,7 +59,11 @@ const AdminLayout = () => {
         {/* Left */}
         <div className="admin-left">
           <h1 className="admin-logo">
-            <MdCastForEducation />
+            <img
+              className="college-logo"
+              src={collegeLogo}
+              alt="college-logo"
+            />
             Admin Dashboard
           </h1>
           <span className="admin-university">Haridwar University</span>
@@ -186,11 +191,11 @@ const AdminLayout = () => {
             <button
               className="sidebar-btn"
               onClick={() => {
-                navigate("/admin/courses");
+                navigate("/admin/groups");
               }}
             >
               <GiJusticeStar />
-              <span className="sidebar-text">Courses</span>
+              <span className="sidebar-text">Groups</span>
             </button>
 
             <button

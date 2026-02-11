@@ -12,7 +12,9 @@ import {
   FaCircleCheck,
   FaCircleXmark,
 } from "react-icons/fa6";
+import { Oval } from "react-loader-spinner";
 import { createFacultyApi } from './facultyApi'
+import emptyStateImg from "../../assets/empty-state.svg";
 const getQueryParam = (search, key) => {
   const params = new URLSearchParams(search)
   return params.get(key)
@@ -215,97 +217,132 @@ function AttendancePage() {
         </div>
       </div>
 
-      {loading && <p className="muted">Loading attendance...</p>}
-      {error && <p className="muted">{error}</p>}
-
-      <div className="attendance-toolbar">
-        <div className="attendance-actions">
-          <button className="btn ghost" onClick={() => handleSetAll(true)}>
-            <FaCheck className="icon" />
-            Mark all present
-          </button>
-          <button className="btn ghost" onClick={() => handleSetAll(false)}>
-            <FaXmark className="icon" />
-            Mark all absent
-          </button>
-          <button className="btn primary" onClick={handleSave}>
-            <FaFloppyDisk className="icon" />
-            Save attendance
-          </button>
+      {loading ? (
+        <div className="attendance-state pending">
+          <Oval
+            height={64}
+            width={64}
+            color="#0ea5a6"
+            secondaryColor="#99f6e4"
+            strokeWidth={4}
+            strokeWidthSecondary={4}
+            ariaLabel="Loading"
+            visible
+          />
+          <p>Loading students...</p>
         </div>
-        <div className="attendance-status">
-          {savedAt ? (
-            <p className="saved">{savedAt}</p>
-          ) : (
-            <p className="muted">No changes saved yet.</p>
-          )}
+      ) : error ? (
+        <div className="attendance-state error">
+          <img
+            src={emptyStateImg}
+            alt="Failed"
+            className="attendance-state-img"
+          />
+          <h3>Failed to load students</h3>
+          <p>{error}</p>
         </div>
-      </div>
+      ) : students.length === 0 ? (
+        <div className="attendance-state empty">
+          <img
+            src={emptyStateImg}
+            alt="No data"
+            className="attendance-state-img"
+          />
+          <h3>No students found</h3>
+          <p>Please check the group or course setup.</p>
+        </div>
+      ) : (
+        <>
+          <div className="attendance-toolbar">
+            <div className="attendance-actions">
+              <button className="btn ghost" onClick={() => handleSetAll(true)}>
+                <FaCheck className="icon" />
+                Mark all present
+              </button>
+              <button className="btn ghost" onClick={() => handleSetAll(false)}>
+                <FaXmark className="icon" />
+                Mark all absent
+              </button>
+              <button className="btn primary" onClick={handleSave}>
+                <FaFloppyDisk className="icon" />
+                Save attendance
+              </button>
+            </div>
+            <div className="attendance-status">
+              {savedAt ? (
+                <p className="saved">{savedAt}</p>
+              ) : (
+                <p className="muted">No changes saved yet.</p>
+              )}
+            </div>
+          </div>
 
-      <div className="attendance-table-wrap">
-        <div className="attendance-table">
-          <table>
-          <thead>
-            <tr>
-              <th>Roll No</th>
-              <th>Student Name</th>
-              <th>Father Name</th>
-              <th>Contact No</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {students.map((student) => {
-              const isPresent = attendance[student.studentId]
-              const initials = student.name
-                .split(' ')
-                .map((part) => part[0])
-                .join('')
-                .slice(0, 2)
-                .toUpperCase()
-              return (
-                <tr key={student.studentId} className="table-row">
-                  <td className="roll">{student.enrollmentNumber}</td>
-                  <td>
-                    <span className="student-cell">
-                      <span className="avatar-sm">{initials}</span>
-                      <span className="student-name">{student.name}</span>
-                    </span>
-                  </td>
-                  <td>{student.fatherName || 'N/A'}</td>
-                  <td>{student.phoneNumber || 'N/A'}</td>
-                  <td>
-                    <div className="action-cell">
-                      <label className="switch">
-                        <input
-                          type="checkbox"
-                          checked={isPresent}
-                          onChange={() => toggleAttendance(student.studentId)}
-                          aria-label={`Mark ${student.name} as ${isPresent ? 'absent' : 'present'}`}
-                        />
-                        <span className="slider">
-                          <span className="state">
-                            {isPresent ? (
-                              <>
-                                <FaCircleCheck className="icon" /> Present
-                              </>
-                            ) : (
-                              <>
-                                <FaCircleXmark className="icon" /> Absent
-                              </>
-                            )}
-                          </span>
-                        </span>
-                      </label>
-                    </div>
-                  </td>
+          <div className="attendance-table-wrap">
+            <div className="attendance-table">
+              <table>
+              <thead>
+                <tr>
+                  <th>Roll No</th>
+                  <th>Student Name</th>
+                  <th>Father Name</th>
+                  <th>Contact No</th>
+                  <th>Action</th>
                 </tr>
-              )
-            })}
-          </tbody>
-          </table>
-        </div>
-      </div>
+              </thead>
+              <tbody>
+                {students.map((student) => {
+                  const isPresent = attendance[student.studentId]
+                  const initials = student.name
+                    .split(' ')
+                    .map((part) => part[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase()
+                  return (
+                    <tr key={student.studentId} className="table-row">
+                      <td className="roll">{student.enrollmentNumber}</td>
+                      <td>
+                        <span className="student-cell">
+                          <span className="avatar-sm">{initials}</span>
+                          <span className="student-name">{student.name}</span>
+                        </span>
+                      </td>
+                      <td>{student.fatherName || 'N/A'}</td>
+                      <td>{student.phoneNumber || 'N/A'}</td>
+                      <td>
+                        <div className="action-cell">
+                          <label className="switch">
+                            <input
+                              type="checkbox"
+                              checked={isPresent}
+                              onChange={() => toggleAttendance(student.studentId)}
+                              aria-label={`Mark ${student.name} as ${isPresent ? 'absent' : 'present'}`}
+                            />
+                            <span className="slider">
+                              <span className="state">
+                                {isPresent ? (
+                                  <>
+                                    <FaCircleCheck className="icon" /> Present
+                                  </>
+                                ) : (
+                                  <>
+                                    <FaCircleXmark className="icon" /> Absent
+                                  </>
+                                )}
+                              </span>
+                            </span>
+                          </label>
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
     </section>
   )
 }

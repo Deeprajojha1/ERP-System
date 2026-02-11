@@ -46,6 +46,15 @@
     font-size: 26px;
 }
 
+.college-logo {
+    width: 36px;
+    height: 36px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 4px;
+}
+
 .admin-university {
     font-size: 13px;
     opacity: 0.85;
@@ -210,7 +219,10 @@
   height: 100vh;
   min-height: 100dvh;
   padding-top: 70px;
-  background: #f4f7fb;
+  background: url("../assets/mainCollegeImg.jpg");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
   font-family: "Segoe UI", sans-serif;
   overflow: hidden;
   box-sizing: border-box;
@@ -365,7 +377,7 @@
 }
 
 .admin-stat-card {
-  background: #ffffff;
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
   border-radius: 14px;
   padding: 16px 18px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
@@ -381,7 +393,7 @@
 .admin-stat-title {
   margin: 0;
   font-size: 16px;
-  color: #0f172a;
+  color: #a3abbe;
   font-weight: 600;
   letter-spacing: 0.2px;
 }
@@ -395,7 +407,7 @@
 .admin-stat-value {
   margin: 8px 0 0;
   font-size: 28px;
-  color: #111827;
+  color: #dcdee3;
 }
 
 .admin-stat-subtitle {
@@ -404,9 +416,17 @@
   font-size: 13px;
 }
 
+.admin-stat-card .admin-stat-title {
+  color: #1d4ed8;
+}
+
+.admin-stat-card .admin-stat-subtitle {
+  color: #2563eb;
+}
+
 /* Card + Chart */
 .admin-card {
-  background: #ffffff;
+  background: linear-gradient(135deg, #0f172a, #1e293b);
   border-radius: 14px;
   padding: 16px 18px;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
@@ -433,7 +453,7 @@
 }
 
 .admin-chart-card {
-  background: #f8fafc;
+  background: linear-gradient(135deg, rgba(30, 64, 175, 0.85), rgba(37, 99, 235, 0.85));
   border: 1px solid #e2e8f0;
   border-radius: 14px;
   padding: 12px 14px 6px;
@@ -456,6 +476,12 @@
 .admin-card [tabindex]:focus,
 .admin-card [tabindex]:focus-visible {
   outline: none;
+}
+
+.admin-card .recharts-cartesian-axis-tick-value,
+.admin-card .recharts-cartesian-axis-tick text,
+.admin-card .recharts-text {
+  fill: #ffffff;
 }
 
 /* =========================
@@ -530,6 +556,10 @@
 /* Collapsed state */
 .admin-layout.sidebar-collapsed .admin-sidebar {
   transform: translateX(-100%);
+  width: 0;
+  padding: 0;
+  border-right: none;
+  box-shadow: none;
 }
 
 /* Center content when sidebar is collapsed (desktop) */
@@ -537,6 +567,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  width: 100%;
 }
 
 .admin-layout.sidebar-collapsed .admin-content > * {
@@ -544,6 +575,30 @@
   margin-left: auto;
   margin-right: auto;
   width: 100%;
+}
+
+.admin-content .dept-title,
+.admin-content .dept-subtitle,
+.admin-content .faculty-title,
+.admin-content .faculty-subtitle,
+.admin-content .student-title,
+.admin-content .student-subtitle,
+.admin-content .courses-title,
+.admin-content .groups-title,
+.admin-content .groups-subtitle,
+.admin-content .attendance-title,
+.admin-content .exam-title,
+.admin-content .fees-title,
+.admin-content .gs-title,
+.admin-content .leaves-title,
+.admin-content .result-title,
+.admin-content .tt-title,
+.admin-content .tt-subtitle,
+.admin-content .admin-card-title,
+.admin-content .admin-chart-title,
+.admin-content .admin-stat-title,
+.admin-content .admin-stat-subtitle {
+  color: #ffffff;
 }
 
 

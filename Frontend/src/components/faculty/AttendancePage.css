@@ -249,6 +249,37 @@
 }
 
 /* ==============================
+   STATE BLOCKS
+============================== */
+
+.attendance-state {
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  min-height: 45vh;
+  justify-content: center;
+}
+
+.attendance-state.error {
+  background: #fff1f2;
+  border-color: #fecaca;
+  color: #b91c1c;
+}
+
+.attendance-state-img {
+  width: min(320px, 80%);
+  height: auto;
+  display: block;
+}
+
+/* ==============================
    TABLE
 ============================== */
 

@@ -431,7 +431,7 @@ export const sendOtp = async (req, res) => {
     }
 
     const otp = Math.floor(
-      Math.random() * 9000 + 1000
+      Math.random() * 90000 + 10000
     ).toString();
 
     user.resetOtp = otp;

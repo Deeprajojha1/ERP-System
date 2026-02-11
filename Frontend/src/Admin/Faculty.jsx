@@ -81,24 +81,6 @@ const Faculty = () => {
     }));
   };
 
-  const openAddModal = () => {
-    setEditTarget(null);
-    setFormData({
-      name: "",
-      email: "",
-      password: "",
-      aadharNumber: "",
-      phoneNumber: "",
-      DOB: "",
-      employeeId: "",
-      department: "",
-      designation: "",
-      qualification: "",
-      joiningDate: "",
-    });
-    setIsOpen(true);
-  };
-
   const openEditModal = (facultyMember) => {
     setEditTarget(facultyMember);
     setFormData({
@@ -285,13 +267,6 @@ const Faculty = () => {
             <h1 className="faculty-title">Faculty Directory</h1>
             <p className="faculty-subtitle">Manage all faculty members</p>
           </div>
-          <button
-            className="faculty-add-btn"
-            type="button"
-            onClick={openAddModal}
-          >
-            + Add Faculty
-          </button>
         </div>
 
         <div className="faculty-panel">

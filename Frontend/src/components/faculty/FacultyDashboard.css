@@ -145,6 +145,8 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
+  max-height: calc(100dvh - 120px);
+  overflow: hidden;
 }
 
 .panel-title {
@@ -152,6 +154,14 @@
   justify-content: space-between;
   align-items: flex-start;
   gap: 12px;
+}
+
+.course-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .panel-title h2 {
@@ -184,25 +194,210 @@
 ===================================== */
 
 .course-list {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
+  overflow-y: auto;
+  padding-right: 4px;
 }
 
 .course-list > * {
-  flex: 0 0 calc(33.333% - 12px);
-  min-width: 400px;
+  min-width: 0;
 }
 
 @media (max-width: 1024px) {
-  .course-list > * {
-    flex: 0 0 calc(50% - 12px);
+  .course-list {
+    grid-template-columns: 1fr;
   }
 }
 
+.request-open-btn {
+  border: none;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 12px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent-warm), #ea580c);
+  cursor: pointer;
+}
+
+.request-open-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
+}
+
+.request-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.request-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.request-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.request-form input,
+.request-form select,
+.request-form textarea {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-size: 14px;
+  color: var(--ink);
+  background: #ffffff;
+  outline: none;
+}
+
+.request-form input:focus-visible,
+.request-form select:focus-visible,
+.request-form textarea:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
+}
+
+.request-form input[readonly] {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.request-form textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.request-status {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.request-status.success {
+  color: #15803d;
+}
+
+.request-status.error {
+  color: #b91c1c;
+}
+
+.request-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.request-cancel {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.request-submit {
+  border: none;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  color: #ffffff;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  cursor: pointer;
+}
+
+.request-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* =====================================
+   REQUEST MODAL
+===================================== */
+
+.faculty-request-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.faculty-request-modal.show {
+  display: flex;
+}
+
+.faculty-request-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.faculty-request-card {
+  position: relative;
+  z-index: 1;
+  width: min(820px, 94vw);
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
+  overflow: hidden;
+  max-height: min(90vh, 760px);
+  display: flex;
+  flex-direction: column;
+}
+
+.faculty-request-head {
+  padding: 18px 22px;
+  background: linear-gradient(135deg, #c2410c, #ea580c);
+  color: #ffffff;
+}
+
+.faculty-request-head h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.faculty-request-head p {
+  margin: 4px 0 0;
+  opacity: 0.85;
+  font-size: 13px;
+}
+
+.faculty-request-card .request-form {
+  padding: 12px 16px 16px;
+  overflow-y: auto;
+  flex: 1;
+}
+
 @media (max-width: 640px) {
-  .course-list > * {
-    flex: 0 0 100%;
+  .faculty-request-modal {
+    align-items: flex-start;
+    padding: 162px 12px 18px;
+  }
+
+  .faculty-request-card {
+    width: 100%;
+    max-height: calc(100dvh - 16px);
+    border-radius: 12px;
+  }
+
+  .faculty-request-card .request-form {
+    max-height: none;
   }
 }
 
@@ -257,8 +452,19 @@
     font-size: 20px;
   }
 
+  .panel.courses {
+    max-height: none;
+    overflow: visible;
+  }
+
+  .request-row {
+    grid-template-columns: 1fr;
+  }
+
   .course-list {
     grid-template-columns: 1fr;
+    max-height: none;
+    overflow-y: visible;
   }
 }
 

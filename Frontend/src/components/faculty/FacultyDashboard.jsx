@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import axios from "axios";
 import { useSelector } from "react-redux";
 import CourseCard from "./CourseCard";
 import InfoRow from "./InfoRow";
@@ -6,8 +7,19 @@ import "./FacultyDashboard.css";
 
 function FacultyDashboard() {
   const userData = useSelector((state) => state.user.userData);
+  const apiBase = useSelector((state) => state.config.apiBase);
   const user = userData?.user;
   const roleDetails = userData?.roleDetails;
+  const [departments, setDepartments] = useState([]);
+  const [requestStatus, setRequestStatus] = useState(null);
+  const [requestSubmitting, setRequestSubmitting] = useState(false);
+  const [isRequestOpen, setIsRequestOpen] = useState(false);
+  const [requestForm, setRequestForm] = useState({
+    leaveType: "Sick Leave",
+    fromDate: "",
+    toDate: "",
+    reason: "",
+  });
 
   const name = user?.name || "Faculty Member";
   const department = roleDetails?.department?.name || "Department";
@@ -18,6 +30,27 @@ function FacultyDashboard() {
   const joiningDate = roleDetails?.joiningDate
     ? new Date(roleDetails.joiningDate).toLocaleDateString()
     : "N/A";
+
+  useEffect(() => {
+    const fetchDepartments = async () => {
+      try {
+        const response = await axios.get(
+          `${apiBase}/admin/department`,
+          { withCredentials: true }
+        );
+        setDepartments(response.data?.departments || []);
+      } catch (error) {
+        console.error(
+          "Fetch departments failed:",
+          error.response?.data || error.message
+        );
+      }
+    };
+
+    if (apiBase) {
+      fetchDepartments();
+    }
+  }, [apiBase]);
 
   const courses = useMemo(() => {
     const routine = roleDetails?.routine || {};
@@ -67,6 +100,51 @@ function FacultyDashboard() {
     0
   );
 
+  const handleRequestChange = (event) => {
+    const { name, value } = event.target;
+    setRequestForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+  };
+
+  const handleRequestSubmit = async (event) => {
+    event.preventDefault();
+    setRequestStatus(null);
+    try {
+      setRequestSubmitting(true);
+      await axios.post(
+        `${apiBase}/admin/faculty`,
+        requestForm,
+        { withCredentials: true }
+      );
+      setRequestStatus({
+        type: "success",
+        message: "Leave request submitted.",
+      });
+      setRequestForm((prev) => ({
+        ...prev,
+        leaveType: "Sick Leave",
+        fromDate: "",
+        toDate: "",
+        reason: "",
+      }));
+    } catch (error) {
+      console.error(
+        "Faculty request failed:",
+        error.response?.data || error.message
+      );
+      setRequestStatus({
+        type: "error",
+        message:
+          error.response?.data?.message ||
+          "Unable to submit request.",
+      });
+    } finally {
+      setRequestSubmitting(false);
+    }
+  };
+
   return (
     <section className="grid faculty-split">
       <article className="panel profile">
@@ -103,7 +181,16 @@ function FacultyDashboard() {
             <h2>Your Courses</h2>
             <p className="muted">Select a course to take attendance.</p>
           </div>
-          <div className="chip accent">Attendance Ready</div>
+          <div className="course-actions">
+            <div className="chip accent">Attendance Ready</div>
+            <button
+              className="request-open-btn"
+              type="button"
+              onClick={() => setIsRequestOpen(true)}
+            >
+              + Add Request
+            </button>
+          </div>
         </div>
         <div className="course-list">
           {courses.length === 0 ? (
@@ -118,6 +205,92 @@ function FacultyDashboard() {
           )}
         </div>
       </article>
+
+      <div
+        className={`faculty-request-modal ${
+          isRequestOpen ? "show" : ""
+        }`}
+      >
+        <div
+          className="faculty-request-backdrop"
+          onClick={() => setIsRequestOpen(false)}
+          role="button"
+          tabIndex={0}
+          aria-label="Close"
+        />
+        <div className="faculty-request-card">
+          <div className="faculty-request-head">
+            <h1>New Leave Request</h1>
+            <p>Create a new leave request</p>
+          </div>
+          <form className="request-form" onSubmit={handleRequestSubmit}>
+            <label>
+              Leave Type
+              <select
+                name="leaveType"
+                value={requestForm.leaveType}
+                onChange={handleRequestChange}
+              >
+                <option>Casual Leave</option>
+                <option>Sick Leave</option>
+                <option>Annual Leave</option>
+                <option>Special Leave</option>
+              </select>
+            </label>
+            <div className="request-row">
+              <label>
+                From Date
+                <input
+                  type="date"
+                  name="fromDate"
+                  value={requestForm.fromDate}
+                  onChange={handleRequestChange}
+                />
+              </label>
+              <label>
+                To Date
+                <input
+                  type="date"
+                  name="toDate"
+                  value={requestForm.toDate}
+                  onChange={handleRequestChange}
+                />
+              </label>
+            </div>
+            <label>
+              Reason
+              <textarea
+                name="reason"
+                value={requestForm.reason}
+                onChange={handleRequestChange}
+                rows={5}
+                placeholder="Enter reason for leave..."
+              />
+            </label>
+            {requestStatus && (
+              <p className={`request-status ${requestStatus.type}`}>
+                {requestStatus.message}
+              </p>
+            )}
+            <div className="request-actions">
+              <button
+                type="button"
+                className="request-cancel"
+                onClick={() => setIsRequestOpen(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="request-submit"
+                disabled={requestSubmitting}
+              >
+                {requestSubmitting ? "Submitting..." : "Submit Request"}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </section>
   )
 }

@@ -15,6 +15,7 @@ import AdminLayout from "./Admin/AdminLayout";
 import Faculty from "./Admin/Faculty";
 import Student from "./Admin/Student";
 import Courses from "./Admin/Courses";
+import Groups from "./Admin/Groups";
 import Timetable from "./Admin/Timetable";
 import Exam from "./Admin/Exam";
 import Result from "./Admin/Result";
@@ -142,7 +143,11 @@ function App() {
             />
             <Route
               path="courses"
-              element={<Courses />}
+              element={<Groups />}
+            />
+            <Route
+              path="groups"
+              element={<Groups />}
             />
             <Route
               path="timetable"
