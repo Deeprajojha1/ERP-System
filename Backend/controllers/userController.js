@@ -443,11 +443,8 @@ export const sendOtp = async (req, res) => {
     }
 
     const otp = Math.floor(
-<<<<<<< HEAD
-      Math.random() * 90000 + 10000
-=======
+
       Math.random() * 900000 + 100000
->>>>>>> 1fc3e5c05f73a733e0a7ab14e5618e787f77d9e7
     ).toString();
 
     user.resetOtp = otp;

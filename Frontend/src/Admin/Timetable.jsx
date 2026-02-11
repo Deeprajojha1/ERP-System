@@ -29,8 +29,8 @@ const DAY_LABEL_TO_KEY = {
 const Timetable = () => {
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState("Group");
-  const [selectedGroup, setSelectedGroup] = useState("BCSE-6A");
-  const [loadState, setLoadState] = useState("success");
+  const [selectedGroupCode, setSelectedGroupCode] = useState("");
+  const [loadState, setLoadState] = useState("pending");
   const [isEditing, setIsEditing] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
@@ -345,24 +345,24 @@ const Timetable = () => {
             ) : (
               filteredGroups.map((g) => (
                 <button
-                  key={g.group}
+                  key={g.id}
                   type="button"
                   className={`tt-group-card ${
-                    selectedGroup === g.group ? "active" : ""
+                    selectedGroupCode === g.groupCode ? "active" : ""
                   }`}
                   onClick={() => {
-                    setSelectedGroup(g.group);
+                    setSelectedGroupCode(g.groupCode);
                     setMode("Group");
                   }}
                 >
                   <div className="tt-group-badge">
                     <FiGrid />
-                    {g.group}
+                    {g.groupCode}
                   </div>
                   <div className="tt-group-meta">
-                    <span>{g.sem}</span>
-                    <span>Room {g.room}</span>
-                    <span>{g.students} Students</span>
+                    <span>{g.semester ? `Sem ${g.semester}` : "Sem -"}</span>
+                    <span>Room {g.roomNo || "-"}</span>
+                    <span>{g.studentCount ?? 0} Students</span>
                   </div>
                 </button>
               ))
