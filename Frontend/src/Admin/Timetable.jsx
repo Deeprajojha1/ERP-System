@@ -339,33 +339,36 @@ const Timetable = () => {
               Groups with semester, room and student count
             </span>
           </div>
-          <div className="tt-group-grid">
+          <div className="tt-group-slider">
             {filteredGroups.length === 0 ? (
               <div className="tt-empty">No groups found.</div>
             ) : (
-              filteredGroups.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  className={`tt-group-card ${
-                    selectedGroupCode === g.groupCode ? "active" : ""
-                  }`}
-                  onClick={() => {
-                    setSelectedGroupCode(g.groupCode);
-                    setMode("Group");
-                  }}
-                >
-                  <div className="tt-group-badge">
-                    <FiGrid />
-                    {g.groupCode}
+              <Slider {...sliderSettings}>
+                {filteredGroups.map((g) => (
+                  <div key={g.id}>
+                    <button
+                      type="button"
+                      className={`tt-group-card ${
+                        selectedGroupCode === g.groupCode ? "active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedGroupCode(g.groupCode);
+                        setMode("Group");
+                      }}
+                    >
+                      <div className="tt-group-badge">
+                        <FiGrid />
+                        {g.groupCode}
+                      </div>
+                      <div className="tt-group-meta">
+                        <span>{g.semester ? `Sem ${g.semester}` : "Sem -"}</span>
+                        <span>Room {g.roomNo || "-"}</span>
+                        <span>{g.studentCount ?? 0} Students</span>
+                      </div>
+                    </button>
                   </div>
-                  <div className="tt-group-meta">
-                    <span>{g.semester ? `Sem ${g.semester}` : "Sem -"}</span>
-                    <span>Room {g.roomNo || "-"}</span>
-                    <span>{g.studentCount ?? 0} Students</span>
-                  </div>
-                </button>
-              ))
+                ))}
+              </Slider>
             )}
           </div>
         </div>

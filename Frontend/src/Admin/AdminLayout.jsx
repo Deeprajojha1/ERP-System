@@ -191,6 +191,16 @@ const AdminLayout = () => {
             <button
               className="sidebar-btn"
               onClick={() => {
+                navigate("/admin/courses");
+              }}
+            >
+              <MdCastForEducation />
+              <span className="sidebar-text">Courses</span>
+            </button>
+
+            <button
+              className="sidebar-btn"
+              onClick={() => {
                 navigate("/admin/groups");
               }}
             >

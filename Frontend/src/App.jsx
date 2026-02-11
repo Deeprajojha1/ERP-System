@@ -148,7 +148,7 @@ function App() {
             />
             <Route
               path="courses"
-              element={<Groups />}
+              element={<Courses />}
             />
             <Route
               path="groups"
