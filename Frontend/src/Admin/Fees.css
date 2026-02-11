@@ -24,6 +24,33 @@
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
 }
 
+.fees-card-link {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fees-card-link:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.1);
+  border-color: #1d4ed8;
+}
+
+.fees-card-link .fees-card-icon {
+  width: 48px;
+  height: 48px;
+  font-size: 22px;
+}
+
+.fees-card-link .fees-card-value {
+  margin: 0;
+  font-size: 20px;
+}
+
 .fees-card-head {
   display: flex;
   align-items: center;

@@ -21,6 +21,11 @@ import Result from "./Admin/Result";
 import Attendance from "./Admin/Attendance";
 import Leaves from "./Admin/Leaves";
 import Fees from "./Admin/Fees";
+import FeesAcademic from "./Admin/FeesAcademic";
+import FeesHostel from "./Admin/FeesHostel";
+import FeesTransport from "./Admin/FeesTransport";
+import FeesBackpapers from "./Admin/FeesBackpapers";
+import FeesOthers from "./Admin/FeesOthers";
 import GeneralSupport from "./Admin/GeneralSupport";
 
 function App() {
@@ -167,6 +172,26 @@ function App() {
             <Route
               path="fees"
               element={<Fees />}
+            />
+            <Route
+              path="fees/academic"
+              element={<FeesAcademic />}
+            />
+            <Route
+              path="fees/hostel"
+              element={<FeesHostel />}
+            />
+            <Route
+              path="fees/transport"
+              element={<FeesTransport />}
+            />
+            <Route
+              path="fees/backpapers"
+              element={<FeesBackpapers />}
+            />
+            <Route
+              path="fees/others"
+              element={<FeesOthers />}
             />
             <Route
               path="general-support"
