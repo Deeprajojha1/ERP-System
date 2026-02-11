@@ -3,16 +3,37 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-//  Transporter setup
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  port: 465,
-  secure: true, // true for 465
-  auth: {
-    user: process.env.USER_EMAIL, // your gmail
-    pass: process.env.USER_PASSWORD, //  app password
-  },
-});
+const {
+  SMTP_HOST,
+  SMTP_PORT,
+  SMTP_SECURE,
+  SMTP_SERVICE,
+  USER_EMAIL,
+  USER_PASSWORD,
+} = process.env;
+
+// Transporter setup
+// If explicit SMTP host/port are provided (e.g. on Render), use them.
+// Otherwise fall back to Gmail service, which you already use locally.
+const transporter = nodemailer.createTransport(
+  SMTP_HOST
+    ? {
+        host: SMTP_HOST,
+        port: Number(SMTP_PORT) || 587,
+        secure: SMTP_SECURE === "true", // typically false for 587, true for 465
+        auth: {
+          user: USER_EMAIL,
+          pass: USER_PASSWORD,
+        },
+      }
+    : {
+        service: SMTP_SERVICE || "Gmail",
+        auth: {
+          user: USER_EMAIL,
+          pass: USER_PASSWORD,
+        },
+      }
+);
 
 // Function to send OTP email
 const sendEmail = async (to, otp) => {
@@ -42,6 +63,9 @@ const sendEmail = async (to, otp) => {
     return true;
   } catch (error) {
     console.log("❌ Email Send Error:", error.message);
+    if (process.env.NODE_ENV !== "production") {
+      console.log("Email error stack:", error.stack);
+    }
     return false;
   }
 };
