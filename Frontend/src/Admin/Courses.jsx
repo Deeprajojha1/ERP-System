@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
+import axios from "axios";
 import "./Courses.css";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -7,7 +9,10 @@ const Courses = () => {
   const [search, setSearch] = useState("");
   const [activeBranch, setActiveBranch] = useState("All Branches");
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState("success");
+  const [loadState, setLoadState] = useState("pending");
+  const [courses, setCourses] = useState([]);
+
+  const apiBase = useSelector((state) => state.config.apiBase);
 
   const branches = [
     "All Branches",
@@ -19,78 +24,55 @@ const Courses = () => {
     "HUM",
   ];
 
-  const courses = [
-    {
-      code: "CSE101-S5-A",
-      name: "Machine Learning",
-      department: "CSE",
-      students: 77,
-      instructor: "Faculty 1",
-    },
-    {
-      code: "MECH102-S1-A",
-      name: "IoT",
-      department: "MECH",
-      students: 60,
-      instructor: "Faculty 2",
-    },
-    {
-      code: "ECE103-S4-B",
-      name: "Soft Skills",
-      department: "ECE",
-      students: 22,
-      instructor: "Faculty 3",
-    },
-    {
-      code: "CIVIL104-S4-C",
-      name: "Cloud Systems",
-      department: "CIVIL",
-      students: 75,
-      instructor: "Faculty 4",
-    },
-    {
-      code: "MECH105-S6-A",
-      name: "Data Structures",
-      department: "MECH",
-      students: 54,
-      instructor: "Faculty 5",
-    },
-    {
-      code: "MECH106-S8-A",
-      name: "DBMS",
-      department: "MECH",
-      students: 42,
-      instructor: "Faculty 6",
-    },
-    {
-      code: "AGR107-S2-C",
-      name: "Soil Science",
-      department: "AGR",
-      students: 59,
-      instructor: "Faculty 7",
-    },
-    {
-      code: "CSE108-S5-C",
-      name: "Operating Systems",
-      department: "CSE",
-      students: 73,
-      instructor: "Faculty 8",
-    },
-  ];
+  const getBranchCode = (departmentName = "") => {
+    const map = {
+      "Computer Science & Engineering": "CSE",
+      "Electronics & Communication": "ECE",
+      "Mechanical Engineering": "MECH",
+      "Civil Engineering": "CIVIL",
+      "Agriculture": "AGR",
+      Humanities: "HUM",
+    };
+    return map[departmentName] || departmentName;
+  };
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoadState("pending");
+        const res = await axios.get(`${apiBase}/admin/course`, {
+          withCredentials: true,
+        });
+        setCourses(res.data?.courses || []);
+        setLoadState("success");
+      } catch (error) {
+        console.error("Failed to load courses", error.response?.data || error.message);
+        setLoadState("failure");
+      }
+    };
+
+    if (apiBase) {
+      fetchCourses();
+    }
+  }, [apiBase]);
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
     return courses.filter((c) => {
+      const deptName = c.department || "";
+      const branchCode = getBranchCode(deptName).toLowerCase();
+
       const matchSearch =
-        c.name.toLowerCase().includes(term) ||
-        c.code.toLowerCase().includes(term) ||
-        c.department.toLowerCase().includes(term);
+        (c.courseName || "").toLowerCase().includes(term) ||
+        (c.code || "").toLowerCase().includes(term) ||
+        deptName.toLowerCase().includes(term);
+
       const matchBranch =
         activeBranch === "All Branches" ||
-        c.department === activeBranch;
+        branchCode === activeBranch.toLowerCase();
       return matchSearch && matchBranch;
     });
-  }, [search, activeBranch]);
+  }, [search, activeBranch, courses]);
 
 
   const renderState = () => {
@@ -173,10 +155,10 @@ const Courses = () => {
               {filtered.map((c) => (
                 <tr key={c.code}>
                   <td className="courses-code">{c.code}</td>
-                  <td>{c.name}</td>
+                  <td>{c.courseName}</td>
                   <td>{c.department}</td>
-                  <td>{c.students}</td>
-                  <td>{c.instructor}</td>
+                  <td>{c.studentsInDepartment}</td>
+                  <td>{c.coordinatorName || "-"}</td>
                 </tr>
               ))}
               {filtered.length === 0 && (
