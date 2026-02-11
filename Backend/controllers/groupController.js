@@ -46,8 +46,25 @@ export const getAllGroups = async (req, res) => {
 export const getTimetableGroups = async (req, res) => {
   try {
     const groups = await Group.find()
-      .select("name roomNo courseIds")
+      .select("name roomNo courseIds department")
       .populate({ path: "courseIds", select: "semester" });
+
+    // Pre-compute number of students assigned to each group
+    const studentCounts = await Student.aggregate([
+      {
+        $group: {
+          _id: "$group",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const studentCountMap = studentCounts.reduce((acc, doc) => {
+      if (doc._id) {
+        acc[doc._id.toString()] = doc.count;
+      }
+      return acc;
+    }, {});
 
     const cards = groups.map((group) => {
       let semester = null;
@@ -66,11 +83,15 @@ export const getTimetableGroups = async (req, res) => {
         }
       }
 
+      const studentCount = studentCountMap[group._id.toString()] || 0;
+
       return {
         id: group._id,
         groupCode: group.name,
         semester,
         roomNo: group.roomNo || null,
+        studentCount,
+        departmentId: group.department || null,
       };
     });
 
@@ -201,6 +222,23 @@ export const getGroupTimetable = async (req, res) => {
       }
     }
 
+    // Build courses list for edit dropdowns
+    const courses = (group.courseIds || []).map((c) => ({
+      code: c.code,
+      courseName: c.courseName,
+    }));
+
+    // Fetch all faculty in this group's department
+    let departmentFaculty = [];
+    if (group.department) {
+      const deptFaculties = await Faculty.find({ department: group.department })
+        .populate({ path: "user", select: "name" });
+      departmentFaculty = deptFaculties.map((f) => ({
+        id: f._id,
+        name: f.user?.name || "Unknown",
+      }));
+    }
+
     res.json({
       message: "Group timetable fetched successfully",
       group: {
@@ -209,6 +247,8 @@ export const getGroupTimetable = async (req, res) => {
         semester,
         roomNo: group.roomNo || null,
         timetable,
+        courses,
+        departmentFaculty,
       },
     });
   } catch (error) {
