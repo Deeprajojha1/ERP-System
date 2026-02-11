@@ -1,6 +1,7 @@
 import Course from "../models/Course.js";
 import Department from "../models/Department.js";
 import Faculty from "../models/Faculty.js";
+import Student from "../models/Student.js";
 
 /* ================= GET ALL COURSES ================= */
 
@@ -13,10 +14,48 @@ export const getAllCourses = async (req, res) => {
         populate: { path: "user", select: "name email" },
       });
 
+    const studentCounts = await Student.aggregate([
+      {
+        $group: {
+          _id: "$department",
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const studentCountMap = studentCounts.reduce((acc, doc) => {
+      if (doc._id) {
+        acc[doc._id.toString()] = doc.count;
+      }
+      return acc;
+    }, {});
+
+    const simplifiedCourses = courses.map((course) => {
+      const deptId = course.department?._id?.toString();
+      const studentsInDepartment = deptId
+        ? studentCountMap[deptId] || 0
+        : 0;
+
+      const coordinator =
+        course.facultyIds && course.facultyIds.length > 0
+          ? course.facultyIds[0]
+          : null;
+
+      const coordinatorName = coordinator?.user?.name || null;
+
+      return {
+        code: course.code,
+        courseName: course.courseName,
+        department: course.department?.name || null,
+        studentsInDepartment,
+        coordinatorName,
+      };
+    });
+
     res.json({
       message: "Courses fetched successfully",
-      count: courses.length,
-      courses,
+      count: simplifiedCourses.length,
+      courses: simplifiedCourses,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });

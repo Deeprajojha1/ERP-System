@@ -1,4 +1,6 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
+import axios from "axios";
 import jsPDF from "jspdf";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -15,33 +17,52 @@ import {
 import { MdOutlineSchedule } from "react-icons/md";
 import "./Timetable.css";
 
+const DAY_LABEL_TO_KEY = {
+  Mon: "monday",
+  Tue: "tuesday",
+  Wed: "wednesday",
+  Thu: "thursday",
+  Fri: "friday",
+  Sat: "saturday",
+};
+
 const Timetable = () => {
   const [query, setQuery] = useState("");
+  const [mode, setMode] = useState("Group");
   const [selectedGroup, setSelectedGroup] = useState("BCSE-6A");
   const [loadState, setLoadState] = useState("success");
-  const isEditing = false;
+  const [isEditing, setIsEditing] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
     slotIndex: 0,
   });
+  const [groupCards, setGroupCards] = useState([]);
+  const [schedule, setSchedule] = useState([]);
+  const [groupCourses, setGroupCourses] = useState([]);
+  const [deptFaculty, setDeptFaculty] = useState([]);
 
-  const groups = ["BCSE-6A", "BCSE-6B", "BME-5A", "BEE-4A"];
-  const groupCards = [
-    { group: "BCSE-6A", sem: "Sem 6", room: "C-204", students: 62 },
-    { group: "BCSE-6B", sem: "Sem 6", room: "C-206", students: 58 },
-    { group: "BME-5A", sem: "Sem 5", room: "M-102", students: 54 },
-    { group: "BEE-4A", sem: "Sem 4", room: "E-110", students: 49 },
-  ];
+  const apiBase = useSelector((state) => state.config.apiBase);
+
+  const groups = useMemo(() => groupCards.map((g) => g.groupCode), [groupCards]);
 
   const filteredGroups = useMemo(() => {
     const term = query.trim().toLowerCase();
     if (!term) return groupCards;
     return groupCards.filter((g) => {
-      const hay = `${g.group} ${g.sem} ${g.room} ${g.students}`.toLowerCase();
+      const hay = `${g.groupCode} ${g.semester ?? ""} ${g.roomNo ?? ""} ${g.studentCount ?? ""}`.toLowerCase();
       return hay.includes(term);
     });
   }, [query, groupCards]);
-  const faculty = ["Rajesh Kumar", "Neha Verma", "Amit Sharma"];
+
+  const faculty = useMemo(() => {
+    const names = new Set();
+    schedule.forEach((row) => {
+      row.slots.forEach((slot) => {
+        if (slot.by) names.add(slot.by);
+      });
+    });
+    return Array.from(names);
+  }, [schedule]);
   const slots = [
     "09:00-10:00",
     "10:00-11:00",
@@ -51,51 +72,105 @@ const Timetable = () => {
   ];
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  const summaryRows = [
-    {
-      code: "CSE2601",
-      faculty: "Rajesh Kumar",
-      subjectCode: "BCSE601",
-      subjectName: "DBMS",
-      credits: 5,
-    },
-    {
-      code: "ECE2101",
-      faculty: "Neha Verma",
-      subjectCode: "BECE502",
-      subjectName: "Signals",
-      credits: 4,
-    },
-  ];
+  const buildScheduleFromBackend = (timetable = []) => {
+    const byDay = {};
+    timetable.forEach((entry) => {
+      if (!entry?.day) return;
+      byDay[String(entry.day).toLowerCase()] = entry.lectures || [];
+    });
 
-  const makeSchedule = () => {
-    const base = [
-      ["CSE301", "DBMS", "Rajesh"],
-      ["CSE302", "DSA", "Neha"],
-      ["CSE303", "OS", "Amit"],
-      ["FREE", "Free", ""],
-      ["CSE304", "CN", "Rajesh"],
-    ];
-    return days.map((d, i) => ({
-      day: d,
-      slots: base.map((b, idx) => ({
-        code: b[0],
-        name: b[1],
-        by: b[2],
-        color: (i + idx) % 5,
-      })),
-    }));
+    return days.map((label, dayIdx) => {
+      const key = DAY_LABEL_TO_KEY[label];
+      const lectures = byDay[key] || [];
+
+      const rowSlots = slots.map((_, slotIdx) => {
+        const lectureNumber = slotIdx + 1;
+        const lecture = lectures.find((l) => l.lectureNumber === lectureNumber);
+
+        if (!lecture) {
+          return { code: "FREE", name: "Free", by: "", color: 3 };
+        }
+
+        return {
+          code: lecture.courseCode || "FREE",
+          name: lecture.courseName || "Free",
+          by: lecture.facultyName || "",
+          color: (dayIdx + slotIdx) % 5,
+        };
+      });
+
+      return { day: label, slots: rowSlots };
+    });
   };
 
-  const [schedules, setSchedules] = useState(() => {
-    const initial = {};
-    groups.forEach((g) => {
-      initial[g] = makeSchedule();
-    });
-    return initial;
-  });
+  /* ---------- Fetch group cards ---------- */
+  useEffect(() => {
+    if (!apiBase) return;
+    const fetchGroups = async () => {
+      try {
+        setLoadState("pending");
+        const res = await axios.get(`${apiBase}/admin/timetable/group`, {
+          withCredentials: true,
+        });
+        const cards = res.data?.groups || [];
+        setGroupCards(cards);
+        if (cards.length > 0 && !selectedGroupCode) {
+          setSelectedGroupCode(cards[0].groupCode);
+        } else {
+          setLoadState("success");
+        }
+      } catch (err) {
+        console.error("Fetch timetable groups failed", err.response?.data || err.message);
+        setLoadState("failure");
+      }
+    };
+    fetchGroups();
+  }, [apiBase]);
 
-  const schedule = schedules[selectedGroup] || makeSchedule();
+  /* ---------- Fetch selected group timetable ---------- */
+  useEffect(() => {
+    if (!apiBase || !selectedGroupCode || groupCards.length === 0) return;
+    const current = groupCards.find((g) => g.groupCode === selectedGroupCode);
+    if (!current) return;
+    const fetchTimetable = async () => {
+      try {
+        setLoadState("pending");
+        const res = await axios.get(
+          `${apiBase}/admin/timetable/group/${current.id}`,
+          { withCredentials: true }
+        );
+        const timetable = res.data?.group?.timetable || [];
+        const courses = res.data?.group?.courses || [];
+        const departmentFaculty = res.data?.group?.departmentFaculty || [];
+        setSchedule(buildScheduleFromBackend(timetable));
+        setGroupCourses(courses);
+        setDeptFaculty(departmentFaculty);
+        setLoadState("success");
+      } catch (err) {
+        console.error("Fetch group timetable failed", err.response?.data || err.message);
+        setLoadState("failure");
+      }
+    };
+    fetchTimetable();
+  }, [apiBase, selectedGroupCode, groupCards]);
+
+  const summaryRows = useMemo(() => {
+    const seen = new Map();
+    schedule.forEach((row) => {
+      row.slots.forEach((slot) => {
+        if (slot.code && slot.code !== "FREE" && !seen.has(slot.code)) {
+          seen.set(slot.code, {
+            code: slot.code,
+            faculty: slot.by || "-",
+            subjectCode: slot.code,
+            subjectName: slot.name,
+            credits: "-",
+          });
+        }
+      });
+    });
+    return Array.from(seen.values());
+  }, [schedule]);
 
   const currentSlot =
     schedule?.[selectedSlot.dayIndex]?.slots?.[
@@ -119,7 +194,7 @@ const Timetable = () => {
       code: currentSlot.code,
     });
   }, [
-    selectedGroup,
+    selectedGroupCode,
     selectedSlot.dayIndex,
     selectedSlot.slotIndex,
     currentSlot.name,
@@ -128,23 +203,21 @@ const Timetable = () => {
   ]);
 
   const applyEdit = () => {
-    setSchedules((prev) => {
-      const next = { ...prev };
-      const groupSchedule = next[selectedGroup].map((d) => ({
+    setSchedule((prev) => {
+      const next = prev.map((d) => ({
         ...d,
         slots: d.slots.map((s) => ({ ...s })),
       }));
       const dIdx = days.indexOf(editForm.day);
       const sIdx = Math.max(0, (editForm.lecture || 1) - 1);
-      if (groupSchedule[dIdx] && groupSchedule[dIdx].slots[sIdx]) {
-        groupSchedule[dIdx].slots[sIdx] = {
-          ...groupSchedule[dIdx].slots[sIdx],
+      if (next[dIdx] && next[dIdx].slots[sIdx]) {
+        next[dIdx].slots[sIdx] = {
+          ...next[dIdx].slots[sIdx],
           code: editForm.code || "FREE",
           name: editForm.subject || "Free",
           by: editForm.faculty || "",
         };
       }
-      next[selectedGroup] = groupSchedule;
       return next;
     });
   };
@@ -152,7 +225,7 @@ const Timetable = () => {
   const downloadTimetable = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
-    doc.text(`Timetable: ${selectedGroup}`, 14, 18);
+    doc.text(`Timetable: ${selectedGroupCode}`, 14, 18);
     doc.setFontSize(11);
     let y = 28;
     schedule.forEach((row) => {
@@ -166,7 +239,7 @@ const Timetable = () => {
         y = 20;
       }
     });
-    doc.save(`${selectedGroup}_timetable.pdf`);
+    doc.save(`${selectedGroupCode}_timetable.pdf`);
   };
 
   const palette = [
@@ -263,40 +336,38 @@ const Timetable = () => {
               Groups Dashboard
             </span>
             <span className="tt-group-subtitle">
-              Sample groups for timetable overview
+              Groups with semester, room and student count
             </span>
           </div>
-          {filteredGroups.length === 0 ? (
-            <div className="tt-empty">No groups found.</div>
-          ) : (
-            <div className="tt-group-slider">
-              <Slider {...sliderSettings}>
-                {filteredGroups.map((g) => (
-                  <div key={g.group}>
-                    <button
-                      type="button"
-                      className={`tt-group-card ${
-                        selectedGroup === g.group ? "active" : ""
-                      }`}
-                      onClick={() => {
-                        setSelectedGroup(g.group);
-                      }}
-                    >
-                      <div className="tt-group-badge">
-                        <FiGrid />
-                        {g.group}
-                      </div>
-                      <div className="tt-group-meta">
-                        <span>{g.sem}</span>
-                        <span>Room {g.room}</span>
-                        <span>{g.students} Students</span>
-                      </div>
-                    </button>
+          <div className="tt-group-grid">
+            {filteredGroups.length === 0 ? (
+              <div className="tt-empty">No groups found.</div>
+            ) : (
+              filteredGroups.map((g) => (
+                <button
+                  key={g.group}
+                  type="button"
+                  className={`tt-group-card ${
+                    selectedGroup === g.group ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setSelectedGroup(g.group);
+                    setMode("Group");
+                  }}
+                >
+                  <div className="tt-group-badge">
+                    <FiGrid />
+                    {g.group}
                   </div>
-                ))}
-              </Slider>
-            </div>
-          )}
+                  <div className="tt-group-meta">
+                    <span>{g.sem}</span>
+                    <span>Room {g.room}</span>
+                    <span>{g.students} Students</span>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
         </div>
 
         <div className="tt-flow">
@@ -305,13 +376,13 @@ const Timetable = () => {
               <div className="tt-panel-head">
                 <div className="tt-panel-title">
                   <MdOutlineSchedule />
-                  Group Schedule ({selectedGroup})
+                  Group Schedule ({selectedGroupCode})
                 </div>
                 <div className="tt-panel-actions">
                   <select
                     className="tt-select"
-                    value={selectedGroup}
-                    onChange={(e) => setSelectedGroup(e.target.value)}
+                    value={selectedGroupCode}
+                    onChange={(e) => setSelectedGroupCode(e.target.value)}
                   >
                     {groups.map((g) => (
                       <option key={g} value={g}>
@@ -320,9 +391,13 @@ const Timetable = () => {
                     ))}
                   </select>
                   <select className="tt-select">
-                    {faculty.map((f) => (
-                      <option key={f}>{f}</option>
-                    ))}
+                    {faculty.length === 0 ? (
+                      <option value="">No Faculty</option>
+                    ) : (
+                      faculty.map((f) => (
+                        <option key={f}>{f}</option>
+                      ))
+                    )}
                   </select>
                 </div>
               </div>
@@ -452,28 +527,32 @@ const Timetable = () => {
               </label>
               <label className="tt-label-field">
                 Subject Code
-                <input
-                  placeholder="e.g., CSE301"
+                <select
                   value={editForm.code}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const code = e.target.value;
+                    const match = groupCourses.find((c) => c.code === code);
                     setEditForm((prev) => ({
                       ...prev,
-                      code: e.target.value,
-                    }))
-                  }
-                />
+                      code,
+                      subject: match ? match.courseName : "",
+                    }));
+                  }}
+                >
+                  <option value="FREE">FREE</option>
+                  {groupCourses.map((c) => (
+                    <option key={c.code} value={c.code}>
+                      {c.code}
+                    </option>
+                  ))}
+                </select>
               </label>
               <label className="tt-label-field">
                 Subject/Course name
                 <input
-                  placeholder="e.g., DBMS"
+                  placeholder="Auto-filled from subject code"
                   value={editForm.subject}
-                  onChange={(e) =>
-                    setEditForm((prev) => ({
-                      ...prev,
-                      subject: e.target.value,
-                    }))
-                  }
+                  readOnly
                 />
               </label>
               <label className="tt-label-field">
@@ -487,8 +566,11 @@ const Timetable = () => {
                     }))
                   }
                 >
-                  {faculty.map((f) => (
-                    <option key={f}>{f}</option>
+                  <option value="">Select Faculty</option>
+                  {deptFaculty.map((f) => (
+                    <option key={f.id} value={f.name}>
+                      {f.name}
+                    </option>
                   ))}
                 </select>
               </label>

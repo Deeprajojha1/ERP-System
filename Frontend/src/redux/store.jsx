@@ -7,9 +7,11 @@ import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
 const persistConfig = {
-  key: "root",
+  // Bump key to drop any stale persisted state across deployments
+  key: "root-v2",
   storage,
-  whitelist: ["user", "student", "faculty", "config"],
+  // Only persist authenticated user; other slices are refetched per session
+  whitelist: ["user"],
 };
 
 const rootReducer = combineReducers({

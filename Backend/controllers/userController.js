@@ -309,13 +309,22 @@ export const login = async (req, res) => {
         totalInactiveFaculty,
         totalOnLeaveFaculty,
         totalStudentsEnrolled,
+        totalActiveStudents,
+        totalInactiveStudents,
+        totalOnLeaveStudents,
         totalDepartments,
       ] = await Promise.all([
+        // Faculty aggregates
         User.countDocuments({ role: "faculty" }),
         User.countDocuments({ role: "faculty", status: "active" }),
         User.countDocuments({ role: "faculty", status: "inactive" }),
         User.countDocuments({ role: "faculty", status: "onleave" }),
+        // Student aggregates
         Student.countDocuments(),
+        User.countDocuments({ role: "student", status: "active" }),
+        User.countDocuments({ role: "student", status: "inactive" }),
+        User.countDocuments({ role: "student", status: "leave" }),
+        // Other
         Department.countDocuments(),
       ]);
 
@@ -338,6 +347,9 @@ export const login = async (req, res) => {
         totalInactiveFaculty,
         totalOnLeaveFaculty,
         totalStudentsEnrolled,
+        totalActiveStudents,
+        totalInactiveStudents,
+        totalOnLeaveStudents,
         totalDepartments,
         departmentFacultyStats,
       };
@@ -431,7 +443,11 @@ export const sendOtp = async (req, res) => {
     }
 
     const otp = Math.floor(
+<<<<<<< HEAD
       Math.random() * 90000 + 10000
+=======
+      Math.random() * 900000 + 100000
+>>>>>>> 1fc3e5c05f73a733e0a7ab14e5618e787f77d9e7
     ).toString();
 
     user.resetOtp = otp;
@@ -620,10 +636,12 @@ export const resetPassword = async (
 
 export const logout = async (req, res) => {
   try {
+    const isProduction = process.env.NODE_ENV === "production";
+
     res.clearCookie("token", {
       httpOnly: true,
-      secure: false,
-      sameSite: "strict",
+      secure: isProduction,
+      sameSite: isProduction ? "none" : "lax",
     });
 
     return res.status(200).json({
@@ -839,6 +857,57 @@ export const getUser = async (req, res) => {
               routine: await buildPopulatedRoutine(facultyDoc.routine),
             };
           }
+        } else if (user.role === "admin") {
+          const [
+            totalFaculty,
+            totalActiveFaculty,
+            totalInactiveFaculty,
+            totalOnLeaveFaculty,
+            totalStudentsEnrolled,
+            totalActiveStudents,
+            totalInactiveStudents,
+            totalOnLeaveStudents,
+            totalDepartments,
+          ] = await Promise.all([
+            // Faculty aggregates
+            User.countDocuments({ role: "faculty" }),
+            User.countDocuments({ role: "faculty", status: "active" }),
+            User.countDocuments({ role: "faculty", status: "inactive" }),
+            User.countDocuments({ role: "faculty", status: "onleave" }),
+            // Student aggregates
+            Student.countDocuments(),
+            User.countDocuments({ role: "student", status: "active" }),
+            User.countDocuments({ role: "student", status: "inactive" }),
+            User.countDocuments({ role: "student", status: "leave" }),
+            // Other
+            Department.countDocuments(),
+          ]);
+
+          const departments = await Department.find({}, "name");
+
+          const departmentFacultyStats = await Promise.all(
+            departments.map(async (dept) => {
+              const facultyCount = await Faculty.countDocuments({ department: dept._id });
+              return {
+                id: dept._id,
+                name: dept.name,
+                facultyCount,
+              };
+            })
+          );
+
+          additionalData = {
+            totalFaculty,
+            totalActiveFaculty,
+            totalInactiveFaculty,
+            totalOnLeaveFaculty,
+            totalStudentsEnrolled,
+            totalActiveStudents,
+            totalInactiveStudents,
+            totalOnLeaveStudents,
+            totalDepartments,
+            departmentFacultyStats,
+          };
         }
 
         console.log("User found:", user);
