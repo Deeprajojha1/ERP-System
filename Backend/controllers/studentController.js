@@ -5,15 +5,44 @@ import Department from "../models/Department.js";
 import Group from "../models/Group.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
+import redisClient from "../config/redisClient.js";
 
 /* ================= GET ALL STUDENTS ================= */
 
 export const getAllStudents = async (req, res) => {
   try {
+    const cacheKey = "admin:students:all";
+
+    try {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        const cachedData = JSON.parse(cached);
+        return res.json(cachedData);
+      }
+    } catch (err) {
+      console.error("[Redis] getAllStudents cache read failed:", err.message || err);
+    }
+
     const students = await Student.find()
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department")
       .populate("group");
+
+    const responsePayload = {
+      message: "Students fetched successfully",
+      count: students.length,
+      students,
+    };
+
+    try {
+      await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+        EX: 1800,
+      });
+    } catch (err) {
+      console.error("[Redis] getAllStudents cache write failed:", err.message || err);
+    }
+
+    res.json(responsePayload);
 
     res.json({
       message: "Students fetched successfully",
@@ -154,10 +183,18 @@ export const addStudent = async (req, res) => {
         .populate("department")
         .populate("group");
 
-      res.status(201).json({
+      const responsePayload = {
         message: "Student added successfully",
         student: populatedStudent,
-      });
+      };
+
+      try {
+        await redisClient.del("admin:students:all");
+      } catch (err) {
+        console.error("[Redis] addStudent cache clear failed:", err.message || err);
+      }
+
+      res.status(201).json(responsePayload);
     } catch (txnError) {
       await session.abortTransaction();
       session.endSession();
@@ -191,10 +228,18 @@ export const updateStudent = async (req, res) => {
       });
     }
 
-    res.json({
+    const responsePayload = {
       message: "Student updated successfully",
       student,
-    });
+    };
+
+    try {
+      await redisClient.del("admin:students:all");
+    } catch (err) {
+      console.error("[Redis] updateStudent cache clear failed:", err.message || err);
+    }
+
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -218,6 +263,12 @@ export const deleteStudent = async (req, res) => {
     /* Delete student and associated user */
     await Student.findByIdAndDelete(id);
     await User.findByIdAndDelete(student.user);
+
+    try {
+      await redisClient.del("admin:students:all");
+    } catch (err) {
+      console.error("[Redis] deleteStudent cache clear failed:", err.message || err);
+    }
 
     res.json({
       message: "Student deleted successfully",

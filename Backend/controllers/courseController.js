@@ -71,9 +71,9 @@ export const getAllCourses = async (req, res) => {
     };
 
     try {
-      // Cache for 5 minutes
+      // Cache for 30 minutes
       await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: 300,
+        EX: 1800,
       });
     } catch (err) {
       console.error("[Redis] getAllCourses cache write failed:", err.message || err);
