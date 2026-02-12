@@ -1,4 +1,5 @@
 .env*
 node_modules*
+rceadmin_rceerp
 !Backend/.env.example
 !Frontend/.env.example

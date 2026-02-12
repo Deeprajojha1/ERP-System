@@ -1,6 +1,7 @@
 import express from "express";
 import { facultyLogin, getFacultyProfile } from "../controllers/facultyAuthController.js";
 import { getFacultyProfileByCredentials } from "../controllers/profileController.js";
+import { applyFacultyLeave } from "../controllers/facultyLeaveController.js";
 import {
   markGroupAttendance,
   getGroupAttendancePage,
@@ -21,6 +22,9 @@ router.get("/me", isAuth, getFacultyProfile);
 
 // get faculty profile by email & password
 router.post("/profile", getFacultyProfileByCredentials);
+
+// Faculty Leave
+router.post("/leave", isFacultyOrAdmin, applyFacultyLeave);
 
 /* Attendance Routes (Faculty) */
 router.get("/attendance/:groupId", isFacultyOrAdmin, getGroupAttendancePage);
