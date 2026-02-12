@@ -26,7 +26,7 @@ const facultyLeaveSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["appeared", "pending", "reject"],
+      enum: ["approved", "pending", "rejected"],
       default: "pending",
       required: true,
     },

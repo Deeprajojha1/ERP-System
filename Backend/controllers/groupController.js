@@ -5,12 +5,24 @@ import Department from "../models/Department.js";
 import Faculty from "../models/Faculty.js";
 import Course from "../models/Course.js";
 import Student from "../models/Student.js";
-import redisClient from "../config/redisClient.js";
+import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
 /* ================= GET ALL GROUPS ================= */
 
 export const getAllGroups = async (req, res) => {
   try {
+    const cacheKey = "admin:groups:all";
+
+    try {
+      const cached = await redisClient.get(cacheKey);
+      if (cached) {
+        const cachedData = JSON.parse(cached);
+        return res.json(cachedData);
+      }
+    } catch (err) {
+      console.error("[Redis] getAllGroups cache read failed:", err.message || err);
+    }
+
     const groups = await Group.find()
       .populate("department")
       .populate({
@@ -30,11 +42,21 @@ export const getAllGroups = async (req, res) => {
         populate: { path: "user", select: "name email" },
       });
 
-    res.json({
+    const responsePayload = {
       message: "Groups fetched successfully",
       count: groups.length,
       groups,
-    });
+    };
+
+    try {
+      await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+        EX: DEFAULT_CACHE_TTL,
+      });
+    } catch (err) {
+      console.error("[Redis] getAllGroups cache write failed:", err.message || err);
+    }
+
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -116,7 +138,7 @@ export const getTimetableGroups = async (req, res) => {
 
     try {
       await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: 300,
+        EX: DEFAULT_CACHE_TTL,
       });
     } catch (err) {
       console.error("[Redis] getTimetableGroups cache write failed:", err.message || err);
@@ -288,7 +310,7 @@ export const getGroupTimetable = async (req, res) => {
 
     try {
       await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: 300,
+        EX: DEFAULT_CACHE_TTL,
       });
     } catch (err) {
       console.error("[Redis] getGroupTimetable cache write failed:", err.message || err);
@@ -455,6 +477,7 @@ export const addGroup = async (req, res) => {
 
     try {
       await redisClient.del("admin:timetable:groups");
+      await redisClient.del("admin:groups:all");
     } catch (err) {
       console.error("[Redis] addGroup cache clear failed:", err.message || err);
     }
@@ -585,6 +608,7 @@ export const updateGroup = async (req, res) => {
     try {
       await redisClient.del("admin:timetable:groups");
       await redisClient.del(`admin:timetable:group:${id}`);
+      await redisClient.del("admin:groups:all");
     } catch (err) {
       console.error("[Redis] updateGroup cache clear failed:", err.message || err);
     }
@@ -610,6 +634,7 @@ export const deleteGroup = async (req, res) => {
     try {
       await redisClient.del("admin:timetable:groups");
       await redisClient.del(`admin:timetable:group:${id}`);
+      await redisClient.del("admin:groups:all");
     } catch (err) {
       console.error("[Redis] deleteGroup cache clear failed:", err.message || err);
     }
