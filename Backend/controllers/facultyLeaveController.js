@@ -60,3 +60,31 @@ export const applyFacultyLeave = async (req, res) => {
     });
   }
 };
+
+// Admin: get all faculty leaves (without timestamps)
+export const getAllFacultyLeaves = async (req, res) => {
+  try {
+    const leaves = await FacultyLeave.find().populate("faculty");
+
+    const mapped = leaves.map((leave) => {
+      const obj = leave.toObject();
+      // Format dates as DD.MM.YYYY
+      obj.dateFrom = formatDDMMYYYY(leave.dateFrom);
+      obj.dateTo = formatDDMMYYYY(leave.dateTo);
+      // Remove timestamps
+      delete obj.createdAt;
+      delete obj.updatedAt;
+      return obj;
+    });
+
+    return res.json({
+      message: "Faculty leaves fetched successfully",
+      count: mapped.length,
+      leaves: mapped,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
