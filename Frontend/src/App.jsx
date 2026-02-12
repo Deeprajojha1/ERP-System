@@ -7,6 +7,7 @@ import Login from "./components/UserLogin/Login";
 import Dashboard from "./components/pages/Dashboard";
 import AttendancePage from "./components/faculty/AttendancePage";
 import FacultyDashboard from "./components/faculty/FacultyDashboard";
+import FacultyLeaves from "./components/faculty/FacultyLeaves";
 import Header from "./components/faculty/Header";
 import AdminHome from "./Admin/AdminHome";
 import useGetCurrentUser from "./components/customHooks/getCurrentUser";
@@ -106,6 +107,10 @@ function App() {
                       element={
                         <AttendancePage />
                       }
+                    />
+                    <Route
+                      path="leaves"
+                      element={<FacultyLeaves />}
                     />
                   </Routes>
                 </main>

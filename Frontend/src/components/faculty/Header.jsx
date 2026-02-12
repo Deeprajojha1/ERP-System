@@ -12,10 +12,6 @@ function Header() {
   const navigate = useNavigate();
   const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
-  const user = userData?.user;
-  const roleDetails = userData?.roleDetails;
-  const name = user?.name || "Faculty";
-  const designation = roleDetails?.designation || "Faculty";
 
   const handleLogout = async () => {
     try {
@@ -49,10 +45,6 @@ function Header() {
         </div>
       </div>
       <div className="header-meta">
-        <div className="chip">Spring 2026</div>
-        <div className="chip muted">
-          {name} - {designation}
-        </div>
         <button className="chip logout-chip" onClick={handleLogout}>
           Logout
         </button>

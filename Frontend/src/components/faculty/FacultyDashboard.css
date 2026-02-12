@@ -32,6 +32,31 @@
   color: var(--ink);
 }
 
+.leaves-nav-btn {
+  position: fixed;
+  right: 16px;
+  bottom: 24px;
+  z-index: 45;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(2, 132, 199, 0.3);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.leaves-nav-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(14, 165, 233, 0.2),
+    0 10px 24px rgba(2, 132, 199, 0.3);
+}
+
 /* =====================================
    PANEL BASE
 ===================================== */
@@ -160,7 +185,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: flex-end;
 }
 
@@ -174,6 +199,7 @@
 
 .chip {
   padding: 6px 14px;
+  min-height: 40px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
@@ -181,6 +207,9 @@
   background: rgba(14, 165, 233, 0.12);
   color: var(--accent-strong);
   border: 1px solid rgba(14, 165, 233, 0.25);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .chip.accent {
@@ -214,9 +243,11 @@
 .request-open-btn {
   border: none;
   padding: 8px 14px;
+  min-height: 40px;
   border-radius: 10px;
   font-weight: 700;
   font-size: 12px;
+  white-space: nowrap;
   color: #ffffff;
   background: linear-gradient(135deg, var(--accent-warm), #ea580c);
   cursor: pointer;
@@ -421,6 +452,12 @@
 ===================================== */
 
 @media (max-width: 640px) {
+  .leaves-nav-btn {
+    bottom: 16px;
+    right: 16px;
+    border-radius: 12px;
+  }
+
   .grid {
     padding: 16px;
     gap: 16px;
@@ -445,7 +482,12 @@
   .panel-title {
     flex-direction: column;
     align-items: flex-start;
-    gap: 6px;
+    gap: 10px;
+  }
+
+  .course-actions {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .panel-title h2 {

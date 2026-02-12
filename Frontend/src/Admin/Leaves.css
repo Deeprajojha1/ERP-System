@@ -148,6 +148,15 @@
   color: #0f172a;
 }
 
+.leaves-row-clickable {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.leaves-row-clickable:hover {
+  background: #f8fbff;
+}
+
 .leaves-name {
   font-weight: 600;
 }

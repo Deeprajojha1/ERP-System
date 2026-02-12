@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { FiFileText } from "react-icons/fi";
 import toast from "react-hot-toast";
 import CourseCard from "./CourseCard";
 import InfoRow from "./InfoRow";
 import "./FacultyDashboard.css";
 
 function FacultyDashboard() {
+  const navigate = useNavigate();
   const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
   const user = userData?.user;
@@ -78,7 +81,20 @@ function FacultyDashboard() {
     (sum, course) => sum + (Number(course.enrolled) || 0),
     0
   );
+  const leaveTypeMap = {
+    "Casual Leave": "casual",
+    "Sick Leave": "sick",
+    "Annual Leave": "annual",
+    "Special Leave": "special",
+    Other: "other",
+  };
 
+  const toDDMMYYYY = (isoDate) => {
+    if (!isoDate) return "";
+    const [year, month, day] = isoDate.split("-");
+    if (!year || !month || !day) return "";
+    return `${day}.${month}.${year}`;
+  };
   const handleRequestChange = (event) => {
     const { name, value } = event.target;
     setRequestForm((prev) => ({
@@ -86,21 +102,51 @@ function FacultyDashboard() {
       [name]: value,
     }));
   };
-
-  const handleRequestSubmit = async (event) => {
+  const handleRequestSubmit = async (event) => {
     event.preventDefault();
     setRequestStatus(null);
     try {
       setRequestSubmitting(true);
-      await axios.post(
-        `${apiBase}/admin/faculty`,
-        requestForm,
+      const facultyId = roleDetails?._id;
+      const reason = requestForm.reason.trim();
+      const dateFrom = toDDMMYYYY(requestForm.fromDate);
+      const dateTo = toDDMMYYYY(requestForm.toDate);
+      const type = leaveTypeMap[requestForm.leaveType] || "other";
+
+      if (!facultyId) {
+        throw new Error("Faculty profile not found.");
+      }
+      if (!dateFrom || !dateTo || !reason) {
+        throw new Error("Please fill leave type, date range, and reason.");
+      }
+      if (
+        new Date(requestForm.toDate).getTime() <
+        new Date(requestForm.fromDate).getTime()
+      ) {
+        throw new Error("To Date must be after From Date.");
+      }
+
+      const res = await axios.post(
+        `${apiBase}/faculty/leave`,
+        {
+          faculty: facultyId,
+          dateFrom,
+          dateTo,
+          type,
+          status: "pending",
+          reason,
+        },
         { withCredentials: true }
       );
-      toast.success("✅ Leave request submitted");
+
+      toast.success(res.data?.message || "applied for leave succesfully", {
+        icon: "\u2705",
+      });
       setRequestStatus({
         type: "success",
-        message: "Leave request submitted.",
+        message:
+          res.data?.message ||
+          "applied for leave succesfully",
       });
       setRequestForm((prev) => ({
         ...prev,
@@ -109,16 +155,23 @@ function FacultyDashboard() {
         toDate: "",
         reason: "",
       }));
+      setIsRequestOpen(false);
     } catch (error) {
       console.error(
         "Faculty request failed:",
         error.response?.data || error.message
       );
-      toast.error(`❌ ${error.response?.data?.message || "Unable to submit request."}`);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Unable to submit request.",
+        { icon: "\u274C" }
+      );
       setRequestStatus({
         type: "error",
         message:
           error.response?.data?.message ||
+          error.message ||
           "Unable to submit request.",
       });
     } finally {
@@ -128,6 +181,15 @@ function FacultyDashboard() {
 
   return (
     <section className="grid faculty-split">
+      <button
+        type="button"
+        className="leaves-nav-btn"
+        onClick={() => navigate("/faculty/leaves")}
+      >
+        <FiFileText />
+        Leaves
+      </button>
+
       <article className="panel profile">
         <div className="profile-header">
           <div className="avatar">{name.charAt(0)}</div>
@@ -277,3 +339,7 @@ function FacultyDashboard() {
 }
 
 export default FacultyDashboard
+
+
+
+

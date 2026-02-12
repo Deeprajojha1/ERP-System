@@ -1,4 +1,5 @@
 import FacultyLeave from "../models/FacultyLeave.js";
+import Faculty from "../models/Faculty.js";
 
 // Parse a date string in format DD.MM.YYYY to a JS Date
 const parseDDMMYYYY = (value) => {
@@ -61,19 +62,30 @@ export const applyFacultyLeave = async (req, res) => {
   }
 };
 
-// Admin: get all faculty leaves (without timestamps)
-export const getAllFacultyLeaves = async (req, res) => {
+// Faculty/Admin: get leaves (faculty gets own leaves)
+export const getFacultyLeaves = async (req, res) => {
   try {
-    const leaves = await FacultyLeave.find().populate("faculty");
+    let facultyId = req.query.faculty || null;
+
+    if (req.role === "faculty") {
+      const facultyDoc = await Faculty.findOne({ user: req.userId });
+      if (!facultyDoc) {
+        return res.status(404).json({
+          message: "Faculty profile not found",
+        });
+      }
+      facultyId = facultyDoc._id;
+    }
+
+    const filter = facultyId ? { faculty: facultyId } : {};
+    const leaves = await FacultyLeave.find(filter)
+      .sort({ createdAt: -1 })
+      .populate("faculty");
 
     const mapped = leaves.map((leave) => {
       const obj = leave.toObject();
-      // Format dates as DD.MM.YYYY
       obj.dateFrom = formatDDMMYYYY(leave.dateFrom);
       obj.dateTo = formatDDMMYYYY(leave.dateTo);
-      // Remove timestamps
-      delete obj.createdAt;
-      delete obj.updatedAt;
       return obj;
     });
 
@@ -81,6 +93,86 @@ export const getAllFacultyLeaves = async (req, res) => {
       message: "Faculty leaves fetched successfully",
       count: mapped.length,
       leaves: mapped,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+// Admin: get all faculty leaves (without timestamps)
+export const getAllFacultyLeaves = async (req, res) => {
+  try {
+    const leaves = await FacultyLeave.find()
+      .sort({ createdAt: -1 })
+      .populate({
+        path: "faculty",
+        populate: [
+          { path: "user", select: "name email status" },
+          { path: "department", select: "name" },
+        ],
+      });
+
+    const mapped = leaves.map((leave) => {
+      const obj = leave.toObject();
+      // Format dates as DD.MM.YYYY
+      obj.dateFrom = formatDDMMYYYY(leave.dateFrom);
+      obj.dateTo = formatDDMMYYYY(leave.dateTo);
+      return obj;
+    });
+
+    return res.json({
+      message: "Faculty leaves fetched successfully",
+      count: mapped.length,
+      leaves: mapped,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+// Admin: update faculty leave status
+export const updateFacultyLeaveStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowed = ["appeared", "pending", "reject"];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({
+        message: "Invalid status. Use appeared, pending, or reject.",
+      });
+    }
+
+    const leave = await FacultyLeave.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    )
+      .populate({
+        path: "faculty",
+        populate: [
+          { path: "user", select: "name email status" },
+          { path: "department", select: "name" },
+        ],
+      });
+
+    if (!leave) {
+      return res.status(404).json({
+        message: "Leave request not found",
+      });
+    }
+
+    const leaveObj = leave.toObject();
+    leaveObj.dateFrom = formatDDMMYYYY(leave.dateFrom);
+    leaveObj.dateTo = formatDDMMYYYY(leave.dateTo);
+
+    return res.json({
+      message: "Leave status updated successfully",
+      leave: leaveObj,
     });
   } catch (error) {
     return res.status(500).json({
