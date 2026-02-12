@@ -15,10 +15,12 @@ import { GiKoholintEgg } from "react-icons/gi";
 import { LuBadgeIndianRupee } from "react-icons/lu";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import axios from "axios";
+import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { clearUserData } from "../redux/userSlice";
 import { clearStudents } from "../redux/studentSlice";
 import { clearFaculty } from "../redux/facultySlice";
+import { clearDepartments } from "../redux/departmentSlice";
 import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
@@ -40,15 +42,18 @@ const AdminLayout = () => {
         {},
         { withCredentials: true }
       );
+      toast.success("Logged out successfully");
     } catch (error) {
       console.error(
         "Logout failed:",
         error.response?.data || error.message
       );
+      toast.error(`${error.response?.data?.message || "Logout failed"}`);
     } finally {
       dispatch(clearUserData());
       dispatch(clearStudents());
       dispatch(clearFaculty());
+      dispatch(clearDepartments());
       navigate("/login", { replace: true });
     }
   };
@@ -63,7 +68,7 @@ const AdminLayout = () => {
               className="college-logo"
               src={collegeLogo}
               alt="college-logo"
-            />
+             onClick={()=>{navigate('/admin/dashboard')}}/>
             Admin Dashboard
           </h1>
           <span className="admin-university">Haridwar University</span>

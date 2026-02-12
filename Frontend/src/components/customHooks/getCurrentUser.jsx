@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
 import { setUserData, clearUserData } from "../../redux/userSlice";
 import { clearStudents } from "../../redux/studentSlice";
 import { clearFaculty } from "../../redux/facultySlice";
@@ -21,6 +22,12 @@ const useGetCurrentUser = () => {
 
             } catch (error) {
                 console.log("Get Current User Error:", error.response?.data || error.message);
+                const status = error.response?.status;
+                if (status !== 401 && status !== 403) {
+                    toast.error(error.response?.data?.message || "Failed to fetch current user", {
+                        icon: "\u274C",
+                    });
+                }
                 // Clear all cached data if token is invalid/expired
                 dispatch(clearUserData());
                 dispatch(clearStudents());

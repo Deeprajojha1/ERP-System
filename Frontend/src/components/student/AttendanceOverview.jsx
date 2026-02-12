@@ -1,3 +1,4 @@
+import toast from "react-hot-toast";
 /**
  * AttendanceOverview.jsx - Attendance Summary Component
  * 
@@ -8,6 +9,7 @@
 
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { FiDownload } from 'react-icons/fi';
 import './AttendanceOverview.css';
 
 const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) => {
@@ -85,7 +87,9 @@ const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) 
       
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Error generating PDF. Please try again.');
+      toast.error('Error generating PDF. Please try again.', {
+        icon: '\u274C',
+      });
     }
   };
 
@@ -95,7 +99,7 @@ const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) 
         <div className="attendance-header">
           <h3>Overall Attendance</h3>
           <button className="download-btn" onClick={exportToPDF} title="Download Attendance Report">
-            <span className="download-icon">📥</span>
+            <FiDownload className="download-icon" />
           </button>
         </div>
         

@@ -43,6 +43,7 @@
 .download-icon {
   font-size: 18px;
   display: block;
+  color: #ffffff;
 }
 
 .attendance-circle {
@@ -137,3 +138,4 @@
     align-self: center;
   }
 }
+

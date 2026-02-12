@@ -1,16 +1,18 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
 import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiUsers } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Groups.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import toast from "react-hot-toast";
 
 const Groups = () => {
   const [search, setSearch] = useState("");
   const [activeDept, setActiveDept] = useState("All Departments");
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState("success");
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
   const [groups, setGroups] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [faculty, setFaculty] = useState([]);
@@ -48,7 +50,7 @@ const Groups = () => {
 
   const fetchAll = async () => {
     try {
-      setLoadState("pending");
+      setLoadState(ADMIN_LOAD_STATES.PENDING);
       const [groupRes, deptRes, facRes] = await Promise.all([
         axios.get(`${apiBase}/admin/group`, { withCredentials: true }),
         axios.get(`${apiBase}/admin/department`, { withCredentials: true }),
@@ -57,13 +59,14 @@ const Groups = () => {
       setGroups(groupRes.data?.groups || []);
       setDepartments(deptRes.data?.departments || []);
       setFaculty(facRes.data?.faculty || []);
-      setLoadState("success");
+      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       console.error(
         "Fetch groups failed:",
         error.response?.data || error.message
       );
-      setLoadState("failure");
+      toast.error(`❌ ${error.response?.data?.message || "Failed to load groups"}`);
+      setLoadState(ADMIN_LOAD_STATES.FAILURE);
     }
   };
 
@@ -116,13 +119,14 @@ const Groups = () => {
       await axios.delete(`${apiBase}/admin/group/${group._id}`, {
         withCredentials: true,
       });
+      toast.success("✅ Group deleted successfully");
       fetchAll();
     } catch (error) {
       console.error(
         "Delete group failed:",
         error.response?.data || error.message
       );
-      alert(error.response?.data?.message || "Failed to delete group");
+      toast.error(`❌ ${error.response?.data?.message || "Failed to delete group"}`);
     }
   };
 
@@ -135,10 +139,12 @@ const Groups = () => {
           formData,
           { withCredentials: true }
         );
+        toast.success("✅ Group updated successfully");
       } else {
         await axios.post(`${apiBase}/admin/group`, formData, {
           withCredentials: true,
         });
+        toast.success("✅ Group added successfully");
       }
       setIsOpen(false);
       setEditTarget(null);
@@ -148,12 +154,12 @@ const Groups = () => {
         "Save group failed:",
         error.response?.data || error.message
       );
-      alert(error.response?.data?.message || "Failed to save group");
+      toast.error(`❌ ${error.response?.data?.message || "Failed to save group"}`);
     }
   };
 
   const renderState = () => {
-    if (loadState === "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="groups-state pending">
           <Oval
@@ -170,7 +176,7 @@ const Groups = () => {
         </div>
       );
     }
-    if (loadState === "failure") {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="groups-state error">
           <img src={emptyStateImg} alt="Failed" className="groups-state-img" />
@@ -394,3 +400,5 @@ const Groups = () => {
 };
 
 export default Groups;
+
+

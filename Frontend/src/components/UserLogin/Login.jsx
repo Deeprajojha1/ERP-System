@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { IoMdEyeOff } from "react-icons/io";
 import { IoEyeOutline } from "react-icons/io5";
@@ -7,6 +7,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../../redux/userSlice";
 import collegeLogo from "../../assets/college_47233.jpg";
 import "./Login.css";
+import toast from "react-hot-toast";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -47,9 +48,11 @@ const Login = () => {
         }
       );
 
-      console.log("Login Success →", res.data);
+      console.log("Login Success â†’", res.data);
       dispatch(setUserData(res.data));
-      alert(res.data.message || "Login Successful ✅");
+      toast.success(res.data.message || "Login successful", {
+        icon: "✅",
+      });
       setFormData({
         email: "",
         password: "",
@@ -67,9 +70,12 @@ const Login = () => {
     } catch (error) {
       console.error(error);
 
-      alert(
+      toast.error(
         error.response?.data?.message ||
-          "Login Failed ❌"
+          "Login failed",
+        {
+          icon: "❌",
+        }
       );
     } finally {
       setLoading(false);
@@ -166,3 +172,4 @@ const Login = () => {
 };
 
 export default Login;
+

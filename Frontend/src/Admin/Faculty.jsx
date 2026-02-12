@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
 import {
   setFaculty,
   setFacultyError,
@@ -10,6 +11,7 @@ import emptyStateImg from "../assets/empty-state.svg";
 import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import "./Faculty.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 
 const Faculty = () => {
   const [search, setSearch] = useState("");
@@ -19,7 +21,7 @@ const Faculty = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
   const dispatch = useDispatch();
-  const { faculty, loading, error } = useSelector(
+  const { faculty } = useSelector(
     (state) => state.faculty
   );
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -37,6 +39,7 @@ const Faculty = () => {
     joiningDate: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
   const cardGradients = [
     "linear-gradient(145deg, #dbeafe 0%, #f8fbff 45%, #ffffff 100%)",
     "linear-gradient(145deg, #dcfce7 0%, #f2fff7 45%, #ffffff 100%)",
@@ -78,6 +81,7 @@ const Faculty = () => {
 
   const fetchAll = async () => {
     try {
+      setLoadState(ADMIN_LOAD_STATES.PENDING);
       dispatch(setFacultyLoading(true));
       const [facRes, deptRes] = await Promise.all([
         axios.get(`${apiBase}/admin/faculty`, {
@@ -89,17 +93,20 @@ const Faculty = () => {
       ]);
       dispatch(setFaculty(facRes.data?.faculty || []));
       setDepartments(deptRes.data?.departments || []);
+      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       console.error(
         "Fetch faculty failed:",
         error.response?.data || error.message
       );
+      toast.error(`? ${error.response?.data?.message || "Failed to load faculty"}`);
       dispatch(
         setFacultyError(
           error.response?.data?.message ||
             "Failed to load faculty"
         )
       );
+      setLoadState(ADMIN_LOAD_STATES.FAILURE);
     } finally {
       dispatch(setFacultyLoading(false));
     }
@@ -108,6 +115,13 @@ const Faculty = () => {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const syncFacultySilently = async () => {
+    const facRes = await axios.get(`${apiBase}/admin/faculty`, {
+      withCredentials: true,
+    });
+    dispatch(setFaculty(facRes.data?.faculty || []));
+  };
 
   const statuses = ["All Status", "Active", "Inactive", "On Leave"];
 
@@ -167,15 +181,17 @@ const Faculty = () => {
         `${apiBase}/admin/faculty/${facultyMember._id}`,
         { withCredentials: true }
       );
-      await fetchAll();
+      dispatch(
+        setFaculty(faculty.filter((item) => item._id !== facultyMember._id))
+      );
+      toast.success("Faculty deleted successfully", { icon: "\u2705" });
     } catch (error) {
       console.error(
         "Delete faculty failed:",
         error.response?.data || error.message
       );
-      alert(
-        error.response?.data?.message ||
-          "Failed to delete faculty"
+      toast.error(
+        `? ${error.response?.data?.message || "Failed to delete faculty"}`
       );
     }
   };
@@ -209,20 +225,46 @@ const Faculty = () => {
       const payload = buildPayload();
 
       if (editTarget?._id) {
-        await axios.put(
+        const res = await axios.put(
           `${apiBase}/admin/faculty/${editTarget._id}`,
           payload,
           { withCredentials: true }
         );
+        const updatedFaculty =
+          res.data?.faculty ||
+          res.data?.updatedFaculty ||
+          res.data?.data ||
+          null;
+        if (updatedFaculty?._id) {
+          dispatch(
+            setFaculty(
+              faculty.map((item) =>
+                item._id === updatedFaculty._id ? updatedFaculty : item
+              )
+            )
+          );
+        } else {
+          await syncFacultySilently();
+        }
+        toast.success("Faculty updated successfully", { icon: "\u2705" });
       } else {
-        await axios.post(
+        const res = await axios.post(
           `${apiBase}/admin/faculty`,
           payload,
           { withCredentials: true }
         );
+        const createdFaculty =
+          res.data?.faculty ||
+          res.data?.newFaculty ||
+          res.data?.data ||
+          null;
+        if (createdFaculty?._id) {
+          dispatch(setFaculty([createdFaculty, ...faculty]));
+        } else {
+          await syncFacultySilently();
+        }
+        toast.success("Faculty added successfully", { icon: "\u2705" });
       }
-
-      await fetchAll();
 
       setIsOpen(false);
       setEditTarget(null);
@@ -232,10 +274,9 @@ const Faculty = () => {
         "Add faculty failed:",
         error.response?.data || error.message
       );
-      alert(
-        error.response?.data?.message ||
-          "Failed to add faculty"
-      );
+      toast.error(error.response?.data?.message || "Failed to add faculty", {
+        icon: "\u274C",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -261,7 +302,7 @@ const Faculty = () => {
 
 
   const renderState = () => {
-    if (loading) {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="faculty-state pending">
           <Oval
@@ -278,7 +319,7 @@ const Faculty = () => {
         </div>
       );
     }
-    if (error) {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="faculty-state error">
           <img
@@ -617,3 +658,4 @@ const Faculty = () => {
 };
 
 export default Faculty;
+

@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+﻿import React, { useState } from "react";
 import { useSelector } from "react-redux";
 import { Oval } from "react-loader-spinner";
 import "./AdminHome.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import emptyStateImg from "../assets/empty-state.svg";
 
 import {
@@ -19,7 +20,7 @@ import {
 } from "recharts";
 
 const AdminHome = () => {
-  const [loadState] = useState("success");
+  const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
 
   const userData = useSelector((state) => state.user.userData);
 
@@ -44,7 +45,7 @@ const AdminHome = () => {
       if (words.length > 2) {
         return `${words[0]} ${words[1]}`;
       }
-      return `${name.slice(0, 16)}…`;
+      return `${name.slice(0, 16)}â€¦`;
     }
 
     return name;
@@ -88,7 +89,7 @@ const AdminHome = () => {
 
   const renderState = () => {
     switch (loadState) {
-      case "pending":
+      case ADMIN_LOAD_STATES.PENDING:
         return (
           <div className="admin-state">
             <Oval
@@ -104,7 +105,7 @@ const AdminHome = () => {
             <p className="admin-state-text">Loading dashboard data...</p>
           </div>
         );
-      case "failure":
+      case ADMIN_LOAD_STATES.FAILURE:
         return (
           <div className="admin-state error">
             <img
@@ -161,7 +162,7 @@ const AdminHome = () => {
             </div>
 
             <div className="admin-card">
-              <h1 className="admin-card-title">Faculty Distribution</h1>
+              <h1 className="heading">Faculty Distribution</h1>
               <div className="admin-chart">
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart
@@ -194,10 +195,10 @@ const AdminHome = () => {
             </div>
 
             <div className="admin-card">
-              <h1 className="admin-card-title">Status Overview</h1>
+              <h1 className="heading">Status Overview</h1>
               <div className="admin-chart-grid">
                 <div className="admin-chart-card">
-                  <h2 className="admin-chart-title">Faculty Status</h2>
+                  <h2 className="admin-chart-title1">Faculty Status</h2>
                   <div className="admin-chart">
                     <ResponsiveContainer width="100%" height={260}>
                       <PieChart>
@@ -224,7 +225,7 @@ const AdminHome = () => {
                 </div>
 
                 <div className="admin-chart-card">
-                  <h2 className="admin-chart-title">Student Status</h2>
+                  <h2 className="admin-chart-title1">Student Status</h2>
                   <div className="admin-chart">
                     <ResponsiveContainer width="100%" height={260}>
                       <PieChart>
@@ -264,3 +265,4 @@ const AdminHome = () => {
 };
 
 export default AdminHome;
+

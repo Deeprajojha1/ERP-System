@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import jsPDF from "jspdf";
@@ -16,6 +16,8 @@ import {
 } from "react-icons/fi";
 import { MdOutlineSchedule } from "react-icons/md";
 import "./Timetable.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import toast from "react-hot-toast";
 
 const DAY_LABEL_TO_KEY = {
   Mon: "monday",
@@ -30,7 +32,7 @@ const Timetable = () => {
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState("Group");
   const [selectedGroupCode, setSelectedGroupCode] = useState("");
-  const [loadState, setLoadState] = useState("pending");
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
@@ -108,7 +110,7 @@ const Timetable = () => {
     if (!apiBase) return;
     const fetchGroups = async () => {
       try {
-        setLoadState("pending");
+        setLoadState(ADMIN_LOAD_STATES.PENDING);
         const res = await axios.get(`${apiBase}/admin/timetable/group`, {
           withCredentials: true,
         });
@@ -117,11 +119,12 @@ const Timetable = () => {
         if (cards.length > 0 && !selectedGroupCode) {
           setSelectedGroupCode(cards[0].groupCode);
         } else {
-          setLoadState("success");
+          setLoadState(ADMIN_LOAD_STATES.SUCCESS);
         }
       } catch (err) {
         console.error("Fetch timetable groups failed", err.response?.data || err.message);
-        setLoadState("failure");
+        setLoadState(ADMIN_LOAD_STATES.FAILURE);
+        toast.error(`❌ ${err.response?.data?.message || "Failed to load timetable groups"}`);
       }
     };
     fetchGroups();
@@ -134,7 +137,7 @@ const Timetable = () => {
     if (!current) return;
     const fetchTimetable = async () => {
       try {
-        setLoadState("pending");
+        setLoadState(ADMIN_LOAD_STATES.PENDING);
         const res = await axios.get(
           `${apiBase}/admin/timetable/group/${current.id}`,
           { withCredentials: true }
@@ -145,10 +148,11 @@ const Timetable = () => {
         setSchedule(buildScheduleFromBackend(timetable));
         setGroupCourses(courses);
         setDeptFaculty(departmentFaculty);
-        setLoadState("success");
+        setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (err) {
         console.error("Fetch group timetable failed", err.response?.data || err.message);
-        setLoadState("failure");
+        setLoadState(ADMIN_LOAD_STATES.FAILURE);
+        toast.error(`❌ ${err.response?.data?.message || "Failed to load group timetable"}`);
       }
     };
     fetchTimetable();
@@ -267,7 +271,7 @@ const Timetable = () => {
   };
 
   const renderState = () => {
-    if (loadState === "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="tt-state pending">
           <Oval
@@ -284,7 +288,7 @@ const Timetable = () => {
         </div>
       );
     }
-    if (loadState === "failure") {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="tt-state error">
           <img src={emptyStateImg} alt="Failed" className="tt-state-img" />
@@ -608,3 +612,4 @@ const Timetable = () => {
 };
 
 export default Timetable;
+

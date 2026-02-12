@@ -3,6 +3,7 @@ import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
 import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
+import toast from "react-hot-toast";
 import {
   setStudents,
   setStudentsError,
@@ -10,6 +11,7 @@ import {
 } from "../redux/studentSlice";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Student.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 
 const Student = () => {
   const [search, setSearch] = useState("");
@@ -19,7 +21,7 @@ const Student = () => {
   const [departments, setDepartments] = useState([]);
   const [groups, setGroups] = useState([]);
   const dispatch = useDispatch();
-  const { students, loading, error } = useSelector(
+  const { students } = useSelector(
     (state) => state.student
   );
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -41,10 +43,12 @@ const Student = () => {
     group: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
+        setLoadState(ADMIN_LOAD_STATES.PENDING);
         dispatch(setStudentsLoading(true));
         const [studentRes, deptRes, groupRes] = await Promise.all([
           axios.get(`${apiBase}/admin/student`, {
@@ -60,17 +64,20 @@ const Student = () => {
         dispatch(setStudents(studentRes.data?.students || []));
         setDepartments(deptRes.data?.departments || []);
         setGroups(groupRes.data?.groups || []);
+        setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (error) {
         console.error(
           "Fetch data failed:",
           error.response?.data || error.message
         );
+        toast.error(`? ${error.response?.data?.message || "Failed to load students"}`);
         dispatch(
           setStudentsError(
             error.response?.data?.message ||
               "Failed to load students"
           )
         );
+        setLoadState(ADMIN_LOAD_STATES.FAILURE);
       } finally {
         dispatch(setStudentsLoading(false));
       }
@@ -78,6 +85,13 @@ const Student = () => {
 
     fetchAll();
   }, []);
+
+  const syncStudentsSilently = async () => {
+    const res = await axios.get(`${apiBase}/admin/student`, {
+      withCredentials: true,
+    });
+    dispatch(setStudents(res.data?.students || []));
+  };
 
   const filtered = useMemo(() => {
     return students.filter((s) => {
@@ -175,19 +189,17 @@ const Student = () => {
         `${apiBase}/admin/student/${student._id}`,
         { withCredentials: true }
       );
-      const res = await axios.get(
-        `${apiBase}/admin/student`,
-        { withCredentials: true }
+      dispatch(
+        setStudents(students.filter((item) => item._id !== student._id))
       );
-      dispatch(setStudents(res.data?.students || []));
+      toast.success("Student deleted successfully", { icon: "\u2705" });
     } catch (error) {
       console.error(
         "Delete student failed:",
         error.response?.data || error.message
       );
-      alert(
-        error.response?.data?.message ||
-          "Failed to delete student"
+      toast.error(
+        `? ${error.response?.data?.message || "Failed to delete student"}`
       );
     }
   };
@@ -227,24 +239,46 @@ const Student = () => {
       const payload = buildPayload();
 
       if (editTarget?._id) {
-        await axios.put(
+        const res = await axios.put(
           `${apiBase}/admin/student/${editTarget._id}`,
           payload,
           { withCredentials: true }
         );
+        const updatedStudent =
+          res.data?.student ||
+          res.data?.updatedStudent ||
+          res.data?.data ||
+          null;
+        if (updatedStudent?._id) {
+          dispatch(
+            setStudents(
+              students.map((item) =>
+                item._id === updatedStudent._id ? updatedStudent : item
+              )
+            )
+          );
+        } else {
+          await syncStudentsSilently();
+        }
+        toast.success("Student updated successfully", { icon: "\u2705" });
       } else {
-        await axios.post(
+        const res = await axios.post(
           `${apiBase}/admin/student`,
           payload,
           { withCredentials: true }
         );
+        const createdStudent =
+          res.data?.student ||
+          res.data?.newStudent ||
+          res.data?.data ||
+          null;
+        if (createdStudent?._id) {
+          dispatch(setStudents([createdStudent, ...students]));
+        } else {
+          await syncStudentsSilently();
+        }
+        toast.success("Student added successfully", { icon: "\u2705" });
       }
-
-      const res = await axios.get(
-        `${apiBase}/admin/student`,
-        { withCredentials: true }
-      );
-      dispatch(setStudents(res.data?.students || []));
 
       setIsOpen(false);
       setEditTarget(null);
@@ -270,10 +304,9 @@ const Student = () => {
         "Add student failed:",
         error.response?.data || error.message
       );
-      alert(
-        error.response?.data?.message ||
-          "Failed to add student"
-      );
+      toast.error(error.response?.data?.message || "Failed to add student", {
+        icon: "\u274C",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -281,7 +314,7 @@ const Student = () => {
 
 
   const renderState = () => {
-    if (loading) {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="student-state pending">
           <Oval
@@ -298,7 +331,7 @@ const Student = () => {
         </div>
       );
     }
-    if (error) {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="student-state error">
           <img

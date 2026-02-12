@@ -193,3 +193,6 @@
     width: 100%;
   }
 }
+.college-logo{
+  cursor: pointer;
+}

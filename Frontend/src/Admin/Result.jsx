@@ -1,13 +1,14 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { FiCheckCircle, FiSearch, FiXCircle } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Result.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 
 const Result = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
-  const [loadState] = useState("success");
+  const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
 
   const results = [
     {
@@ -73,7 +74,7 @@ const Result = () => {
   }, [results, search, status]);
 
   const renderState = () => {
-    if (loadState === "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="result-state pending">
           <Oval
@@ -91,7 +92,7 @@ const Result = () => {
       );
     }
 
-    if (loadState === "failure") {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="result-state error">
           <img src={emptyStateImg} alt="Failed" className="result-state-img" />
@@ -175,3 +176,4 @@ const Result = () => {
 };
 
 export default Result;
+

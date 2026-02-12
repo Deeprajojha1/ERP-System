@@ -1,16 +1,18 @@
-import React, { useEffect, useMemo, useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import axios from "axios";
 import "./Courses.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { Oval } from "react-loader-spinner";
 import { FiSearch } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
+import toast from "react-hot-toast";
 
 const Courses = () => {
   const [search, setSearch] = useState("");
   const [activeBranch, setActiveBranch] = useState("All Branches");
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState("pending");
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [courses, setCourses] = useState([]);
 
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -40,15 +42,16 @@ const Courses = () => {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        setLoadState("pending");
+        setLoadState(ADMIN_LOAD_STATES.PENDING);
         const res = await axios.get(`${apiBase}/admin/course`, {
           withCredentials: true,
         });
         setCourses(res.data?.courses || []);
-        setLoadState("success");
+        setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (error) {
         console.error("Failed to load courses", error.response?.data || error.message);
-        setLoadState("failure");
+        setLoadState(ADMIN_LOAD_STATES.FAILURE);
+        toast.error(`❌ ${error.response?.data?.message || "Failed to load courses"}`);
       }
     };
 
@@ -77,7 +80,7 @@ const Courses = () => {
 
 
   const renderState = () => {
-    if (loadState == "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="courses-state pending">
           <Oval
@@ -94,7 +97,7 @@ const Courses = () => {
         </div>
       );
     }
-    if (loadState == "failure") {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="courses-state error">
           <img src={emptyStateImg} alt="Failed" className="courses-state-img" />
@@ -252,3 +255,4 @@ const Courses = () => {
 };
 
 export default Courses;
+

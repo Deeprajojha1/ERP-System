@@ -1,19 +1,27 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Department.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import toast from "react-hot-toast";
+import {
+  setDepartments,
+  setDepartmentsError,
+  setDepartmentsLoading,
+} from "../redux/departmentSlice";
 
 const Department = () => {
-  const [departments, setDepartments] = useState([]);
   const [faculty, setFaculty] = useState([]);
+  const dispatch = useDispatch();
+  const { departments } = useSelector((state) => state.department);
   const apiBase = useSelector((state) => state.config.apiBase);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [loadState, setLoadState] = useState("success");
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
   const [isOpen, setIsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [formData, setFormData] = useState({
@@ -49,8 +57,9 @@ const Department = () => {
   const fetchAll = async () => {
     try {
       setLoading(true);
-      setLoadState("pending");
+      setLoadState(ADMIN_LOAD_STATES.PENDING);
       setError("");
+      dispatch(setDepartmentsLoading(true));
       const [deptRes, facRes] = await Promise.all([
         axios.get(`${apiBase}/admin/department`, {
           withCredentials: true,
@@ -59,20 +68,27 @@ const Department = () => {
           withCredentials: true,
         }),
       ]);
-      setDepartments(deptRes.data?.departments || []);
+      dispatch(setDepartments(deptRes.data?.departments || []));
       setFaculty(facRes.data?.faculty || []);
-      setLoadState("success");
+      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (err) {
       console.error(
         "Fetch departments failed:",
         err.response?.data || err.message
       );
+      toast.error(`? ${err.response?.data?.message || "Failed to load departments"}`);
       setError(
         err.response?.data?.message ||
           "Failed to load departments"
       );
-      setLoadState("failure");
+      dispatch(
+        setDepartmentsError(
+          err.response?.data?.message || "Failed to load departments"
+        )
+      );
+      setLoadState(ADMIN_LOAD_STATES.FAILURE);
     } finally {
+      dispatch(setDepartmentsLoading(false));
       setLoading(false);
     }
   };
@@ -80,6 +96,13 @@ const Department = () => {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const refreshDepartments = async () => {
+    const deptRes = await axios.get(`${apiBase}/admin/department`, {
+      withCredentials: true,
+    });
+    dispatch(setDepartments(deptRes.data?.departments || []));
+  };
 
   const filteredDepartments = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -177,12 +200,14 @@ const Department = () => {
           payload,
           { withCredentials: true }
         );
+        toast.success("? Department updated successfully");
       } else {
         await axios.post(
           `${apiBase}/admin/department`,
           payload,
           { withCredentials: true }
         );
+        toast.success("? Department added successfully");
       }
 
       setIsOpen(false);
@@ -190,15 +215,14 @@ const Department = () => {
       setFormData({ name: "", hod: "" });
       setNameMode("new");
       setSelectedDeptId("");
-      await fetchAll();
+      await refreshDepartments();
     } catch (err) {
       console.error(
         "Save department failed:",
         err.response?.data || err.message
       );
-      alert(
-        err.response?.data?.message ||
-          "Failed to save department"
+      toast.error(
+        `? ${err.response?.data?.message || "Failed to save department"}`
       );
     } finally {
       setSubmitting(false);
@@ -216,15 +240,15 @@ const Department = () => {
         `${apiBase}/admin/department/${dept._id}`,
         { withCredentials: true }
       );
-      await fetchAll();
+      toast.success("? Department deleted successfully");
+      await refreshDepartments();
     } catch (err) {
       console.error(
         "Delete department failed:",
         err.response?.data || err.message
       );
-      alert(
-        err.response?.data?.message ||
-          "Failed to delete department"
+      toast.error(
+        `? ${err.response?.data?.message || "Failed to delete department"}`
       );
     }
   };
@@ -234,7 +258,7 @@ const Department = () => {
 
   const renderState = () => {
     switch (loadState) {
-      case "pending":
+      case ADMIN_LOAD_STATES.PENDING:
         return (
           <div className="dept-state pending">
             <Oval
@@ -250,7 +274,7 @@ const Department = () => {
             <p>Loading departments...</p>
           </div>
         );
-      case "failure":
+      case ADMIN_LOAD_STATES.FAILURE:
         return (
           <div className="dept-state error">
             <img
@@ -502,3 +526,4 @@ const Department = () => {
 };
 
 export default Department;
+

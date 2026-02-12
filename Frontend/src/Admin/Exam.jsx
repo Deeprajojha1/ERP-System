@@ -1,9 +1,10 @@
-import React, { useMemo, useState } from "react";
+﻿import React, { useMemo, useState } from "react";
 import { FiDownload, FiPrinter, FiSearch } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import jsPDF from "jspdf";
 import "./Exam.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 
 const Exam = () => {
   const [search, setSearch] = useState("");
@@ -11,7 +12,7 @@ const Exam = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState("success");
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
 
   const subjects = [
     "All Subjects",
@@ -146,7 +147,7 @@ const Exam = () => {
 
 
   const renderState = () => {
-    if (loadState === "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="exam-state pending">
           <Oval
@@ -163,7 +164,7 @@ const Exam = () => {
         </div>
       );
     }
-    if (loadState === "failure") {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="exam-state error">
           <img src={emptyStateImg} alt="Failed" className="exam-state-img" />
@@ -361,3 +362,4 @@ const Exam = () => {
 };
 
 export default Exam;
+

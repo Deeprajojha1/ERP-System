@@ -1,6 +1,7 @@
 ﻿import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
+import toast from "react-hot-toast";
 import { clearUserData } from "../../redux/userSlice";
 import { clearStudents } from "../../redux/studentSlice";
 import { clearFaculty } from "../../redux/facultySlice";
@@ -23,11 +24,13 @@ function Header() {
         {},
         { withCredentials: true }
       );
+      toast.success("✅ Logged out successfully");
     } catch (error) {
       console.error(
         "Logout failed:",
         error.response?.data || error.message
       );
+      toast.error(`❌ ${error.response?.data?.message || "Logout failed"}`);
     } finally {
       dispatch(clearUserData());
       dispatch(clearStudents());

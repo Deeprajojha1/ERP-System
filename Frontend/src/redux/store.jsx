@@ -2,6 +2,7 @@ import { configureStore, combineReducers } from "@reduxjs/toolkit";
 import userSlice from "./userSlice";
 import studentSlice from "./studentSlice";
 import facultySlice from "./facultySlice";
+import departmentSlice from "./departmentSlice";
 import configSlice from "./configSlice";
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
@@ -18,6 +19,7 @@ const rootReducer = combineReducers({
   user: userSlice,
   student: studentSlice,
   faculty: facultySlice,
+  department: departmentSlice,
   config: configSlice,
 });
 

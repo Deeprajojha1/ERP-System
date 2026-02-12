@@ -436,7 +436,14 @@
 .admin-card-title {
   margin: 0 0 12px;
   font-size: 18px;
-  color: #0f172a;
+  color:white;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.heading{
+   margin: 0 0 12px;
+  font-size: 16px;
+  color:white;
   font-weight: 700;
   letter-spacing: 0.2px;
 }
@@ -459,11 +466,11 @@
   padding: 12px 14px 6px;
 }
 
-.admin-chart-title {
+.admin-chart-title1 {
   margin: 0 0 8px;
   font-size: 14px;
   font-weight: 700;
-  color: #0f172a;
+  color: #eaeef8;
 }
 
 /* Remove focus border inside charts */
@@ -673,7 +680,7 @@
 }
 
 .admin-state-text {
-  color: #64748b;
+  color: #e2e6eb;
   margin: 8px 0 0;
 }
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import "./ResetPassword.css";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -6,6 +6,7 @@ import collegeLogo from "../../assets/college_47233.jpg";
 import { useSelector } from "react-redux";
 import { IoMdEyeOff } from "react-icons/io";
 import { IoEyeOutline } from "react-icons/io5";
+import toast from "react-hot-toast";
 
 const ResetPassword = () => {
     const [step, setStep] = useState(1);
@@ -50,12 +51,12 @@ const ResetPassword = () => {
     }, [step, time, second]);
 
     /* =========================
-       STEP 1 → SEND OTP
+       STEP 1 â†’ SEND OTP
     ========================= */
     const sendOtp = async () => {
         try {
             if (!email) {
-                return alert("Please enter email ❌");
+                return toast("Please enter email âŒ");
             }
 
             setSendLoading(true);
@@ -65,25 +66,25 @@ const ResetPassword = () => {
                 { email }
             );
 
-            alert(res.data?.message || "OTP sent ✅");
+            toast(res.data?.message || "OTP sent âœ…");
 
             setTime(5);
             setSecond(0);
             setStep(2);
         } catch (error) {
-            alert(error.response?.data?.message || "OTP send failed ❌");
+            toast(error.response?.data?.message || "OTP send failed âŒ");
         } finally {
             setSendLoading(false);
         }
     };
 
     /* =========================
-       STEP 2 → VERIFY OTP
+       STEP 2 â†’ VERIFY OTP
     ========================= */
     const verifyOtp = async () => {
         try {
             if (!otp) {
-                return alert("Please enter OTP ❌");
+                return toast("Please enter OTP âŒ");
             }
 
             setVerifyLoading(true);
@@ -93,22 +94,22 @@ const ResetPassword = () => {
                 { email, otp }
             );
 
-            alert(res.data?.message || "OTP verified ✅");
+            toast(res.data?.message || "OTP verified âœ…");
             setStep(3);
         } catch (error) {
-            alert(error.response?.data?.message || "OTP verification failed ❌");
+            toast(error.response?.data?.message || "OTP verification failed âŒ");
         } finally {
             setVerifyLoading(false);
         }
     };
 
     /* =========================
-       STEP 3 → RESET PASSWORD
+       STEP 3 â†’ RESET PASSWORD
     ========================= */
     const resetPassword = async () => {
         try {
             if (!newPassword || !confirmPassword) {
-                return alert("Please fill both password fields ❌");
+                return toast("Please fill both password fields âŒ");
             }
 
             setResetLoading(true);
@@ -118,11 +119,11 @@ const ResetPassword = () => {
                 { email, newPassword, confirmPassword }
             );
 
-            alert(res.data?.message || "Password reset successful ✅");
+            toast(res.data?.message || "Password reset successful âœ…");
 
             navigate("/login", { replace: true });
         } catch (error) {
-            alert(error.response?.data?.message || "Reset failed ❌");
+            toast(error.response?.data?.message || "Reset failed âŒ");
         } finally {
             setResetLoading(false);
         }
@@ -296,3 +297,4 @@ const ResetPassword = () => {
 };
 
 export default ResetPassword;
+

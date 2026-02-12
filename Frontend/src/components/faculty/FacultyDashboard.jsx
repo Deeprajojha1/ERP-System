@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
+import toast from "react-hot-toast";
 import CourseCard from "./CourseCard";
 import InfoRow from "./InfoRow";
 import "./FacultyDashboard.css";
@@ -10,7 +11,6 @@ function FacultyDashboard() {
   const apiBase = useSelector((state) => state.config.apiBase);
   const user = userData?.user;
   const roleDetails = userData?.roleDetails;
-  const [departments, setDepartments] = useState([]);
   const [requestStatus, setRequestStatus] = useState(null);
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [isRequestOpen, setIsRequestOpen] = useState(false);
@@ -30,27 +30,6 @@ function FacultyDashboard() {
   const joiningDate = roleDetails?.joiningDate
     ? new Date(roleDetails.joiningDate).toLocaleDateString()
     : "N/A";
-
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        const response = await axios.get(
-          `${apiBase}/admin/department`,
-          { withCredentials: true }
-        );
-        setDepartments(response.data?.departments || []);
-      } catch (error) {
-        console.error(
-          "Fetch departments failed:",
-          error.response?.data || error.message
-        );
-      }
-    };
-
-    if (apiBase) {
-      fetchDepartments();
-    }
-  }, [apiBase]);
 
   const courses = useMemo(() => {
     const routine = roleDetails?.routine || {};
@@ -118,6 +97,7 @@ function FacultyDashboard() {
         requestForm,
         { withCredentials: true }
       );
+      toast.success("✅ Leave request submitted");
       setRequestStatus({
         type: "success",
         message: "Leave request submitted.",
@@ -134,6 +114,7 @@ function FacultyDashboard() {
         "Faculty request failed:",
         error.response?.data || error.message
       );
+      toast.error(`❌ ${error.response?.data?.message || "Unable to submit request."}`);
       setRequestStatus({
         type: "error",
         message:
