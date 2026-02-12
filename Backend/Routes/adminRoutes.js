@@ -96,7 +96,7 @@ router.post("/group", isAdmin, addGroup);
 router.put("/group/:id", isAdmin, updateGroup);
 router.delete("/group/:id", isAdmin, deleteGroup);
 
-/* Timetable Routes (Group-wise) */
+/* Timetable Routes (Group-wise ok) */
 router.get("/timetable/group", isAdmin, getTimetableGroups);
 router.get("/timetable/group/:groupId", isAdmin, getGroupTimetable);
 
