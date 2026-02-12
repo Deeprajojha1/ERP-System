@@ -1,5 +1,5 @@
 .env*
 node_modules*
-rceadmin_rceerp
+rceadmin_rceerp.sql
 !Backend/.env.example
 !Frontend/.env.example
