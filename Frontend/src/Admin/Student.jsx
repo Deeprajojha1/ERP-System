@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useDispatch, useSelector } from "react-redux";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import {
   setStudents,
@@ -317,7 +317,9 @@ const Student = () => {
         <div className="student-header">
           <div>
             <h1 className="student-title">Students</h1>
-            <p className="student-subtitle">Manage enrolled students</p>
+            <p className="student-subtitle">
+              {filtered.length} Students in the organization
+            </p>
           </div>
           <button className="student-add-btn" type="button" onClick={openAddModal}>
             + Add Student
@@ -327,7 +329,9 @@ const Student = () => {
         <div className="student-panel">
           <div className="student-filters">
             <div className="student-search">
-              <span className="student-search-icon">??</span>
+              <span className="student-search-icon" aria-hidden="true">
+                <FiSearch />
+              </span>
               <input
                 type="text"
                 placeholder="Search by name, roll or dept"
@@ -350,7 +354,7 @@ const Student = () => {
           </div>
 
           <div className="student-table-wrap">
-            {filtered.length == 0 ? (
+            {filtered.length === 0 ? (
               <div className="student-empty-state">
                 <img src={emptyStateImg} alt="No data" />
                 <h3>Oops! Data not found</h3>

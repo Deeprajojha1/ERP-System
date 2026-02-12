@@ -40,8 +40,13 @@
 }
 
 .groups-toolbar {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: linear-gradient(
+    135deg,
+    #eff6ff 0%,
+    #f8fbff 45%,
+    #f0fdfa 100%
+  );
+  border: 1px solid #dbeafe;
   border-radius: 16px;
   padding: 14px;
   display: flex;
@@ -57,15 +62,40 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #bfdbfe;
   border-radius: 12px;
-  background: #ffffff;
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #f0f9ff 60%,
+    #ecfeff 100%
+  );
   min-width: 260px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.groups-search:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+  transform: translateY(-1px);
 }
 
 .groups-search-icon {
-  font-size: 16px;
-  color: #94a3b8;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: linear-gradient(
+    145deg,
+    #dbeafe 0%,
+    #eff6ff 100%
+  );
+  border: 1px solid #bfdbfe;
+  font-size: 15px;
 }
 
 .groups-search input {
@@ -94,7 +124,7 @@
 }
 
 .groups-card {
-  background: #ffffff;
+  background: var(--groups-card-gradient, #ffffff);
   border-radius: 16px;
   border: 1px solid #e2e8f0;
   padding: 16px;
@@ -114,12 +144,16 @@
   width: 44px;
   height: 44px;
   border-radius: 12px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #2563eb;
+  background: var(
+    --groups-icon-gradient,
+    linear-gradient(135deg, #2563eb, #1d4ed8)
+  );
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
+  font-size: 18px;
+  box-shadow: 0 10px 18px rgba(30, 64, 175, 0.25);
 }
 
 .groups-actions {

@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import { useSelector } from "react-redux";
-import { FiEdit2, FiPlus, FiSearch, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiUsers } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Groups.css";
@@ -23,6 +23,28 @@ const Groups = () => {
     coordinator: "",
     roomNo: "",
   });
+  const cardGradients = [
+    "linear-gradient(145deg, #dbeafe 0%, #f8fbff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #dcfce7 0%, #f2fff7 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fef3c7 0%, #fffbeb 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fee2e2 0%, #fff5f5 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #ede9fe 0%, #f7f5ff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #cffafe 0%, #f0fdff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fce7f3 0%, #fff1f8 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #e0f2fe 0%, #f2faff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #e2e8f0 0%, #f8fafc 45%, #ffffff 100%)",
+  ];
+  const iconGradients = [
+    "linear-gradient(135deg, #2563eb, #1d4ed8)",
+    "linear-gradient(135deg, #059669, #047857)",
+    "linear-gradient(135deg, #d97706, #b45309)",
+    "linear-gradient(135deg, #ef4444, #b91c1c)",
+    "linear-gradient(135deg, #7c3aed, #5b21b6)",
+    "linear-gradient(135deg, #0891b2, #155e75)",
+    "linear-gradient(135deg, #db2777, #9d174d)",
+    "linear-gradient(135deg, #0284c7, #0c4a6e)",
+    "linear-gradient(135deg, #475569, #1e293b)",
+  ];
 
   const fetchAll = async () => {
     try {
@@ -164,7 +186,7 @@ const Groups = () => {
           <div>
             <h1 className="groups-title">Group Management</h1>
             <p className="groups-subtitle">
-              Add, edit, and manage academic groups
+              {filtered.length} groups in the organization
             </p>
           </div>
           <button
@@ -208,10 +230,21 @@ const Groups = () => {
           {filtered.length === 0 ? (
             <div className="groups-empty">No groups found</div>
           ) : (
-            filtered.map((g) => (
-              <div className="groups-card" key={g._id}>
+            filtered.map((g, index) => (
+              <div
+                className="groups-card"
+                key={g._id}
+                style={{
+                  "--groups-card-gradient":
+                    cardGradients[index % cardGradients.length],
+                  "--groups-icon-gradient":
+                    iconGradients[index % iconGradients.length],
+                }}
+              >
                 <div className="groups-card-head">
-                  <div className="groups-icon">📘</div>
+                  <div className="groups-icon">
+                    <FiUsers />
+                  </div>
                   <div className="groups-actions">
                     <button
                       type="button"

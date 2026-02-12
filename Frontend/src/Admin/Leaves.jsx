@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiClock, FiCheckCircle, FiXCircle } from "react-icons/fi";
+import { FiClock, FiCheckCircle, FiSearch, FiXCircle } from "react-icons/fi";
 import "./Leaves.css";
 
 const Leaves = () => {
@@ -91,12 +91,19 @@ const Leaves = () => {
   return (
     <div className="leaves-page">
       <div className="leaves-header">
-        <h1 className="leaves-title">Leave Management</h1>
+        <div>
+          <h1 className="leaves-title">Leave Management</h1>
+          <p className="leaves-subtitle">
+            {filtered.length} leave requests in the organization
+          </p>
+        </div>
       </div>
 
       <div className="leaves-toolbar">
         <div className="leaves-search">
-          <span className="leaves-search-icon">🔍</span>
+          <span className="leaves-search-icon" aria-hidden="true">
+            <FiSearch />
+          </span>
           <input
             type="text"
             placeholder="Search by faculty name or department..."

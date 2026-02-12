@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiDownload, FiPrinter } from "react-icons/fi";
+import { FiDownload, FiPrinter, FiSearch } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import jsPDF from "jspdf";
@@ -188,7 +188,9 @@ const Exam = () => {
 
         <div className="exam-filters">
           <div className="exam-search">
-            <span className="exam-search-icon">🔍</span>
+            <span className="exam-search-icon" aria-hidden="true">
+              <FiSearch />
+            </span>
             <input
               type="text"
               placeholder="Search by exam name or subject..."

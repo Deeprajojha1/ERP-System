@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from "react";
-import { FiCheckCircle, FiXCircle } from "react-icons/fi";
-import "./Result.css";
+import { FiCheckCircle, FiSearch, FiXCircle } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
+import "./Result.css";
 
 const Result = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
-  const [loadState, setLoadState] = useState("success");
+  const [loadState] = useState("success");
 
   const results = [
     {
@@ -67,12 +67,10 @@ const Result = () => {
       const matchSearch =
         r.student.toLowerCase().includes(term) ||
         r.subject.toLowerCase().includes(term);
-      const matchStatus =
-        status === "All" || r.status === status;
+      const matchStatus = status === "All" || r.status === status;
       return matchSearch && matchStatus;
     });
-  }, [search, status]);
-
+  }, [results, search, status]);
 
   const renderState = () => {
     if (loadState === "pending") {
@@ -92,6 +90,7 @@ const Result = () => {
         </div>
       );
     }
+
     if (loadState === "failure") {
       return (
         <div className="result-state error">
@@ -108,7 +107,9 @@ const Result = () => {
 
         <div className="result-toolbar">
           <div className="result-search">
-            <span className="result-search-icon">??</span>
+            <span className="result-search-icon" aria-hidden="true">
+              <FiSearch />
+            </span>
             <input
               type="text"
               placeholder="Search student or subject..."
@@ -170,78 +171,7 @@ const Result = () => {
     );
   };
 
-  return (
-    <div className="result-page">
-      {renderState()}
-
-      <h1 className="result-title">Results & Grades</h1>
-
-      <div className="result-toolbar">
-        <div className="result-search">
-          <span className="result-search-icon">🔍</span>
-          <input
-            type="text"
-            placeholder="Search student or subject..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <select
-          className="result-select"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          {["All", "PASS", "FAIL"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="result-table-wrap">
-        <table className="result-table">
-          <thead>
-            <tr>
-              <th>STUDENT NAME</th>
-              <th>SUBJECT</th>
-              <th>MARKS</th>
-              <th>GRADE</th>
-              <th>STATUS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((r, i) => (
-              <tr key={`${r.student}-${i}`}>
-                <td className="result-name">{r.student}</td>
-                <td>{r.subject}</td>
-                <td>{r.marks}</td>
-                <td>{r.grade}</td>
-                <td>
-                  <span
-                    className={`result-status ${
-                      r.status === "PASS" ? "pass" : "fail"
-                    }`}
-                  >
-                    {r.status === "PASS" ? <FiCheckCircle /> : <FiXCircle />}
-                    {r.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} className="result-empty">
-                  No results found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <div className="result-page">{renderState()}</div>;
 };
 
 export default Result;

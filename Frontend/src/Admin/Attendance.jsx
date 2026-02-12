@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiCheckCircle, FiXCircle } from "react-icons/fi";
+import { FiCheckCircle, FiSearch, FiXCircle } from "react-icons/fi";
 import "./Attendance.css";
 
 const Attendance = () => {
@@ -90,7 +90,9 @@ const Attendance = () => {
 
       <div className="attendance-toolbar">
         <div className="attendance-search">
-          <span className="attendance-search-icon">🔍</span>
+          <span className="attendance-search-icon" aria-hidden="true">
+            <FiSearch />
+          </span>
           <input
             type="text"
             placeholder="Search by name or department..."
