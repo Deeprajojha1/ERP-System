@@ -1,7 +1,7 @@
 import Department from "../models/Department.js";
 import Faculty from "../models/Faculty.js";
 import User from "../models/userModel.js";
-import redisClient from "../config/redisClient.js";
+import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
 /* ================= GET ALL DEPARTMENTS ================= */
 
@@ -35,7 +35,7 @@ export const getAllDepartments = async (req, res) => {
 
     try {
       await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: 1800,
+        EX: DEFAULT_CACHE_TTL,
       });
     } catch (err) {
       console.error("[Redis] getAllDepartments cache write failed:", err.message || err);

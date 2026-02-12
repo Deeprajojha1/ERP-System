@@ -5,7 +5,7 @@ import Department from "../models/Department.js";
 import Group from "../models/Group.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
-import redisClient from "../config/redisClient.js";
+import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
 /* ================= GET ALL STUDENTS ================= */
 
@@ -36,7 +36,7 @@ export const getAllStudents = async (req, res) => {
 
     try {
       await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: 1800,
+        EX: DEFAULT_CACHE_TTL,
       });
     } catch (err) {
       console.error("[Redis] getAllStudents cache write failed:", err.message || err);

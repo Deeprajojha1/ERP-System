@@ -2,7 +2,7 @@ import Course from "../models/Course.js";
 import Department from "../models/Department.js";
 import Faculty from "../models/Faculty.js";
 import Student from "../models/Student.js";
-import redisClient from "../config/redisClient.js";
+import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
 /* ================= GET ALL COURSES ================= */
 
@@ -71,9 +71,9 @@ export const getAllCourses = async (req, res) => {
     };
 
     try {
-      // Cache for 30 minutes
+      // Cache using global TTL
       await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: 1800,
+        EX: DEFAULT_CACHE_TTL,
       });
     } catch (err) {
       console.error("[Redis] getAllCourses cache write failed:", err.message || err);
