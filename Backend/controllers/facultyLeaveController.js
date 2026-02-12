@@ -88,3 +88,31 @@ export const getAllFacultyLeaves = async (req, res) => {
     });
   }
 };
+
+// Admin: get leaves for a specific faculty (without timestamps)
+export const getFacultyLeavesByFacultyId = async (req, res) => {
+  try {
+    const { facultyId } = req.params;
+
+    const leaves = await FacultyLeave.find({ faculty: facultyId }).populate("faculty");
+
+    const mapped = leaves.map((leave) => {
+      const obj = leave.toObject();
+      obj.dateFrom = formatDDMMYYYY(leave.dateFrom);
+      obj.dateTo = formatDDMMYYYY(leave.dateTo);
+      delete obj.createdAt;
+      delete obj.updatedAt;
+      return obj;
+    });
+
+    return res.json({
+      message: "Faculty leaves for faculty fetched successfully",
+      count: mapped.length,
+      leaves: mapped,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message,
+    });
+  }
+};

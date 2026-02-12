@@ -21,7 +21,7 @@ import {
   deleteFaculty,
   addRoutineToFaculty,
 } from "../controllers/facultyController.js";
-import { getAllFacultyLeaves } from "../controllers/facultyLeaveController.js";
+import { getAllFacultyLeaves, getFacultyLeavesByFacultyId } from "../controllers/facultyLeaveController.js";
 import {
   getAllCourses,
   getCourseById,
@@ -74,6 +74,7 @@ router.post("/faculty/:id/routine", isAdmin, addRoutineToFaculty);
 
 // Faculty Leaves (Admin)
 router.get("/facultyleave", isAdmin, getAllFacultyLeaves);
+router.get("/facultyleave/:facultyId", isAdmin, getFacultyLeavesByFacultyId);
 
 /* Student Routes */
 router.get("/student", isAdmin, getAllStudents);
