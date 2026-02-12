@@ -1,16 +1,5 @@
 import mongoose from "mongoose";
 
-/*
-  scheduleSlots is stored as a nested Map (dictionary of dictionaries):
-  {
-    "monday":    { "1": <CourseObjectId>, "2": <CourseObjectId> },
-    "tuesday":   { "3": <CourseObjectId> },
-    ...
-  }
-  Outer key  = day name (monday–saturday)
-  Inner key  = lecture number (as string)
-  Inner value = Course ObjectId
-*/
 
 const courseFacultySchema = new mongoose.Schema(
   {
