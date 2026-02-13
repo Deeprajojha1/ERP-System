@@ -43,7 +43,7 @@ const facultySchema = new mongoose.Schema(
 
     designation: {
       type: String,
-      enum: ["professor", "assistant_prof", "hod","other"],
+      enum: ["professor", "assistant_prof", "hod", "training", "other"],
       required: true,
     },
 
