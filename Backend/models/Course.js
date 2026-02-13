@@ -14,7 +14,7 @@ const courseSchema = new mongoose.Schema(
 
     semester: { type: Number, required: true, min: 1, max: 12 },
 
-    branch: { type: String, trim: true }, // e.g. CSE, IT
+    branch: { type: String, trim: true }, 
 
     credit: { type: Number, required: true, min: 0, max: 10 },
 
