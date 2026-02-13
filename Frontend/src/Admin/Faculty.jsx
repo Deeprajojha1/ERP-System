@@ -17,6 +17,7 @@ const DESIGNATION_OPTIONS = [
   { value: "professor", label: "Professor" },
   { value: "assistant_prof", label: "Assistant Professor" },
   { value: "hod", label: "HOD" },
+  { value: "training", label: "Training" },
   { value: "other", label: "Other" },
 ];
 
