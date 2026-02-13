@@ -16,7 +16,7 @@ const courseSchema = new mongoose.Schema(
 
     branch: { type: String, trim: true }, 
 
-    credit: { type: Number, required: true, min: 0, max: 10 },
+    credit: { type: Number, required: true, min: 0, max: 12 },
 
     facultyIds: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Faculty", default: [] },
