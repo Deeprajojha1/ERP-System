@@ -178,6 +178,13 @@ export const addStudent = async (req, res) => {
       await session.commitTransaction();
       session.endSession();
 
+      /* Auto-assign student to the group's studentIds array */
+      if (group) {
+        await Group.findByIdAndUpdate(group, {
+          $addToSet: { studentIds: student._id },
+        });
+      }
+
       const populatedStudent = await Student.findById(student._id)
         .populate("user", "name email aadharNumber phoneNumber DOB role status")
         .populate("department")
@@ -190,6 +197,9 @@ export const addStudent = async (req, res) => {
 
       try {
         await redisClient.del("admin:students:all");
+        if (group) {
+          await redisClient.del("admin:groups:all");
+        }
       } catch (err) {
         console.error("[Redis] addStudent cache clear failed:", err.message || err);
       }
