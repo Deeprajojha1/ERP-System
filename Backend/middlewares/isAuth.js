@@ -4,7 +4,17 @@ const isAuth = async (req, res, next) => {
   try {
     // console.log("isAuth middleware called");
 
-    const { token } = req.cookies;
+    // 1. Try cookie first
+    let token = req.cookies?.token;
+
+    // 2. Fallback: check Authorization header (needed for mobile browsers
+    //    that block third-party cookies)
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.split(" ")[1];
+      }
+    }
 
     if (!token) {
       return res.status(401).json({

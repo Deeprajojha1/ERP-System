@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import axios from "axios";
+import axios from "../../utils/axiosInstance";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FiFileText } from "react-icons/fi";
@@ -102,7 +102,8 @@ function FacultyDashboard() {
       [name]: value,
     }));
   };
-  const handleRequestSubmit = async (event) => {
+
+  const handleRequestSubmit = async (event) => {
     event.preventDefault();
     setRequestStatus(null);
     try {

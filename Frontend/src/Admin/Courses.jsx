@@ -1,6 +1,6 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import "./Courses.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { Oval } from "react-loader-spinner";

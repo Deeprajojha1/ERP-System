@@ -22,7 +22,7 @@ import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
-import axios from 'axios';
+import axios from '../../utils/axiosInstance';
 import { clearUserData } from '../../redux/userSlice';
 
 // Import child components
@@ -91,11 +91,8 @@ const Dashboard = () => {
    */
   const handleLogout = async () => {
     try {
-      await axios.post(
-        `${apiBase}/user/logout`,
-        {},
-        { withCredentials: true }
-      );
+      await axios.post(`${apiBase}/user/logout`, {});
+      localStorage.removeItem("authToken");
     } catch (error) {
       console.error(
         'Logout failed:',
