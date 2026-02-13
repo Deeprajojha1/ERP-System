@@ -4,7 +4,7 @@ const courseSchema = new mongoose.Schema(
   {
     code: { type: String, required: true, unique: true, trim: true },
 
-    courseName: { type: String, required: true, trim: true },
+    courseName: { type: String, required: false, trim: true },
 
     department: {
       type: mongoose.Schema.Types.ObjectId,
