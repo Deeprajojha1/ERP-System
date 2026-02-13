@@ -43,13 +43,13 @@ const facultySchema = new mongoose.Schema(
 
     designation: {
       type: String,
-      enum: ["professor", "assistant_prof", "hod"],
+      enum: ["professor", "assistant_prof", "hod","other"],
       required: true,
     },
 
     qualification: { type: String, trim: true },
 
-    joiningDate: { type: Date, required: true },
+    joiningDate: { type: Date, required: false },
 
     routine: {
       type: Map,

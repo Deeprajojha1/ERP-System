@@ -18,14 +18,14 @@ const toTitleCase = (value = "") =>
 
 const normalizeLeaveStatus = (value = "") => {
   const normalized = String(value).toLowerCase();
-  if (normalized === "appeared") return "Approved";
+  if (normalized === "approved") return "Approved";
   if (normalized === "reject") return "Rejected";
   return "Pending";
 };
 
 const toApiLeaveStatus = (value = "") => {
   const normalized = String(value).toLowerCase();
-  if (normalized === "approved") return "appeared";
+  if (normalized === "approved") return "approved ";
   if (normalized === "rejected") return "reject";
   return "pending";
 };

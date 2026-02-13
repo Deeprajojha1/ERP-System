@@ -13,6 +13,13 @@ import { Oval } from "react-loader-spinner";
 import "./Faculty.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 
+const DESIGNATION_OPTIONS = [
+  { value: "professor", label: "Professor" },
+  { value: "assistant_prof", label: "Assistant Professor" },
+  { value: "hod", label: "HOD" },
+  { value: "other", label: "Other" },
+];
+
 const Faculty = () => {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All Departments");
@@ -598,13 +605,20 @@ const Faculty = () => {
               <div className="faculty-form-row">
                 <label>
                   Designation
-                  <input
-                    placeholder="Professor"
-                    type="text"
+                  <select
                     name="designation"
                     value={formData.designation}
                     onChange={handleChange}
-                  />
+                  >
+                    <option value="" disabled>
+                      Select Designation
+                    </option>
+                    {DESIGNATION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   Qualification

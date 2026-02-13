@@ -140,10 +140,10 @@ export const updateFacultyLeaveStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
-    const allowed = ["appeared", "pending", "reject"];
+    const allowed = ["approved", "pending", "rejected"];
     if (!allowed.includes(status)) {
       return res.status(400).json({
-        message: "Invalid status. Use appeared, pending, or reject.",
+        message: "Invalid status. Use approved, pending, or rejected.",
       });
     }
 

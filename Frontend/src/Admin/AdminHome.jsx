@@ -45,7 +45,7 @@ const AdminHome = () => {
       if (words.length > 2) {
         return `${words[0]} ${words[1]}`;
       }
-      return `${name.slice(0, 16)}â€¦`;
+      return `${name.slice(0, 16)}…`;
     }
 
     return name;
