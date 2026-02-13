@@ -116,7 +116,7 @@ const Groups = () => {
     const ok = window.confirm(`Delete group "${group.name}"?`);
     if (!ok) return;
     try {
-      await axios.delete(`${apiBase}/admin/group/${group._id}`, {
+      await axios.patch(`${apiBase}/admin/group/${group._id}/delete`, {}, {
         withCredentials: true,
       });
       toast.success("✅ Group deleted successfully");

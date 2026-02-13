@@ -45,6 +45,11 @@ const groupSchema = new mongoose.Schema(
     },
 
     courseFaculty: { type: [courseFacultySchema], default: [] },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
   },
   { timestamps: true }
 );

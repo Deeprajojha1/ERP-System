@@ -21,6 +21,11 @@ const courseSchema = new mongoose.Schema(
     facultyIds: [
       { type: mongoose.Schema.Types.ObjectId, ref: "Faculty", default: [] },
     ],
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
   },
   { timestamps: true }
 );

@@ -59,6 +59,11 @@ const facultySchema = new mongoose.Schema(
       },
       default: () => new Map(),
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
   },
   { timestamps: true }
 );

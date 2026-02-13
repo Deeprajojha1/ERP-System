@@ -236,8 +236,9 @@ const Department = () => {
     );
     if (!confirmDelete) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/department/${dept._id}`,
+      await axios.patch(
+        `${apiBase}/admin/department/${dept._id}/delete`,
+        {},
         { withCredentials: true }
       );
       toast.success("? Department deleted successfully");

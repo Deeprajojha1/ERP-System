@@ -185,8 +185,9 @@ const Faculty = () => {
     );
     if (!ok) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/faculty/${facultyMember._id}`,
+      await axios.patch(
+        `${apiBase}/admin/faculty/${facultyMember._id}/delete`,
+        {},
         { withCredentials: true }
       );
       dispatch(

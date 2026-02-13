@@ -185,8 +185,9 @@ const Student = () => {
     );
     if (!ok) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/student/${student._id}`,
+      await axios.patch(
+        `${apiBase}/admin/student/${student._id}/delete`,
+        {},
         { withCredentials: true }
       );
       dispatch(

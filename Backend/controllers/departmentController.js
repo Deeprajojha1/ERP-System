@@ -19,7 +19,7 @@ export const getAllDepartments = async (req, res) => {
       console.error("[Redis] getAllDepartments cache read failed:", err.message || err);
     }
 
-    const departments = await Department.find().populate({
+    const departments = await Department.find({ isDeleted: { $ne: true } }).populate({
       path: "hod",
       populate: {
         path: "user",
@@ -55,7 +55,7 @@ export const getDepartmentById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const department = await Department.findById(id).populate({
+    const department = await Department.findOne({ _id: id, isDeleted: { $ne: true } }).populate({
       path: "hod",
       populate: {
         path: "user",
@@ -167,7 +167,11 @@ export const deleteDepartment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const department = await Department.findByIdAndDelete(id);
+    const department = await Department.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
 
     if (!department) {
       return res.status(404).json({
@@ -183,6 +187,36 @@ export const deleteDepartment = async (req, res) => {
 
     res.json({
       message: "Department deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+/* ================= HARD DELETE DEPARTMENT ================= */
+
+export const hardDeleteDepartment = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const department = await Department.findByIdAndDelete(id);
+
+    if (!department) {
+      return res.status(404).json({
+        message: "Department not found",
+      });
+    }
+
+    try {
+      await redisClient.del("admin:departments:all");
+    } catch (err) {
+      console.error("[Redis] hardDeleteDepartment cache clear failed:", err.message || err);
+    }
+
+    res.json({
+      message: "Department permanently deleted",
     });
   } catch (error) {
     res.status(500).json({

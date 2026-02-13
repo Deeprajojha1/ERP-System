@@ -23,7 +23,7 @@ export const getAllStudents = async (req, res) => {
       console.error("[Redis] getAllStudents cache read failed:", err.message || err);
     }
 
-    const students = await Student.find()
+    const students = await Student.find({ isDeleted: { $ne: true } })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department")
       .populate("group");
@@ -62,7 +62,7 @@ export const getStudentById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const student = await Student.findById(id)
+    const student = await Student.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department")
       .populate("group");
@@ -253,16 +253,19 @@ export const deleteStudent = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const student = await Student.findById(id);
+    const student = await Student.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
     if (!student) {
       return res.status(404).json({
         message: "Student not found",
       });
     }
 
-    /* Delete student and associated user */
-    await Student.findByIdAndDelete(id);
-    await User.findByIdAndDelete(student.user);
+    /* Soft-delete the associated user as well */
+    await User.findByIdAndUpdate(student.user, { isDeleted: true });
 
     try {
       await redisClient.del("admin:students:all");
@@ -272,6 +275,39 @@ export const deleteStudent = async (req, res) => {
 
     res.json({
       message: "Student deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+/* ================= HARD DELETE STUDENT ================= */
+
+export const hardDeleteStudent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const student = await Student.findById(id);
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    /* Hard-delete student and associated user */
+    await Student.findByIdAndDelete(id);
+    await User.findByIdAndDelete(student.user);
+
+    try {
+      await redisClient.del("admin:students:all");
+    } catch (err) {
+      console.error("[Redis] hardDeleteStudent cache clear failed:", err.message || err);
+    }
+
+    res.json({
+      message: "Student permanently deleted",
     });
   } catch (error) {
     res.status(500).json({

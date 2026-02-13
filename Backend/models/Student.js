@@ -45,6 +45,11 @@ const studentSchema = new mongoose.Schema(
       ref: "Group",
       default: null,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
   },
   { timestamps: true }
 );
