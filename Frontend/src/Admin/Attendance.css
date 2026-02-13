@@ -1,5 +1,7 @@
 .attendance-page {
   padding: 8px 4px 24px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .attendance-title {
@@ -10,39 +12,32 @@
 }
 
 .attendance-toolbar {
-  background: linear-gradient(
-    135deg,
-    #eff6ff 0%,
-    #f8fbff 45%,
-    #f0fdfa 100%
-  );
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fbff 45%, #f0fdfa 100%);
   border: 1px solid #dbeafe;
   border-radius: 16px;
   padding: 14px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   margin-bottom: 16px;
   flex-wrap: wrap;
 }
 
+.attendance-toolbar > * {
+  min-width: 0;
+}
+
 .attendance-search {
-  flex: 1;
+  flex: 1 1 340px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid #bfdbfe;
   border-radius: 10px;
-  background: linear-gradient(
-    90deg,
-    #ffffff 0%,
-    #f0f9ff 60%,
-    #ecfeff 100%
-  );
-  min-width: 260px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease,
-    transform 0.2s ease;
+  background: linear-gradient(90deg, #ffffff 0%, #f0f9ff 60%, #ecfeff 100%);
+  min-width: 240px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 .attendance-search:focus-within {
@@ -59,13 +54,10 @@
   justify-content: center;
   border-radius: 8px;
   color: #1d4ed8;
-  background: linear-gradient(
-    145deg,
-    #dbeafe 0%,
-    #eff6ff 100%
-  );
+  background: linear-gradient(145deg, #dbeafe 0%, #eff6ff 100%);
   border: 1px solid #bfdbfe;
   font-size: 15px;
+  flex-shrink: 0;
 }
 
 .attendance-search input {
@@ -74,14 +66,32 @@
   width: 100%;
   font-size: 15px;
   color: #0f172a;
+  background: transparent;
+}
+
+.attendance-type,
+.attendance-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border: 1px solid #dbeafe;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.attendance-label {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .attendance-select {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 13px;
-  color: #334155;
+  align-items: center;
+  flex: 0 1 190px;
 }
 
 .attendance-select select {
@@ -89,28 +99,58 @@
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
-  min-width: 180px;
+  min-width: 0;
+  width: 100%;
+  background: #ffffff;
 }
 
-.attendance-status {
-  display: flex;
+.attendance-select input[type="date"] {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  min-width: 0;
+  width: 100%;
+  background: #ffffff;
+}
+
+.attendance-select select:disabled {
+  background: #f8fafc;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.attendance-date {
+  position: relative;
+}
+
+.attendance-date-icon {
+  position: absolute;
+  left: 10px;
+  color: #64748b;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  color: #334155;
-  font-size: 13px;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.attendance-date input[type="date"] {
+  padding-left: 32px;
 }
 
 .attendance-chip {
-  border: none;
-  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
   color: #0f172a;
   padding: 8px 14px;
   border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .attendance-chip.active {
+  border-color: #3b82f6;
   background: #3b82f6;
   color: #ffffff;
 }
@@ -128,7 +168,7 @@
 .attendance-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: 640px;
 }
 
 .attendance-table thead th {
@@ -172,27 +212,179 @@
   color: #64748b;
 }
 
+.attendance-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.attendance-inline-select {
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 6px 8px;
+  font-size: 12px;
+  background: #ffffff;
+}
+
+.attendance-row-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.attendance-row-btn.edit {
+  border-color: #93c5fd;
+  color: #1d4ed8;
+}
+
+.attendance-row-btn.save {
+  border-color: #86efac;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.attendance-row-btn.cancel {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+@media (max-width: 1100px) {
+  .attendance-search {
+    flex-basis: 100%;
+  }
+}
+
 @media (max-width: 900px) {
   .attendance-toolbar {
-    flex-direction: column;
     align-items: stretch;
+  }
+
+  .attendance-search,
+  .attendance-type,
+  .attendance-status,
+  .attendance-select {
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  .attendance-type,
+  .attendance-status {
+    justify-content: flex-start;
   }
 }
 
 @media (max-width: 640px) {
   .attendance-title {
-    font-size: 22px;
+    font-size: 20px;
+  }
+
+  .attendance-page {
+    padding: 2px 0 16px;
+  }
+
+  .attendance-toolbar {
+    padding: 10px;
+    gap: 8px;
+    border-radius: 12px;
   }
 
   .attendance-search {
-    min-width: 0;
+    padding: 8px 10px;
+    border-radius: 9px;
+    gap: 8px;
+  }
+
+  .attendance-search-icon {
+    width: 24px;
+    height: 24px;
+    font-size: 13px;
+    border-radius: 7px;
+  }
+
+  .attendance-search input {
+    font-size: 14px;
+  }
+
+  .attendance-type,
+  .attendance-status {
+    padding: 7px;
+    border-radius: 9px;
+  }
+
+  .attendance-type .attendance-label,
+  .attendance-status .attendance-label {
+    width: 100%;
+    font-size: 12px;
+    line-height: 1.1;
+    text-align: center;
   }
 
   .attendance-select select {
-    min-width: 0;
-    width: 100%;
+    padding: 8px 10px;
+    font-size: 13px;
+    border-radius: 9px;
+  }
+
+  .attendance-select input[type="date"] {
+    padding: 8px 10px 8px 30px;
+    font-size: 13px;
+    border-radius: 9px;
+  }
+
+  .attendance-chip {
+    flex: 1 1 calc(50% - 8px);
+    text-align: center;
+    padding: 7px 10px;
+    font-size: 13px;
+    border-radius: 9px;
+  }
+
+  .attendance-table {
+    min-width: 560px;
   }
 }
-.college-logo{
+
+@media (max-width: 420px) {
+  .attendance-toolbar {
+    padding: 8px;
+    gap: 7px;
+  }
+
+  .attendance-search {
+    padding: 7px 9px;
+  }
+
+  .attendance-select select {
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+
+  .attendance-select input[type="date"] {
+    padding: 7px 9px 7px 28px;
+    font-size: 12px;
+  }
+
+  .attendance-chip {
+    font-size: 12px;
+    padding: 7px 8px;
+  }
+
+  .attendance-row-btn {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+}
+
+.college-logo {
   cursor: pointer;
 }
