@@ -93,22 +93,6 @@ const AdminHome = () => {
     { name: "Inactive", value: userData?.totalInactiveStudents ?? 0 },
   ];
   const statusColors = ["#10b981", "#f59e0b", "#ef4444"];
-  const quickCardGradients = [
-    "linear-gradient(145deg, #dbeafe 0%, #f8fbff 45%, #ffffff 100%)",
-    "linear-gradient(145deg, #dcfce7 0%, #f2fff7 45%, #ffffff 100%)",
-    "linear-gradient(145deg, #fef3c7 0%, #fffbeb 45%, #ffffff 100%)",
-    "linear-gradient(145deg, #fee2e2 0%, #fff5f5 45%, #ffffff 100%)",
-    "linear-gradient(145deg, #ede9fe 0%, #f7f5ff 45%, #ffffff 100%)",
-    "linear-gradient(145deg, #cffafe 0%, #f0fdff 45%, #ffffff 100%)",
-  ];
-  const quickIconGradients = [
-    "linear-gradient(135deg, #2563eb, #1d4ed8)",
-    "linear-gradient(135deg, #059669, #047857)",
-    "linear-gradient(135deg, #d97706, #b45309)",
-    "linear-gradient(135deg, #ef4444, #b91c1c)",
-    "linear-gradient(135deg, #7c3aed, #5b21b6)",
-    "linear-gradient(135deg, #0891b2, #155e75)",
-  ];
 
   const renderState = () => {
     switch (loadState) {
@@ -283,12 +267,8 @@ const AdminHome = () => {
                 <button 
                   className="quick-management-card"
                   onClick={() => navigate('/admin/student')}
-                  style={{ "--quick-card-gradient": quickCardGradients[0] }}
                 >
-                  <div
-                    className="quick-management-icon student-icon"
-                    style={{ "--quick-icon-gradient": quickIconGradients[0] }}
-                  >
+                  <div className="quick-management-icon student-icon">
                     <PiStudentFill />
                   </div>
                   <span className="quick-management-label">Manage Students</span>
@@ -297,26 +277,18 @@ const AdminHome = () => {
                 <button 
                   className="quick-management-card"
                   onClick={() => navigate('/admin/faculty')}
-                  style={{ "--quick-card-gradient": quickCardGradients[1] }}
                 >
-                  <div
-                    className="quick-management-icon faculty-icon"
-                    style={{ "--quick-icon-gradient": quickIconGradients[1] }}
-                  >
+                  <div className="quick-management-icon faculty-icon">
                     <GiTeacher />
                   </div>
                   <span className="quick-management-label">Manage Faculty</span>
                 </button>
 
                 <button 
-                  className="quick-management-card"
+                  className="quick-management-card is-active"
                   onClick={() => navigate('/admin/department')}
-                  style={{ "--quick-card-gradient": quickCardGradients[2] }}
                 >
-                  <div
-                    className="quick-management-icon department-icon"
-                    style={{ "--quick-icon-gradient": quickIconGradients[2] }}
-                  >
+                  <div className="quick-management-icon department-icon">
                     <GoOrganization />
                   </div>
                   <span className="quick-management-label">Departments</span>
@@ -325,12 +297,8 @@ const AdminHome = () => {
                 <button 
                   className="quick-management-card"
                   onClick={() => navigate('/admin/courses')}
-                  style={{ "--quick-card-gradient": quickCardGradients[3] }}
                 >
-                  <div
-                    className="quick-management-icon courses-icon"
-                    style={{ "--quick-icon-gradient": quickIconGradients[3] }}
-                  >
+                  <div className="quick-management-icon courses-icon">
                     <MdCastForEducation />
                   </div>
                   <span className="quick-management-label">Courses</span>
@@ -339,12 +307,8 @@ const AdminHome = () => {
                 <button 
                   className="quick-management-card"
                   onClick={() => navigate('/admin/groups')}
-                  style={{ "--quick-card-gradient": quickCardGradients[4] }}
                 >
-                  <div
-                    className="quick-management-icon subjects-icon"
-                    style={{ "--quick-icon-gradient": quickIconGradients[4] }}
-                  >
+                  <div className="quick-management-icon subjects-icon">
                     <GiJusticeStar />
                   </div>
                   <span className="quick-management-label">Subjects</span>
@@ -353,12 +317,8 @@ const AdminHome = () => {
                 <button 
                   className="quick-management-card"
                   onClick={() => navigate('/admin/general-support')}
-                  style={{ "--quick-card-gradient": quickCardGradients[5] }}
                 >
-                  <div
-                    className="quick-management-icon reports-icon"
-                    style={{ "--quick-icon-gradient": quickIconGradients[5] }}
-                  >
+                  <div className="quick-management-icon reports-icon">
                     <TbReportSearch />
                   </div>
                   <span className="quick-management-label">View Reports</span>

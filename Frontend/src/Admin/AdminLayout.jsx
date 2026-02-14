@@ -14,6 +14,8 @@ import { MdRecordVoiceOver } from "react-icons/md";
 import { GiKoholintEgg } from "react-icons/gi";
 import { LuBadgeIndianRupee } from "react-icons/lu";
 import { FiBell } from "react-icons/fi";
+import { FiBookOpen } from "react-icons/fi";
+import { FiSettings } from "react-icons/fi";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
 import axios from "axios";
 import toast from "react-hot-toast";
@@ -207,150 +209,171 @@ const AdminLayout = () => {
             </button>
           </div>
 
-          <div className="sidebar-header">
-            <span className="sidebar-title">Menu</span>
-          </div>
+          <div className="sidebar-menu-scroll">
+            <div className="sidebar-header">
+              <span className="sidebar-title">Menu</span>
+            </div>
+            <div className="sidebar-section">
+              <label className="sidebar-label">DASHBOARD</label>
+              <button
+                className={`sidebar-btn ${isActive("/admin/dashboard") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/dashboard");
+                }}
+              >
+                <MdDashboardCustomize />
+                <span className="sidebar-text">Dashboard</span>
+              </button>
+            </div>
 
-          <div className="sidebar-section">
-            <label className="sidebar-label">DASHBOARD</label>
-            <button
-              className={`sidebar-btn ${isActive("/admin/dashboard") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/dashboard");
-              }}
-            >
-              <MdDashboardCustomize />
-              <span className="sidebar-text">Dashboard</span>
-            </button>
-          </div>
+            <div className="sidebar-section">
+              <label className="sidebar-label">MANAGEMENT</label>
+              <button
+                className={`sidebar-btn ${isActive("/admin/department") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/department");
+                }}
+              >
+                <GoOrganization />
+                <span className="sidebar-text">Department</span>
+              </button>
 
-          <div className="sidebar-section">
-            <label className="sidebar-label">MANAGEMENT</label>
-            <button
-              className={`sidebar-btn ${isActive("/admin/department") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/department");
-              }}
-            >
-              <GoOrganization />
-              <span className="sidebar-text">Department</span>
-            </button>
+              <button className={`sidebar-btn ${isActive("/admin/faculty") ? "active" : ""}`} onClick={() => {
+                  navigate("/admin/faculty");
+                }}>
+                <GiTeacher />
+                <span className="sidebar-text">Faculty</span>
+              </button>
 
-            <button className={`sidebar-btn ${isActive("/admin/faculty") ? "active" : ""}`} onClick={() => {
-                navigate("/admin/faculty");
-              }}>
-              <GiTeacher />
-              <span className="sidebar-text">Faculty</span>
-            </button>
+              <button className={`sidebar-btn ${isActive("/admin/student") ? "active" : ""}`} onClick={() => {
+                  navigate("/admin/student");
+                }}>
+                <PiStudentFill />
+                <span className="sidebar-text">Students</span>
+              </button>
+            </div>
 
-            <button className={`sidebar-btn ${isActive("/admin/student") ? "active" : ""}`} onClick={() => {
-                navigate("/admin/student");
-              }}>
-              <PiStudentFill />
-              <span className="sidebar-text">Students</span>
-            </button>
-          </div>
+            <div className="sidebar-section">
+              <label className="sidebar-label">ACADEMICS</label>
 
-          <div className="sidebar-section">
-            <label className="sidebar-label">ACADEMICS</label>
+              <button
+                className={`sidebar-btn ${isActive("/admin/courses") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/courses");
+                }}
+              >
+                <MdCastForEducation />
+                <span className="sidebar-text">Courses</span>
+              </button>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/courses") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/courses");
-              }}
-            >
-              <MdCastForEducation />
-              <span className="sidebar-text">Courses</span>
-            </button>
+              <button
+                className={`sidebar-btn ${isActive("/admin/groups") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/groups");
+                }}
+              >
+                <GiJusticeStar />
+                <span className="sidebar-text">Groups</span>
+              </button>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/groups") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/groups");
-              }}
-            >
-              <GiJusticeStar />
-              <span className="sidebar-text">Groups</span>
-            </button>
+              <button
+                className={`sidebar-btn ${isActive("/admin/timetable") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/timetable");
+                }}
+              >
+                <MdOutlineSchedule />
+                <span className="sidebar-text">Timetable</span>
+              </button>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/timetable") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/timetable");
-              }}
-            >
-              <MdOutlineSchedule />
-              <span className="sidebar-text">Timetable</span>
-            </button>
+              <button
+                className={`sidebar-btn ${isActive("/admin/exam") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/exam");
+                }}
+              >
+                <PiExamFill />
+                <span className="sidebar-text">Exams</span>
+              </button>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/exam") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/exam");
-              }}
-            >
-              <PiExamFill />
-              <span className="sidebar-text">Exams</span>
-            </button>
+              <button
+                className={`sidebar-btn ${isActive("/admin/result") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/result");
+                }}
+              >
+                <VscOutput />
+                <span className="sidebar-text">Results</span>
+              </button>
+            </div>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/result") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/result");
-              }}
-            >
-              <VscOutput />
-              <span className="sidebar-text">Results</span>
-            </button>
-          </div>
+            <div className="sidebar-section">
+              <label className="sidebar-label">OPERATIONS</label>
 
-          <div className="sidebar-section">
-            <label className="sidebar-label">OPERATIONS</label>
+              <button
+                className={`sidebar-btn ${isActive("/admin/attendance") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/attendance");
+                }}
+              >
+                <MdRecordVoiceOver />
+                <span className="sidebar-text">Attendance</span>
+              </button>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/attendance") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/attendance");
-              }}
-            >
-              <MdRecordVoiceOver />
-              <span className="sidebar-text">Attendance</span>
-            </button>
+              <button
+                className={`sidebar-btn ${isActive("/admin/leaves") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/leaves");
+                }}
+              >
+                <GiKoholintEgg />
+                <span className="sidebar-text">Leaves</span>
+              </button>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/leaves") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/leaves");
-              }}
-            >
-              <GiKoholintEgg />
-              <span className="sidebar-text">Leaves</span>
-            </button>
+              <button
+                className={`sidebar-btn ${isActive("/admin/fees") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/fees");
+                }}
+              >
+                <LuBadgeIndianRupee />
+                <span className="sidebar-text">Fees</span>
+              </button>
+            </div>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/fees") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/fees");
-              }}
-            >
-              <LuBadgeIndianRupee />
-              <span className="sidebar-text">Fees</span>
-            </button>
-          </div>
+            <div className="sidebar-section">
+              <label className="sidebar-label">SYSTEM</label>
 
-          <div className="sidebar-section">
-            <label className="sidebar-label">SYSTEM</label>
+              <button
+                className={`sidebar-btn ${isActive("/admin/general-support") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/general-support");
+                }}
+              >
+                <TbReportSearch />
+                <span className="sidebar-text">General Reports</span>
+              </button>
 
-            <button
-              className={`sidebar-btn ${isActive("/admin/general-support") ? "active" : ""}`}
-              onClick={() => {
-                navigate("/admin/general-support");
-              }}
-            >
-              <TbReportSearch />
-              <span className="sidebar-text">General Reports</span>
-            </button>
+              <button
+                className={`sidebar-btn ${isActive("/admin/library") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/library");
+                }}
+              >
+                <FiBookOpen />
+                <span className="sidebar-text">Library</span>
+              </button>
+
+              <button
+                className={`sidebar-btn ${isActive("/admin/settings") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/settings");
+                }}
+              >
+                <FiSettings />
+                <span className="sidebar-text">Settings</span>
+              </button>
+            </div>
           </div>
 
         </div>

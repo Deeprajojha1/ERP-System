@@ -67,7 +67,7 @@
   inset: -10px;
   background-size: cover;
   background-position: center;
-  filter: blur(2.8px);
+  filter: blur(0.15s);
   transform: scale(1.03);
 }
 
