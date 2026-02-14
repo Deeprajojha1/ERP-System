@@ -164,7 +164,7 @@ const Leaves = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="leaves-state pending">
+        <div className="leaves-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -390,3 +390,4 @@ const Leaves = () => {
 };
 
 export default Leaves;
+

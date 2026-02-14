@@ -27,7 +27,7 @@ const Fees = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="fees-state pending">
+        <div className="fees-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -86,3 +86,4 @@ const Fees = () => {
 };
 
 export default Fees;
+

@@ -106,7 +106,7 @@ const GeneralSupport = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="gs-state pending">
+        <div className="gs-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -236,3 +236,4 @@ const GeneralSupport = () => {
 };
 
 export default GeneralSupport;
+

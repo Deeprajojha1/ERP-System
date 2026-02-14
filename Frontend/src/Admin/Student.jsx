@@ -317,7 +317,7 @@ const Student = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="student-state pending">
+        <div className="student-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -689,4 +689,5 @@ const Student = () => {
 };
 
 export default Student;
+
 

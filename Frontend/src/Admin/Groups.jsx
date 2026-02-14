@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 import { useSelector } from "react-redux";
 import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiUsers } from "react-icons/fi";
@@ -67,7 +67,7 @@ const Groups = () => {
         "Fetch groups failed:",
         error.response?.data || error.message
       );
-      toast.error(`❌ ${error.response?.data?.message || "Failed to load groups"}`);
+      toast.error(`? ${error.response?.data?.message || "Failed to load groups"}`);
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
     }
   };
@@ -121,14 +121,14 @@ const Groups = () => {
       await axios.patch(`${apiBase}/admin/group/${group._id}/delete`, {}, {
         withCredentials: true,
       });
-      toast.success("✅ Group deleted successfully");
+      toast.success("? Group deleted successfully");
       fetchAll();
     } catch (error) {
       console.error(
         "Delete group failed:",
         error.response?.data || error.message
       );
-      toast.error(`❌ ${error.response?.data?.message || "Failed to delete group"}`);
+      toast.error(`? ${error.response?.data?.message || "Failed to delete group"}`);
     }
   };
 
@@ -141,12 +141,12 @@ const Groups = () => {
           formData,
           { withCredentials: true }
         );
-        toast.success("✅ Group updated successfully");
+        toast.success("? Group updated successfully");
       } else {
         await axios.post(`${apiBase}/admin/group`, formData, {
           withCredentials: true,
         });
-        toast.success("✅ Group added successfully");
+        toast.success("? Group added successfully");
       }
       setIsOpen(false);
       setEditTarget(null);
@@ -156,14 +156,14 @@ const Groups = () => {
         "Save group failed:",
         error.response?.data || error.message
       );
-      toast.error(`❌ ${error.response?.data?.message || "Failed to save group"}`);
+      toast.error(`? ${error.response?.data?.message || "Failed to save group"}`);
     }
   };
 
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="groups-state pending">
+        <div className="groups-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -402,5 +402,6 @@ const Groups = () => {
 };
 
 export default Groups;
+
 
 

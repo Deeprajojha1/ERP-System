@@ -92,7 +92,7 @@ function FacultyLeaves() {
       </div>
 
       {loadState === FACULTY_LOAD_STATES.PENDING && (
-        <div className="leaves-state pending">
+        <div className="leaves-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -152,3 +152,4 @@ function FacultyLeaves() {
 }
 
 export default FacultyLeaves;
+

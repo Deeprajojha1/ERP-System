@@ -261,7 +261,7 @@ const Department = () => {
     switch (loadState) {
       case ADMIN_LOAD_STATES.PENDING:
         return (
-          <div className="dept-state pending">
+          <div className="dept-state pending app-loader-state">
             <Oval
               height={64}
               width={64}
@@ -475,4 +475,5 @@ const Department = () => {
 };
 
 export default Department;
+
 

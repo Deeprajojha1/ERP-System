@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import axios from "../utils/axiosInstance";
 import "./Courses.css";
@@ -70,7 +70,7 @@ const Courses = () => {
     } catch (error) {
       console.error("Failed to load courses", error.response?.data || error.message);
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
-      toast.error(`❌ ${error.response?.data?.message || "Failed to load courses"}`);
+      toast.error(`? ${error.response?.data?.message || "Failed to load courses"}`);
     }
   };
 
@@ -182,7 +182,7 @@ const Courses = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="courses-state pending">
+        <div className="courses-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -434,4 +434,5 @@ const Courses = () => {
 };
 
 export default Courses;
+
 
