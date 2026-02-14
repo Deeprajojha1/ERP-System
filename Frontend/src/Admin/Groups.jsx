@@ -7,6 +7,7 @@ import emptyStateImg from "../assets/empty-state.svg";
 import "./Groups.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import toast from "react-hot-toast";
+import { selectTimetableRevision } from "../redux/timetableSlice";
 
 const Groups = () => {
   const [search, setSearch] = useState("");
@@ -18,6 +19,7 @@ const Groups = () => {
   const [faculty, setFaculty] = useState([]);
   const [editTarget, setEditTarget] = useState(null);
   const apiBase = useSelector((state) => state.config.apiBase);
+  const timetableRevision = useSelector(selectTimetableRevision);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -73,7 +75,7 @@ const Groups = () => {
   useEffect(() => {
     if (!apiBase) return;
     fetchAll();
-  }, [apiBase]);
+  }, [apiBase, timetableRevision]);
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();

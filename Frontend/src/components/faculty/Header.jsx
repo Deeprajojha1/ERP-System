@@ -6,6 +6,7 @@ import { clearUserData } from "../../redux/userSlice";
 import { clearStudents } from "../../redux/studentSlice";
 import { clearFaculty } from "../../redux/facultySlice";
 import { clearLeaves } from "../../redux/leavesSlice";
+import { clearTimetable } from "../../redux/timetableSlice";
 import "./Header.css";
 
 function Header() {
@@ -30,6 +31,7 @@ function Header() {
       dispatch(clearStudents());
       dispatch(clearFaculty());
       dispatch(clearLeaves());
+      dispatch(clearTimetable());
       navigate("/login", { replace: true });
     }
   };
