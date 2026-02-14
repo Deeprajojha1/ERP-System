@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { clearUserData } from "../../redux/userSlice";
 import { clearStudents } from "../../redux/studentSlice";
 import { clearFaculty } from "../../redux/facultySlice";
+import { clearLeaves } from "../../redux/leavesSlice";
 import "./Header.css";
 
 function Header() {
@@ -28,6 +29,7 @@ function Header() {
       dispatch(clearUserData());
       dispatch(clearStudents());
       dispatch(clearFaculty());
+      dispatch(clearLeaves());
       navigate("/login", { replace: true });
     }
   };

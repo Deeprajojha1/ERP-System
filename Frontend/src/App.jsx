@@ -4,6 +4,8 @@ import { useSelector } from "react-redux";
 
 import ResetPassword from "./components/ResetPassword/ResetPassword";
 import Login from "./components/UserLogin/Login";
+import UserRegister from "./components/UserRegister/UserRegister";
+import Layout from "./components/Layout/Layout";
 import Dashboard from "./components/pages/Dashboard";
 import AttendancePage from "./components/faculty/AttendancePage";
 import FacultyDashboard from "./components/faculty/FacultyDashboard";
@@ -31,27 +33,32 @@ import FeesOthers from "./Admin/FeesOthers";
 import GeneralSupport from "./Admin/GeneralSupport";
 
 function App() {
-  /* 🔹 Fetch logged-in user */
   useGetCurrentUser();
 
-  const userData = useSelector(
-    (state) => state.user.userData
-  );
-
-  console.log("Current User:", userData);
-  console.log(
-    "Current User Role:",
-    userData?.user?.role
-  );
+  const userData = useSelector((state) => state.user.userData);
 
   return (
     <>
       <Routes>
-        {/* ================= PUBLIC ROUTES ================= */}
+        <Route
+          path="/"
+          element={
+            userData ? (
+              userData.user?.role === "faculty" ? (
+                <Navigate to="/faculty/faculty-dashboard" replace />
+              ) : userData.user?.role === "admin" ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <Layout />
+            )
+          }
+        />
 
-        {/* 🔁 Role-based Login Redirect */}
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
             userData ? (
               userData.user?.role === "faculty" ? (
@@ -64,11 +71,11 @@ function App() {
             ) : (
               <Login />
             )
-          } 
+          }
         />
 
-        <Route 
-          path="/reset-password" 
+        <Route
+          path="/reset-password"
           element={
             userData ? (
               userData.user?.role === "faculty" ? (
@@ -81,10 +88,25 @@ function App() {
             ) : (
               <ResetPassword />
             )
-          } 
+          }
         />
 
-        {/* ================= FACULTY ROUTES ================= */}
+        <Route
+          path="/register"
+          element={
+            userData ? (
+              userData.user?.role === "faculty" ? (
+                <Navigate to="/faculty/faculty-dashboard" replace />
+              ) : userData.user?.role === "admin" ? (
+                <Navigate to="/admin/dashboard" replace />
+              ) : (
+                <Navigate to="/dashboard" replace />
+              )
+            ) : (
+              <UserRegister />
+            )
+          }
+        />
 
         {userData?.user?.role === "faculty" && (
           <Route
@@ -95,23 +117,9 @@ function App() {
 
                 <main className="main">
                   <Routes>
-                    <Route
-                      path="faculty-dashboard"
-                      element={
-                        <FacultyDashboard />
-                      }
-                    />
-
-                    <Route
-                      path="course/:courseId"
-                      element={
-                        <AttendancePage />
-                      }
-                    />
-                    <Route
-                      path="leaves"
-                      element={<FacultyLeaves />}
-                    />
+                    <Route path="faculty-dashboard" element={<FacultyDashboard />} />
+                    <Route path="course/:courseId" element={<AttendancePage />} />
+                    <Route path="leaves" element={<FacultyLeaves />} />
                   </Routes>
                 </main>
               </div>
@@ -119,109 +127,36 @@ function App() {
           />
         )}
 
-        {/* ================= STUDENT ROUTES ================= */}
-
         {userData?.user?.role === "student" && (
           <>
-            <Route
-              path="/dashboard"
-              element={<Dashboard />}
-            />
+            <Route path="/dashboard" element={<Dashboard />} />
           </>
         )}
-        
+
         {userData?.user?.role === "admin" && (
-          <Route
-            path="/admin/*"
-            element={<AdminLayout />}
-          >
-            <Route
-              path="dashboard"
-              element={<AdminHome />}
-            />
-            <Route
-              path="department"
-              element={<Department />}
-            />
-            <Route
-              path="faculty"
-              element={<Faculty />}
-            />
-            <Route
-              path="student"
-              element={<Student />}
-            />
-            <Route
-              path="courses"
-              element={<Courses />}
-            />
-            <Route
-              path="groups"
-              element={<Groups />}
-            />
-            <Route
-              path="timetable"
-              element={<Timetable />}
-            />
-            <Route
-              path="exam"
-              element={<Exam />}
-            />
-            <Route
-              path="result"
-              element={<Result />}
-            />
-            <Route
-              path="attendance"
-              element={<Attendance />}
-            />
-            <Route
-              path="leaves"
-              element={<Leaves />}
-            />
-            <Route
-              path="fees"
-              element={<Fees />}
-            />
-            <Route
-              path="fees/academic"
-              element={<FeesAcademic />}
-            />
-            <Route
-              path="fees/hostel"
-              element={<FeesHostel />}
-            />
-            <Route
-              path="fees/transport"
-              element={<FeesTransport />}
-            />
-            <Route
-              path="fees/backpapers"
-              element={<FeesBackpapers />}
-            />
-            <Route
-              path="fees/others"
-              element={<FeesOthers />}
-            />
-            <Route
-              path="general-support"
-              element={<GeneralSupport />}
-            />
+          <Route path="/admin/*" element={<AdminLayout />}>
+            <Route path="dashboard" element={<AdminHome />} />
+            <Route path="department" element={<Department />} />
+            <Route path="faculty" element={<Faculty />} />
+            <Route path="student" element={<Student />} />
+            <Route path="courses" element={<Courses />} />
+            <Route path="groups" element={<Groups />} />
+            <Route path="timetable" element={<Timetable />} />
+            <Route path="exam" element={<Exam />} />
+            <Route path="result" element={<Result />} />
+            <Route path="attendance" element={<Attendance />} />
+            <Route path="leaves" element={<Leaves />} />
+            <Route path="fees" element={<Fees />} />
+            <Route path="fees/academic" element={<FeesAcademic />} />
+            <Route path="fees/hostel" element={<FeesHostel />} />
+            <Route path="fees/transport" element={<FeesTransport />} />
+            <Route path="fees/backpapers" element={<FeesBackpapers />} />
+            <Route path="fees/others" element={<FeesOthers />} />
+            <Route path="general-support" element={<GeneralSupport />} />
           </Route>
-          
         )}
 
-        {/* ================= FALLBACK ================= */}
-
-        <Route
-          path="*"
-          element={
-            <Navigate
-              to="/login"
-              replace
-            />
-          }
-        />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </>
   );

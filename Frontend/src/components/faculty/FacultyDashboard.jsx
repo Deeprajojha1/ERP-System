@@ -1,21 +1,24 @@
 import { useMemo, useState } from "react";
-import axios from "../../utils/axiosInstance";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FiFileText } from "react-icons/fi";
 import toast from "react-hot-toast";
 import CourseCard from "./CourseCard";
 import InfoRow from "./InfoRow";
+import {
+  createFacultyLeave,
+  selectFacultyLeaveCreating,
+} from "../../redux/leavesSlice";
 import "./FacultyDashboard.css";
 
 function FacultyDashboard() {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
   const userData = useSelector((state) => state.user.userData);
-  const apiBase = useSelector((state) => state.config.apiBase);
+  const requestSubmitting = useSelector(selectFacultyLeaveCreating);
   const user = userData?.user;
   const roleDetails = userData?.roleDetails;
   const [requestStatus, setRequestStatus] = useState(null);
-  const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [requestForm, setRequestForm] = useState({
     leaveType: "Sick Leave",
@@ -107,7 +110,6 @@ function FacultyDashboard() {
     event.preventDefault();
     setRequestStatus(null);
     try {
-      setRequestSubmitting(true);
       const facultyId = roleDetails?._id;
       const reason = requestForm.reason.trim();
       const dateFrom = toDDMMYYYY(requestForm.fromDate);
@@ -127,26 +129,24 @@ function FacultyDashboard() {
         throw new Error("To Date must be after From Date.");
       }
 
-      const res = await axios.post(
-        `${apiBase}/faculty/leave`,
-        {
+      const res = await dispatch(
+        createFacultyLeave({
           faculty: facultyId,
           dateFrom,
           dateTo,
           type,
           status: "pending",
           reason,
-        },
-        { withCredentials: true }
-      );
+        })
+      ).unwrap();
 
-      toast.success(res.data?.message || "applied for leave succesfully", {
+      toast.success(res?.message || "applied for leave succesfully", {
         icon: "\u2705",
       });
       setRequestStatus({
         type: "success",
         message:
-          res.data?.message ||
+          res?.message ||
           "applied for leave succesfully",
       });
       setRequestForm((prev) => ({
@@ -158,25 +158,21 @@ function FacultyDashboard() {
       }));
       setIsRequestOpen(false);
     } catch (error) {
+      const errorMessage =
+        typeof error === "string"
+          ? error
+          : error?.response?.data?.message ||
+            error?.message ||
+            "Unable to submit request.";
       console.error(
         "Faculty request failed:",
-        error.response?.data || error.message
+        typeof error === "string" ? error : error?.response?.data || error?.message
       );
-      toast.error(
-        error.response?.data?.message ||
-          error.message ||
-          "Unable to submit request.",
-        { icon: "\u274C" }
-      );
+      toast.error(errorMessage, { icon: "\u274C" });
       setRequestStatus({
         type: "error",
-        message:
-          error.response?.data?.message ||
-          error.message ||
-          "Unable to submit request.",
+        message: errorMessage,
       });
-    } finally {
-      setRequestSubmitting(false);
     }
   };
 

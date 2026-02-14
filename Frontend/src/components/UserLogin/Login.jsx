@@ -378,6 +378,11 @@ const Login = () => {
             )}
           </div>
         )}
+
+        <div className="login-register-row">
+          <span>Don't have an account?</span>{" "}
+          <Link to="/register">Register here</Link>
+        </div>
       </div>
     </div>
   );

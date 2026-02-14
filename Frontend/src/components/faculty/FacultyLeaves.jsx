@@ -1,16 +1,26 @@
 import { useEffect, useMemo, useState } from "react";
-import axios from "../../utils/axiosInstance";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FiArrowLeft } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import { FACULTY_LOAD_STATES } from "./constants/loadStates";
+import {
+  fetchFacultyLeaves,
+  selectFacultyLeaves,
+  selectFacultyLeavesError,
+  selectFacultyLeavesLoading,
+} from "../../redux/leavesSlice";
 import "./FacultyLeaves.css";
 
-const statusLabelMap = {
-  pending: "Pending",
-  appeared: "Approved",
-  reject: "Rejected",
+const normalizeLeaveStatus = (value = "") => {
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "approved" || normalized === "appeared") {
+    return { key: "approved", label: "Approved" };
+  }
+  if (normalized === "rejected" || normalized === "reject") {
+    return { key: "rejected", label: "Rejected" };
+  }
+  return { key: "pending", label: "Pending" };
 };
 
 const toDisplayDate = (value) => {
@@ -24,33 +34,43 @@ const toDisplayDate = (value) => {
 
 function FacultyLeaves() {
   const navigate = useNavigate();
-  const apiBase = useSelector((state) => state.config.apiBase);
-  const [leaves, setLeaves] = useState([]);
-  const [loadState, setLoadState] = useState(FACULTY_LOAD_STATES.INITIAL);
-  const [error, setError] = useState("");
+  const dispatch = useDispatch();
+  const leaves = useSelector(selectFacultyLeaves);
+  const loading = useSelector(selectFacultyLeavesLoading);
+  const error = useSelector(selectFacultyLeavesError);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
   useEffect(() => {
-    const fetchLeaves = async () => {
-      try {
-        setLoadState(FACULTY_LOAD_STATES.PENDING);
-        setError("");
-        const res = await axios.get(`${apiBase}/faculty/leave`, {
-          withCredentials: true,
-        });
-        setLeaves(res.data?.leaves || []);
-        setLoadState(FACULTY_LOAD_STATES.SUCCESS);
-      } catch (err) {
-        setError(
-          err.response?.data?.message || "Unable to load leave requests."
-        );
-        setLoadState(FACULTY_LOAD_STATES.FAILURE);
-      }
+    dispatch(fetchFacultyLeaves()).finally(() => {
+      setHasFetchedOnce(true);
+    });
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (!hasFetchedOnce) return;
+
+    const intervalId = setInterval(() => {
+      dispatch(fetchFacultyLeaves());
+    }, 15000);
+
+    const handleFocus = () => {
+      dispatch(fetchFacultyLeaves());
     };
 
-    if (apiBase) {
-      fetchLeaves();
-    }
-  }, [apiBase]);
+    window.addEventListener("focus", handleFocus);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [dispatch, hasFetchedOnce]);
+
+  const loadState = useMemo(() => {
+    if (loading && !hasFetchedOnce) return FACULTY_LOAD_STATES.PENDING;
+    if (error) return FACULTY_LOAD_STATES.FAILURE;
+    if (hasFetchedOnce) return FACULTY_LOAD_STATES.SUCCESS;
+    return FACULTY_LOAD_STATES.INITIAL;
+  }, [loading, error, hasFetchedOnce]);
 
   const hasLeaves = useMemo(() => leaves.length > 0, [leaves]);
 
@@ -96,32 +116,35 @@ function FacultyLeaves() {
 
       {loadState === FACULTY_LOAD_STATES.SUCCESS && !error && hasLeaves && (
         <div className="leaves-grid">
-          {leaves.map((leave) => (
-            <article className="leave-card" key={leave._id}>
-              <div className="leave-card-head">
-                <p className="leave-type">{leave.type || "leave"}</p>
-                <span
-                  className={`leave-status status-${leave.status || "pending"}`}
-                >
-                  {statusLabelMap[leave.status] || "Pending"}
-                </span>
-              </div>
+          {leaves.map((leave) => {
+            const normalizedStatus = normalizeLeaveStatus(leave?.status);
+            return (
+              <article className="leave-card" key={leave._id}>
+                <div className="leave-card-head">
+                  <p className="leave-type">{leave.type || "leave"}</p>
+                  <span
+                    className={`leave-status status-${normalizedStatus.key}`}
+                  >
+                    {normalizedStatus.label}
+                  </span>
+                </div>
 
-              <div className="leave-details">
-                <p>
-                  <span>Applied:</span> {toDisplayDate(leave.createdAt)}
-                </p>
-                <p>
-                  <span>From:</span> {toDisplayDate(leave.dateFrom)}
-                </p>
-                <p>
-                  <span>To:</span> {toDisplayDate(leave.dateTo)}
-                </p>
-              </div>
+                <div className="leave-details">
+                  <p>
+                    <span>Applied:</span> {toDisplayDate(leave.createdAt)}
+                  </p>
+                  <p>
+                    <span>From:</span> {toDisplayDate(leave.dateFrom)}
+                  </p>
+                  <p>
+                    <span>To:</span> {toDisplayDate(leave.dateTo)}
+                  </p>
+                </div>
 
-              <p className="leave-reason">{leave.reason || "No reason provided."}</p>
-            </article>
-          ))}
+                <p className="leave-reason">{leave.reason || "No reason provided."}</p>
+              </article>
+            );
+          })}
         </div>
       )}
     </section>

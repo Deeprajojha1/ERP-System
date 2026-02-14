@@ -1,6 +1,13 @@
 ﻿import React, { useState } from "react";
 import { useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import { Oval } from "react-loader-spinner";
+import { PiStudentFill } from "react-icons/pi";
+import { GiTeacher } from "react-icons/gi";
+import { GoOrganization } from "react-icons/go";
+import { MdCastForEducation } from "react-icons/md";
+import { GiJusticeStar } from "react-icons/gi";
+import { TbReportSearch } from "react-icons/tb";
 import "./AdminHome.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -21,7 +28,7 @@ import {
 
 const AdminHome = () => {
   const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
-
+  const navigate = useNavigate();
   const userData = useSelector((state) => state.user.userData);
 
   const shortenDeptName = (name = "") => {
@@ -250,6 +257,72 @@ const AdminHome = () => {
                     </ResponsiveContainer>
                   </div>
                 </div>
+              </div>
+            </div>
+
+            {/* Quick Management Section */}
+            <div className="admin-card quick-management-panel">
+              <h1 className="heading">Quick Management</h1>
+              <div className="quick-management-grid">
+                <button 
+                  className="quick-management-card"
+                  onClick={() => navigate('/admin/student')}
+                >
+                  <div className="quick-management-icon student-icon">
+                    <PiStudentFill />
+                  </div>
+                  <span className="quick-management-label">Manage Students</span>
+                </button>
+
+                <button 
+                  className="quick-management-card"
+                  onClick={() => navigate('/admin/faculty')}
+                >
+                  <div className="quick-management-icon faculty-icon">
+                    <GiTeacher />
+                  </div>
+                  <span className="quick-management-label">Manage Faculty</span>
+                </button>
+
+                <button 
+                  className="quick-management-card"
+                  onClick={() => navigate('/admin/department')}
+                >
+                  <div className="quick-management-icon department-icon">
+                    <GoOrganization />
+                  </div>
+                  <span className="quick-management-label">Departments</span>
+                </button>
+
+                <button 
+                  className="quick-management-card"
+                  onClick={() => navigate('/admin/courses')}
+                >
+                  <div className="quick-management-icon courses-icon">
+                    <MdCastForEducation />
+                  </div>
+                  <span className="quick-management-label">Courses</span>
+                </button>
+
+                <button 
+                  className="quick-management-card"
+                  onClick={() => navigate('/admin/groups')}
+                >
+                  <div className="quick-management-icon subjects-icon">
+                    <GiJusticeStar />
+                  </div>
+                  <span className="quick-management-label">Subjects</span>
+                </button>
+
+                <button 
+                  className="quick-management-card"
+                  onClick={() => navigate('/admin/general-support')}
+                >
+                  <div className="quick-management-icon reports-icon">
+                    <TbReportSearch />
+                  </div>
+                  <span className="quick-management-label">View Reports</span>
+                </button>
               </div>
             </div>
           </>

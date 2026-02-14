@@ -1,12 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "../utils/axiosInstance";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { FiClock, FiCheckCircle, FiSearch, FiXCircle } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import toast from "react-hot-toast";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Leaves.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import {
+  fetchAdminLeaves,
+  selectAdminLeaveUpdating,
+  selectAdminLeaves,
+  selectAdminLeavesError,
+  selectAdminLeavesLoading,
+  updateAdminLeaveStatus,
+} from "../redux/leavesSlice";
 
 const toTitleCase = (value = "") =>
   value
@@ -17,14 +24,14 @@ const toTitleCase = (value = "") =>
     .join(" ");
 
 const normalizeLeaveStatus = (value = "") => {
-  const normalized = String(value).toLowerCase();
-  if (normalized === "approved") return "Approved";
-  if (normalized === "rejected") return "Rejected";
+  const normalized = String(value).trim().toLowerCase();
+  if (normalized === "approved" || normalized === "appeared") return "Approved";
+  if (normalized === "rejected" || normalized === "reject") return "Rejected";
   return "Pending";
 };
 
 const toApiLeaveStatus = (value = "") => {
-  const normalized = String(value).toLowerCase();
+  const normalized = String(value).trim().toLowerCase();
   if (normalized === "approved") return "approved";
   if (normalized === "rejected") return "rejected";
   return "pending";
@@ -55,61 +62,55 @@ const toDisplayDate = (value) => {
 };
 
 const Leaves = () => {
-  const apiBase = useSelector((state) => state.config.apiBase);
+  const dispatch = useDispatch();
+  const adminLeaves = useSelector(selectAdminLeaves);
+  const adminLeavesLoading = useSelector(selectAdminLeavesLoading);
+  const adminLeavesError = useSelector(selectAdminLeavesError);
+  const adminLeaveUpdating = useSelector(selectAdminLeaveUpdating);
   const [search, setSearch] = useState("");
   const [requestStatus, setRequestStatus] = useState("All");
-  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
-  const [requests, setRequests] = useState([]);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState("Pending");
-  const [savingStatus, setSavingStatus] = useState(false);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+
+  const requests = useMemo(
+    () =>
+      (adminLeaves || []).map((leave) => {
+        const faculty = leave?.faculty || {};
+        const user = faculty?.user || {};
+        const department = faculty?.department || {};
+
+        return {
+          id: leave?._id,
+          name: user?.name || faculty?.employeeId || "N/A",
+          email: user?.email || "N/A",
+          employeeId: faculty?.employeeId || "N/A",
+          department: department?.name || "N/A",
+          type: formatLeaveType(leave?.type),
+          from: leave?.dateFrom || "N/A",
+          to: leave?.dateTo || "N/A",
+          status: normalizeLeaveStatus(leave?.status),
+          rawStatus: leave?.status || "pending",
+          facultyStatus: normalizeFacultyStatus(user?.status),
+          appliedOn: leave?.createdAt || null,
+          reason: leave?.reason || "N/A",
+        };
+      }),
+    [adminLeaves]
+  );
+
+  const loadState = useMemo(() => {
+    if (adminLeavesLoading) return ADMIN_LOAD_STATES.PENDING;
+    if (adminLeavesError) return ADMIN_LOAD_STATES.FAILURE;
+    if (hasFetchedOnce) return ADMIN_LOAD_STATES.SUCCESS;
+    return ADMIN_LOAD_STATES.INITIAL;
+  }, [adminLeavesLoading, adminLeavesError, hasFetchedOnce]);
 
   useEffect(() => {
-    const fetchLeaves = async () => {
-      try {
-        setLoadState(ADMIN_LOAD_STATES.PENDING);
-        const res = await axios.get(`${apiBase}/admin/facultyleave`, {
-          withCredentials: true,
-        });
-
-        const rows = (res.data?.leaves || []).map((leave) => {
-          const faculty = leave?.faculty || {};
-          const user = faculty?.user || {};
-          const department = faculty?.department || {};
-
-          return {
-            id: leave?._id,
-            name: user?.name || faculty?.employeeId || "N/A",
-            email: user?.email || "N/A",
-            employeeId: faculty?.employeeId || "N/A",
-            department: department?.name || "N/A",
-            type: formatLeaveType(leave?.type),
-            from: leave?.dateFrom || "N/A",
-            to: leave?.dateTo || "N/A",
-            status: normalizeLeaveStatus(leave?.status),
-            rawStatus: leave?.status || "pending",
-            facultyStatus: normalizeFacultyStatus(user?.status),
-            appliedOn: leave?.createdAt || null,
-            reason: leave?.reason || "N/A",
-          };
-        });
-
-        setRequests(rows);
-        setLoadState(ADMIN_LOAD_STATES.SUCCESS);
-      } catch (error) {
-        console.error(
-          "Fetch leaves failed:",
-          error.response?.data || error.message
-        );
-        setRequests([]);
-        setLoadState(ADMIN_LOAD_STATES.FAILURE);
-      }
-    };
-
-    if (apiBase) {
-      fetchLeaves();
-    }
-  }, [apiBase]);
+    dispatch(fetchAdminLeaves()).finally(() => {
+      setHasFetchedOnce(true);
+    });
+  }, [dispatch]);
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
@@ -131,54 +132,32 @@ const Leaves = () => {
   const closeRequestModal = () => {
     setSelectedRequest(null);
     setSelectedStatus("Pending");
-    setSavingStatus(false);
   };
 
   const handleStatusSave = async () => {
     if (!selectedRequest?.id) return;
 
     try {
-      setSavingStatus(true);
-      await axios.patch(
-        `${apiBase}/admin/facultyleave/${selectedRequest.id}/status`,
-        { status: toApiLeaveStatus(selectedStatus) },
-        { withCredentials: true }
-      );
+      await dispatch(
+        updateAdminLeaveStatus({
+          leaveId: selectedRequest.id,
+          status: toApiLeaveStatus(selectedStatus),
+        })
+      ).unwrap();
+      await dispatch(fetchAdminLeaves());
 
-      setRequests((prev) =>
-        prev.map((item) =>
-          item.id === selectedRequest.id
-            ? {
-                ...item,
-                status: selectedStatus,
-                rawStatus: toApiLeaveStatus(selectedStatus),
-              }
-            : item
-        )
-      );
-      setSelectedRequest((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: selectedStatus,
-              rawStatus: toApiLeaveStatus(selectedStatus),
-            }
-          : prev
-      );
       toast.success("Leave status updated successfully", {
         icon: "\u2705",
       });
       closeRequestModal();
     } catch (error) {
-      console.error(
-        "Update leave status failed:",
-        error.response?.data || error.message
-      );
-      toast.error(error.response?.data?.message || "Failed to update status", {
+      const message =
+        typeof error === "string"
+          ? error
+          : error?.message || "Failed to update status";
+      toast.error(message, {
         icon: "\u274C",
       });
-    } finally {
-      setSavingStatus(false);
     }
   };
 
@@ -389,7 +368,7 @@ const Leaves = () => {
                   type="button"
                   className="btn-secondary"
                   onClick={closeRequestModal}
-                  disabled={savingStatus}
+                  disabled={adminLeaveUpdating}
                 >
                   Cancel
                 </button>
@@ -397,9 +376,9 @@ const Leaves = () => {
                   type="button"
                   className="btn-primary"
                   onClick={handleStatusSave}
-                  disabled={savingStatus}
+                  disabled={adminLeaveUpdating}
                 >
-                  {savingStatus ? "Updating..." : "Update Status"}
+                  {adminLeaveUpdating ? "Updating..." : "Update Status"}
                 </button>
               </div>
             </div>
