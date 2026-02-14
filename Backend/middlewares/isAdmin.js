@@ -4,13 +4,23 @@ const isAdmin = async (req, res, next) => {
   try {
     console.log("[isAdmin] Incoming admin request", {
       origin: req.headers.origin,
-      cookies: req.cookies,
+      hasCookieToken: Boolean(req.cookies?.token),
+      hasAuthHeader: Boolean(req.headers.authorization),
     });
 
-    const { token } = req.cookies;
+    // 1) Prefer cookie token (web browsers with cookie support)
+    let token = req.cookies?.token;
+
+    // 2) Fallback to Authorization header (mobile / third-party cookie blocked)
+    if (!token) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        token = authHeader.split(" ")[1];
+      }
+    }
 
     if (!token) {
-      console.warn("[isAdmin] No token cookie found");
+      console.warn("[isAdmin] No auth token found in cookie or Authorization header");
       return res.status(401).json({
         message: "Authentication required",
       });

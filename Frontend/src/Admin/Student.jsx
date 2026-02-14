@@ -46,21 +46,42 @@ const Student = () => {
   const [submitting, setSubmitting] = useState(false);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
 
+  const extractStudentsFromResponse = (payload) => {
+    if (Array.isArray(payload?.students)) return payload.students;
+    if (Array.isArray(payload?.data?.students)) return payload.data.students;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload)) return payload;
+    return [];
+  };
+
+  const normalizeStudentRow = (student) => ({
+    ...student,
+    _id: student?._id || student?.id || student?.studentId || "",
+    studentName:
+      student?.studentName ||
+      student?.user?.name ||
+      student?.name ||
+      student?.fullName ||
+      "",
+    rollNo: student?.rollNo || student?.enrollmentNumber || student?.roll || "",
+    department:
+      student?.department?.name ||
+      student?.department?.departmentName ||
+      student?.department ||
+      "",
+    status: student?.status || student?.user?.status || "active",
+  });
+
   useEffect(() => {
     const fetchAll = async () => {
       try {
         setLoadState(ADMIN_LOAD_STATES.PENDING);
         dispatch(setStudentsLoading(true));
-        const [studentRes, deptRes] = await Promise.all([
-          axios.get(`${apiBase}/admin/student`, {
-            withCredentials: true,
-          }),
-          axios.get(`${apiBase}/admin/department`, {
-            withCredentials: true,
-          }),
-        ]);
-        dispatch(setStudents(studentRes.data?.students || []));
-        setDepartments(deptRes.data?.departments || []);
+        const studentRes = await axios.get(`${apiBase}/admin/student`, {
+          withCredentials: true,
+        });
+        const rows = extractStudentsFromResponse(studentRes.data).map(normalizeStudentRow);
+        dispatch(setStudents(rows));
         setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (error) {
         console.error(
@@ -102,7 +123,7 @@ const Student = () => {
     const res = await axios.get(`${apiBase}/admin/student`, {
       withCredentials: true,
     });
-    dispatch(setStudents(res.data?.students || []));
+    dispatch(setStudents(extractStudentsFromResponse(res.data).map(normalizeStudentRow)));
   };
 
   const filtered = useMemo(() => {
@@ -436,8 +457,8 @@ const Student = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((s) => (
-                    <tr key={s._id || s.user?._id}>
+                  {filtered.map((s, index) => (
+                    <tr key={s._id || s.user?._id || `${s.rollNo || "student"}-${index}`}>
                       <td className="student-roll">{s.studentName || s.user?.name || s.name || "N/A"}</td>
                       <td>{s.rollNo || s.enrollmentNumber || s.roll || "N/A"}</td>
                       <td>{s.department?.name || s.department}</td>
