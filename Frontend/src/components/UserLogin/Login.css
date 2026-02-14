@@ -276,6 +276,23 @@
   cursor: not-allowed;
 }
 
+.login-register-row {
+  margin-top: 14px;
+  text-align: center;
+  font-size: 13px;
+  color: #667085;
+}
+
+.login-register-row a {
+  color: var(--login-blue);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.login-register-row a:hover {
+  text-decoration: underline;
+}
+
 .forgot-section {
   margin-top: 14px;
   border: 1px solid #d7e6f4;

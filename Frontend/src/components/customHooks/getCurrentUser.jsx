@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { setUserData, clearUserData } from "../../redux/userSlice";
 import { clearStudents } from "../../redux/studentSlice";
 import { clearFaculty } from "../../redux/facultySlice";
+import { clearLeaves } from "../../redux/leavesSlice";
 
 const useGetCurrentUser = () => {
     const dispatch = useDispatch();
@@ -32,6 +33,7 @@ const useGetCurrentUser = () => {
                 dispatch(clearUserData());
                 dispatch(clearStudents());
                 dispatch(clearFaculty());
+                dispatch(clearLeaves());
             }
         };
         fetchUser();
