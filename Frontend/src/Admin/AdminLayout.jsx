@@ -55,6 +55,7 @@ const AdminLayout = () => {
 
   useEffect(() => {
     if (!apiBase || userData?.user?.role !== "admin") return;
+    if (!location.pathname.startsWith("/admin/leaves")) return;
 
     dispatch(fetchAdminLeaves());
     const intervalId = setInterval(() => {
@@ -62,7 +63,7 @@ const AdminLayout = () => {
     }, 60000);
 
     return () => clearInterval(intervalId);
-  }, [apiBase, userData?.user?.role, dispatch]);
+  }, [apiBase, userData?.user?.role, location.pathname, dispatch]);
 
   const handleLogout = async () => {
     try {

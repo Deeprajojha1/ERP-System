@@ -333,6 +333,54 @@
   font-size: 14px;
 }
 
+.dept-program-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-height: 52px;
+  background: #ffffff;
+}
+
+.dept-program-input-wrap:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.dept-program-input-wrap input {
+  border: none;
+  outline: none;
+  flex: 1 1 180px;
+  min-width: 140px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.dept-program-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dept-program-chip-remove {
+  border: none;
+  background: transparent;
+  color: #1e3a8a;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+}
+
 .dept-help {
   margin-top: 6px;
   font-size: 12px;

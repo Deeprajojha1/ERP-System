@@ -13,6 +13,23 @@ import {
   setDepartmentsLoading,
 } from "../redux/departmentSlice";
 
+const PROGRAM_CANONICAL_MAP = {
+  btech: "btech",
+  mtech: "mtech",
+  bca: "bca",
+  mca: "mca",
+  bba: "bba",
+  mba: "mba",
+};
+
+const canonicalizeProgram = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  return PROGRAM_CANONICAL_MAP[normalized] || "";
+};
+
 const Department = () => {
   const [faculty, setFaculty] = useState([]);
   const dispatch = useDispatch();
@@ -27,7 +44,9 @@ const Department = () => {
   const [formData, setFormData] = useState({
     name: "",
     hod: "",
+    program: [],
   });
+  const [programInput, setProgramInput] = useState("");
   const [nameMode, setNameMode] = useState("new");
   const [selectedDeptId, setSelectedDeptId] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -142,7 +161,8 @@ const Department = () => {
 
   const openAddModal = () => {
     setEditTarget(null);
-    setFormData({ name: "", hod: "" });
+    setFormData({ name: "", hod: "", program: [] });
+    setProgramInput("");
     setNameMode("new");
     setSelectedDeptId("");
     setIsOpen(true);
@@ -153,7 +173,9 @@ const Department = () => {
     setFormData({
       name: dept.name || "",
       hod: dept.hod?._id || "",
+      program: Array.isArray(dept.program) ? dept.program : [],
     });
+    setProgramInput("");
     setNameMode("edit");
     setSelectedDeptId(dept._id || "");
     setIsOpen(true);
@@ -185,6 +207,42 @@ const Department = () => {
     }));
   };
 
+  const addProgramToken = () => {
+    const value = canonicalizeProgram(programInput);
+    if (!value) {
+      if (programInput.trim()) {
+        toast.error("Invalid program. Use btech, mtech, bca, mca, bba, or mba.");
+      }
+      return;
+    }
+    setFormData((prev) => {
+      if (prev.program.includes(value)) return prev;
+      return { ...prev, program: [...prev.program, value] };
+    });
+    setProgramInput("");
+  };
+
+  const removeProgramToken = (indexToRemove) => {
+    setFormData((prev) => ({
+      ...prev,
+      program: prev.program.filter((_, index) => index !== indexToRemove),
+    }));
+  };
+
+  const handleProgramKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addProgramToken();
+      return;
+    }
+
+    if (e.key === "Backspace" && !programInput.trim()) {
+      if (!formData.program.length) return;
+      e.preventDefault();
+      removeProgramToken(formData.program.length - 1);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -192,6 +250,7 @@ const Department = () => {
       const payload = {
         name: formData.name.trim(),
         hod: formData.hod || null,
+        program: formData.program,
       };
 
       if (editTarget?._id) {
@@ -212,7 +271,8 @@ const Department = () => {
 
       setIsOpen(false);
       setEditTarget(null);
-      setFormData({ name: "", hod: "" });
+      setFormData({ name: "", hod: "", program: [] });
+      setProgramInput("");
       setNameMode("new");
       setSelectedDeptId("");
       await refreshDepartments();
@@ -442,6 +502,41 @@ const Department = () => {
                   />
                 </label>
               </div>
+              <div className="dept-form-row">
+                <label>
+                  Programs
+                  <div className="dept-program-input-wrap">
+                    {formData.program.map((item, index) => (
+                      <span key={`${item}-${index}`} className="dept-program-chip">
+                        {item}
+                        <button
+                          type="button"
+                          className="dept-program-chip-remove"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            removeProgramToken(index);
+                          }}
+                          aria-label={`Remove ${item}`}
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      placeholder="Type program and press Enter"
+                      value={programInput}
+                      onChange={(e) => setProgramInput(e.target.value)}
+                      onKeyDown={handleProgramKeyDown}
+                    />
+                  </div>
+                </label>
+              </div>
               <div className="dept-modal-actions">
                 <button
                   type="button"
@@ -456,7 +551,8 @@ const Department = () => {
                   disabled={
                     submitting ||
                     isExistingSelection ||
-                    !formData.name.trim()
+                    !formData.name.trim() ||
+                    formData.program.length === 0
                   }
                 >
                   {submitting

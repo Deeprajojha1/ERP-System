@@ -3,6 +3,13 @@ import mongoose from "mongoose";
 const departmentSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, unique: true, trim: true },
+    program: [
+      {
+        type: String,
+        enum: ["btech", "mtech", "bca", "mca", "bba", "mba"],
+        required: true,
+      },
+    ],
 
     hod: {
       type: mongoose.Schema.Types.ObjectId,

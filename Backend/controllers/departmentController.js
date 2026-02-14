@@ -4,6 +4,36 @@ import User from "../models/userModel.js";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
 const REDIS_ENABLED = process.env.REDIS_ENABLED === "true";
+
+const PROGRAM_CANONICAL_MAP = {
+  btech: "btech",
+  mtech: "mtech",
+  bca: "bca",
+  mca: "mca",
+  bba: "bba",
+  mba: "mba",
+};
+
+const canonicalizeProgram = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  return PROGRAM_CANONICAL_MAP[normalized] || "";
+};
+
+const normalizePrograms = (program) => {
+  if (Array.isArray(program)) {
+    return program
+      .map((p) => canonicalizeProgram(p))
+      .filter(Boolean);
+  }
+  if (typeof program === "string") {
+    const value = canonicalizeProgram(program);
+    return value ? [value] : [];
+  }
+  return [];
+};
 /* ================= GET ALL DEPARTMENTS ================= */
 
 export const getAllDepartments = async (req, res) => {
@@ -86,9 +116,24 @@ export const getDepartmentById = async (req, res) => {
 export const addDepartment = async (req, res) => {
   try {
     const { name, hod } = req.body;
+    const programs = normalizePrograms(req.body.program);
+
+    if (!name || !String(name).trim()) {
+      return res.status(400).json({
+        message: "Department name is required",
+      });
+    }
+
+    if (!programs.length) {
+      return res.status(400).json({
+        message: "At least one program is required",
+      });
+    }
 
     /* Check if department already exists */
-    const existingDepartment = await Department.findOne({ name });
+    const existingDepartment = await Department.findOne({
+      name: String(name).trim(),
+    });
     if (existingDepartment) {
       return res.status(400).json({
         message: "Department already exists",
@@ -96,7 +141,8 @@ export const addDepartment = async (req, res) => {
     }
 
     const department = await Department.create({
-      name,
+      name: String(name).trim(),
+      program: [...new Set(programs)],
       hod: hod || null,
     });
 
@@ -124,7 +170,37 @@ export const addDepartment = async (req, res) => {
 export const updateDepartment = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = {};
+
+    if (typeof req.body.name !== "undefined") {
+      const normalizedName = String(req.body.name || "").trim();
+      if (!normalizedName) {
+        return res.status(400).json({
+          message: "Department name cannot be empty",
+        });
+      }
+      updateData.name = normalizedName;
+    }
+
+    if (typeof req.body.program !== "undefined") {
+      const programs = normalizePrograms(req.body.program);
+      if (!programs.length) {
+        return res.status(400).json({
+          message: "At least one program is required",
+        });
+      }
+      updateData.program = [...new Set(programs)];
+    }
+
+    if (typeof req.body.hod !== "undefined") {
+      updateData.hod = req.body.hod || null;
+    }
+
+    if (!Object.keys(updateData).length) {
+      return res.status(400).json({
+        message: "Provide at least one field to update: name, program, or hod",
+      });
+    }
 
     const department = await Department.findByIdAndUpdate(id, updateData, {
       new: true,
