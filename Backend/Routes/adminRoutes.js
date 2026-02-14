@@ -7,6 +7,7 @@ import {
   deleteStudent,
   hardDeleteStudent,
 } from "../controllers/studentController.js";
+
 import {
   getAllDepartments,
   getDepartmentById,
@@ -15,6 +16,7 @@ import {
   deleteDepartment,
   hardDeleteDepartment,
 } from "../controllers/departmentController.js";
+
 import {
   getAllFaculty,
   getFacultyById,
@@ -24,7 +26,12 @@ import {
   hardDeleteFaculty,
   addRoutineToFaculty,
 } from "../controllers/facultyController.js";
-import { getAllFacultyLeaves, updateFacultyLeaveStatus } from "../controllers/facultyLeaveController.js";
+
+import {
+  getAllFacultyLeaves,
+  updateFacultyLeaveStatus,
+} from "../controllers/facultyLeaveController.js";
+
 import {
   getAllCourses,
   getCourseById,
@@ -33,6 +40,7 @@ import {
   deleteCourse,
   hardDeleteCourse,
 } from "../controllers/courseController.js";
+
 import {
   getAllGroups,
   getGroupById,
@@ -43,7 +51,9 @@ import {
   getTimetableGroups,
   getGroupTimetable,
 } from "../controllers/groupController.js";
+
 import { getAdminProfile } from "../controllers/profileController.js";
+
 import {
   markAttendance,
   updateAttendance,
@@ -56,14 +66,31 @@ import {
   getStudentOverallAttendance,
   getDailyAttendanceSummary,
 } from "../controllers/attendanceController.js";
+
+import {
+  getStatistics,
+  getAllBooks,
+  addBook,
+  getBookById,
+  updateBook,
+  deleteBook,
+  issueBook,
+  getIssuedBooks,
+  returnBook,
+} from "../controllers/libraryController.js";
+
 import isAdmin from "../middlewares/isAdmin.js";
 
 const router = express.Router();
 
-/* Profile Route */
-router.post("/profile", getAdminProfile);
+/* =========================
+   PROFILE
+========================= */
+router.post("/profile", isAdmin, getAdminProfile);
 
-/* Department Routes */
+/* =========================
+   DEPARTMENT
+========================= */
 router.get("/department", isAdmin, getAllDepartments);
 router.get("/department/:id", isAdmin, getDepartmentById);
 router.post("/department", isAdmin, addDepartment);
@@ -71,7 +98,9 @@ router.put("/department/:id", isAdmin, updateDepartment);
 router.patch("/department/:id/delete", isAdmin, deleteDepartment);
 router.delete("/department/:id", isAdmin, hardDeleteDepartment);
 
-/* Faculty Routes */
+/* =========================
+   FACULTY
+========================= */
 router.get("/faculty", isAdmin, getAllFaculty);
 router.get("/faculty/:id", isAdmin, getFacultyById);
 router.post("/faculty", isAdmin, addFaculty);
@@ -80,11 +109,15 @@ router.patch("/faculty/:id/delete", isAdmin, deleteFaculty);
 router.delete("/faculty/:id", isAdmin, hardDeleteFaculty);
 router.post("/faculty/:id/routine", isAdmin, addRoutineToFaculty);
 
-// Faculty Leaves (Admin)
+/* =========================
+   FACULTY LEAVES
+========================= */
 router.get("/facultyleave", isAdmin, getAllFacultyLeaves);
 router.patch("/facultyleave/:id/status", isAdmin, updateFacultyLeaveStatus);
 
-/* Student Routes */
+/* =========================
+   STUDENTS
+========================= */
 router.get("/student", isAdmin, getAllStudents);
 router.get("/student/:id", isAdmin, getStudentById);
 router.post("/student", isAdmin, addStudent);
@@ -92,7 +125,9 @@ router.put("/student/:id", isAdmin, updateStudent);
 router.patch("/student/:id/delete", isAdmin, deleteStudent);
 router.delete("/student/:id", isAdmin, hardDeleteStudent);
 
-/* Course Routes */
+/* =========================
+   COURSES
+========================= */
 router.get("/course", isAdmin, getAllCourses);
 router.get("/course/:id", isAdmin, getCourseById);
 router.post("/course", isAdmin, addCourse);
@@ -100,7 +135,9 @@ router.put("/course/:id", isAdmin, updateCourse);
 router.patch("/course/:id/delete", isAdmin, deleteCourse);
 router.delete("/course/:id", isAdmin, hardDeleteCourse);
 
-/* Group Routes */
+/* =========================
+   GROUPS
+========================= */
 router.get("/group", isAdmin, getAllGroups);
 router.get("/group/:id", isAdmin, getGroupById);
 router.post("/group", isAdmin, addGroup);
@@ -108,11 +145,15 @@ router.put("/group/:id", isAdmin, updateGroup);
 router.patch("/group/:id/delete", isAdmin, deleteGroup);
 router.delete("/group/:id", isAdmin, hardDeleteGroup);
 
-/* Timetable Routes (Group-wise ok) */
+/* =========================
+   TIMETABLE (GROUP-WISE)
+========================= */
 router.get("/timetable/group", isAdmin, getTimetableGroups);
 router.get("/timetable/group/:groupId", isAdmin, getGroupTimetable);
 
-/* Attendance Routes */
+/* =========================
+   ATTENDANCE
+========================= */
 router.post("/attendance", isAdmin, markAttendance);
 router.put("/attendance/:sessionId", isAdmin, updateAttendance);
 router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
@@ -123,5 +164,20 @@ router.get("/attendance/student/:studentId/course/:courseId", isAdmin, getStuden
 router.get("/attendance/:sessionId", isAdmin, getAttendanceById);
 router.patch("/attendance/:sessionId/delete", isAdmin, deleteAttendance);
 router.delete("/attendance/:sessionId", isAdmin, hardDeleteAttendance);
+
+/* =========================
+   LIBRARY
+========================= */
+router.get("/library/statistics", getStatistics);
+
+router.get("/library/books",  getAllBooks);
+router.post("/library/books", addBook);
+router.get("/library/books/:id",  getBookById);
+router.put("/library/books/:id",  updateBook);
+router.delete("/library/books/:id", deleteBook);
+
+router.post("/library/issues",issueBook);
+router.get("/library/issues", getIssuedBooks);
+router.patch("/library/issues/:id/return", returnBook);
 
 export default router;
