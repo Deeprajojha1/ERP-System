@@ -62,7 +62,6 @@ export const getAllCourses = async (req, res) => {
         courseName: course.courseName,
         department: course.department?.name || null,
         departmentId: course.department?._id || null,
-        semester: course.semester,
         credit: course.credit,
         branch: course.branch || null,
         studentsInDepartment,
