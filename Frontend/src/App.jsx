@@ -31,6 +31,8 @@ import FeesTransport from "./Admin/FeesTransport";
 import FeesBackpapers from "./Admin/FeesBackpapers";
 import FeesOthers from "./Admin/FeesOthers";
 import GeneralSupport from "./Admin/GeneralSupport";
+import Library from "./Admin/Library";
+import Settings from "./Admin/Settings";
 
 function App() {
   useGetCurrentUser();
@@ -153,6 +155,8 @@ function App() {
             <Route path="fees/backpapers" element={<FeesBackpapers />} />
             <Route path="fees/others" element={<FeesOthers />} />
             <Route path="general-support" element={<GeneralSupport />} />
+            <Route path="library" element={<Library />} />
+            <Route path="settings" element={<Settings />} />
           </Route>
         )}
 
