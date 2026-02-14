@@ -20,6 +20,7 @@ const Student = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [modalDepsLoaded, setModalDepsLoaded] = useState(false);
   const dispatch = useDispatch();
   const { students } = useSelector(
     (state) => state.student
@@ -50,20 +51,10 @@ const Student = () => {
       try {
         setLoadState(ADMIN_LOAD_STATES.PENDING);
         dispatch(setStudentsLoading(true));
-        const [studentRes, deptRes, groupRes] = await Promise.all([
-          axios.get(`${apiBase}/admin/student`, {
-            withCredentials: true,
-          }),
-          axios.get(`${apiBase}/admin/department`, {
-            withCredentials: true,
-          }),
-          axios.get(`${apiBase}/admin/group`, {
-            withCredentials: true,
-          }),
-        ]);
+        const studentRes = await axios.get(`${apiBase}/admin/student`, {
+          withCredentials: true,
+        });
         dispatch(setStudents(studentRes.data?.students || []));
-        setDepartments(deptRes.data?.departments || []);
-        setGroups(groupRes.data?.groups || []);
         setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (error) {
         console.error(
@@ -86,6 +77,21 @@ const Student = () => {
     fetchAll();
   }, []);
 
+  const ensureModalDependencies = async () => {
+    if (modalDepsLoaded) return;
+    const [deptRes, groupRes] = await Promise.all([
+      axios.get(`${apiBase}/admin/department`, {
+        withCredentials: true,
+      }),
+      axios.get(`${apiBase}/admin/group`, {
+        withCredentials: true,
+      }),
+    ]);
+    setDepartments(deptRes.data?.departments || []);
+    setGroups(groupRes.data?.groups || []);
+    setModalDepsLoaded(true);
+  };
+
   const syncStudentsSilently = async () => {
     const res = await axios.get(`${apiBase}/admin/student`, {
       withCredentials: true,
@@ -97,10 +103,10 @@ const Student = () => {
     return students.filter((s) => {
       const term = search.toLowerCase();
       const matchSearch =
-        (s.user?.name || s.name || "")
+        (s.studentName || s.user?.name || s.name || "")
           .toLowerCase()
           .includes(term) ||
-        (s.enrollmentNumber || s.roll || "")
+        (s.rollNo || s.enrollmentNumber || s.roll || "")
           .toLowerCase()
           .includes(term) ||
         (s.department?.name || s.department || "")
@@ -108,7 +114,6 @@ const Student = () => {
           .includes(term);
       const matchDept =
         department === "All Departments" ||
-        s.department?._id === department ||
         s.department?.name === department ||
         s.department === department;
       return matchSearch && matchDept;
@@ -132,56 +137,74 @@ const Student = () => {
     }));
   };
 
-  const openAddModal = () => {
-    setEditTarget(null);
-    setFormData({
-      name: "",
-      email: "",
-      password: "",
-      aadharNumber: "",
-      phoneNumber: "",
-      DOB: "",
-      enrollmentNumber: "",
-      department: "",
-      program: "",
-      semester: "",
-      academicYear: "",
-      fatherName: "",
-      fatherPhoneNumber: "",
-      collegeEmail: "",
-      group: "",
-    });
-    setIsOpen(true);
+  const openAddModal = async () => {
+    try {
+      await ensureModalDependencies();
+      setEditTarget(null);
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        aadharNumber: "",
+        phoneNumber: "",
+        DOB: "",
+        enrollmentNumber: "",
+        department: "",
+        program: "",
+        semester: "",
+        academicYear: "",
+        fatherName: "",
+        fatherPhoneNumber: "",
+        collegeEmail: "",
+        group: "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
   };
 
-  const openEditModal = (student) => {
-    setEditTarget(student);
-    setFormData({
-      name: student.user?.name || student.name || "",
-      email: student.user?.email || student.email || "",
-      password: "",
-      aadharNumber:
-        student.user?.aadharNumber || student.aadharNumber || "",
-      phoneNumber:
-        student.user?.phoneNumber || student.phoneNumber || "",
-      DOB: student.user?.DOB ? student.user.DOB.slice(0, 10) : "",
-      enrollmentNumber: student.enrollmentNumber || "",
-      department: student.department?._id || student.department || "",
-      program: student.program || "",
-      semester: student.semester || "",
-      academicYear: student.academicYear || "",
-      fatherName: student.fatherName || "",
-      fatherPhoneNumber: student.fatherPhoneNumber || "",
-      collegeEmail: student.collegeEmail || "",
-      group: student.group?._id || student.group || "",
-    });
-    setIsOpen(true);
+  const openEditModal = async (student) => {
+    if (!student?._id) return;
+    try {
+      await ensureModalDependencies();
+      const res = await axios.get(
+        `${apiBase}/admin/student/${student._id}?full=true`,
+        { withCredentials: true }
+      );
+      const fullStudent = res.data?.student || student;
+      setEditTarget(fullStudent);
+      setFormData({
+        name: fullStudent.user?.name || fullStudent.studentName || fullStudent.name || "",
+        email: fullStudent.user?.email || fullStudent.email || "",
+        password: "",
+        aadharNumber:
+          fullStudent.user?.aadharNumber || fullStudent.aadharNumber || "",
+        phoneNumber:
+          fullStudent.user?.phoneNumber || fullStudent.phoneNumber || "",
+        DOB: fullStudent.user?.DOB ? fullStudent.user.DOB.slice(0, 10) : "",
+        enrollmentNumber: fullStudent.enrollmentNumber || fullStudent.rollNo || "",
+        department: fullStudent.department?._id || fullStudent.department || "",
+        program: fullStudent.program || "",
+        semester: fullStudent.semester || "",
+        academicYear: fullStudent.academicYear || "",
+        fatherName: fullStudent.fatherName || "",
+        fatherPhoneNumber: fullStudent.fatherPhoneNumber || "",
+        collegeEmail: fullStudent.collegeEmail || "",
+        group: fullStudent.group?._id || fullStudent.group || "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch student details failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load student details");
+    }
   };
 
   const handleDelete = async (student) => {
     if (!student?._id) return;
     const ok = window.confirm(
-      `Delete student "${student.user?.name || student.name}"?`
+      `Delete student "${student.studentName || student.user?.name || student.name}"?`
     );
     if (!ok) return;
     try {
@@ -380,7 +403,7 @@ const Student = () => {
             >
               <option value="All Departments">All Departments</option>
               {departments.map((d) => (
-                <option key={d._id} value={d._id}>
+                <option key={d._id} value={d.name}>
                   {d.name}
                 </option>
               ))}
@@ -409,8 +432,8 @@ const Student = () => {
                 <tbody>
                   {filtered.map((s) => (
                     <tr key={s._id || s.user?._id}>
-                      <td className="student-roll">{s.user?.name || s.name}</td>
-                      <td>{s.enrollmentNumber || s.roll || "N/A"}</td>
+                      <td className="student-roll">{s.studentName || s.user?.name || s.name || "N/A"}</td>
+                      <td>{s.rollNo || s.enrollmentNumber || s.roll || "N/A"}</td>
                       <td>{s.department?.name || s.department}</td>
                       <td>{s.semester}</td>
                       <td>
