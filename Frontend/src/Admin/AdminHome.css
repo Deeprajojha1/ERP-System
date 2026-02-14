@@ -883,9 +883,12 @@
 .admin-layout.sidebar-collapsed .admin-sidebar {
   transform: translateX(-100%);
   width: 0;
+  min-width: 0;
+  flex-basis: 0;
   padding: 0;
   border-right: none;
   box-shadow: none;
+  overflow: hidden;
 }
 
 /* Center content when sidebar is collapsed (desktop) */
