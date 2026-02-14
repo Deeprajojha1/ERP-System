@@ -5,6 +5,7 @@ import facultySlice from "./facultySlice";
 import departmentSlice from "./departmentSlice";
 import configSlice from "./configSlice";
 import leavesSlice from "./leavesSlice";
+import timetableSlice from "./timetableSlice";
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -23,6 +24,7 @@ const rootReducer = combineReducers({
   department: departmentSlice,
   config: configSlice,
   leaves: leavesSlice,
+  timetable: timetableSlice,
 });
 
 const persistedReducer = persistReducer(

@@ -7,6 +7,7 @@ import { Oval } from "react-loader-spinner";
 import { FiSearch } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 import toast from "react-hot-toast";
+import { selectTimetableRevision } from "../redux/timetableSlice";
 
 const Courses = () => {
   const [search, setSearch] = useState("");
@@ -27,6 +28,7 @@ const Courses = () => {
   });
 
   const apiBase = useSelector((state) => state.config.apiBase);
+  const timetableRevision = useSelector(selectTimetableRevision);
 
   const branches = [
     "All Branches",
@@ -73,7 +75,7 @@ const Courses = () => {
     if (apiBase) {
       fetchAll();
     }
-  }, [apiBase]);
+  }, [apiBase, timetableRevision]);
 
   const resetForm = () => {
     setFormData({

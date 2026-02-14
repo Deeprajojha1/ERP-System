@@ -27,6 +27,7 @@ import {
   fetchAdminLeaves,
   selectPendingAdminLeavesCount,
 } from "../redux/leavesSlice";
+import { clearTimetable } from "../redux/timetableSlice";
 import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
@@ -83,6 +84,7 @@ const AdminLayout = () => {
       dispatch(clearFaculty());
       dispatch(clearDepartments());
       dispatch(clearLeaves());
+      dispatch(clearTimetable());
       navigate("/login", { replace: true });
     }
   };

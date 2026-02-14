@@ -6,11 +6,13 @@ import { setUserData, clearUserData } from "../../redux/userSlice";
 import { clearStudents } from "../../redux/studentSlice";
 import { clearFaculty } from "../../redux/facultySlice";
 import { clearLeaves } from "../../redux/leavesSlice";
+import { clearTimetable, selectTimetableRevision } from "../../redux/timetableSlice";
 
 const useGetCurrentUser = () => {
     const dispatch = useDispatch();
     const userData = useSelector((state) => state.user.userData);
     const apiBase = useSelector((state) => state.config.apiBase);
+    const timetableRevision = useSelector(selectTimetableRevision);
     
     useEffect(() => {
         const fetchUser = async () => {
@@ -34,11 +36,12 @@ const useGetCurrentUser = () => {
                 dispatch(clearStudents());
                 dispatch(clearFaculty());
                 dispatch(clearLeaves());
+                dispatch(clearTimetable());
             }
         };
         fetchUser();
 
-    }, [dispatch, apiBase]);
+    }, [dispatch, apiBase, timetableRevision]);
 };
 
 export default useGetCurrentUser;

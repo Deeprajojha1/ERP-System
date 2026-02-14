@@ -1,6 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
-import axios from "../utils/axiosInstance";
+import { useDispatch, useSelector } from "react-redux";
 import jsPDF from "jspdf";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -18,32 +17,45 @@ import { MdOutlineSchedule } from "react-icons/md";
 import "./Timetable.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import toast from "react-hot-toast";
-
-const DAY_LABEL_TO_KEY = {
-  Mon: "monday",
-  Tue: "tuesday",
-  Wed: "wednesday",
-  Thu: "thursday",
-  Fri: "friday",
-  Sat: "saturday",
-};
+import axios from "../utils/axiosInstance";
+import {
+  applyTimetableEdit,
+  fetchGroupTimetable,
+  fetchTimetableGroups,
+  selectTimetableDeptFaculty,
+  selectTimetableError,
+  selectTimetableGroupCards,
+  selectTimetableGroupCourses,
+  selectTimetableLoading,
+  selectTimetableSchedule,
+  selectTimetableSelectedGroupCode,
+  setSelectedGroupCode,
+} from "../redux/timetableSlice";
 
 const Timetable = () => {
+  const dispatch = useDispatch();
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState("Group");
-  const [selectedGroupCode, setSelectedGroupCode] = useState("");
-  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
     slotIndex: 0,
   });
-  const [groupCards, setGroupCards] = useState([]);
-  const [schedule, setSchedule] = useState([]);
-  const [groupCourses, setGroupCourses] = useState([]);
-  const [deptFaculty, setDeptFaculty] = useState([]);
+  const selectedGroupCode = useSelector(selectTimetableSelectedGroupCode);
+  const groupCards = useSelector(selectTimetableGroupCards);
+  const schedule = useSelector(selectTimetableSchedule);
+  const groupCourses = useSelector(selectTimetableGroupCourses);
+  const deptFaculty = useSelector(selectTimetableDeptFaculty);
+  const timetableLoading = useSelector(selectTimetableLoading);
+  const timetableError = useSelector(selectTimetableError);
 
   const apiBase = useSelector((state) => state.config.apiBase);
+  const loadState = useMemo(() => {
+    if (timetableLoading) return ADMIN_LOAD_STATES.PENDING;
+    if (timetableError) return ADMIN_LOAD_STATES.FAILURE;
+    return ADMIN_LOAD_STATES.SUCCESS;
+  }, [timetableLoading, timetableError]);
 
   const groups = useMemo(() => groupCards.map((g) => g.groupCode), [groupCards]);
 
@@ -73,90 +85,36 @@ const Timetable = () => {
     "02:00-03:00",
   ];
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  const buildScheduleFromBackend = (timetable = []) => {
-    const byDay = {};
-    timetable.forEach((entry) => {
-      if (!entry?.day) return;
-      byDay[String(entry.day).toLowerCase()] = entry.lectures || [];
-    });
-
-    return days.map((label, dayIdx) => {
-      const key = DAY_LABEL_TO_KEY[label];
-      const lectures = byDay[key] || [];
-
-      const rowSlots = slots.map((_, slotIdx) => {
-        const lectureNumber = slotIdx + 1;
-        const lecture = lectures.find((l) => l.lectureNumber === lectureNumber);
-
-        if (!lecture) {
-          return { code: "FREE", name: "Free", by: "", color: 3 };
-        }
-
-        return {
-          code: lecture.courseCode || "FREE",
-          name: lecture.courseName || "Free",
-          by: lecture.facultyName || "",
-          color: (dayIdx + slotIdx) % 5,
-        };
-      });
-
-      return { day: label, slots: rowSlots };
-    });
+  const dayKeyMap = {
+    Mon: "monday",
+    Tue: "tuesday",
+    Wed: "wednesday",
+    Thu: "thursday",
+    Fri: "friday",
+    Sat: "saturday",
   };
 
   /* ---------- Fetch group cards ---------- */
   useEffect(() => {
     if (!apiBase) return;
-    const fetchGroups = async () => {
-      try {
-        setLoadState(ADMIN_LOAD_STATES.PENDING);
-        const res = await axios.get(`${apiBase}/admin/timetable/group`, {
-          withCredentials: true,
-        });
-        const cards = res.data?.groups || [];
-        setGroupCards(cards);
-        if (cards.length > 0 && !selectedGroupCode) {
-          setSelectedGroupCode(cards[0].groupCode);
-        } else {
-          setLoadState(ADMIN_LOAD_STATES.SUCCESS);
-        }
-      } catch (err) {
-        console.error("Fetch timetable groups failed", err.response?.data || err.message);
-        setLoadState(ADMIN_LOAD_STATES.FAILURE);
-        toast.error(`❌ ${err.response?.data?.message || "Failed to load timetable groups"}`);
-      }
-    };
-    fetchGroups();
-  }, [apiBase]);
+    dispatch(fetchTimetableGroups())
+      .unwrap()
+      .catch((message) => {
+        toast.error(`❌ ${message || "Failed to load timetable groups"}`);
+      });
+  }, [apiBase, dispatch]);
 
   /* ---------- Fetch selected group timetable ---------- */
   useEffect(() => {
     if (!apiBase || !selectedGroupCode || groupCards.length === 0) return;
     const current = groupCards.find((g) => g.groupCode === selectedGroupCode);
     if (!current) return;
-    const fetchTimetable = async () => {
-      try {
-        setLoadState(ADMIN_LOAD_STATES.PENDING);
-        const res = await axios.get(
-          `${apiBase}/admin/timetable/group/${current.id}`,
-          { withCredentials: true }
-        );
-        const timetable = res.data?.group?.timetable || [];
-        const courses = res.data?.group?.courses || [];
-        const departmentFaculty = res.data?.group?.departmentFaculty || [];
-        setSchedule(buildScheduleFromBackend(timetable));
-        setGroupCourses(courses);
-        setDeptFaculty(departmentFaculty);
-        setLoadState(ADMIN_LOAD_STATES.SUCCESS);
-      } catch (err) {
-        console.error("Fetch group timetable failed", err.response?.data || err.message);
-        setLoadState(ADMIN_LOAD_STATES.FAILURE);
-        toast.error(`❌ ${err.response?.data?.message || "Failed to load group timetable"}`);
-      }
-    };
-    fetchTimetable();
-  }, [apiBase, selectedGroupCode, groupCards]);
+    dispatch(fetchGroupTimetable(current.id))
+      .unwrap()
+      .catch((message) => {
+        toast.error(`❌ ${message || "Failed to load group timetable"}`);
+      });
+  }, [apiBase, selectedGroupCode, groupCards, dispatch]);
 
   const summaryRows = useMemo(() => {
     const seen = new Map();
@@ -176,6 +134,17 @@ const Timetable = () => {
     return Array.from(seen.values());
   }, [schedule]);
 
+  const subjectCodeOptions = useMemo(() => {
+    if (groupCourses.length > 0) return groupCourses;
+    const current = groupCards.find((g) => g.groupCode === selectedGroupCode);
+    const fallbackCourses = current?.courses || [];
+    return fallbackCourses.map((c) => ({
+      id: c?._id || c?.id,
+      code: c?.code,
+      courseName: c?.courseName,
+    }));
+  }, [groupCourses, groupCards, selectedGroupCode]);
+
   const currentSlot =
     schedule?.[selectedSlot.dayIndex]?.slots?.[
       selectedSlot.slotIndex
@@ -186,15 +155,18 @@ const Timetable = () => {
     lecture: 1,
     subject: currentSlot.name,
     faculty: currentSlot.by,
+    facultyId: "",
     code: currentSlot.code,
   });
 
   React.useEffect(() => {
+    const matchedFaculty = deptFaculty.find((f) => f.name === currentSlot.by);
     setEditForm({
       day: days[selectedSlot.dayIndex],
       lecture: selectedSlot.slotIndex + 1,
       subject: currentSlot.name,
       faculty: currentSlot.by,
+      facultyId: matchedFaculty?.id || "",
       code: currentSlot.code,
     });
   }, [
@@ -204,26 +176,133 @@ const Timetable = () => {
     currentSlot.name,
     currentSlot.by,
     currentSlot.code,
+    deptFaculty,
   ]);
 
   const applyEdit = () => {
-    setSchedule((prev) => {
-      const next = prev.map((d) => ({
-        ...d,
-        slots: d.slots.map((s) => ({ ...s })),
-      }));
-      const dIdx = days.indexOf(editForm.day);
-      const sIdx = Math.max(0, (editForm.lecture || 1) - 1);
-      if (next[dIdx] && next[dIdx].slots[sIdx]) {
-        next[dIdx].slots[sIdx] = {
-          ...next[dIdx].slots[sIdx],
-          code: editForm.code || "FREE",
-          name: editForm.subject || "Free",
-          by: editForm.faculty || "",
-        };
-      }
-      return next;
+    dispatch(
+      applyTimetableEdit({
+        day: editForm.day,
+        lecture: editForm.lecture,
+        code: editForm.code,
+        subject: editForm.subject,
+        faculty: editForm.faculty,
+      })
+    );
+  };
+
+  const buildNextSchedule = () => {
+    const next = schedule.map((d) => ({
+      ...d,
+      slots: d.slots.map((s) => ({ ...s })),
+    }));
+    const dayIndex = days.indexOf(editForm.day);
+    const slotIndex = Math.max(0, Number(editForm.lecture || 1) - 1);
+    if (!next[dayIndex] || !next[dayIndex].slots[slotIndex]) return next;
+    next[dayIndex].slots[slotIndex] = {
+      ...next[dayIndex].slots[slotIndex],
+      code: editForm.code || "FREE",
+      name: editForm.subject || "Free",
+      by: editForm.faculty || "",
+    };
+    return next;
+  };
+
+  const buildCreatePayload = (nextSchedule) => {
+    const scheduleSlots = {};
+    const courseFacultyMap = new Map();
+
+    nextSchedule.forEach((row) => {
+      const dayKey = dayKeyMap[row.day];
+      if (!dayKey) return;
+      row.slots.forEach((slot, idx) => {
+        if (!slot?.code || slot.code === "FREE") return;
+        const matchCourse = subjectCodeOptions.find((c) => c.code === slot.code);
+        const courseId = matchCourse?.id;
+        if (!courseId) return;
+        if (!scheduleSlots[dayKey]) scheduleSlots[dayKey] = {};
+        scheduleSlots[dayKey][String(idx + 1)] = courseId;
+
+        const matchFaculty = deptFaculty.find((f) => f.name === slot.by);
+        if (matchFaculty?.id) {
+          const key = `${courseId}-${matchFaculty.id}`;
+          courseFacultyMap.set(key, { course: courseId, faculty: matchFaculty.id });
+        }
+      });
     });
+
+    return {
+      scheduleSlots,
+      courseFaculty: Array.from(courseFacultyMap.values()),
+    };
+  };
+
+  const handleSubmitTimetable = async () => {
+    if (saving) return;
+    const currentGroup = groupCards.find((g) => g.groupCode === selectedGroupCode);
+    if (!currentGroup?.id) {
+      toast.error("❌ Please select a group first.");
+      return;
+    }
+
+    const selectedCourse = subjectCodeOptions.find((c) => c.code === editForm.code);
+    const derivedFacultyId =
+      editForm.facultyId || deptFaculty.find((f) => f.name === editForm.faculty)?.id;
+
+    if (editForm.code !== "FREE" && !selectedCourse?.id) {
+      toast.error("❌ Course ID not found for selected subject code.");
+      return;
+    }
+
+    if (editForm.code !== "FREE" && !derivedFacultyId) {
+      toast.error("❌ Please select a faculty for the selected subject.");
+      return;
+    }
+
+    const dayKey = dayKeyMap[editForm.day];
+    if (!dayKey) {
+      toast.error("❌ Invalid day selected.");
+      return;
+    }
+
+    const nextSchedule = buildNextSchedule();
+    const putPayload = {
+      day: dayKey,
+      lectureNumber: Number(editForm.lecture),
+      courseId: editForm.code === "FREE" ? null : selectedCourse.id,
+      facultyId: editForm.code === "FREE" ? null : derivedFacultyId,
+    };
+
+    try {
+      setSaving(true);
+      try {
+        await axios.put(
+          `${apiBase}/admin/timetable/group/${currentGroup.id}`,
+          putPayload,
+          { withCredentials: true }
+        );
+      } catch (putError) {
+        // If timetable isn't initialized on backend, create via POST.
+        if ([400, 404].includes(putError?.response?.status)) {
+          const postPayload = buildCreatePayload(nextSchedule);
+          await axios.post(
+            `${apiBase}/admin/timetable/group/${currentGroup.id}`,
+            postPayload,
+            { withCredentials: true }
+          );
+        } else {
+          throw putError;
+        }
+      }
+
+      applyEdit();
+      dispatch(fetchGroupTimetable(currentGroup.id));
+      toast.success("✅ Timetable updated successfully");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "❌ Failed to update timetable");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const downloadTimetable = () => {
@@ -356,7 +435,7 @@ const Timetable = () => {
                         selectedGroupCode === g.groupCode ? "active" : ""
                       }`}
                       onClick={() => {
-                        setSelectedGroupCode(g.groupCode);
+                        dispatch(setSelectedGroupCode(g.groupCode));
                         setMode("Group");
                       }}
                     >
@@ -389,7 +468,9 @@ const Timetable = () => {
                   <select
                     className="tt-select"
                     value={selectedGroupCode}
-                    onChange={(e) => setSelectedGroupCode(e.target.value)}
+                    onChange={(e) =>
+                      dispatch(setSelectedGroupCode(e.target.value))
+                    }
                   >
                     {groups.map((g) => (
                       <option key={g} value={g}>
@@ -538,7 +619,7 @@ const Timetable = () => {
                   value={editForm.code}
                   onChange={(e) => {
                     const code = e.target.value;
-                    const match = groupCourses.find((c) => c.code === code);
+                    const match = subjectCodeOptions.find((c) => c.code === code);
                     setEditForm((prev) => ({
                       ...prev,
                       code,
@@ -547,7 +628,7 @@ const Timetable = () => {
                   }}
                 >
                   <option value="FREE">FREE</option>
-                  {groupCourses.map((c) => (
+                  {subjectCodeOptions.map((c) => (
                     <option key={c.code} value={c.code}>
                       {c.code}
                     </option>
@@ -565,17 +646,22 @@ const Timetable = () => {
               <label className="tt-label-field">
                 Faculty
                 <select
-                  value={editForm.faculty}
-                  onChange={(e) =>
+                  value={editForm.facultyId}
+                  onChange={(e) => {
+                    const nextFacultyId = e.target.value;
+                    const match = deptFaculty.find(
+                      (f) => String(f.id) === String(nextFacultyId)
+                    );
                     setEditForm((prev) => ({
                       ...prev,
-                      faculty: e.target.value,
-                    }))
-                  }
+                      facultyId: nextFacultyId,
+                      faculty: match?.name || "",
+                    }));
+                  }}
                 >
                   <option value="">Select Faculty</option>
                   {deptFaculty.map((f) => (
-                    <option key={f.id} value={f.name}>
+                    <option key={f.id} value={f.id}>
                       {f.name}
                     </option>
                   ))}
@@ -584,9 +670,10 @@ const Timetable = () => {
               <button
                 className="tt-submit"
                 type="button"
-                onClick={applyEdit}
+                onClick={handleSubmitTimetable}
+                disabled={saving}
               >
-                Submit
+                {saving ? "Saving..." : "Submit"}
               </button>
             </div>
 

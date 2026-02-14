@@ -7,6 +7,142 @@ import Course from "../models/Course.js";
 import Student from "../models/Student.js";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
+const mapRoutineToObject = (routineMap) => {
+  const result = {};
+  if (!routineMap) return result;
+
+  if (routineMap instanceof Map) {
+    for (const [day, lectureMap] of routineMap.entries()) {
+      result[day] = {};
+      if (lectureMap instanceof Map) {
+        for (const [lecNum, detail] of lectureMap.entries()) {
+          result[day][lecNum] = detail;
+        }
+      } else if (lectureMap && typeof lectureMap === "object") {
+        Object.assign(result[day], lectureMap);
+      }
+      if (Object.keys(result[day]).length === 0) delete result[day];
+    }
+    return result;
+  }
+
+  if (typeof routineMap === "object") return { ...routineMap };
+  return result;
+};
+
+const mapScheduleToObject = (scheduleSlots) => {
+  const result = {};
+  if (!scheduleSlots) return result;
+
+  if (scheduleSlots instanceof Map) {
+    for (const [day, lectureMap] of scheduleSlots.entries()) {
+      result[day] = {};
+      if (lectureMap instanceof Map) {
+        for (const [lecNum, courseId] of lectureMap.entries()) {
+          result[day][lecNum] = String(courseId);
+        }
+      } else if (lectureMap && typeof lectureMap === "object") {
+        Object.entries(lectureMap).forEach(([lecNum, courseId]) => {
+          result[day][lecNum] = String(courseId);
+        });
+      }
+      if (Object.keys(result[day]).length === 0) delete result[day];
+    }
+    return result;
+  }
+
+  if (typeof scheduleSlots === "object") {
+    for (const [day, lectureMap] of Object.entries(scheduleSlots)) {
+      if (!lectureMap || typeof lectureMap !== "object") continue;
+      result[day] = {};
+      Object.entries(lectureMap).forEach(([lecNum, courseId]) => {
+        if (courseId) result[day][lecNum] = String(courseId);
+      });
+      if (Object.keys(result[day]).length === 0) delete result[day];
+    }
+  }
+
+  return result;
+};
+
+const upsertCourseFacultyPair = (courseFaculty = [], courseId, facultyId) => {
+  if (!courseId || !facultyId) return courseFaculty;
+  const cId = String(courseId);
+  const fId = String(facultyId);
+  const exists = courseFaculty.some(
+    (cf) => String(cf.course) === cId && String(cf.faculty) === fId
+  );
+  if (exists) return courseFaculty;
+  return [...courseFaculty, { course: cId, faculty: fId }];
+};
+
+const syncCourseFacultyIds = async (courseFaculty = []) => {
+  if (!Array.isArray(courseFaculty) || courseFaculty.length === 0) return;
+  const updateOps = courseFaculty.map((cf) =>
+    Course.findByIdAndUpdate(cf.course, {
+      $addToSet: { facultyIds: cf.faculty },
+    })
+  );
+  await Promise.all(updateOps);
+};
+
+const syncFacultyRoutineFromGroup = async (group) => {
+  if (!group?.department) return;
+
+  const deptFaculties = await Faculty.find({ department: group.department });
+  const scheduleObj = mapScheduleToObject(group.scheduleSlots);
+  const courseToFaculty = {};
+
+  (group.courseFaculty || []).forEach((cf) => {
+    if (!cf?.course || !cf?.faculty) return;
+    courseToFaculty[String(cf.course)] = String(cf.faculty);
+  });
+
+  for (const fac of deptFaculties) {
+    const facultyId = String(fac._id);
+    const existingRoutine = mapRoutineToObject(fac.routine);
+
+    // Remove existing routine entries for this group first.
+    for (const day of Object.keys(existingRoutine)) {
+      const dayLectures = existingRoutine[day] || {};
+      for (const [lectureNumber, detail] of Object.entries(dayLectures)) {
+        if (String(detail?.group) === String(group._id)) {
+          delete existingRoutine[day][lectureNumber];
+        }
+      }
+      if (Object.keys(existingRoutine[day]).length === 0) delete existingRoutine[day];
+    }
+
+    // Add this group's timetable entries for this faculty.
+    for (const [day, lectures] of Object.entries(scheduleObj)) {
+      for (const [lectureNumber, courseId] of Object.entries(lectures)) {
+        if (!courseId) continue;
+        if (courseToFaculty[String(courseId)] !== facultyId) continue;
+        if (!existingRoutine[day]) existingRoutine[day] = {};
+        existingRoutine[day][lectureNumber] = {
+          course: String(courseId),
+          group: group._id,
+        };
+      }
+    }
+
+    const ordered = {};
+    for (const day of WEEKDAY_ORDER) {
+      if (existingRoutine[day] && Object.keys(existingRoutine[day]).length > 0) {
+        ordered[day] = existingRoutine[day];
+      }
+    }
+
+    fac.routine = ordered;
+    await fac.save();
+  }
+};
+
+const clearTimetableCache = async (groupId) => {
+  await redisClient.del("admin:timetable:groups");
+  await redisClient.del(`admin:timetable:group:${groupId}`);
+};
+
 /* ================= GET ALL GROUPS ================= */
 
 export const getAllGroups = async (req, res) => {
@@ -291,6 +427,7 @@ export const getGroupTimetable = async (req, res) => {
 
     // Build courses list for edit dropdowns
     const courses = (group.courseIds || []).map((c) => ({
+      id: c._id,
       code: c.code,
       courseName: c.courseName,
     }));
@@ -330,6 +467,126 @@ export const getGroupTimetable = async (req, res) => {
     res.json(responsePayload);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+// POST /api/admin/timetable/group/:groupId
+// Create/replace full timetable payload for a group.
+export const createGroupTimetable = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const { scheduleSlots, courseFaculty = [] } = req.body;
+
+    if (!scheduleSlots || typeof scheduleSlots !== "object") {
+      return res.status(400).json({
+        message: "scheduleSlots is required and must be an object",
+      });
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    group.scheduleSlots = mapScheduleToObject(scheduleSlots);
+    if (Array.isArray(courseFaculty) && courseFaculty.length > 0) {
+      group.courseFaculty = courseFaculty;
+    }
+    await group.save();
+
+    await syncCourseFacultyIds(group.courseFaculty || []);
+    await syncFacultyRoutineFromGroup(group);
+
+    try {
+      await clearTimetableCache(groupId);
+      await redisClient.del("admin:groups:all");
+    } catch (err) {
+      console.error("[Redis] createGroupTimetable cache clear failed:", err.message || err);
+    }
+
+    return res.status(201).json({
+      message: "Group timetable created successfully",
+      groupId: group._id,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+// PUT /api/admin/timetable/group/:groupId
+// Update timetable either by full payload or a single slot.
+export const updateGroupTimetable = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const {
+      scheduleSlots,
+      courseFaculty,
+      day,
+      lectureNumber,
+      courseId,
+      facultyId,
+    } = req.body;
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    if (scheduleSlots && typeof scheduleSlots === "object") {
+      group.scheduleSlots = mapScheduleToObject(scheduleSlots);
+    } else if (day && lectureNumber) {
+      const dayKey = String(day).toLowerCase();
+      if (!WEEKDAY_ORDER.includes(dayKey)) {
+        return res.status(400).json({ message: "Invalid day value" });
+      }
+
+      const nextSchedule = mapScheduleToObject(group.scheduleSlots);
+      if (!nextSchedule[dayKey]) nextSchedule[dayKey] = {};
+      if (courseId) {
+        nextSchedule[dayKey][String(lectureNumber)] = String(courseId);
+      } else {
+        delete nextSchedule[dayKey][String(lectureNumber)];
+      }
+      if (Object.keys(nextSchedule[dayKey]).length === 0) {
+        delete nextSchedule[dayKey];
+      }
+      group.scheduleSlots = nextSchedule;
+
+      if (courseId && facultyId) {
+        group.courseFaculty = upsertCourseFacultyPair(
+          group.courseFaculty || [],
+          courseId,
+          facultyId
+        );
+      }
+    } else {
+      return res.status(400).json({
+        message:
+          "Provide either scheduleSlots or (day + lectureNumber + courseId/facultyId)",
+      });
+    }
+
+    if (Array.isArray(courseFaculty)) {
+      group.courseFaculty = courseFaculty;
+    }
+
+    await group.save();
+    await syncCourseFacultyIds(group.courseFaculty || []);
+    await syncFacultyRoutineFromGroup(group);
+
+    try {
+      await clearTimetableCache(groupId);
+      await redisClient.del("admin:groups:all");
+    } catch (err) {
+      console.error("[Redis] updateGroupTimetable cache clear failed:", err.message || err);
+    }
+
+    return res.json({
+      message: "Group timetable updated successfully",
+      groupId: group._id,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };
 

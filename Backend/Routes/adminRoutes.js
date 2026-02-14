@@ -50,6 +50,8 @@ import {
   hardDeleteGroup,
   getTimetableGroups,
   getGroupTimetable,
+  createGroupTimetable,
+  updateGroupTimetable,
 } from "../controllers/groupController.js";
 
 import { getAdminProfile } from "../controllers/profileController.js";
@@ -150,6 +152,8 @@ router.delete("/group/:id", isAdmin, hardDeleteGroup);
 ========================= */
 router.get("/timetable/group", isAdmin, getTimetableGroups);
 router.get("/timetable/group/:groupId", isAdmin, getGroupTimetable);
+router.post("/timetable/group/:groupId", isAdmin, createGroupTimetable);
+router.put("/timetable/group/:groupId", isAdmin, updateGroupTimetable);
 
 /* =========================
    ATTENDANCE
