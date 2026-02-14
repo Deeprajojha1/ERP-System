@@ -191,8 +191,10 @@
   inset: 0;
   z-index: 50;
   display: none;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  padding: 84px 8px 8px;
+  overflow-y: auto;
 }
 
 .leaves-modal.show {
@@ -202,23 +204,24 @@
 .leaves-modal-backdrop {
   position: absolute;
   inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+  background: transparent;
 }
 
 .leaves-modal-card {
   position: relative;
   z-index: 1;
   width: min(720px, 92vw);
+  max-height: calc(100dvh - 16px);
   background: #ffffff;
   border-radius: 16px;
-  overflow: hidden;
+  overflow-y: auto;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
 }
 
 .leaves-head {
   background: linear-gradient(135deg, #d97706, #b45309);
   color: #ffffff;
-  padding: 18px 20px;
+  padding: 14px 16px;
 }
 
 .leaves-head h1 {
@@ -232,10 +235,10 @@
 }
 
 .leaves-form {
-  padding: 20px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 10px;
 }
 
 .leaves-form label {
@@ -258,14 +261,14 @@
 .leaves-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  gap: 10px;
 }
 
 .leaves-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  padding-top: 4px;
+  gap: 10px;
+  padding-top: 2px;
 }
 
 .btn-secondary {
@@ -313,13 +316,13 @@
 
   .leaves-modal {
     align-items: flex-start;
-    padding: 12px;
+    padding: 76px 8px 8px;
     overflow-y: auto;
   }
 
   .leaves-modal-card {
     width: 100%;
-    max-height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 16px);
     overflow-y: auto;
   }
 }

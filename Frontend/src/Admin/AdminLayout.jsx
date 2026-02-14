@@ -15,7 +15,7 @@ import { GiKoholintEgg } from "react-icons/gi";
 import { LuBadgeIndianRupee } from "react-icons/lu";
 import { FiBell } from "react-icons/fi";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
-import axios from "../utils/axiosInstance";
+import axios from "axios";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { clearUserData } from "../redux/userSlice";
@@ -65,8 +65,11 @@ const AdminLayout = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.post(`${apiBase}/user/logout`, {});
-      localStorage.removeItem("authToken");
+      await axios.post(
+        `${apiBase}/user/logout`,
+        {},
+        { withCredentials: true }
+      );
       toast.success("Logged out successfully");
     } catch (error) {
       console.error(
@@ -91,7 +94,7 @@ const AdminLayout = () => {
           <div className="admin-nav-brand" onClick={() => navigate("/admin/dashboard")}>
             <div className="admin-brand-icon">
               <img
-                className=""
+                className="college-img"
                 src={collegeLogo}
                 alt="college-logo"
               />
@@ -103,9 +106,6 @@ const AdminLayout = () => {
           </div>
         </div>
         <div className="admin-right">
-          {userData?.user && (
-            <span className="admin-user">Hello, {userData.user.name}</span>
-          )}
           <button className="logout-btn" onClick={handleLogout}>
             Logout
           </button>
