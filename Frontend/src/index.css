@@ -18,3 +18,15 @@ body {
 #root {
     min-height: 100vh;
 }
+
+.app-loader-state {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+    width: 100%;
+    min-height: calc(100dvh - 120px) !important;
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}

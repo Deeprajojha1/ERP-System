@@ -332,7 +332,7 @@ const Faculty = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="faculty-state pending">
+        <div className="faculty-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -693,4 +693,5 @@ const Faculty = () => {
 };
 
 export default Faculty;
+
 

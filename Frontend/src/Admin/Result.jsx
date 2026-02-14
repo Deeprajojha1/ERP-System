@@ -1,4 +1,4 @@
-﻿import React, { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { FiCheckCircle, FiSearch, FiXCircle } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -76,7 +76,7 @@ const Result = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="result-state pending">
+        <div className="result-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -176,4 +176,5 @@ const Result = () => {
 };
 
 export default Result;
+
 

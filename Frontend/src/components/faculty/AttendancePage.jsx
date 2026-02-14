@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useSelector } from 'react-redux'
 import "./AttendancePage.css";
@@ -108,7 +108,7 @@ function AttendancePage() {
           'Fetch attendance failed:',
           err.response?.data || err.message
         )
-        toast.error(`❌ ${err.response?.data?.message || 'Failed to load attendance'}`)
+        toast.error(`? ${err.response?.data?.message || 'Failed to load attendance'}`)
         setError(
           err.response?.data?.message || 'Failed to load attendance'
         )
@@ -140,11 +140,11 @@ function AttendancePage() {
 
   const handleSave = async () => {
     if (!courseMeta?.groupId || !courseMeta?.id) {
-      toast.error('❌ Missing course or group information. Please try again.')
+      toast.error('? Missing course or group information. Please try again.')
       return
     }
     if (students.length === 0) {
-      toast.error('❌ No students found to save attendance.')
+      toast.error('? No students found to save attendance.')
       return
     }
     try {
@@ -161,7 +161,7 @@ function AttendancePage() {
         minute: '2-digit',
       })
       setSavedAt(`Attendance saved at ${timestamp}`)
-      toast.success('✅ Attendance saved successfully.')
+      toast.success('? Attendance saved successfully.')
     } catch (err) {
       console.error(
         'Save attendance failed:',
@@ -169,7 +169,7 @@ function AttendancePage() {
       )
       setSavedAt('Failed to save attendance.')
       toast.error(
-        `❌ ${err.response?.data?.message || 'Failed to save attendance.'}`
+        `? ${err.response?.data?.message || 'Failed to save attendance.'}`
       )
     }
   }
@@ -220,7 +220,7 @@ function AttendancePage() {
       </div>
 
       {loading ? (
-        <div className="attendance-state pending">
+        <div className="attendance-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -350,5 +350,6 @@ function AttendancePage() {
 }
 
 export default AttendancePage
+
 
 

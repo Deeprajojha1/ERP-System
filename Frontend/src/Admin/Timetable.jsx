@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import jsPDF from "jspdf";
 import { Oval } from "react-loader-spinner";
@@ -112,7 +112,7 @@ const Timetable = () => {
     dispatch(fetchTimetableGroups())
       .unwrap()
       .catch((message) => {
-        toast.error(`❌ ${message || "Failed to load timetable groups"}`);
+        toast.error(`? ${message || "Failed to load timetable groups"}`);
       });
   }, [apiBase, dispatch]);
 
@@ -124,7 +124,7 @@ const Timetable = () => {
     dispatch(fetchGroupTimetable(current.id))
       .unwrap()
       .catch((message) => {
-        toast.error(`❌ ${message || "Failed to load group timetable"}`);
+        toast.error(`? ${message || "Failed to load group timetable"}`);
       });
   }, [apiBase, selectedGroupCode, groupCards, dispatch]);
 
@@ -253,7 +253,7 @@ const Timetable = () => {
     if (saving) return;
     const currentGroup = groupCards.find((g) => g.groupCode === selectedGroupCode);
     if (!currentGroup?.id) {
-      toast.error("❌ Please select a group first.");
+      toast.error("? Please select a group first.");
       return;
     }
 
@@ -262,18 +262,18 @@ const Timetable = () => {
       editForm.facultyId || deptFaculty.find((f) => f.name === editForm.faculty)?.id;
 
     if (editForm.code !== "FREE" && !selectedCourse?.id) {
-      toast.error("❌ Course ID not found for selected subject code.");
+      toast.error("? Course ID not found for selected subject code.");
       return;
     }
 
     if (editForm.code !== "FREE" && !derivedFacultyId) {
-      toast.error("❌ Please select a faculty for the selected subject.");
+      toast.error("? Please select a faculty for the selected subject.");
       return;
     }
 
     const dayKey = dayKeyMap[editForm.day];
     if (!dayKey) {
-      toast.error("❌ Invalid day selected.");
+      toast.error("? Invalid day selected.");
       return;
     }
 
@@ -309,9 +309,9 @@ const Timetable = () => {
 
       applyEdit();
       dispatch(fetchGroupTimetable(currentGroup.id));
-      toast.success("✅ Timetable updated successfully");
+      toast.success("? Timetable updated successfully");
     } catch (error) {
-      toast.error(error.response?.data?.message || "❌ Failed to update timetable");
+      toast.error(error.response?.data?.message || "? Failed to update timetable");
     } finally {
       setSaving(false);
     }
@@ -364,7 +364,7 @@ const Timetable = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="tt-state pending">
+        <div className="tt-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -723,4 +723,5 @@ const Timetable = () => {
 };
 
 export default Timetable;
+
 

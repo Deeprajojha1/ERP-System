@@ -1,6 +1,12 @@
 /* ===== NAV CONTAINER ===== */
 :root {
   --admin-nav-height: 74px;
+  --admin-shell-gradient: linear-gradient(180deg, #f8fbff 0%, #eef4ff 52%, #f4f7fb 100%);
+  --admin-nav-gradient: linear-gradient(90deg, #f8fbff 0%, #eef5ff 55%, #f6fbff 100%);
+  --admin-sidebar-gradient: linear-gradient(180deg, #f4f8ff 0%, #eef3fb 100%);
+  --admin-content-gradient: linear-gradient(180deg, #f8fbff 0%, #eef4ff 42%, #f3f6fb 100%);
+  --admin-card-gradient: linear-gradient(145deg, #ffffff 0%, #f8fbff 48%, #f3f7ff 100%);
+  --admin-soft-chip-gradient: linear-gradient(135deg, #ffffff 0%, #f1f5fb 100%);
 }
 
 .admin-nav {
@@ -16,7 +22,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  background: #f8fafc;
+  background: var(--admin-nav-gradient);
   color: #1f2937;
   border-bottom: 1px solid #d1d5db;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.04);
@@ -131,7 +137,7 @@
 .admin-user {
   font-size: 14px;
   font-weight: 500;
-  background: #eef2f7;
+  background: var(--admin-soft-chip-gradient);
   padding: 6px 14px;
   border-radius: 20px;
 }
@@ -142,7 +148,7 @@
     outline: none;
     cursor: pointer;
 
-    background: #fff;
+    background: var(--admin-soft-chip-gradient);
     color: #1e293b;
 
     padding: 8px 16px;
@@ -164,7 +170,7 @@
 
 .admin-leave-alert {
   border: 1px solid #d1d5db;
-  background: #ffffff;
+  background: var(--admin-soft-chip-gradient);
   color: #1e293b;
   width: 40px;
   height: 40px;
@@ -183,7 +189,7 @@
 }
 
 .admin-leave-alert:hover {
-  background: #eef2f7;
+  background: linear-gradient(135deg, #f8fbff 0%, #eaf2ff 100%);
   border-color: #bfc6cf;
 }
 
@@ -312,7 +318,7 @@
   height: 100vh;
   min-height: 100dvh;
   padding-top: var(--admin-nav-height);
-  background: #ffffff;
+  background: var(--admin-shell-gradient);
   font-family: "Segoe UI", sans-serif;
   overflow: hidden;
   box-sizing: border-box;
@@ -326,7 +332,7 @@
   right: 0;
   bottom: 0;
   z-index: 0;
-  background: #ffffff;
+  background: var(--admin-shell-gradient);
   background-image:
     radial-gradient(
       100% 50% at 50% 0%,
@@ -349,7 +355,7 @@
 .admin-sidebar {
   width: 292px;
   min-width: 292px;
-  background: #f3f4f6;
+  background: var(--admin-sidebar-gradient);
   color: #0f172a;
   padding: 0;
   display: flex;
@@ -388,8 +394,8 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: #dbeafe;
-  color: #0284c7;
+  background: linear-gradient(135deg, #93c5fd 0%, #bfdbfe 100%);
+  color: #0b5ea8;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -428,7 +434,7 @@
 
 .sidebar-close {
   border: 1px solid #bfdbfe;
-  background: #eff6ff;
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
   color: #1d4ed8;
   width: 30px;
   height: 30px;
@@ -444,7 +450,7 @@
   flex-shrink: 0;
 }
 .sidebar-close:hover {
-  background: #dbeafe;
+  background: linear-gradient(135deg, #dbeafe 0%, #cde2ff 100%);
 }
 .sidebar-close:focus-visible {
   outline: none;
@@ -505,13 +511,13 @@
 
 /* Hover */
 .sidebar-btn:hover {
-  background: #e8edf3;
+  background: linear-gradient(135deg, #eef4ff 0%, #e2ecfa 100%);
   color: #1f2937;
 }
 
 /* Active example */
 .sidebar-btn.active {
-  background: #dbe7ee;
+  background: linear-gradient(135deg, #dbeafe 0%, #cfe2ff 100%);
   color: #0284c7;
   box-shadow: inset 0 0 0 1px transparent;
 }
@@ -533,7 +539,7 @@
   box-sizing: border-box;
   position: relative;
   z-index: 1;
-  background: #f3f4f6;
+  background: var(--admin-content-gradient);
 }
 
 /* Stats Cards */
@@ -544,7 +550,7 @@
 }
 
 .admin-stat-card {
-  background: #ffffff;
+  background: var(--admin-card-gradient);
   border: 1px solid #dbeafe;
   border-radius: 14px;
   padding: 16px 18px;
@@ -556,8 +562,9 @@
 
 .admin-stat-header {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
   gap: 8px;
 }
 
@@ -573,12 +580,17 @@
   width: 36px;
   height: 36px;
   object-fit: contain;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .admin-stat-value {
   margin: 0;
   font-size: 28px;
-  color: #0f172a;
+  background: linear-gradient(135deg, #1d4ed8, #0891b2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .admin-stat-subtitle {
@@ -597,7 +609,7 @@
 
 /* Card + Chart */
 .admin-card {
-  background: #ffffff;
+  background: var(--admin-card-gradient);
   border: 1px solid #dbeafe;
   border-radius: 14px;
   padding: 16px 18px;
@@ -632,7 +644,7 @@
 }
 
 .admin-chart-card {
-  background: #ffffff;
+  background: var(--admin-card-gradient);
   border: 1px solid #dbeafe;
   border-radius: 14px;
   padding: 12px 14px 6px;
@@ -647,10 +659,10 @@
 
 /* Quick Management */
 .quick-management-panel {
-  background: #f3f4f6;
-  border: 1px solid #d1d5db;
-  border-radius: 12px;
-  box-shadow: none;
+  background: var(--admin-card-gradient);
+  border: 1px solid #dbeafe;
+  border-radius: 14px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
   padding: 0;
   overflow: hidden;
 }
@@ -658,7 +670,7 @@
 .quick-management-panel .heading {
   margin: 0;
   padding: 18px 26px;
-  border-bottom: 1px solid #d1d5db;
+  border-bottom: 1px solid #e2e8f0;
   font-size: 18px;
   font-weight: 700;
   color: #0f172a;
@@ -673,8 +685,11 @@
 }
 
 .quick-management-card {
-  border: 1px solid #d1d5db;
-  background: #f3f4f6;
+  border: 1px solid #e2e8f0;
+  background: var(
+    --quick-card-gradient,
+    linear-gradient(145deg, #f8fafc 0%, #ffffff 100%)
+  );
   padding: 26px 14px 24px;
   border-radius: 14px;
   display: flex;
@@ -689,8 +704,7 @@
 }
 
 .quick-management-card:hover {
-  background: #eef2f7;
-  border-color: #bfc6cf;
+  border-color: #dbe5ff;
   transform: translateY(-1px);
 }
 
@@ -700,7 +714,7 @@
 }
 
 .quick-management-icon {
-  color: #0284c7;
+  color: #ffffff;
   font-size: 24px;
   line-height: 1;
   display: inline-flex;
@@ -709,21 +723,11 @@
   width: 56px;
   height: 56px;
   border-radius: 10px;
-  background: #dbeafe;
-}
-
-.quick-management-icon.student-icon {
-  color: #0284c7;
-  background: #dbeafe;
-}
-
-.quick-management-icon.faculty-icon,
-.quick-management-icon.department-icon,
-.quick-management-icon.courses-icon,
-.quick-management-icon.subjects-icon,
-.quick-management-icon.reports-icon {
-  color: #0284c7;
-  background: #dbeafe;
+  background: var(
+    --quick-icon-gradient,
+    linear-gradient(135deg, #2563eb, #1d4ed8)
+  );
+  box-shadow: 0 10px 18px rgba(30, 64, 175, 0.25);
 }
 
 .quick-management-label {
@@ -982,17 +986,18 @@
 
 
 .admin-state {
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: transparent;
+  border: 1px solid transparent;
   border-radius: 16px;
   padding: 28px;
   text-align: center;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 60vh;
+  min-height: calc(100dvh - (var(--admin-nav-height) + 72px));
+  width: 100%;
 }
 
 .admin-state.error {

@@ -138,7 +138,7 @@ const Attendance = () => {
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="attendance-state pending">
+        <div className="attendance-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -341,3 +341,4 @@ const Attendance = () => {
 };
 
 export default Attendance;
+
