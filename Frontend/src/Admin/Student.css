@@ -271,8 +271,10 @@
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  padding: calc(var(--admin-nav-height, 74px) + 12px) 12px 12px;
 }
 
 .student-modal-backdrop {
@@ -289,6 +291,8 @@
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
   padding: 20px;
+  max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 24px));
+  overflow-y: auto;
 }
 
 .student-modal-head h2 {
@@ -416,14 +420,11 @@
   }
 
   .student-modal {
-    align-items: flex-start;
-    padding: 12px;
-    overflow-y: auto;
+    padding: calc(var(--admin-nav-height, 74px) + 8px) 12px 12px;
   }
 
   .student-modal-card {
     width: 100%;
-    max-height: calc(100dvh - 24px);
-    overflow-y: auto;
+    max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 20px));
   }
 }

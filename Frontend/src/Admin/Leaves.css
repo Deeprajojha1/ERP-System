@@ -193,7 +193,7 @@
   display: none;
   align-items: flex-start;
   justify-content: center;
-  padding: 84px 8px 8px;
+  padding: calc(var(--admin-nav-height, 74px) + 10px) 8px 8px;
   overflow-y: auto;
 }
 
@@ -211,7 +211,7 @@
   position: relative;
   z-index: 1;
   width: min(720px, 92vw);
-  max-height: calc(100dvh - 16px);
+  max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 18px));
   background: #ffffff;
   border-radius: 16px;
   overflow-y: auto;
@@ -316,13 +316,13 @@
 
   .leaves-modal {
     align-items: flex-start;
-    padding: 76px 8px 8px;
+    padding: calc(var(--admin-nav-height, 74px) + 8px) 8px 8px;
     overflow-y: auto;
   }
 
   .leaves-modal-card {
     width: 100%;
-    max-height: calc(100dvh - 16px);
+    max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 16px));
     overflow-y: auto;
   }
 }

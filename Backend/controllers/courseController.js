@@ -57,10 +57,16 @@ export const getAllCourses = async (req, res) => {
       const coordinatorName = coordinator?.user?.name || null;
 
       return {
+        id: course._id,
         code: course.code,
         courseName: course.courseName,
         department: course.department?.name || null,
+        departmentId: course.department?._id || null,
+        semester: course.semester,
+        credit: course.credit,
+        branch: course.branch || null,
         studentsInDepartment,
+        coordinatorId: coordinator?._id || null,
         coordinatorName,
       };
     });

@@ -5,6 +5,7 @@ import "./Courses.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { Oval } from "react-loader-spinner";
 import { FiSearch } from "react-icons/fi";
+import { FiEdit2 } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 import toast from "react-hot-toast";
 import { selectTimetableRevision } from "../redux/timetableSlice";
@@ -13,6 +14,8 @@ const Courses = () => {
   const [search, setSearch] = useState("");
   const [activeBranch, setActiveBranch] = useState("All Branches");
   const [isOpen, setIsOpen] = useState(false);
+  const [modalMode, setModalMode] = useState("add");
+  const [editingCourseId, setEditingCourseId] = useState("");
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [courses, setCourses] = useState([]);
   const [departments, setDepartments] = useState([]);
@@ -88,6 +91,13 @@ const Courses = () => {
     });
   };
 
+  const closeModal = () => {
+    setIsOpen(false);
+    setModalMode("add");
+    setEditingCourseId("");
+    resetForm();
+  };
+
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
@@ -114,17 +124,40 @@ const Courses = () => {
 
     try {
       setSubmitting(true);
-      await axios.post(`${apiBase}/admin/course`, payload, { withCredentials: true });
-      toast.success("Course added successfully");
-      setIsOpen(false);
-      resetForm();
+      if (modalMode === "edit" && editingCourseId) {
+        await axios.put(`${apiBase}/admin/course/${editingCourseId}`, payload, {
+          withCredentials: true,
+        });
+        toast.success("Course updated successfully");
+      } else {
+        await axios.post(`${apiBase}/admin/course`, payload, { withCredentials: true });
+        toast.success("Course added successfully");
+      }
+      closeModal();
       await fetchAll();
     } catch (error) {
-      console.error("Add course failed", error.response?.data || error.message);
-      toast.error(error.response?.data?.message || "Failed to add course");
+      console.error("Course submit failed", error.response?.data || error.message);
+      toast.error(
+        error.response?.data?.message ||
+          (modalMode === "edit" ? "Failed to update course" : "Failed to add course")
+      );
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const openEditModal = (course) => {
+    setModalMode("edit");
+    setEditingCourseId(course.id || "");
+    setFormData({
+      code: course.code || "",
+      courseName: course.courseName || "",
+      department: course.departmentId || "",
+      semester: String(course.semester ?? ""),
+      credit: String(course.credit ?? ""),
+      facultyId: course.coordinatorId || "",
+    });
+    setIsOpen(true);
   };
 
   const filtered = useMemo(() => {
@@ -182,6 +215,8 @@ const Courses = () => {
             className="courses-add-btn"
             type="button"
             onClick={() => {
+              setModalMode("add");
+              setEditingCourseId("");
               resetForm();
               setIsOpen(true);
             }}
@@ -225,21 +260,33 @@ const Courses = () => {
                 <th>DEPARTMENT</th>
                 <th>STUDENTS</th>
                 <th>INSTRUCTOR</th>
+                <th>ACTION</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((c) => (
-                <tr key={c.code}>
+                <tr key={c.id || c.code}>
                   <td className="courses-code">{c.code}</td>
                   <td>{c.courseName}</td>
                   <td>{c.department}</td>
                   <td>{c.studentsInDepartment}</td>
                   <td>{c.coordinatorName || "-"}</td>
+                  <td className="courses-row-actions">
+                    <button
+                      type="button"
+                      className="courses-edit-btn"
+                      onClick={() => openEditModal(c)}
+                      aria-label={`Edit ${c.code}`}
+                      title="Edit course"
+                    >
+                      <FiEdit2 />
+                    </button>
+                  </td>
                 </tr>
               ))}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="courses-empty">
+                  <td colSpan={6} className="courses-empty">
                     No courses found
                   </td>
                 </tr>
@@ -254,19 +301,23 @@ const Courses = () => {
   return (
     <div className="courses-page">
       {renderState()}
-{isOpen && (
+      {isOpen && (
         <div className="courses-modal">
           <div
             className="courses-modal-backdrop"
-            onClick={() => setIsOpen(false)}
+            onClick={closeModal}
             role="button"
             tabIndex={0}
             aria-label="Close"
           />
           <div className="courses-modal-card">
             <div className="courses-modal-head">
-              <h2>Add New Course</h2>
-              <p>Create a new course entry</p>
+              <h2>{modalMode === "edit" ? "Edit Course" : "Add New Course"}</h2>
+              <p>
+                {modalMode === "edit"
+                  ? "Update selected course details"
+                  : "Create a new course entry"}
+              </p>
             </div>
             <form className="courses-form" onSubmit={handleSubmitCourse}>
               <label>
@@ -366,12 +417,12 @@ const Courses = () => {
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeModal}
                 >
                   Cancel
                 </button>
                 <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? "Saving..." : "Save Course"}
+                  {submitting ? "Saving..." : "Submit"}
                 </button>
               </div>
             </form>

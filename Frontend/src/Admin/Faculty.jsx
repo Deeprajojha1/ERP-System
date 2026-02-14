@@ -21,6 +21,25 @@ const DESIGNATION_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
+const getAssignedCourseCount = (facultyMember) => {
+  const directCount = facultyMember?.courseIds?.length;
+  if (typeof directCount === "number" && directCount > 0) return directCount;
+
+  const routine = facultyMember?.routine;
+  if (!routine || typeof routine !== "object") return 0;
+
+  const uniqueCourseIds = new Set();
+  Object.values(routine).forEach((daySlots) => {
+    if (!daySlots || typeof daySlots !== "object") return;
+    Object.values(daySlots).forEach((slotDetail) => {
+      const courseId = slotDetail?.course?._id || slotDetail?.course;
+      if (courseId) uniqueCourseIds.add(String(courseId));
+    });
+  });
+
+  return uniqueCourseIds.size;
+};
+
 const Faculty = () => {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All Departments");
@@ -452,7 +471,7 @@ const Faculty = () => {
                   <div className="faculty-meta">
                     <span>{f.qualification || "Qualification N/A"}</span>
                     <span className="faculty-courses">
-                      {(f.courseIds?.length || 0)} Courses
+                      {getAssignedCourseCount(f)} Courses
                     </span>
                   </div>
 

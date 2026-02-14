@@ -1,7 +1,11 @@
 /* ===== NAV CONTAINER ===== */
+:root {
+  --admin-nav-height: 74px;
+}
+
 .admin-nav {
   width: 100%;
-  height: 74px;
+  height: var(--admin-nav-height);
   padding: 0 18px;
   position: fixed;
   top: 0;
@@ -108,7 +112,7 @@
 }
 .admin-menu-float {
   position: fixed;
-  top: 74px;
+  top: var(--admin-nav-height);
   left: 0;
   z-index: 31;
   border-top-left-radius: 0;
@@ -287,8 +291,12 @@
 }
 
 @media (max-width: 360px) {
+  :root {
+    --admin-nav-height: 68px;
+  }
+
   .admin-nav {
-    height: 68px;
+    height: var(--admin-nav-height);
   }
 
   .admin-brand-copy h1 {
@@ -303,7 +311,7 @@
   display: flex;
   height: 100vh;
   min-height: 100dvh;
-  padding-top: 74px;
+  padding-top: var(--admin-nav-height);
   background: #ffffff;
   font-family: "Segoe UI", sans-serif;
   overflow: hidden;
@@ -777,9 +785,9 @@
 
   .admin-sidebar {
     position: fixed;
-    top: 74px;
+    top: var(--admin-nav-height);
     left: 0;
-    height: calc(100vh - 74px);
+    height: calc(100dvh - var(--admin-nav-height));
     width: min(82vw, 280px);
     min-width: min(82vw, 280px);
     transform: translateX(-100%);

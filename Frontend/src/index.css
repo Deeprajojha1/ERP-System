@@ -1,11 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap');
 @import "tailwindcss";
 
 *,
 *::before,
 *::after {
     box-sizing: border-box;
-    font-family: Outfit;
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 }
 
 html,
@@ -18,7 +17,4 @@ body {
 
 #root {
     min-height: 100vh;
-}
-*{
-    font-family: Outfit;
 }

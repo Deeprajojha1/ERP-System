@@ -77,12 +77,14 @@ const Timetable = () => {
     });
     return Array.from(names);
   }, [schedule]);
-  const slots = [
-    "09:00-10:00",
-    "10:00-11:00",
-    "11:00-12:00",
-    "01:00-02:00",
-    "02:00-03:00",
+  const lectureSlots = [
+    "09:10 AM-10:05 AM",
+    "10:05 AM-11:00 AM",
+    "11:10 AM-12:05 PM",
+    "12:05 PM-01:00 PM",
+    "02:00 PM-02:55 PM",
+    "02:55 PM-03:50 PM",
+    "03:50 PM-04:45 PM",
   ];
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
   const dayKeyMap = {
@@ -93,6 +95,16 @@ const Timetable = () => {
     Fri: "friday",
     Sat: "saturday",
   };
+
+  const normalizedSchedule = useMemo(() => {
+    return schedule.map((row) => {
+      const normalizedSlots = Array.from(
+        { length: lectureSlots.length },
+        (_, idx) => row.slots?.[idx] || { code: "FREE", name: "Free", by: "", color: idx % 5 }
+      );
+      return { ...row, slots: normalizedSlots };
+    });
+  }, [schedule, lectureSlots.length]);
 
   /* ---------- Fetch group cards ---------- */
   useEffect(() => {
@@ -118,7 +130,7 @@ const Timetable = () => {
 
   const summaryRows = useMemo(() => {
     const seen = new Map();
-    schedule.forEach((row) => {
+    normalizedSchedule.forEach((row) => {
       row.slots.forEach((slot) => {
         if (slot.code && slot.code !== "FREE" && !seen.has(slot.code)) {
           seen.set(slot.code, {
@@ -132,7 +144,7 @@ const Timetable = () => {
       });
     });
     return Array.from(seen.values());
-  }, [schedule]);
+  }, [normalizedSchedule]);
 
   const subjectCodeOptions = useMemo(() => {
     if (groupCourses.length > 0) return groupCourses;
@@ -146,7 +158,7 @@ const Timetable = () => {
   }, [groupCourses, groupCards, selectedGroupCode]);
 
   const currentSlot =
-    schedule?.[selectedSlot.dayIndex]?.slots?.[
+    normalizedSchedule?.[selectedSlot.dayIndex]?.slots?.[
       selectedSlot.slotIndex
     ] || { code: "FREE", name: "Free", by: "" };
 
@@ -192,7 +204,7 @@ const Timetable = () => {
   };
 
   const buildNextSchedule = () => {
-    const next = schedule.map((d) => ({
+    const next = normalizedSchedule.map((d) => ({
       ...d,
       slots: d.slots.map((s) => ({ ...s })),
     }));
@@ -494,46 +506,58 @@ const Timetable = () => {
                 <div className="tt-calendar-scroll">
                   <div className="tt-calendar-head">
                     <div className="tt-calendar-cell tt-label">Day</div>
-                    {slots.map((s) => (
-                      <div key={s} className="tt-calendar-cell tt-slot">
-                        {s}
-                      </div>
+                    {lectureSlots.map((s, i) => (
+                      <React.Fragment key={s}>
+                        {(i === 2 || i === 4) && (
+                          <div className="tt-calendar-cell tt-break-head">
+                            {i === 2 ? "Break" : "Lunch Break"}
+                          </div>
+                        )}
+                        <div className="tt-calendar-cell tt-slot">
+                          <span className="tt-slot-no">{i + 1}</span>
+                          <span>{s}</span>
+                        </div>
+                      </React.Fragment>
                     ))}
                   </div>
-                  {schedule.map((row) => (
+                  {normalizedSchedule.map((row) => (
                     <div key={row.day} className="tt-calendar-row">
                       <div className="tt-calendar-cell tt-label">
                         {row.day}
                       </div>
                       {row.slots.map((slot, idx) => (
-                        <div
-                          key={`${row.day}-${idx}`}
-                          className="tt-calendar-cell"
-                        >
-                          <button
-                            type="button"
-                            className={`${palette[slot.color]} ${
-                              isEditing &&
-                              selectedSlot.dayIndex ===
-                                days.indexOf(row.day) &&
-                              selectedSlot.slotIndex === idx
-                                ? "t-active"
-                                : ""
-                            }`}
-                            disabled={!isEditing}
-                            onClick={() => {
-                              if (!isEditing) return;
-                              setSelectedSlot({
-                                dayIndex: days.indexOf(row.day),
-                                slotIndex: idx,
-                              });
-                            }}
-                          >
-                            <span className="t-code">{slot.code}</span>
-                            <span className="t-name">{slot.name}</span>
-                            <span className="t-by">{slot.by}</span>
-                          </button>
-                        </div>
+                        <React.Fragment key={`${row.day}-${idx}`}>
+                          {(idx === 2 || idx === 4) && (
+                            <div className="tt-calendar-cell tt-break-col">
+                              {idx === 2 ? "Break" : "Lunch Break"}
+                            </div>
+                          )}
+                          <div className="tt-calendar-cell">
+                            <button
+                              type="button"
+                              className={`${palette[slot.color]} ${
+                                isEditing &&
+                                selectedSlot.dayIndex ===
+                                  days.indexOf(row.day) &&
+                                selectedSlot.slotIndex === idx
+                                  ? "t-active"
+                                  : ""
+                              }`}
+                              disabled={!isEditing}
+                              onClick={() => {
+                                if (!isEditing) return;
+                                setSelectedSlot({
+                                  dayIndex: days.indexOf(row.day),
+                                  slotIndex: idx,
+                                });
+                              }}
+                            >
+                              <span className="t-code">{slot.code}</span>
+                              <span className="t-name">{slot.name}</span>
+                              <span className="t-by">{slot.by}</span>
+                            </button>
+                          </div>
+                        </React.Fragment>
                       ))}
                     </div>
                   ))}
@@ -606,7 +630,7 @@ const Timetable = () => {
                     }));
                   }}
                 >
-                  {slots.map((s, i) => (
+                  {lectureSlots.map((s, i) => (
                     <option key={s} value={i + 1}>
                       {`Lecture ${i + 1}`}
                     </option>

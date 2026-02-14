@@ -140,7 +140,9 @@ const syncFacultyRoutineFromGroup = async (group) => {
 
 const clearTimetableCache = async (groupId) => {
   await redisClient.del("admin:timetable:groups");
+  await redisClient.del("admin:timetable:groups:v2");
   await redisClient.del(`admin:timetable:group:${groupId}`);
+  await redisClient.del("admin:faculty:all");
 };
 
 /* ================= GET ALL GROUPS ================= */
@@ -204,7 +206,7 @@ export const getAllGroups = async (req, res) => {
 // Returns minimal info needed to render group cards for timetable selection.
 export const getTimetableGroups = async (req, res) => {
   try {
-    const cacheKey = "admin:timetable:groups";
+    const cacheKey = "admin:timetable:groups:v2";
 
     try {
       const cached = await redisClient.get(cacheKey);
@@ -258,7 +260,11 @@ export const getTimetableGroups = async (req, res) => {
       let courses = [];
       if (departmentId) {
         const courseDocs = await Course.find({ department: departmentId, isDeleted: { $ne: true } });
-        courses = courseDocs.map(c => ({ courseId: c._id, courseName: c.courseName }));
+        courses = courseDocs.map((c) => ({
+          id: c._id,
+          code: c.code,
+          courseName: c.courseName,
+        }));
       }
       let faculties = [];
       if (departmentId) {

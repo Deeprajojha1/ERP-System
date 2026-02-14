@@ -11,7 +11,7 @@ import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
 export const getAllStudents = async (req, res) => {
   try {
-    const cacheKey = "admin:students:all";
+    const cacheKey = "admin:students:all:v2";
 
     try {
       const cached = await redisClient.get(cacheKey);
@@ -24,7 +24,10 @@ export const getAllStudents = async (req, res) => {
     }
 
     const students = await Student.find({ isDeleted: { $ne: true } })
-      .populate({ path: "user", select: "_id" })
+      .populate({
+        path: "user",
+        select: "name email aadharNumber phoneNumber DOB role status",
+      })
       .populate("department")
       .populate("group");
 
@@ -43,12 +46,6 @@ export const getAllStudents = async (req, res) => {
     }
 
     res.json(responsePayload);
-
-    res.json({
-      message: "Students fetched successfully",
-      count: students.length,
-      students,
-    });
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -63,7 +60,10 @@ export const getStudentById = async (req, res) => {
     const { id } = req.params;
 
     const student = await Student.findOne({ _id: id, isDeleted: { $ne: true } })
-      .populate({ path: "user", select: "_id" })
+      .populate({
+        path: "user",
+        select: "name email aadharNumber phoneNumber DOB role status",
+      })
       .populate("department")
       .populate("group");
 
@@ -196,7 +196,7 @@ export const addStudent = async (req, res) => {
       };
 
       try {
-        await redisClient.del("admin:students:all");
+        await redisClient.del("admin:students:all:v2");
         if (group) {
           await redisClient.del("admin:groups:all");
         }
@@ -244,7 +244,7 @@ export const updateStudent = async (req, res) => {
     };
 
     try {
-      await redisClient.del("admin:students:all");
+      await redisClient.del("admin:students:all:v2");
     } catch (err) {
       console.error("[Redis] updateStudent cache clear failed:", err.message || err);
     }
@@ -278,7 +278,7 @@ export const deleteStudent = async (req, res) => {
     await User.findByIdAndUpdate(student.user, { isDeleted: true });
 
     try {
-      await redisClient.del("admin:students:all");
+      await redisClient.del("admin:students:all:v2");
     } catch (err) {
       console.error("[Redis] deleteStudent cache clear failed:", err.message || err);
     }
@@ -311,7 +311,7 @@ export const hardDeleteStudent = async (req, res) => {
     await User.findByIdAndDelete(student.user);
 
     try {
-      await redisClient.del("admin:students:all");
+      await redisClient.del("admin:students:all:v2");
     } catch (err) {
       console.error("[Redis] hardDeleteStudent cache clear failed:", err.message || err);
     }
