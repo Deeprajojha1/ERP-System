@@ -82,7 +82,8 @@ export const getTimetableGroups = async (req, res) => {
 
     const groups = await Group.find({ isDeleted: { $ne: true } })
       .select("name roomNo courseIds department")
-      .populate({ path: "courseIds", select: "semester" });
+      .populate({ path: "courseIds", select: "semester department code courseName branch credit facultyIds" })
+      .populate({ path: "department", select: "name" });
 
     // Pre-compute number of students assigned to each group
     const studentCounts = await Student.aggregate([
@@ -101,9 +102,8 @@ export const getTimetableGroups = async (req, res) => {
       return acc;
     }, {});
 
-    const cards = groups.map((group) => {
+    const cards = await Promise.all(groups.map(async (group) => {
       let semester = null;
-
       if (group.courseIds && group.courseIds.length > 0) {
         const counts = {};
         group.courseIds.forEach((course) => {
@@ -111,24 +111,30 @@ export const getTimetableGroups = async (req, res) => {
             counts[course.semester] = (counts[course.semester] || 0) + 1;
           }
         });
-
         const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
         if (entries.length > 0) {
           semester = Number(entries[0][0]);
         }
       }
-
       const studentCount = studentCountMap[group._id.toString()] || 0;
-
+      // Get department id
+      const departmentId = group.department?._id || group.department;
+      // Get all courses in department
+      const courses = await Course.find({ department: departmentId, isDeleted: { $ne: true } });
+      // Get all faculties in department
+      const faculties = await Faculty.find({ department: departmentId, isDeleted: { $ne: true } });
       return {
         id: group._id,
         groupCode: group.name,
         semester,
         roomNo: group.roomNo || null,
         studentCount,
-        departmentId: group.department || null,
+        departmentId,
+        departmentName: group.department?.name || null,
+        courses,
+        faculties,
       };
-    });
+    }));
 
     const responsePayload = {
       message: "Timetable groups fetched successfully",

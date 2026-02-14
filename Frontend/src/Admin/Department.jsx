@@ -432,66 +432,14 @@ const Department = () => {
               <div className="dept-form-row">
                 <label>
                   Department Name
-                  {editTarget ? (
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="Computer Science"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                    />
-                  ) : (
-                    <>
-                      <select
-                        name="departmentSelect"
-                        value={nameMode === "new" ? "new" : selectedDeptId}
-                        onChange={handleNameSelect}
-                      >
-                        <option value="new">
-                          Add New Department
-                        </option>
-                        {departments.map((dept) => (
-                          <option key={dept._id} value={dept._id}>
-                            {dept.name}
-                          </option>
-                        ))}
-                      </select>
-                      {nameMode === "new" && (
-                        <input
-                          type="text"
-                          name="name"
-                          placeholder="Computer Science"
-                          value={formData.name}
-                          onChange={handleChange}
-                          required
-                        />
-                      )}
-                      {nameMode === "existing" && (
-                        <span className="dept-help">
-                          This department already exists. Choose
-                          "Add New Department" to create a new one.
-                        </span>
-                      )}
-                    </>
-                  )}
-                </label>
-              </div>
-              <div className="dept-form-row">
-                <label>
-                  Head of Department (HOD)
-                  <select
-                    name="hod"
-                    value={formData.hod}
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Computer Science"
+                    value={formData.name}
                     onChange={handleChange}
-                  >
-                    <option value="">Not Assigned</option>
-                    {faculty.map((f) => (
-                      <option key={f._id} value={f._id}>
-                        {f.user?.name || f.name || f.employeeId}
-                      </option>
-                    ))}
-                  </select>
+                    required
+                  />
                 </label>
               </div>
               <div className="dept-modal-actions">

@@ -24,7 +24,7 @@ export const getAllStudents = async (req, res) => {
     }
 
     const students = await Student.find({ isDeleted: { $ne: true } })
-      .populate("user", "name email aadharNumber phoneNumber DOB status")
+      .populate({ path: "user", select: "_id" })
       .populate("department")
       .populate("group");
 
@@ -63,7 +63,7 @@ export const getStudentById = async (req, res) => {
     const { id } = req.params;
 
     const student = await Student.findOne({ _id: id, isDeleted: { $ne: true } })
-      .populate("user", "name email aadharNumber phoneNumber DOB status")
+      .populate({ path: "user", select: "_id" })
       .populate("department")
       .populate("group");
 
