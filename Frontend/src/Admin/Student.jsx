@@ -156,8 +156,22 @@ const Student = () => {
     );
   }, [groups, formData.department]);
 
+  const selectedDepartmentPrograms = useMemo(() => {
+    const selectedDept = departments.find((d) => d._id === formData.department);
+    const deptPrograms = selectedDept?.programs || selectedDept?.program || [];
+    return Array.isArray(deptPrograms) ? deptPrograms : [];
+  }, [departments, formData.department]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === "department") {
+      setFormData((prev) => ({
+        ...prev,
+        department: value,
+        program: "",
+      }));
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -624,9 +638,11 @@ const Student = () => {
                     <option value="" disabled>
                       Select Program
                     </option>
-                    <option value="btech">B.Tech</option>
-                    <option value="mtech">M.Tech</option>
-                    <option value="mba">MBA</option>
+                    {selectedDepartmentPrograms.map((prog) => (
+                      <option key={prog} value={prog}>
+                        {String(prog).toUpperCase()}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>

@@ -58,10 +58,19 @@ export const getAllDepartments = async (req, res) => {
       },
     });
 
+    const normalizedDepartments = departments.map((dept) => {
+      const asObject = typeof dept.toObject === "function" ? dept.toObject() : dept;
+      return {
+        ...asObject,
+        program: Array.isArray(asObject.program) ? asObject.program : [],
+        programs: Array.isArray(asObject.program) ? asObject.program : [],
+      };
+    });
+
     const responsePayload = {
       message: "Departments fetched successfully",
-      count: departments.length,
-      departments,
+      count: normalizedDepartments.length,
+      departments: normalizedDepartments,
     };
 
     try {
@@ -100,9 +109,16 @@ export const getDepartmentById = async (req, res) => {
       });
     }
 
+    const departmentObj =
+      typeof department.toObject === "function" ? department.toObject() : department;
+
     res.json({
       message: "Department fetched successfully",
-      department,
+      department: {
+        ...departmentObj,
+        program: Array.isArray(departmentObj.program) ? departmentObj.program : [],
+        programs: Array.isArray(departmentObj.program) ? departmentObj.program : [],
+      },
     });
   } catch (error) {
     res.status(500).json({
