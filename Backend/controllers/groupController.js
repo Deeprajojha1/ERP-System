@@ -255,10 +255,15 @@ export const getTimetableGroups = async (req, res) => {
       const studentCount = studentCountMap[group._id.toString()] || 0;
       // Get department id
       const departmentId = group.department?._id || group.department;
-      // Get all courses in department
-      const courses = await Course.find({ department: departmentId, isDeleted: { $ne: true } });
-      // Get all faculties in department
-      const faculties = await Faculty.find({ department: departmentId, isDeleted: { $ne: true } });
+      let courses = [];
+      if (departmentId) {
+        const courseDocs = await Course.find({ department: departmentId, isDeleted: { $ne: true } });
+        courses = courseDocs.map(c => ({ courseId: c._id, courseName: c.courseName }));
+      }
+      let faculties = [];
+      if (departmentId) {
+        faculties = await Faculty.find({ department: departmentId, isDeleted: { $ne: true } });
+      }
       return {
         id: group._id,
         groupCode: group.name,
