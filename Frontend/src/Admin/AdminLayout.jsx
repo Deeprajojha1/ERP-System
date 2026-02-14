@@ -15,7 +15,7 @@ import { GiKoholintEgg } from "react-icons/gi";
 import { LuBadgeIndianRupee } from "react-icons/lu";
 import { FiBell } from "react-icons/fi";
 import { useNavigate, Outlet, useLocation } from "react-router-dom";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
 import { clearUserData } from "../redux/userSlice";
@@ -65,11 +65,8 @@ const AdminLayout = () => {
 
   const handleLogout = async () => {
     try {
-      await axios.post(
-        `${apiBase}/user/logout`,
-        {},
-        { withCredentials: true }
-      );
+      await axios.post(`${apiBase}/user/logout`, {});
+      localStorage.removeItem("authToken");
       toast.success("Logged out successfully");
     } catch (error) {
       console.error(

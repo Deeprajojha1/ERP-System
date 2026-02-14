@@ -43,7 +43,7 @@ const facultySchema = new mongoose.Schema(
 
     designation: {
       type: String,
-      enum: ["professor", "assistant_prof", "hod","other"],
+      enum: ["professor", "assistant_prof", "hod", "training", "other"],
       required: true,
     },
 
@@ -58,6 +58,11 @@ const facultySchema = new mongoose.Schema(
         of: lectureDetailSchema,
       },
       default: () => new Map(),
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
     },
   },
   { timestamps: true }

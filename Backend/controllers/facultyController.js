@@ -23,7 +23,7 @@ export const getAllFaculty = async (req, res) => {
       console.error("[Redis] getAllFaculty cache read failed:", err.message || err);
     }
 
-    const faculty = await Faculty.find()
+    const faculty = await Faculty.find({ isDeleted: { $ne: true } })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
 
@@ -55,7 +55,7 @@ export const getFacultyById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const faculty = await Faculty.findById(id)
+    const faculty = await Faculty.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
 
@@ -236,16 +236,19 @@ export const deleteFaculty = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const faculty = await Faculty.findById(id);
+    const faculty = await Faculty.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
     if (!faculty) {
       return res.status(404).json({
         message: "Faculty not found",
       });
     }
 
-    /* Delete faculty and associated user */
-    await Faculty.findByIdAndDelete(id);
-    await User.findByIdAndDelete(faculty.user);
+    /* Soft-delete the associated user as well */
+    await User.findByIdAndUpdate(faculty.user, { isDeleted: true });
 
     try {
       await redisClient.del("admin:faculty:all");
@@ -255,6 +258,39 @@ export const deleteFaculty = async (req, res) => {
 
     res.json({
       message: "Faculty deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+/* ================= HARD DELETE FACULTY ================= */
+
+export const hardDeleteFaculty = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const faculty = await Faculty.findById(id);
+    if (!faculty) {
+      return res.status(404).json({
+        message: "Faculty not found",
+      });
+    }
+
+    /* Hard-delete faculty and associated user */
+    await Faculty.findByIdAndDelete(id);
+    await User.findByIdAndDelete(faculty.user);
+
+    try {
+      await redisClient.del("admin:faculty:all");
+    } catch (err) {
+      console.error("[Redis] hardDeleteFaculty cache clear failed:", err.message || err);
+    }
+
+    res.json({
+      message: "Faculty permanently deleted",
     });
   } catch (error) {
     res.status(500).json({

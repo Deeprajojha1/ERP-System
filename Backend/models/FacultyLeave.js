@@ -36,6 +36,11 @@ const facultyLeaveSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
   },
   { timestamps: true }
 );

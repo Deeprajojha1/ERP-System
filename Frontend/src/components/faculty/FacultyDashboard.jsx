@@ -105,7 +105,8 @@ function FacultyDashboard() {
       [name]: value,
     }));
   };
-  const handleRequestSubmit = async (event) => {
+
+  const handleRequestSubmit = async (event) => {
     event.preventDefault();
     setRequestStatus(null);
     try {

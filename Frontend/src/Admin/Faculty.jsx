@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import {
@@ -17,6 +17,7 @@ const DESIGNATION_OPTIONS = [
   { value: "professor", label: "Professor" },
   { value: "assistant_prof", label: "Assistant Professor" },
   { value: "hod", label: "HOD" },
+  { value: "training", label: "Training" },
   { value: "other", label: "Other" },
 ];
 
@@ -184,8 +185,9 @@ const Faculty = () => {
     );
     if (!ok) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/faculty/${facultyMember._id}`,
+      await axios.patch(
+        `${apiBase}/admin/faculty/${facultyMember._id}/delete`,
+        {},
         { withCredentials: true }
       );
       dispatch(

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
@@ -236,8 +236,9 @@ const Department = () => {
     );
     if (!confirmDelete) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/department/${dept._id}`,
+      await axios.patch(
+        `${apiBase}/admin/department/${dept._id}/delete`,
+        {},
         { withCredentials: true }
       );
       toast.success("? Department deleted successfully");

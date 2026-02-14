@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { IoMdEyeOff } from "react-icons/io";
 import { IoEyeOutline } from "react-icons/io5";
 import { FiKey, FiLock, FiMail } from "react-icons/fi";
-import axios from "axios";
+import axios from "../../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../../redux/userSlice";
 import collegeLogo from "../../assets/college_47233.jpg";
@@ -72,9 +72,13 @@ const Login = () => {
     try {
       setLoading(true);
 
-      const res = await axios.post(`${apiBase}/user/login`, formData, {
-        withCredentials: true,
-      });
+      const res = await axios.post(`${apiBase}/user/login`, formData);
+
+      // Persist token so mobile browsers (which block cross-site cookies)
+      // can send it via Authorization header on subsequent requests.
+      if (res.data.token) {
+        localStorage.setItem("authToken", res.data.token);
+      }
 
       dispatch(setUserData(res.data));
       toast.success(res.data.message || "Login successful");

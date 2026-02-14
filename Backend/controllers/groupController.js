@@ -23,7 +23,7 @@ export const getAllGroups = async (req, res) => {
       console.error("[Redis] getAllGroups cache read failed:", err.message || err);
     }
 
-    const groups = await Group.find()
+    const groups = await Group.find({ isDeleted: { $ne: true } })
       .populate("department")
       .populate({
         path: "coordinator",
@@ -80,7 +80,7 @@ export const getTimetableGroups = async (req, res) => {
       console.error("[Redis] getTimetableGroups cache read failed:", err.message || err);
     }
 
-    const groups = await Group.find()
+    const groups = await Group.find({ isDeleted: { $ne: true } })
       .select("name roomNo courseIds department")
       .populate({ path: "courseIds", select: "semester" });
 
@@ -328,7 +328,7 @@ export const getGroupById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const group = await Group.findById(id)
+    const group = await Group.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate("department")
       .populate({
         path: "coordinator",
@@ -625,7 +625,11 @@ export const deleteGroup = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const group = await Group.findByIdAndDelete(id);
+    const group = await Group.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
 
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
@@ -640,6 +644,32 @@ export const deleteGroup = async (req, res) => {
     }
 
     res.json({ message: "Group deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================= HARD DELETE GROUP ================= */
+
+export const hardDeleteGroup = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const group = await Group.findByIdAndDelete(id);
+
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    try {
+      await redisClient.del("admin:timetable:groups");
+      await redisClient.del(`admin:timetable:group:${id}`);
+      await redisClient.del("admin:groups:all");
+    } catch (err) {
+      console.error("[Redis] hardDeleteGroup cache clear failed:", err.message || err);
+    }
+
+    res.json({ message: "Group permanently deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

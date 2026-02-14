@@ -1,6 +1,6 @@
 ﻿import { useSelector, useDispatch } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from "../../utils/axiosInstance";
 import toast from "react-hot-toast";
 import { clearUserData } from "../../redux/userSlice";
 import { clearStudents } from "../../redux/studentSlice";
@@ -16,11 +16,8 @@ function Header() {
 
   const handleLogout = async () => {
     try {
-      await axios.post(
-        `${apiBase}/user/logout`,
-        {},
-        { withCredentials: true }
-      );
+      await axios.post(`${apiBase}/user/logout`, {});
+      localStorage.removeItem("authToken");
       toast.success("✅ Logged out successfully");
     } catch (error) {
       console.error(

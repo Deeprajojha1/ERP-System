@@ -20,7 +20,7 @@ export const getAllCourses = async (req, res) => {
       console.error("[Redis] getAllCourses cache read failed:", err.message || err);
     }
 
-    const courses = await Course.find()
+    const courses = await Course.find({ isDeleted: { $ne: true } })
       .populate("department")
       .populate({
         path: "facultyIds",
@@ -91,7 +91,7 @@ export const getCourseById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const course = await Course.findById(id)
+    const course = await Course.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate("department")
       .populate({
         path: "facultyIds",
@@ -201,7 +201,11 @@ export const deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const course = await Course.findByIdAndDelete(id);
+    const course = await Course.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
@@ -214,6 +218,30 @@ export const deleteCourse = async (req, res) => {
     }
 
     res.json({ message: "Course deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================= HARD DELETE COURSE ================= */
+
+export const hardDeleteCourse = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const course = await Course.findByIdAndDelete(id);
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    try {
+      await redisClient.del("admin:courses:all");
+    } catch (err) {
+      console.error("[Redis] hardDeleteCourse cache clear failed:", err.message || err);
+    }
+
+    res.json({ message: "Course permanently deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

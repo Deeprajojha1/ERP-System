@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
@@ -185,8 +185,9 @@ const Student = () => {
     );
     if (!ok) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/student/${student._id}`,
+      await axios.patch(
+        `${apiBase}/admin/student/${student._id}/delete`,
+        {},
         { withCredentials: true }
       );
       dispatch(

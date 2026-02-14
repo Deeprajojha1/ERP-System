@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import { useSelector } from "react-redux";
 import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiUsers } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
@@ -116,7 +116,7 @@ const Groups = () => {
     const ok = window.confirm(`Delete group "${group.name}"?`);
     if (!ok) return;
     try {
-      await axios.delete(`${apiBase}/admin/group/${group._id}`, {
+      await axios.patch(`${apiBase}/admin/group/${group._id}/delete`, {}, {
         withCredentials: true,
       });
       toast.success("✅ Group deleted successfully");

@@ -307,10 +307,29 @@ export const getAttendanceByGroupAndCourse = async (req, res) => {
    ================================================================ */
 export const deleteAttendance = async (req, res) => {
   try {
-    const session = await AttendanceSession.findByIdAndDelete(req.params.sessionId);
+    const session = await AttendanceSession.findByIdAndUpdate(
+      req.params.sessionId,
+      { isDeleted: true },
+      { new: true }
+    );
     if (!session) return res.status(404).json({ message: "Session not found" });
 
     res.json({ message: "Attendance session deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================================================================
+   5b. HARD DELETE AN ATTENDANCE SESSION  (Admin only)
+   DELETE  /attendance/:sessionId
+   ================================================================ */
+export const hardDeleteAttendance = async (req, res) => {
+  try {
+    const session = await AttendanceSession.findByIdAndDelete(req.params.sessionId);
+    if (!session) return res.status(404).json({ message: "Session not found" });
+
+    res.json({ message: "Attendance session permanently deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

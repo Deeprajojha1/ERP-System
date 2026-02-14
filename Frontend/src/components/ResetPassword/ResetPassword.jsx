@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState } from "react";
 import "./ResetPassword.css";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios from "../../utils/axiosInstance";
 import collegeLogo from "../../assets/college_47233.jpg";
 import { useSelector } from "react-redux";
 import { IoMdEyeOff } from "react-icons/io";
