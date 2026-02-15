@@ -58,14 +58,10 @@ const Courses = () => {
   const fetchAll = async () => {
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
-      const [courseRes, deptRes, facultyRes] = await Promise.all([
-        axios.get(`${apiBase}/admin/course`, { withCredentials: true }),
-        axios.get(`${apiBase}/admin/department`, { withCredentials: true }),
-        axios.get(`${apiBase}/admin/faculty`, { withCredentials: true }),
-      ]);
+      const courseRes = await axios.get(`${apiBase}/admin/course`, {
+        withCredentials: true,
+      });
       setCourses(courseRes.data?.courses || []);
-      setDepartments(deptRes.data?.departments || []);
-      setFacultyList(facultyRes.data?.faculty || []);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       console.error("Failed to load courses", error.response?.data || error.message);
@@ -101,6 +97,21 @@ const Courses = () => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const ensureModalDependencies = async () => {
+    const [deptRes, facultyRes] = await Promise.all([
+      axios.get(`${apiBase}/admin/department`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      }),
+      axios.get(`${apiBase}/admin/faculty`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      }),
+    ]);
+    setDepartments(deptRes.data?.departments || []);
+    setFacultyList(facultyRes.data?.faculty || []);
   };
 
   const handleSubmitCourse = async (e) => {
@@ -146,18 +157,37 @@ const Courses = () => {
     }
   };
 
-  const openEditModal = (course) => {
-    setModalMode("edit");
-    setEditingCourseId(course.id || "");
-    setFormData({
-      code: course.code || "",
-      courseName: course.courseName || "",
-      department: course.departmentId || "",
-      semester: String(course.semester ?? ""),
-      credit: String(course.credit ?? ""),
-      facultyId: course.coordinatorId || "",
-    });
-    setIsOpen(true);
+  const openEditModal = async (course) => {
+    try {
+      await ensureModalDependencies();
+      setModalMode("edit");
+      setEditingCourseId(course.id || "");
+      setFormData({
+        code: course.code || "",
+        courseName: course.courseName || "",
+        department: course.departmentId || "",
+        semester: String(course.semester ?? ""),
+        credit: String(course.credit ?? ""),
+        facultyId: course.coordinatorId || "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Failed to load modal data", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
+  };
+
+  const openAddModal = async () => {
+    try {
+      await ensureModalDependencies();
+      setModalMode("add");
+      setEditingCourseId("");
+      resetForm();
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Failed to load modal data", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
   };
 
   const filtered = useMemo(() => {
@@ -214,12 +244,7 @@ const Courses = () => {
           <button
             className="courses-add-btn"
             type="button"
-            onClick={() => {
-              setModalMode("add");
-              setEditingCourseId("");
-              resetForm();
-              setIsOpen(true);
-            }}
+            onClick={openAddModal}
           >
             + Add Course
           </button>

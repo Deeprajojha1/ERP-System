@@ -1,5 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
+import axios from "../utils/axiosInstance";
+import toast from "react-hot-toast";
 import {
   FiBookOpen,
   FiCamera,
@@ -17,6 +19,7 @@ import "./Settings.css";
 const Settings = () => {
   const userData = useSelector((state) => state.user.userData);
   const user = userData?.user || {};
+  const apiBase = useSelector((state) => state.config.apiBase);
 
   const [activeTab, setActiveTab] = useState("profile");
   const fileInputRef = useRef(null);
@@ -31,6 +34,7 @@ const Settings = () => {
     confirmPassword: "",
   });
   const [securityError, setSecurityError] = useState("");
+  const [securitySubmitting, setSecuritySubmitting] = useState(false);
   const [adminError, setAdminError] = useState("");
   const [librarianError, setLibrarianError] = useState("");
   const [adminForm, setAdminForm] = useState({
@@ -102,7 +106,7 @@ const Settings = () => {
     if (securityError) setSecurityError("");
   };
 
-  const handleChangePassword = (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
     const { currentPassword, newPassword, confirmPassword } = securityForm;
 
@@ -119,7 +123,27 @@ const Settings = () => {
       return;
     }
 
-    closePasswordModal();
+    if (!apiBase) {
+      setSecurityError("Server configuration missing. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      setSecuritySubmitting(true);
+      await axios.post(
+        `${apiBase}/admin/change-password`,
+        { currentPassword, newPassword, confirmPassword },
+        { withCredentials: true }
+      );
+      toast.success("Password changed successfully");
+      closePasswordModal();
+    } catch (error) {
+      setSecurityError(
+        error.response?.data?.message || "Failed to change password"
+      );
+    } finally {
+      setSecuritySubmitting(false);
+    }
   };
 
   const closeAddAdminModal = () => {
@@ -443,8 +467,12 @@ const Settings = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="security-submit-btn">
-                  Change Password
+                <button
+                  type="submit"
+                  className="security-submit-btn"
+                  disabled={securitySubmitting}
+                >
+                  {securitySubmitting ? "Changing..." : "Change Password"}
                 </button>
               </div>
             </form>

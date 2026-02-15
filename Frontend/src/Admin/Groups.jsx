@@ -53,14 +53,10 @@ const Groups = () => {
   const fetchAll = async () => {
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
-      const [groupRes, deptRes, facRes] = await Promise.all([
-        axios.get(`${apiBase}/admin/group`, { withCredentials: true }),
-        axios.get(`${apiBase}/admin/department`, { withCredentials: true }),
-        axios.get(`${apiBase}/admin/faculty`, { withCredentials: true }),
-      ]);
+      const groupRes = await axios.get(`${apiBase}/admin/group`, {
+        withCredentials: true,
+      });
       setGroups(groupRes.data?.groups || []);
-      setDepartments(deptRes.data?.departments || []);
-      setFaculty(facRes.data?.faculty || []);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       console.error(
@@ -70,6 +66,21 @@ const Groups = () => {
       toast.error(`? ${error.response?.data?.message || "Failed to load groups"}`);
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
     }
+  };
+
+  const ensureModalDependencies = async () => {
+    const [deptRes, facRes] = await Promise.all([
+      axios.get(`${apiBase}/admin/department`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      }),
+      axios.get(`${apiBase}/admin/faculty`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      }),
+    ]);
+    setDepartments(deptRes.data?.departments || []);
+    setFaculty(facRes.data?.faculty || []);
   };
 
   useEffect(() => {
@@ -91,26 +102,49 @@ const Groups = () => {
     });
   }, [search, activeDept, groups]);
 
-  const handleOpenAdd = () => {
-    setEditTarget(null);
-    setFormData({
-      name: "",
-      department: "",
-      coordinator: "",
-      roomNo: "",
+  const filterDepartments = useMemo(() => {
+    const map = new Map();
+    groups.forEach((g) => {
+      const deptId = g.department?._id || g.department;
+      const deptName = g.department?.name || g.department;
+      if (!deptId || !deptName || map.has(String(deptId))) return;
+      map.set(String(deptId), { _id: String(deptId), name: deptName });
     });
-    setIsOpen(true);
+    return Array.from(map.values());
+  }, [groups]);
+
+  const handleOpenAdd = async () => {
+    try {
+      await ensureModalDependencies();
+      setEditTarget(null);
+      setFormData({
+        name: "",
+        department: "",
+        coordinator: "",
+        roomNo: "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
   };
 
-  const handleOpenEdit = (group) => {
-    setEditTarget(group);
-    setFormData({
-      name: group.name || "",
-      department: group.department?._id || "",
-      coordinator: group.coordinator?._id || "",
-      roomNo: group.roomNo || "",
-    });
-    setIsOpen(true);
+  const handleOpenEdit = async (group) => {
+    try {
+      await ensureModalDependencies();
+      setEditTarget(group);
+      setFormData({
+        name: group.name || "",
+        department: group.department?._id || "",
+        coordinator: group.coordinator?._id || "",
+        roomNo: group.roomNo || "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
   };
 
   const handleDelete = async (group) => {
@@ -226,7 +260,7 @@ const Groups = () => {
             onChange={(e) => setActiveDept(e.target.value)}
           >
             <option value="All Departments">All Departments</option>
-            {departments.map((d) => (
+            {filterDepartments.map((d) => (
               <option key={d._id} value={d._id}>
                 {d.name}
               </option>

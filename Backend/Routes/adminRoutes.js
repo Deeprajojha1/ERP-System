@@ -80,6 +80,7 @@ import {
   getIssuedBooks,
   returnBook,
 } from "../controllers/libraryController.js";
+import { changePassword } from "../controllers/userController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
 
@@ -89,6 +90,7 @@ const router = express.Router();
    PROFILE
 ========================= */
 router.post("/profile", isAdmin, getAdminProfile);
+router.post("/change-password", isAdmin, changePassword);
 
 /* =========================
    DEPARTMENT

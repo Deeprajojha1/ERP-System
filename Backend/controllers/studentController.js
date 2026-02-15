@@ -12,18 +12,21 @@ import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 export const getAllStudents = async (req, res) => {
   try {
     const full = req.query.full === "true";
+    const noCache = req.query.noCache === "true";
     const cacheKey = full
       ? "admin:students:all:full:v1"
       : "admin:students:all:summary:v1";
 
-    try {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        const cachedData = JSON.parse(cached);
-        return res.json(cachedData);
+    if (!noCache) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          return res.json(cachedData);
+        }
+      } catch (err) {
+        console.error("[Redis] getAllStudents cache read failed:", err.message || err);
       }
-    } catch (err) {
-      console.error("[Redis] getAllStudents cache read failed:", err.message || err);
     }
 
     const students = await Student.find({ isDeleted: { $ne: true } })
@@ -53,12 +56,14 @@ export const getAllStudents = async (req, res) => {
       students: responseStudents,
     };
 
-    try {
-      await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: DEFAULT_CACHE_TTL,
-      });
-    } catch (err) {
-      console.error("[Redis] getAllStudents cache write failed:", err.message || err);
+    if (!noCache) {
+      try {
+        await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+          EX: DEFAULT_CACHE_TTL,
+        });
+      } catch (err) {
+        console.error("[Redis] getAllStudents cache write failed:", err.message || err);
+      }
     }
 
     res.json(responsePayload);

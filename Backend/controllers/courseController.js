@@ -8,16 +8,19 @@ import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
 export const getAllCourses = async (req, res) => {
   try {
+    const noCache = req.query.noCache === "true";
     const cacheKey = "admin:courses:all";
 
-    try {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        const cachedData = JSON.parse(cached);
-        return res.json(cachedData);
+    if (!noCache) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          return res.json(cachedData);
+        }
+      } catch (err) {
+        console.error("[Redis] getAllCourses cache read failed:", err.message || err);
       }
-    } catch (err) {
-      console.error("[Redis] getAllCourses cache read failed:", err.message || err);
     }
 
     const courses = await Course.find({ isDeleted: { $ne: true } })
@@ -75,13 +78,15 @@ export const getAllCourses = async (req, res) => {
       courses: simplifiedCourses,
     };
 
-    try {
-      // Cache using global TTL
-      await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: DEFAULT_CACHE_TTL,
-      });
-    } catch (err) {
-      console.error("[Redis] getAllCourses cache write failed:", err.message || err);
+    if (!noCache) {
+      try {
+        // Cache using global TTL
+        await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+          EX: DEFAULT_CACHE_TTL,
+        });
+      } catch (err) {
+        console.error("[Redis] getAllCourses cache write failed:", err.message || err);
+      }
     }
 
     res.json(responsePayload);

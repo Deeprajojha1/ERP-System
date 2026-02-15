@@ -149,16 +149,19 @@ const clearTimetableCache = async (groupId) => {
 
 export const getAllGroups = async (req, res) => {
   try {
+    const noCache = req.query.noCache === "true";
     const cacheKey = "admin:groups:all";
 
-    try {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        const cachedData = JSON.parse(cached);
-        return res.json(cachedData);
+    if (!noCache) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          return res.json(cachedData);
+        }
+      } catch (err) {
+        console.error("[Redis] getAllGroups cache read failed:", err.message || err);
       }
-    } catch (err) {
-      console.error("[Redis] getAllGroups cache read failed:", err.message || err);
     }
 
     const groups = await Group.find({ isDeleted: { $ne: true } })
@@ -186,12 +189,14 @@ export const getAllGroups = async (req, res) => {
       groups,
     };
 
-    try {
-      await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: DEFAULT_CACHE_TTL,
-      });
-    } catch (err) {
-      console.error("[Redis] getAllGroups cache write failed:", err.message || err);
+    if (!noCache) {
+      try {
+        await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+          EX: DEFAULT_CACHE_TTL,
+        });
+      } catch (err) {
+        console.error("[Redis] getAllGroups cache write failed:", err.message || err);
+      }
     }
 
     res.json(responsePayload);

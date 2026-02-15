@@ -110,16 +110,10 @@ const Faculty = () => {
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
       dispatch(setFacultyLoading(true));
-      const [facRes, deptRes] = await Promise.all([
-        axios.get(`${apiBase}/admin/faculty`, {
-          withCredentials: true,
-        }),
-        axios.get(`${apiBase}/admin/department`, {
-          withCredentials: true,
-        }),
-      ]);
+      const facRes = await axios.get(`${apiBase}/admin/faculty`, {
+        withCredentials: true,
+      });
       dispatch(setFaculty(facRes.data?.faculty || []));
-      setDepartments(deptRes.data?.departments || []);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       console.error(
@@ -150,6 +144,14 @@ const Faculty = () => {
     dispatch(setFaculty(facRes.data?.faculty || []));
   };
 
+  const ensureModalDependencies = async () => {
+    const deptRes = await axios.get(`${apiBase}/admin/department`, {
+      withCredentials: true,
+      params: { noCache: "true" },
+    });
+    setDepartments(deptRes.data?.departments || []);
+  };
+
   const statuses = ["All Status", "Active", "Inactive", "On Leave"];
 
   const handleChange = (e) => {
@@ -160,41 +162,53 @@ const Faculty = () => {
     }));
   };
 
-  const openEditModal = (facultyMember) => {
-    setEditTarget(facultyMember);
-    setFormData({
-      name: facultyMember.user?.name || facultyMember.name || "",
-      email: facultyMember.user?.email || facultyMember.email || "",
-      password: "",
-      aadharNumber:
-        facultyMember.user?.aadharNumber ||
-        facultyMember.aadharNumber ||
-        "",
-      phoneNumber:
-        facultyMember.user?.phoneNumber ||
-        facultyMember.phoneNumber ||
-        "",
-      DOB: facultyMember.user?.DOB
-        ? facultyMember.user.DOB.slice(0, 10)
-        : "",
-      employeeId: facultyMember.employeeId || "",
-      department:
-        facultyMember.department?._id ||
-        facultyMember.department ||
-        "",
-      designation: facultyMember.designation || "",
-      qualification: facultyMember.qualification || "",
-      joiningDate: facultyMember.joiningDate
-        ? facultyMember.joiningDate.slice(0, 10)
-        : "",
-    });
-    setIsOpen(true);
+  const openEditModal = async (facultyMember) => {
+    try {
+      await ensureModalDependencies();
+      setEditTarget(facultyMember);
+      setFormData({
+        name: facultyMember.user?.name || facultyMember.name || "",
+        email: facultyMember.user?.email || facultyMember.email || "",
+        password: "",
+        aadharNumber:
+          facultyMember.user?.aadharNumber ||
+          facultyMember.aadharNumber ||
+          "",
+        phoneNumber:
+          facultyMember.user?.phoneNumber ||
+          facultyMember.phoneNumber ||
+          "",
+        DOB: facultyMember.user?.DOB
+          ? facultyMember.user.DOB.slice(0, 10)
+          : "",
+        employeeId: facultyMember.employeeId || "",
+        department:
+          facultyMember.department?._id ||
+          facultyMember.department ||
+          "",
+        designation: facultyMember.designation || "",
+        qualification: facultyMember.qualification || "",
+        joiningDate: facultyMember.joiningDate
+          ? facultyMember.joiningDate.slice(0, 10)
+          : "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
   };
 
-  const openAddModal = () => {
-    setEditTarget(null);
-    resetForm();
-    setIsOpen(true);
+  const openAddModal = async () => {
+    try {
+      await ensureModalDependencies();
+      setEditTarget(null);
+      resetForm();
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
   };
 
   const handleDelete = async (facultyMember) => {
@@ -328,6 +342,17 @@ const Faculty = () => {
     });
   }, [faculty, search, department, status]);
 
+  const filterDepartments = useMemo(() => {
+    const map = new Map();
+    faculty.forEach((f) => {
+      const deptId = f.department?._id || f.department;
+      const deptName = f.department?.name || f.department;
+      if (!deptId || !deptName || map.has(String(deptId))) return;
+      map.set(String(deptId), { _id: String(deptId), name: deptName });
+    });
+    return Array.from(map.values());
+  }, [faculty]);
+
 
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
@@ -399,7 +424,7 @@ const Faculty = () => {
                 onChange={(e) => setDepartment(e.target.value)}
               >
                 <option value="All Departments">All Departments</option>
-                {departments.map((d) => (
+                {filterDepartments.map((d) => (
                   <option key={d._id} value={d._id}>
                     {d.name}
                   </option>

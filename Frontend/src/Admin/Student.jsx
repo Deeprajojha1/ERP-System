@@ -20,7 +20,6 @@ const Student = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [groups, setGroups] = useState([]);
-  const [modalDepsLoaded, setModalDepsLoaded] = useState(false);
   const dispatch = useDispatch();
   const { students } = useSelector(
     (state) => state.student
@@ -105,18 +104,18 @@ const Student = () => {
   }, []);
 
   const ensureModalDependencies = async () => {
-    if (modalDepsLoaded) return;
     const [deptRes, groupRes] = await Promise.all([
       axios.get(`${apiBase}/admin/department`, {
         withCredentials: true,
+        params: { noCache: "true" },
       }),
       axios.get(`${apiBase}/admin/group`, {
         withCredentials: true,
+        params: { noCache: "true" },
       }),
     ]);
     setDepartments(deptRes.data?.departments || []);
     setGroups(groupRes.data?.groups || []);
-    setModalDepsLoaded(true);
   };
 
   const syncStudentsSilently = async () => {
