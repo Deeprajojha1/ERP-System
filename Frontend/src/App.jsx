@@ -37,15 +37,17 @@ import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
 const LAST_FAILED_ROUTE_KEY = "lastFailedRoute";
+const OFFLINE_REDIRECT_DELAY_MS = 1500;
 
 function App() {
-  useGetCurrentUser();
+  const authResolved = useGetCurrentUser();
 
   const userData = useSelector((state) => state.user.userData);
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
+    if (!authResolved) return;
     if (!userData?.user?.role) return;
     if (location.pathname === "/network-error") return;
 
@@ -72,7 +74,59 @@ function App() {
     if (isAllowedRoute) {
       navigate(savedRoute, { replace: true });
     }
-  }, [userData, location.pathname, navigate]);
+  }, [authResolved, userData, location.pathname, navigate]);
+
+  useEffect(() => {
+    if (location.pathname === "/network-error") return;
+
+    let offlineTimer = null;
+
+    const redirectIfStillOffline = () => {
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        const failedRoute = `${location.pathname}${location.search}${location.hash}`;
+        if (failedRoute && failedRoute !== "/network-error") {
+          sessionStorage.setItem(LAST_FAILED_ROUTE_KEY, failedRoute);
+        }
+        navigate("/network-error", { replace: true });
+      }
+    };
+
+    const handleOffline = () => {
+      if (offlineTimer) clearTimeout(offlineTimer);
+      offlineTimer = window.setTimeout(
+        redirectIfStillOffline,
+        OFFLINE_REDIRECT_DELAY_MS
+      );
+    };
+
+    const handleOnline = () => {
+      if (offlineTimer) {
+        clearTimeout(offlineTimer);
+        offlineTimer = null;
+      }
+    };
+
+    window.addEventListener("offline", handleOffline);
+    window.addEventListener("online", handleOnline);
+
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      handleOffline();
+    }
+
+    return () => {
+      window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("online", handleOnline);
+      if (offlineTimer) clearTimeout(offlineTimer);
+    };
+  }, [location.pathname, location.search, location.hash, navigate]);
+
+  if (
+    !authResolved &&
+    location.pathname !== "/network-error" &&
+    location.pathname !== "/page-not-found"
+  ) {
+    return null;
+  }
 
   return (
     <>
@@ -145,10 +199,10 @@ function App() {
           }
         />
 
-        {userData?.user?.role === "faculty" && (
-          <Route
-            path="/faculty/*"
-            element={
+        <Route
+          path="/faculty/*"
+          element={
+            userData?.user?.role === "faculty" ? (
               <div className="app">
                 <Header />
 
@@ -161,41 +215,55 @@ function App() {
                   </Routes>
                 </main>
               </div>
-            }
-          />
-        )}
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
 
-        {userData?.user?.role === "student" && (
-          <>
-            <Route path="/dashboard" element={<Dashboard />} />
-          </>
-        )}
+        <Route
+          path="/dashboard"
+          element={
+            userData?.user?.role === "student" ? (
+              <Dashboard />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
 
-        {userData?.user?.role === "admin" && (
-          <Route path="/admin/*" element={<AdminLayout />}>
-            <Route path="dashboard" element={<AdminHome />} />
-            <Route path="department" element={<Department />} />
-            <Route path="faculty" element={<Faculty />} />
-            <Route path="student" element={<Student />} />
-            <Route path="courses" element={<Courses />} />
-            <Route path="groups" element={<Groups />} />
-            <Route path="timetable" element={<Timetable />} />
-            <Route path="exam" element={<Exam />} />
-            <Route path="result" element={<Result />} />
-            <Route path="attendance" element={<Attendance />} />
-            <Route path="leaves" element={<Leaves />} />
-            <Route path="fees" element={<Fees />} />
-            <Route path="fees/academic" element={<FeesAcademic />} />
-            <Route path="fees/hostel" element={<FeesHostel />} />
-            <Route path="fees/transport" element={<FeesTransport />} />
-            <Route path="fees/backpapers" element={<FeesBackpapers />} />
-            <Route path="fees/others" element={<FeesOthers />} />
-            <Route path="general-support" element={<GeneralSupport />} />
-            <Route path="library" element={<Library />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="*" element={<Navigate to="/page-not-found" replace />} />
-          </Route>
-        )}
+        <Route
+          path="/admin/*"
+          element={
+            userData?.user?.role === "admin" ? (
+              <AdminLayout />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        >
+          <Route path="dashboard" element={<AdminHome />} />
+          <Route path="department" element={<Department />} />
+          <Route path="faculty" element={<Faculty />} />
+          <Route path="student" element={<Student />} />
+          <Route path="courses" element={<Courses />} />
+          <Route path="groups" element={<Groups />} />
+          <Route path="timetable" element={<Timetable />} />
+          <Route path="exam" element={<Exam />} />
+          <Route path="result" element={<Result />} />
+          <Route path="attendance" element={<Attendance />} />
+          <Route path="leaves" element={<Leaves />} />
+          <Route path="fees" element={<Fees />} />
+          <Route path="fees/academic" element={<FeesAcademic />} />
+          <Route path="fees/hostel" element={<FeesHostel />} />
+          <Route path="fees/transport" element={<FeesTransport />} />
+          <Route path="fees/backpapers" element={<FeesBackpapers />} />
+          <Route path="fees/others" element={<FeesOthers />} />
+          <Route path="general-support" element={<GeneralSupport />} />
+          <Route path="library" element={<Library />} />
+          <Route path="settings" element={<Settings />} />
+          <Route path="*" element={<Navigate to="/page-not-found" replace />} />
+        </Route>
 
         <Route path="/network-error" element={<NetworkError />} />
         <Route path="/page-not-found" element={<PageNotFound />} />

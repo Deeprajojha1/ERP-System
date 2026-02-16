@@ -83,13 +83,16 @@ const AdminLayout = () => {
       );
       toast.error(`${error.response?.data?.message || "Logout failed"}`);
     } finally {
+      localStorage.removeItem("authToken");
       dispatch(clearUserData());
       dispatch(clearStudents());
       dispatch(clearFaculty());
       dispatch(clearDepartments());
       dispatch(clearLeaves());
       dispatch(clearTimetable());
-      navigate("/login", { replace: true });
+      sessionStorage.removeItem("lastFailedRoute");
+      sessionStorage.removeItem("lastNetworkRedirectAt");
+      window.location.replace("/");
     }
   };
 
