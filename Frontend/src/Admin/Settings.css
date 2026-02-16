@@ -787,9 +787,10 @@
 
 @media (max-width: 480px) {
   .security-modal-overlay {
-    align-items: flex-start;
-    padding-top: calc(12px + env(safe-area-inset-top));
-    padding-bottom: 12px;
+    align-items: center;
+    justify-content: center;
+    padding-top: max(12px, env(safe-area-inset-top));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
   .settings-title-row {

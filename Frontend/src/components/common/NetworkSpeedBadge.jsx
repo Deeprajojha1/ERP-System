@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { FiWifi, FiWifiOff } from "react-icons/fi";
-import { useSelector } from "react-redux";
 import "./NetworkSpeedBadge.css";
 
 const getConnection = () => {
@@ -49,28 +48,12 @@ const measureNetworkSpeed = async () => {
   }
 };
 
-const canReachServer = async (apiBase) => {
-  if (!apiBase) return true;
-  const base = String(apiBase).replace(/\/$/, "");
-  const pingUrl = `${base}/user/me?ping=${Date.now()}`;
-  try {
-    await fetch(pingUrl, {
-      method: "HEAD",
-      mode: "no-cors",
-      cache: "no-store",
-    });
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const getNetworkSnapshot = (fallbackMbps = null, serverReachable = true) => {
+const getNetworkSnapshot = (fallbackMbps = null) => {
   if (typeof navigator === "undefined") {
     return { label: "Measuring...", quality: "fair" };
   }
 
-  if (!navigator.onLine || serverReachable === false) {
+  if (!navigator.onLine) {
     return { label: "Offline", quality: "offline" };
   }
 
@@ -102,11 +85,9 @@ const getNetworkSnapshot = (fallbackMbps = null, serverReachable = true) => {
 };
 
 function NetworkSpeedBadge() {
-  const apiBase = useSelector((state) => state.config.apiBase);
   const [fallbackMbps, setFallbackMbps] = useState(null);
-  const [serverReachable, setServerReachable] = useState(true);
   const [, setRefreshKey] = useState(0);
-  const networkInfo = getNetworkSnapshot(fallbackMbps, serverReachable);
+  const networkInfo = getNetworkSnapshot(fallbackMbps);
 
   useEffect(() => {
     const updateNetwork = () => setRefreshKey((prev) => prev + 1);
@@ -119,13 +100,8 @@ function NetworkSpeedBadge() {
     const runSpeedCheck = async () => {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
         setFallbackMbps(null);
-        setServerReachable(false);
         return;
       }
-
-      const reachable = await canReachServer(apiBase);
-      setServerReachable(reachable);
-      if (!reachable) return;
 
       const measured = await measureNetworkSpeed();
       if (typeof measured === "number") {
@@ -145,7 +121,7 @@ function NetworkSpeedBadge() {
       connection?.removeEventListener?.("change", updateNetwork);
       clearInterval(intervalId);
     };
-  }, [apiBase]);
+  }, []);
 
   return (
     <span className={`net-speed-badge ${networkInfo.quality}`}>

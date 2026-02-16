@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+﻿import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Oval } from "react-loader-spinner";
@@ -28,8 +28,18 @@ import {
 
 const AdminHome = () => {
   const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === "undefined" ? 1200 : window.innerWidth
+  );
   const navigate = useNavigate();
   const userData = useSelector((state) => state.user.userData);
+  const isMobile = viewportWidth <= 768;
+
+  useEffect(() => {
+    const onResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   const shortenDeptName = (name = "") => {
     const map = {
@@ -74,6 +84,29 @@ const AdminHome = () => {
           count: dept.facultyCount ?? 0,
         }))
       : fallbackFacultyData;
+
+  const chartFacultyData = useMemo(() => {
+    const sorted = [...facultyData].sort((a, b) => b.count - a.count);
+    if (!isMobile || sorted.length <= 7) {
+      return sorted;
+    }
+
+    const topRows = sorted.slice(0, 6);
+    const remainingTotal = sorted
+      .slice(6)
+      .reduce((sum, row) => sum + (row.count ?? 0), 0);
+
+    if (remainingTotal > 0) {
+      topRows.push({ dept: "Others", count: remainingTotal });
+    }
+    return topRows;
+  }, [facultyData, isMobile]);
+
+  const chartLabelFormatter = (label = "") => {
+    const maxLength = isMobile ? 8 : 13;
+    return label.length > maxLength ? `${label.slice(0, maxLength)}…` : label;
+  };
+  const mobileChartMinWidth = Math.max(chartFacultyData.length * 58, 420);
 
   const barColors = [
     "#3b82f6",
@@ -170,34 +203,60 @@ const AdminHome = () => {
 
             <div className="admin-card">
               <h1 className="heading">Faculty Distribution</h1>
-              <div className="admin-chart">
-                <ResponsiveContainer width="100%" height={300}>
-                  <BarChart
-                    data={facultyData}
-                    margin={{ top: 10, right: 20, left: 0, bottom: 80 }}
+              <p className="admin-chart-subtitle">
+                {isMobile
+                  ? "Top departments shown for clarity"
+                  : "Department-wise faculty strength"}
+              </p>
+              <div className="admin-chart admin-chart--faculty">
+                <div className="admin-chart-scroll">
+                  <div
+                    className="admin-chart-scroll-inner"
+                    style={isMobile ? { minWidth: `${mobileChartMinWidth}px` } : undefined}
                   >
-                    <CartesianGrid vertical={false} stroke="none" />
-                    <XAxis
-                      dataKey="dept"
-                      interval={0}
-                      angle={-35}
-                      textAnchor="end"
-                      height={90}
-                      tickMargin={12}
-                      tick={{ fontSize: 11 }}
-                    />
-                    <YAxis allowDecimals={false} />
-                    <Tooltip cursor={{ fill: "transparent" }} />
-                    <Bar dataKey="count" radius={[8, 8, 0, 0]}>
-                      {facultyData.map((entry, index) => (
-                        <Cell
-                          key={entry.dept}
-                          fill={barColors[index % barColors.length]}
+                    <ResponsiveContainer width="100%" height={isMobile ? 270 : 310}>
+                      <BarChart
+                        data={chartFacultyData}
+                        margin={{
+                          top: 8,
+                          right: isMobile ? 6 : 20,
+                          left: isMobile ? 4 : 0,
+                          bottom: isMobile ? 46 : 78,
+                        }}
+                      >
+                        <CartesianGrid vertical={false} stroke="#e2e8f0" />
+                        <XAxis
+                          dataKey="dept"
+                          interval={0}
+                          angle={isMobile ? -22 : -35}
+                          textAnchor="end"
+                          height={isMobile ? 58 : 90}
+                          tickMargin={isMobile ? 6 : 12}
+                          tick={{ fontSize: isMobile ? 11 : 11 }}
+                          tickFormatter={chartLabelFormatter}
                         />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+                        <YAxis allowDecimals={false} width={isMobile ? 34 : 30} />
+                        <Tooltip
+                          cursor={{ fill: "rgba(148, 163, 184, 0.1)" }}
+                          formatter={(value) => [`${value} Faculty`, "Count"]}
+                        />
+                        <Bar
+                          dataKey="count"
+                          radius={[8, 8, 0, 0]}
+                          barSize={isMobile ? 22 : 28}
+                          maxBarSize={34}
+                        >
+                          {chartFacultyData.map((entry, index) => (
+                            <Cell
+                              key={entry.dept}
+                              fill={barColors[index % barColors.length]}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
               </div>
             </div>
 

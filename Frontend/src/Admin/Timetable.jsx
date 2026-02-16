@@ -85,7 +85,7 @@ const Timetable = () => {
     "02:55 PM-03:50 PM",
     "03:50 PM-04:45 PM",
   ];
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const days = useMemo(() => ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], []);
   const dayKeyMap = {
     Mon: "monday",
     Tue: "tuesday",
@@ -188,6 +188,7 @@ const Timetable = () => {
     currentSlot.by,
     currentSlot.code,
     deptFaculty,
+    days,
   ]);
 
   const applyEdit = () => {
@@ -375,15 +376,35 @@ const Timetable = () => {
     className: "center",
     centerMode: true,
     infinite: true,
-    centerPadding: "24px",
+    centerPadding: "28px",
     slidesToShow: 3,
+    slidesToScroll: 1,
     speed: 500,
     arrows: true,
     dots: false,
     responsive: [
-      { breakpoint: 1200, settings: { slidesToShow: 2, centerPadding: "20px" } },
-      { breakpoint: 900, settings: { slidesToShow: 1, centerPadding: "20px" } },
-      { breakpoint: 640, settings: { slidesToShow: 1, centerPadding: "12px" } },
+      {
+        breakpoint: 1200,
+        settings: { slidesToShow: 2, slidesToScroll: 1, centerPadding: "20px" },
+      },
+      {
+        breakpoint: 900,
+        settings: {
+          slidesToShow: 1,
+          slidesToScroll: 1,
+          centerMode: false,
+          centerPadding: "0px",
+        },
+      },
+      {
+        breakpoint: 640,
+        settings: {
+          slidesToShow: 1,
+          slidesToScroll: 1,
+          centerMode: false,
+          centerPadding: "0px",
+        },
+      },
     ],
   };
 
