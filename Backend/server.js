@@ -14,7 +14,8 @@ const app = express();
 // NOTE: Origin is only scheme + host (+ optional port), no path.
 const allowedOrigins = [
   "https://hu-erp-git-development-subeshs-projects.vercel.app", // Local development (Vite)
-  "https://hu-erp1.vercel.app", // Production Vercel
+  "https://hu-erp1.vercel.app",
+  "http://localhost:5173", // Production Vercel
   process.env.FRONTEND_URL, // Optional override via env on Render
 ].filter(Boolean);
 
