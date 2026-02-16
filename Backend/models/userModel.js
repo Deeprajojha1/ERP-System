@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
     passwordHash: String,
     role: {
       type: String,
-      enum: ["student", "faculty", "admin"],
+      enum: ["student", "faculty", "admin","librarian"],
       default: "student",
     },
     status: {
