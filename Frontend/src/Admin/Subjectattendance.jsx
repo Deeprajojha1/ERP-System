@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { Oval } from "react-loader-spinner";
 import { FiPrinter } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
-import "./SubjectAttendance.css";
+import "./Subjectattendance.css";
 
 const SubjectAttendance = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
