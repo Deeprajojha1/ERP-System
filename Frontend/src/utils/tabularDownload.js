@@ -1,12 +1,12 @@
 import axios from "./axiosInstance";
 
-const sanitizeFileName = (name = "report.pdf") =>
+const sanitizeFileName = (name = "report") =>
   String(name)
     .replace(/[^\w.\-]/g, "_")
     .replace(/_{2,}/g, "_");
 
 const triggerBlobDownload = (blobData, fileName) => {
-  const blob = new Blob([blobData], { type: "application/pdf" });
+  const blob = new Blob([blobData]);
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
@@ -19,18 +19,14 @@ const triggerBlobDownload = (blobData, fileName) => {
 
 const readBlobText = async (blobLike) => {
   if (!blobLike) return "";
-  if (typeof blobLike.text === "function") {
-    return blobLike.text();
-  }
+  if (typeof blobLike.text === "function") return blobLike.text();
   return "";
 };
 
 const extractErrorMessage = async (error) => {
-  const fallback = "Failed to download PDF";
+  const fallback = "Failed to export file";
   const responseData = error?.response?.data;
-
   if (!responseData) return fallback;
-
   try {
     const rawText = await readBlobText(responseData);
     if (!rawText) return fallback;
@@ -41,36 +37,29 @@ const extractErrorMessage = async (error) => {
   }
 };
 
-const openPrintFallback = (html) => {
-  const printWindow = window.open("", "_blank", "width=1000,height=800");
-  if (!printWindow) return false;
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  return true;
-};
-
-export const downloadPdfFromHtml = async (
+export const downloadTabularFile = async (
   apiBase,
-  { html, fileName = "report.pdf", options = {}, fallbackToPrint = true },
+  { rows, format, fileName, sheetName = "Report" }
 ) => {
   try {
+    const normalizedFormat = String(format || "").toLowerCase();
+    const extension = normalizedFormat === "csv" ? "csv" : "xlsx";
+    const finalFileName = sanitizeFileName(fileName || `report.${extension}`);
+
     const res = await axios.post(
-      `${apiBase}/user/pdf/render`,
-      { html, fileName: sanitizeFileName(fileName), options },
-      { withCredentials: true, responseType: "blob" },
+      `${apiBase}/user/export/tabular`,
+      {
+        rows,
+        format: normalizedFormat,
+        fileName: finalFileName,
+        sheetName,
+      },
+      { withCredentials: true, responseType: "blob" }
     );
 
-    triggerBlobDownload(res.data, fileName);
-    return;
+    triggerBlobDownload(res.data, finalFileName);
   } catch (error) {
     const message = await extractErrorMessage(error);
-    if (fallbackToPrint && html) {
-      const printed = openPrintFallback(html);
-      if (printed) return;
-    }
     throw new Error(message);
   }
 };

@@ -1,11 +1,11 @@
 import React, { useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import "./GeneralSupport.css";
-import * as XLSX from "xlsx";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import { downloadTabularFile } from "../utils/tabularDownload";
 import toast from "react-hot-toast";
 
 const GeneralSupport = () => {
@@ -60,18 +60,6 @@ const GeneralSupport = () => {
     ];
   }, []);
 
-  const downloadCSV = (rows, filename) => {
-    const headers = Object.keys(rows[0]);
-    const csv = [headers.join(","), ...rows.map((r) => headers.map((h) => r[h]).join(","))].join("\n");
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
   const downloadPDF = async (rows, filename) => {
     const esc = (value = "") =>
       String(value)
@@ -112,7 +100,11 @@ const GeneralSupport = () => {
       </html>
     `;
 
-    await downloadPdfFromHtml(apiBase, { html, fileName: filename });
+    await downloadPdfFromHtml(apiBase, {
+      html,
+      fileName: filename,
+      fallbackToPrint: false,
+    });
   };
 
   const handleGenerate = async () => {
@@ -123,15 +115,21 @@ const GeneralSupport = () => {
       if (format === "PDF") {
         await downloadPDF(data, `${base}.pdf`);
       } else if (format === "CSV") {
-        downloadCSV(data, `${base}.csv`);
+        await downloadTabularFile(apiBase, {
+          rows: data,
+          format: "csv",
+          fileName: `${base}.csv`,
+        });
       } else {
-        const worksheet = XLSX.utils.json_to_sheet(data);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-        XLSX.writeFile(workbook, `${base}.xlsx`);
+        await downloadTabularFile(apiBase, {
+          rows: data,
+          format: "xlsx",
+          fileName: `${base}.xlsx`,
+          sheetName: "Report",
+        });
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to generate report");
+      toast.error(error.message || "Failed to generate report");
       return;
     }
 
