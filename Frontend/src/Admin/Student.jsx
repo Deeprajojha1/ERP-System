@@ -13,6 +13,23 @@ import emptyStateImg from "../assets/empty-state.svg";
 import "./Student.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 
+const PROGRAM_CANONICAL_MAP = {
+  btech: "btech",
+  mtech: "mtech",
+  bca: "bca",
+  mca: "mca",
+  bba: "bba",
+  mba: "mba",
+};
+
+const canonicalizeProgram = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  return PROGRAM_CANONICAL_MAP[normalized] || "";
+};
+
 const Student = () => {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All Departments");
@@ -158,7 +175,8 @@ const Student = () => {
   const selectedDepartmentPrograms = useMemo(() => {
     const selectedDept = departments.find((d) => d._id === formData.department);
     const deptPrograms = selectedDept?.programs || selectedDept?.program || [];
-    return Array.isArray(deptPrograms) ? deptPrograms : [];
+    if (!Array.isArray(deptPrograms)) return [];
+    return [...new Set(deptPrograms.map((prog) => canonicalizeProgram(prog)).filter(Boolean))];
   }, [departments, formData.department]);
 
   const handleChange = (e) => {
@@ -168,6 +186,13 @@ const Student = () => {
         ...prev,
         department: value,
         program: "",
+      }));
+      return;
+    }
+    if (name === "program") {
+      setFormData((prev) => ({
+        ...prev,
+        program: canonicalizeProgram(value),
       }));
       return;
     }
@@ -226,7 +251,7 @@ const Student = () => {
         DOB: fullStudent.user?.DOB ? fullStudent.user.DOB.slice(0, 10) : "",
         enrollmentNumber: fullStudent.enrollmentNumber || fullStudent.rollNo || "",
         department: fullStudent.department?._id || fullStudent.department || "",
-        program: fullStudent.program || "",
+        program: canonicalizeProgram(fullStudent.program || ""),
         semester: fullStudent.semester || "",
         academicYear: fullStudent.academicYear || "",
         fatherName: fullStudent.fatherName || "",
@@ -272,7 +297,7 @@ const Student = () => {
     const base = {
       enrollmentNumber: formData.enrollmentNumber,
       department: formData.department,
-      program: formData.program,
+      program: canonicalizeProgram(formData.program),
       semester: formData.semester
         ? Number(formData.semester)
         : "",
