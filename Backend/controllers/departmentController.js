@@ -2,36 +2,7 @@ import Department from "../models/Department.js";
 import Faculty from "../models/Faculty.js";
 import User from "../models/userModel.js";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
-
-const PROGRAM_CANONICAL_MAP = {
-  btech: "btech",
-  mtech: "mtech",
-  bca: "bca",
-  mca: "mca",
-  bba: "bba",
-  mba: "mba",
-};
-
-const canonicalizeProgram = (value) => {
-  const normalized = String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z]/g, "");
-  return PROGRAM_CANONICAL_MAP[normalized] || "";
-};
-
-const normalizePrograms = (program) => {
-  if (Array.isArray(program)) {
-    return program
-      .map((p) => canonicalizeProgram(p))
-      .filter(Boolean);
-  }
-  if (typeof program === "string") {
-    const value = canonicalizeProgram(program);
-    return value ? [value] : [];
-  }
-  return [];
-};
+import { normalizeProgramList } from "../utils/programNormalization.js";
 /* ================= GET ALL DEPARTMENTS ================= */
 
 export const getAllDepartments = async (req, res) => {
@@ -135,7 +106,7 @@ export const getDepartmentById = async (req, res) => {
 export const addDepartment = async (req, res) => {
   try {
     const { name, hod } = req.body;
-    const programs = normalizePrograms(req.body.program);
+    const programs = normalizeProgramList(req.body.program);
 
     if (!name || !String(name).trim()) {
       return res.status(400).json({
@@ -202,7 +173,7 @@ export const updateDepartment = async (req, res) => {
     }
 
     if (typeof req.body.program !== "undefined") {
-      const programs = normalizePrograms(req.body.program);
+      const programs = normalizeProgramList(req.body.program);
       if (!programs.length) {
         return res.status(400).json({
           message: "At least one program is required",
