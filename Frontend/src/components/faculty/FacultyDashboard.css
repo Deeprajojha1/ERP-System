@@ -1,530 +1,217 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,600;700&display=swap");
-
 :root {
-  --ink: #0f172a;
-  --muted: #5b6b7a;
-  --line: #e2e8f0;
+  --bg: #f8fafc;
   --panel: #ffffff;
-  --accent: #0ea5e9;
-  --accent-strong: #0284c7;
-  --accent-warm: #f97316;
-  --shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+  --text: #0f172a;
+  --muted: #64748b;
+  --accent: #2563eb;
 }
 
-/* =====================================
-   PAGE GRID LAYOUT
-===================================== */
+/* =========================
+   PAGE LAYOUT
+========================= */
 
-.grid {
-  display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
-  gap: 24px;
-  align-items: start;
-  padding: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+.dashboard {
+  background: var(--bg);
   min-height: 100vh;
-  background:
-    radial-gradient(1200px 500px at -10% -10%, rgba(14, 165, 233, 0.18), transparent 60%),
-    radial-gradient(1000px 500px at 110% -20%, rgba(249, 115, 22, 0.12), transparent 55%),
-    linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
-  font-family: "Space Grotesk", "Segoe UI", sans-serif;
-  color: var(--ink);
-}
-
-.leaves-nav-btn {
-  position: fixed;
-  right: 16px;
-  bottom: 24px;
-  z-index: 45;
-  border: none;
-  border-radius: 12px;
-  padding: 12px 18px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #ffffff;
-  font-weight: 700;
-  cursor: pointer;
-  box-shadow: 0 10px 24px rgba(2, 132, 199, 0.3);
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.leaves-nav-btn:focus-visible {
-  outline: none;
-  box-shadow:
-    0 0 0 3px rgba(14, 165, 233, 0.2),
-    0 10px 24px rgba(2, 132, 199, 0.3);
-}
-
-/* =====================================
-   PANEL BASE
-===================================== */
-
-.panel {
-  position: relative;
-  background: var(--panel);
-  border-radius: 20px;
-  border: 1px solid var(--line);
-  padding: 22px;
+  padding: 28px;
+  max-width: 1340px;
+  margin: auto;
   display: flex;
   flex-direction: column;
+  gap: 22px;
+}
+
+/* =========================
+   HEADER
+========================= */
+.dashboard-header {
+  padding-left: 20px;
+  border-radius: 20px;
+}
+
+.dashboard-header h1 {
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* =========================
+   MAIN GRID
+========================= */
+
+.dashboard-main {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  align-items: start;   /* 🔥 IMPORTANT FIX */
   gap: 20px;
-  box-shadow: var(--shadow);
-  overflow: hidden;
 }
 
-.panel::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 180px;
-  height: 180px;
-  background: radial-gradient(circle at top right, rgba(14, 165, 233, 0.18), transparent 70%);
-  pointer-events: none;
+/* =========================
+   PANEL BASE
+========================= */
+
+.panel {
+  background: var(--panel);
+  border-radius: 14px;
+  padding: 18px 18px;   /* 🔥 reduced padding */
+  box-shadow: 0 6px 18px rgba(0,0,0,0.05);
+  height: fit-content;  /* 🔥 prevent vertical stretching */
 }
 
-/* =====================================
-   PROFILE PANEL
-===================================== */
 
+/* =========================
+   PROFILE CARD (MODERN STYLE)
+========================= */
 .profile {
-  position: sticky;
-  top: 16px;
-  height: fit-content;
-  border-left: 3px solid rgba(14, 165, 233, 0.45);
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  gap: 10px;
 }
 
 .profile-header {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .avatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 18px;
-  background: linear-gradient(135deg, #0ea5e9, #2563eb);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-  font-size: 22px;
-  font-weight: 800;
-  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.22);
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  background: linear-gradient(135deg,#2563eb,#3b82f6);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:white;
+  font-weight:700;
 }
 
-.profile-header h1 {
-  margin: 0;
-  font-size: 20px;
-  font-weight: 700;
-  color: var(--ink);
-}
+/* INFO ROW IMPROVEMENT */
 
-.muted {
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-/* =====================================
-   PROFILE DETAILS
-===================================== */
-
-.profile-details {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-top: 8px;
-  border-top: 1px dashed rgba(148, 163, 184, 0.5);
-}
-
-/* =====================================
-   PROFILE FOOTER STATS
-===================================== */
-
-.profile-footer {
+.profile .info-row {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  margin-top: auto;
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
+  padding: 10px 0;
+  border-bottom: 1px solid #f1f5f9;
 }
 
-.metric {
-  font-size: 24px;
-  font-weight: 800;
-  color: var(--ink);
-  margin: 0;
-  font-family: "Fraunces", "Space Grotesk", serif;
+.profile .info-row:last-child {
+  border-bottom: none;
 }
 
-/* =====================================
+/* =========================
    COURSES PANEL
-===================================== */
+========================= */
 
-.panel.courses {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  max-height: calc(100dvh - 120px);
-  overflow: hidden;
+.courses-header {
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  margin-bottom:14px;
 }
 
-.panel-title {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+.courses-header button {
+  background: var(--accent);
+  border:none;
+  padding:7px 14px;
+  color:white;
+  border-radius:8px;
+  cursor:pointer;
+  font-size:14px;
 }
 
-.course-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: nowrap;
-  justify-content: flex-end;
-}
-
-.panel-title h2 {
-  margin: 0;
-  font-size: 24px;
-  font-weight: 700;
-  color: var(--ink);
-  font-family: "Fraunces", "Space Grotesk", serif;
-}
-
-.chip {
-  padding: 6px 14px;
-  min-height: 40px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-  background: rgba(14, 165, 233, 0.12);
-  color: var(--accent-strong);
-  border: 1px solid rgba(14, 165, 233, 0.25);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.chip.accent {
-  background: rgba(249, 115, 22, 0.12);
-  color: #c2410c;
-  border: 1px solid rgba(249, 115, 22, 0.25);
-}
-
-/* =====================================
-   COURSE LIST GRID
-===================================== */
+/* COURSE GRID */
 
 .course-list {
+  display:grid;
+  grid-template-columns: repeat(auto-fill,minmax(260px,1fr));
+  gap:30px;
+}
+
+/* =========================
+   FLOAT BUTTON
+========================= */
+
+.leaves-btn {
+  position:fixed;
+  right:24px;
+  bottom:24px;
+  background:var(--accent);
+  color:white;
+  border:none;
+  border-radius:10px;
+  padding:10px 14px;
+  display:flex;
+  gap:6px;
+  align-items:center;
+  box-shadow:0 10px 24px rgba(0,0,0,0.2);
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media(max-width:900px){
+  .dashboard-main{
+    grid-template-columns:1fr;
+  }
+}
+
+/* =========================
+   STATS CARDS (PRO LEVEL)
+========================= */
+
+.stats-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 220px));
+  gap: 50px;
+}
+
+.stat-card {
+  height: 15vh;
   gap: 18px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
-
-.course-list > * {
-  min-width: 0;
-}
-
-@media (max-width: 1024px) {
-  .course-list {
-    grid-template-columns: 1fr;
-  }
-}
-
-.request-open-btn {
-  border: none;
-  padding: 8px 14px;
-  min-height: 40px;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 12px;
-  white-space: nowrap;
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--accent-warm), #ea580c);
-  cursor: pointer;
-}
-
-.request-open-btn:focus-visible {
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.25);
-}
-
-.request-form {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 18px 20px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.06);
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
-
-.request-row {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.request-form label {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--muted);
-  font-weight: 600;
-}
-
-.request-form input,
-.request-form select,
-.request-form textarea {
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 8px 10px;
-  font-size: 14px;
-  color: var(--ink);
-  background: #ffffff;
-  outline: none;
-}
-
-.request-form input:focus-visible,
-.request-form select:focus-visible,
-.request-form textarea:focus-visible {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18);
-}
-
-.request-form input[readonly] {
-  background: #f1f5f9;
-  color: #64748b;
-}
-
-.request-form textarea {
-  resize: vertical;
-  min-height: 120px;
-}
-
-.request-status {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.request-status.success {
-  color: #15803d;
-}
-
-.request-status.error {
-  color: #b91c1c;
-}
-
-.request-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.request-cancel {
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
-  color: #0f172a;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.request-submit {
-  border: none;
-  padding: 10px 16px;
-  border-radius: 10px;
-  font-weight: 700;
-  font-size: 13px;
-  color: #ffffff;
-  background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  cursor: pointer;
-}
-
-.request-submit:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-/* =====================================
-   REQUEST MODAL
-===================================== */
-
-.faculty-request-modal {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: none;
-  align-items: center;
   justify-content: center;
-  padding: 16px;
-  overflow-y: auto;
+  transition: all 0.2s ease;
+}
+.courseCount, .stuCount {
+  font-size: 22px;
+  font-weight:659 ;
+}
+.stat-card span{
+ 
+  font-weight: 640;
 }
 
-.faculty-request-modal.show {
-  display: flex;
+.stat-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
 }
 
-.faculty-request-backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.45);
+.stat-number {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-.faculty-request-card {
-  position: relative;
-  z-index: 1;
-  width: min(820px, 94vw);
-  background: #ffffff;
-  border-radius: 18px;
-  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.25);
-  overflow: hidden;
-  max-height: min(90vh, 760px);
-  display: flex;
-  flex-direction: column;
-}
-
-.faculty-request-head {
-  padding: 18px 22px;
-  background: linear-gradient(135deg, #c2410c, #ea580c);
-  color: #ffffff;
-}
-
-.faculty-request-head h1 {
-  margin: 0;
-  font-size: 20px;
-}
-
-.faculty-request-head p {
-  margin: 4px 0 0;
-  opacity: 0.85;
+.stat-label {
   font-size: 13px;
+  color: #64748b;
+  margin-top: 4px;
+}
+.panel:not(.attendance) {
+    max-width: 820px;
+    margin: 40px auto;
 }
 
-.faculty-request-card .request-form {
-  padding: 12px 16px 16px;
-  overflow-y: auto;
-  flex: 1;
-}
-
-@media (max-width: 640px) {
-  .faculty-request-modal {
-    align-items: flex-start;
-    padding: 162px 12px 18px;
-  }
-
-  .faculty-request-card {
-    width: 100%;
-    max-height: calc(100dvh - 16px);
-    border-radius: 12px;
-  }
-
-  .faculty-request-card .request-form {
-    max-height: none;
-  }
-}
-
-/* =====================================
-   TABLET RESPONSIVE
-===================================== */
-
-@media (max-width: 1024px) {
-  .grid {
-    grid-template-columns: 1fr;
-  }
-
-  .profile {
-    position: relative;
-    top: 0;
-  }
-}
-
-/* =====================================
-   MOBILE RESPONSIVE
-===================================== */
-
-@media (max-width: 640px) {
-  .leaves-nav-btn {
-    bottom: 16px;
-    right: 16px;
-    border-radius: 12px;
-  }
-
-  .grid {
-    padding: 16px;
-    gap: 16px;
-  }
-
-  .panel {
-    padding: 18px;
-    border-radius: 18px;
-  }
-
-  .profile-header {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .avatar {
-    width: 54px;
-    height: 54px;
-    font-size: 18px;
-  }
-
-  .panel-title {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-
-  .course-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-
-  .panel-title h2 {
-    font-size: 20px;
-  }
-
-  .panel.courses {
-    max-height: none;
-    overflow: visible;
-  }
-
-  .request-row {
-    grid-template-columns: 1fr;
-  }
-
-  .course-list {
-    grid-template-columns: 1fr;
-    max-height: none;
-    overflow-y: visible;
-  }
-}
-
-/* =====================================
-   SMALL MOBILE
-===================================== */
-
-@media (max-width: 420px) {
-  .metric {
-    font-size: 18px;
-  }
-
-  .panel-title h2 {
-    font-size: 18px;
-  }
-
-  .avatar {
-    width: 48px;
-    height: 48px;
-  }
-}
