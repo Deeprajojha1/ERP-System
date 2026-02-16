@@ -7,9 +7,12 @@ let client = null;
 let isReady = false;
 
 const redisUrl = process.env.REDIS_URL;
+const redisEnabled = process.env.REDIS_ENABLED !== "false";
 export const DEFAULT_CACHE_TTL = Number(process.env.CACHE_TTL_SECONDS) || 900;
 
-if (!redisUrl) {
+if (!redisEnabled) {
+  console.warn("[Redis] REDIS_ENABLED=false. Redis caching is disabled.");
+} else if (!redisUrl) {
   console.warn("[Redis] REDIS_URL not set. Redis caching is disabled.");
 } else {
   client = createClient({ url: redisUrl });

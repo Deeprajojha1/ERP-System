@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import jsPDF from "jspdf";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import Slider from "react-slick";
@@ -18,6 +17,7 @@ import "./Timetable.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import toast from "react-hot-toast";
 import axios from "../utils/axiosInstance";
+import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import {
   applyTimetableEdit,
   fetchGroupTimetable,
@@ -318,23 +318,58 @@ const Timetable = () => {
   };
 
   const downloadTimetable = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text(`Timetable: ${selectedGroupCode}`, 14, 18);
-    doc.setFontSize(11);
-    let y = 28;
-    schedule.forEach((row) => {
-      const line = `${row.day}: ${row.slots
-        .map((s) => `${s.code} (${s.name})`)
-        .join(" | ")}`;
-      doc.text(line, 14, y);
-      y += 7;
-      if (y > 280) {
-        doc.addPage();
-        y = 20;
-      }
+    const esc = (value = "") =>
+      String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const tableRows = schedule
+      .map(
+        (row) => `
+          <tr>
+            <td>${esc(row.day)}</td>
+            <td>${esc(
+              row.slots
+                .map((s) => `${s.code} (${s.name})${s.by ? ` - ${s.by}` : ""}`)
+                .join(" | "),
+            )}</td>
+          </tr>
+        `,
+      )
+      .join("");
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
+            h1 { margin: 0 0 6px; font-size: 22px; }
+            p { margin: 0 0 16px; color: #4b5563; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h1>Timetable: ${esc(selectedGroupCode || "Group")}</h1>
+          <p>Generated on: ${esc(new Date().toLocaleString())}</p>
+          <table>
+            <thead><tr><th>Day</th><th>Schedule</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    downloadPdfFromHtml(apiBase, {
+      html,
+      fileName: `${selectedGroupCode || "group"}_timetable.pdf`,
+    }).catch((error) => {
+      toast.error(error.response?.data?.message || "Failed to download timetable PDF");
     });
-    doc.save(`${selectedGroupCode}_timetable.pdf`);
   };
 
   const palette = [

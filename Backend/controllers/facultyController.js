@@ -7,6 +7,25 @@ import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
+const clearTimetableCacheForDepartments = async (departmentIds = []) => {
+  const normalizedIds = [...new Set((departmentIds || []).filter(Boolean).map(String))];
+  await redisClient.del("admin:timetable:groups");
+  await redisClient.del("admin:timetable:groups:v2");
+
+  if (normalizedIds.length === 0) return;
+
+  const groups = await Group.find({
+    department: { $in: normalizedIds },
+    isDeleted: { $ne: true },
+  }).select("_id");
+
+  await Promise.all(
+    groups.map((group) =>
+      redisClient.del(`admin:timetable:group:${group._id}`)
+    )
+  );
+};
+
 /* ================= GET ALL FACULTY ================= */
 
 export const getAllFaculty = async (req, res) => {
@@ -179,6 +198,7 @@ export const addFaculty = async (req, res) => {
 
       try {
         await redisClient.del("admin:faculty:all");
+        await clearTimetableCacheForDepartments([department]);
       } catch (err) {
         console.error("[Redis] addFaculty cache clear failed:", err.message || err);
       }
@@ -202,6 +222,7 @@ export const updateFaculty = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    const existingFaculty = await Faculty.findById(id).select("department");
 
     const faculty = await Faculty.findByIdAndUpdate(id, updateData, {
       new: true,
@@ -223,6 +244,10 @@ export const updateFaculty = async (req, res) => {
 
     try {
       await redisClient.del("admin:faculty:all");
+      await clearTimetableCacheForDepartments([
+        existingFaculty?.department,
+        faculty.department?._id || faculty.department,
+      ]);
     } catch (err) {
       console.error("[Redis] updateFaculty cache clear failed:", err.message || err);
     }
@@ -257,6 +282,7 @@ export const deleteFaculty = async (req, res) => {
 
     try {
       await redisClient.del("admin:faculty:all");
+      await clearTimetableCacheForDepartments([faculty.department]);
     } catch (err) {
       console.error("[Redis] deleteFaculty cache clear failed:", err.message || err);
     }
@@ -290,6 +316,7 @@ export const hardDeleteFaculty = async (req, res) => {
 
     try {
       await redisClient.del("admin:faculty:all");
+      await clearTimetableCacheForDepartments([faculty.department]);
     } catch (err) {
       console.error("[Redis] hardDeleteFaculty cache clear failed:", err.message || err);
     }

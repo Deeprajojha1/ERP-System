@@ -7,6 +7,11 @@ import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
+const clearTimetableGroupCardsCache = async () => {
+  await redisClient.del("admin:timetable:groups");
+  await redisClient.del("admin:timetable:groups:v2");
+};
+
 /* ================= GET ALL STUDENTS ================= */
 
 export const getAllStudents = async (req, res) => {
@@ -240,6 +245,7 @@ export const addStudent = async (req, res) => {
         if (group) {
           await redisClient.del("admin:groups:all");
         }
+        await clearTimetableGroupCardsCache();
       } catch (err) {
         console.error("[Redis] addStudent cache clear failed:", err.message || err);
       }
@@ -286,6 +292,7 @@ export const updateStudent = async (req, res) => {
     try {
       await redisClient.del("admin:students:all:summary:v1");
       await redisClient.del("admin:students:all:full:v1");
+      await clearTimetableGroupCardsCache();
     } catch (err) {
       console.error("[Redis] updateStudent cache clear failed:", err.message || err);
     }
@@ -321,6 +328,7 @@ export const deleteStudent = async (req, res) => {
     try {
       await redisClient.del("admin:students:all:summary:v1");
       await redisClient.del("admin:students:all:full:v1");
+      await clearTimetableGroupCardsCache();
     } catch (err) {
       console.error("[Redis] deleteStudent cache clear failed:", err.message || err);
     }
@@ -355,6 +363,7 @@ export const hardDeleteStudent = async (req, res) => {
     try {
       await redisClient.del("admin:students:all:summary:v1");
       await redisClient.del("admin:students:all:full:v1");
+      await clearTimetableGroupCardsCache();
     } catch (err) {
       console.error("[Redis] hardDeleteStudent cache clear failed:", err.message || err);
     }

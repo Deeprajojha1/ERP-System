@@ -211,16 +211,19 @@ export const getAllGroups = async (req, res) => {
 // Returns minimal info needed to render group cards for timetable selection.
 export const getTimetableGroups = async (req, res) => {
   try {
+    const noCache = req.query.noCache === "true";
     const cacheKey = "admin:timetable:groups:v2";
 
-    try {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        const cachedData = JSON.parse(cached);
-        return res.json(cachedData);
+    if (!noCache) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          return res.json(cachedData);
+        }
+      } catch (err) {
+        console.error("[Redis] getTimetableGroups cache read failed:", err.message || err);
       }
-    } catch (err) {
-      console.error("[Redis] getTimetableGroups cache read failed:", err.message || err);
     }
 
     const groups = await Group.find({ isDeleted: { $ne: true } })
@@ -294,12 +297,14 @@ export const getTimetableGroups = async (req, res) => {
       groups: cards,
     };
 
-    try {
-      await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: DEFAULT_CACHE_TTL,
-      });
-    } catch (err) {
-      console.error("[Redis] getTimetableGroups cache write failed:", err.message || err);
+    if (!noCache) {
+      try {
+        await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+          EX: DEFAULT_CACHE_TTL,
+        });
+      } catch (err) {
+        console.error("[Redis] getTimetableGroups cache write failed:", err.message || err);
+      }
     }
 
     res.json(responsePayload);
@@ -316,16 +321,19 @@ export const getTimetableGroups = async (req, res) => {
 export const getGroupTimetable = async (req, res) => {
   try {
     const { groupId } = req.params;
+    const noCache = req.query.noCache === "true";
     const cacheKey = `admin:timetable:group:${groupId}`;
 
-    try {
-      const cached = await redisClient.get(cacheKey);
-      if (cached) {
-        const cachedData = JSON.parse(cached);
-        return res.json(cachedData);
+    if (!noCache) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          return res.json(cachedData);
+        }
+      } catch (err) {
+        console.error("[Redis] getGroupTimetable cache read failed:", err.message || err);
       }
-    } catch (err) {
-      console.error("[Redis] getGroupTimetable cache read failed:", err.message || err);
     }
 
     const group = await Group.findById(groupId)
@@ -467,12 +475,14 @@ export const getGroupTimetable = async (req, res) => {
       },
     };
 
-    try {
-      await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
-        EX: DEFAULT_CACHE_TTL,
-      });
-    } catch (err) {
-      console.error("[Redis] getGroupTimetable cache write failed:", err.message || err);
+    if (!noCache) {
+      try {
+        await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+          EX: DEFAULT_CACHE_TTL,
+        });
+      } catch (err) {
+        console.error("[Redis] getGroupTimetable cache write failed:", err.message || err);
+      }
     }
 
     res.json(responsePayload);

@@ -2,9 +2,11 @@ import React, { useMemo, useState } from "react";
 import { FiDownload, FiPrinter, FiSearch } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
-import jsPDF from "jspdf";
+import { useSelector } from "react-redux";
 import "./Exam.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import toast from "react-hot-toast";
 
 const Exam = () => {
   const [search, setSearch] = useState("");
@@ -13,6 +15,7 @@ const Exam = () => {
   const [toDate, setToDate] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
+  const apiBase = useSelector((state) => state.config.apiBase);
 
   const subjects = [
     "All Subjects",
@@ -125,24 +128,42 @@ const Exam = () => {
   };
 
   const handleDownload = (exam) => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Exam Sheet", 14, 18);
-    doc.setFontSize(11);
-    const lines = [
-      `Name: ${exam.name}`,
-      `Subject: ${exam.subject}`,
-      `Date: ${exam.date}`,
-      `Time: ${exam.time}`,
-      `Duration: ${exam.duration}`,
-      `Status: ${exam.status.toUpperCase()}`,
-    ];
-    let y = 30;
-    lines.forEach((line) => {
-      doc.text(line, 14, y);
-      y += 8;
+    const esc = (value = "") =>
+      String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { margin: 0 0 12px; font-size: 24px; }
+            .row { margin: 8px 0; }
+            .label { font-weight: 700; width: 90px; display: inline-block; }
+          </style>
+        </head>
+        <body>
+          <h1>Exam Sheet</h1>
+          <div class="row"><span class="label">Name:</span> ${esc(exam.name)}</div>
+          <div class="row"><span class="label">Subject:</span> ${esc(exam.subject)}</div>
+          <div class="row"><span class="label">Date:</span> ${esc(exam.date)}</div>
+          <div class="row"><span class="label">Time:</span> ${esc(exam.time)}</div>
+          <div class="row"><span class="label">Duration:</span> ${esc(exam.duration)}</div>
+          <div class="row"><span class="label">Status:</span> ${esc(exam.status.toUpperCase())}</div>
+        </body>
+      </html>
+    `;
+
+    downloadPdfFromHtml(apiBase, {
+      html,
+      fileName: `${exam.name.replace(/\s+/g, "_")}.pdf`,
+    }).catch((error) => {
+      toast.error(error.response?.data?.message || "Failed to download PDF");
     });
-    doc.save(`${exam.name.replace(/\s+/g, "_")}.pdf`);
   };
 
 

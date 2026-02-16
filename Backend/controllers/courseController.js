@@ -2,7 +2,25 @@ import Course from "../models/Course.js";
 import Department from "../models/Department.js";
 import Faculty from "../models/Faculty.js";
 import Student from "../models/Student.js";
+import Group from "../models/Group.js";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
+
+const clearTimetableCacheForCourseChange = async (courseId) => {
+  await redisClient.del("admin:timetable:groups");
+  await redisClient.del("admin:timetable:groups:v2");
+
+  if (!courseId) return;
+  const linkedGroups = await Group.find({
+    courseIds: courseId,
+    isDeleted: { $ne: true },
+  }).select("_id");
+
+  await Promise.all(
+    linkedGroups.map((group) =>
+      redisClient.del(`admin:timetable:group:${group._id}`)
+    )
+  );
+};
 
 /* ================= GET ALL COURSES ================= */
 
@@ -157,6 +175,7 @@ export const addCourse = async (req, res) => {
 
     try {
       await redisClient.del("admin:courses:all");
+      await clearTimetableCacheForCourseChange();
     } catch (err) {
       console.error("[Redis] addCourse cache clear failed:", err.message || err);
     }
@@ -195,6 +214,7 @@ export const updateCourse = async (req, res) => {
 
     try {
       await redisClient.del("admin:courses:all");
+      await clearTimetableCacheForCourseChange(course._id);
     } catch (err) {
       console.error("[Redis] updateCourse cache clear failed:", err.message || err);
     }
@@ -223,6 +243,7 @@ export const deleteCourse = async (req, res) => {
 
     try {
       await redisClient.del("admin:courses:all");
+      await clearTimetableCacheForCourseChange(course._id);
     } catch (err) {
       console.error("[Redis] deleteCourse cache clear failed:", err.message || err);
     }
@@ -247,6 +268,7 @@ export const hardDeleteCourse = async (req, res) => {
 
     try {
       await redisClient.del("admin:courses:all");
+      await clearTimetableCacheForCourseChange(course._id);
     } catch (err) {
       console.error("[Redis] hardDeleteCourse cache clear failed:", err.message || err);
     }

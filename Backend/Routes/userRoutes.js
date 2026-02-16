@@ -7,6 +7,7 @@ import {
   getUser,
   logout,
 } from "../controllers/userController.js";
+import { renderPdfFromHtml } from "../controllers/pdfController.js";
 import { getStudentProfile } from "../controllers/profileController.js";
 import {
   getStudentAttendanceReport,
@@ -29,6 +30,7 @@ router.post("/reset-password", resetPassword);
 router.post("/logout", logout);
 // get user
 router.get("/me", isAuth, getUser);
+router.post("/pdf/render", isAuth, renderPdfFromHtml);
 
 // get student profile by email & password
 router.post("/profile", getStudentProfile);

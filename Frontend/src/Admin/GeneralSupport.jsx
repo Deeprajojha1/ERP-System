@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import "./GeneralSupport.css";
-import jsPDF from "jspdf";
 import * as XLSX from "xlsx";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import toast from "react-hot-toast";
 
 const GeneralSupport = () => {
   const [reportType, setReportType] = useState("Daily Attendance Report");
@@ -14,6 +16,7 @@ const GeneralSupport = () => {
   const [format, setFormat] = useState("Excel");
   const [recent, setRecent] = useState([]);
   const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
+  const apiBase = useSelector((state) => state.config.apiBase);
 
   const reportTypes = [
     "Daily Attendance Report",
@@ -69,32 +72,67 @@ const GeneralSupport = () => {
     URL.revokeObjectURL(url);
   };
 
-  const downloadPDF = (rows, filename) => {
-    const doc = new jsPDF();
-    doc.setFontSize(14);
-    doc.text("Export Data", 14, 18);
-    doc.setFontSize(10);
-    let y = 28;
-    rows.forEach((r) => {
-      doc.text(`${r.Name} | ${r.Department} | ${r.Status} | ${r.Date}`, 14, y);
-      y += 6;
-    });
-    doc.save(filename);
+  const downloadPDF = async (rows, filename) => {
+    const esc = (value = "") =>
+      String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const list = rows
+      .map(
+        (r) => `<tr><td>${esc(r.Name)}</td><td>${esc(r.Department)}</td><td>${esc(
+          r.Status,
+        )}</td><td>${esc(r.Date)}</td></tr>`,
+      )
+      .join("");
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
+            h1 { margin: 0 0 6px; font-size: 22px; }
+            p { margin: 0 0 16px; color: #4b5563; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h1>${esc(reportType)}</h1>
+          <p>Generated on: ${esc(new Date().toLocaleString())}</p>
+          <table>
+            <thead><tr><th>Name</th><th>Department</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody>${list}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    await downloadPdfFromHtml(apiBase, { html, fileName: filename });
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     const stamp = new Date().toISOString().slice(0, 10);
     const base = `${reportType.replace(/\s+/g, "_")}_${stamp}`;
 
-    if (format === "PDF") {
-      downloadPDF(data, `${base}.pdf`);
-    } else if (format === "CSV") {
-      downloadCSV(data, `${base}.csv`);
-    } else {
-      const worksheet = XLSX.utils.json_to_sheet(data);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
-      XLSX.writeFile(workbook, `${base}.xlsx`);
+    try {
+      if (format === "PDF") {
+        await downloadPDF(data, `${base}.pdf`);
+      } else if (format === "CSV") {
+        downloadCSV(data, `${base}.csv`);
+      } else {
+        const worksheet = XLSX.utils.json_to_sheet(data);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Report");
+        XLSX.writeFile(workbook, `${base}.xlsx`);
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to generate report");
+      return;
     }
 
     setRecent((prev) => [

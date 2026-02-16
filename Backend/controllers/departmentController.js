@@ -3,8 +3,6 @@ import Faculty from "../models/Faculty.js";
 import User from "../models/userModel.js";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
-const REDIS_ENABLED = process.env.REDIS_ENABLED === "true";
-
 const PROGRAM_CANONICAL_MAP = {
   btech: "btech",
   mtech: "mtech",
