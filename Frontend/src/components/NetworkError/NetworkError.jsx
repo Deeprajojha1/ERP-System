@@ -1,17 +1,55 @@
-import React from "react";
+import React, { useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import networkErrorImg from "../../assets/Network_error.jpg.jpeg";
 import "./NetworkError.css";
 
+const MIN_NETWORK_SPEED_MBPS = 0.512; // 512 kbps
+const LAST_FAILED_ROUTE_KEY = "lastFailedRoute";
+
+const getConnection = () =>
+  navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+
+const isNetworkHealthy = () => {
+  if (!navigator.onLine) return false;
+
+  const connection = getConnection();
+  const downlink = connection?.downlink;
+  const effectiveType = (connection?.effectiveType || "").toLowerCase();
+
+  if (typeof downlink === "number") {
+    return downlink >= MIN_NETWORK_SPEED_MBPS;
+  }
+
+  return effectiveType !== "slow-2g" && effectiveType !== "2g";
+};
+
+const getPreviousRoute = () => {
+  const savedRoute = sessionStorage.getItem(LAST_FAILED_ROUTE_KEY);
+  if (!savedRoute || savedRoute === "/network-error") return "/";
+  return savedRoute;
+};
+
 const NetworkError = () => {
   const navigate = useNavigate();
 
-  const handleRetry = () => {
-    window.location.reload();
-  };
+  const navigateToPreviousRoute = useCallback(() => {
+    const previousRoute = getPreviousRoute();
+    sessionStorage.removeItem(LAST_FAILED_ROUTE_KEY);
+    navigate(previousRoute, { replace: true });
+  }, [navigate]);
 
-  const handleGoHome = () => {
-    navigate("/");
+  useEffect(() => {
+    if (isNetworkHealthy()) {
+      navigateToPreviousRoute();
+    }
+  }, [navigateToPreviousRoute]);
+
+  const handleRetry = () => {
+    if (isNetworkHealthy()) {
+      navigateToPreviousRoute();
+      return;
+    }
+    window.location.reload();
   };
 
   return (
@@ -35,12 +73,6 @@ const NetworkError = () => {
             className="network-error-btn primary"
           >
             Retry Connection
-          </button>
-          <button
-            onClick={handleGoHome}
-            className="network-error-btn secondary"
-          >
-            Go to Home
           </button>
         </div>
       </div>

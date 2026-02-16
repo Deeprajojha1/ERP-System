@@ -10,7 +10,6 @@ import { clearTimetable, selectTimetableRevision } from "../../redux/timetableSl
 
 const useGetCurrentUser = () => {
     const dispatch = useDispatch();
-    const userData = useSelector((state) => state.user.userData);
     const apiBase = useSelector((state) => state.config.apiBase);
     const timetableRevision = useSelector(selectTimetableRevision);
     
@@ -26,17 +25,33 @@ const useGetCurrentUser = () => {
             } catch (error) {
                 console.log("Get Current User Error:", error.response?.data || error.message);
                 const status = error.response?.status;
-                if (status !== 401 && status !== 403) {
+                const isNetworkFailure =
+                    !error.response &&
+                    (
+                        error.code === "ERR_NETWORK" ||
+                        error.code === "ERR_NETWORK_SLOW" ||
+                        error.code === "ECONNABORTED" ||
+                        error.message === "Network Error" ||
+                        error.message?.toLowerCase().includes("timeout") ||
+                        error.message?.includes("ECONNREFUSED")
+                    );
+                const isOnNetworkErrorPage =
+                    typeof window !== "undefined" &&
+                    window.location.pathname === "/network-error";
+
+                if (status !== 401 && status !== 403 && !isNetworkFailure && !isOnNetworkErrorPage) {
                     toast.error(error.response?.data?.message || "Failed to fetch current user", {
                         icon: "\u274C",
                     });
                 }
-                // Clear all cached data if token is invalid/expired
-                dispatch(clearUserData());
-                dispatch(clearStudents());
-                dispatch(clearFaculty());
-                dispatch(clearLeaves());
-                dispatch(clearTimetable());
+                // Clear cached data only when auth is invalid/expired.
+                if (status === 401 || status === 403) {
+                    dispatch(clearUserData());
+                    dispatch(clearStudents());
+                    dispatch(clearFaculty());
+                    dispatch(clearLeaves());
+                    dispatch(clearTimetable());
+                }
             }
         };
         fetchUser();

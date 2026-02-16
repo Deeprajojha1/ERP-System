@@ -1,6 +1,7 @@
 import axios from "axios";
 
 const MIN_NETWORK_SPEED_MBPS = 0.512; // 512 kbps
+const LAST_FAILED_ROUTE_KEY = "lastFailedRoute";
 
 const getConnection = () => {
   if (typeof navigator === "undefined") return null;
@@ -28,6 +29,10 @@ const redirectToNetworkError = () => {
     typeof window !== "undefined" &&
     window.location.pathname !== "/network-error"
   ) {
+    const failedRoute = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    if (failedRoute && failedRoute !== "/network-error") {
+      sessionStorage.setItem(LAST_FAILED_ROUTE_KEY, failedRoute);
+    }
     window.location.href = "/network-error";
   }
 };

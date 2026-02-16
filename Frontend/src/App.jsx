@@ -1,7 +1,6 @@
-import React from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { Analytics } from "@vercel/analytics/react";
 
 import ResetPassword from "./components/ResetPassword/ResetPassword";
 import Login from "./components/UserLogin/Login";
@@ -37,14 +36,46 @@ import Settings from "./Admin/Settings";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
+const LAST_FAILED_ROUTE_KEY = "lastFailedRoute";
+
 function App() {
   useGetCurrentUser();
 
   const userData = useSelector((state) => state.user.userData);
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (!userData?.user?.role) return;
+    if (location.pathname === "/network-error") return;
+
+    const savedRoute = sessionStorage.getItem(LAST_FAILED_ROUTE_KEY);
+    if (!savedRoute || savedRoute === "/network-error") return;
+    if (savedRoute === location.pathname) {
+      sessionStorage.removeItem(LAST_FAILED_ROUTE_KEY);
+      return;
+    }
+
+    const role = userData.user.role;
+    const isAllowedRoute =
+      savedRoute.startsWith("/network-error") ||
+      savedRoute.startsWith("/page-not-found") ||
+      savedRoute.startsWith("/login") ||
+      savedRoute.startsWith("/reset-password") ||
+      savedRoute.startsWith("/register") ||
+      savedRoute === "/" ||
+      (role === "admin" && savedRoute.startsWith("/admin")) ||
+      (role === "faculty" && savedRoute.startsWith("/faculty")) ||
+      (role === "student" && savedRoute.startsWith("/dashboard"));
+
+    sessionStorage.removeItem(LAST_FAILED_ROUTE_KEY);
+    if (isAllowedRoute) {
+      navigate(savedRoute, { replace: true });
+    }
+  }, [userData, location.pathname, navigate]);
 
   return (
     <>
-      <Analytics />
       <Routes>
         <Route
           path="/"
