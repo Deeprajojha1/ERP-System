@@ -1,27 +1,11 @@
-import React, { useCallback, useEffect } from "react";
+import React, { useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import networkErrorImg from "../../assets/Network_error.jpg.jpeg";
 import "./NetworkError.css";
 
-const MIN_NETWORK_SPEED_MBPS = 0.512; // 512 kbps
 const LAST_FAILED_ROUTE_KEY = "lastFailedRoute";
-
-const getConnection = () =>
-  navigator.connection || navigator.mozConnection || navigator.webkitConnection;
-
-const isNetworkHealthy = () => {
-  if (!navigator.onLine) return false;
-
-  const connection = getConnection();
-  const downlink = connection?.downlink;
-  const effectiveType = (connection?.effectiveType || "").toLowerCase();
-
-  if (typeof downlink === "number") {
-    return downlink >= MIN_NETWORK_SPEED_MBPS;
-  }
-
-  return effectiveType !== "slow-2g" && effectiveType !== "2g";
-};
+const isOnline = () =>
+  typeof navigator !== "undefined" && navigator.onLine;
 
 const getPreviousRoute = () => {
   const savedRoute = sessionStorage.getItem(LAST_FAILED_ROUTE_KEY);
@@ -38,14 +22,21 @@ const NetworkError = () => {
     navigate(previousRoute, { replace: true });
   }, [navigate]);
 
-  useEffect(() => {
-    if (isNetworkHealthy()) {
+  React.useEffect(() => {
+    const handleOnline = () => navigateToPreviousRoute();
+    window.addEventListener("online", handleOnline);
+
+    if (isOnline()) {
       navigateToPreviousRoute();
     }
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+    };
   }, [navigateToPreviousRoute]);
 
   const handleRetry = () => {
-    if (isNetworkHealthy()) {
+    if (isOnline()) {
       navigateToPreviousRoute();
       return;
     }

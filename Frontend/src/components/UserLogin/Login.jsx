@@ -69,6 +69,11 @@ const Login = () => {
   const handlePasswordLogin = async (e) => {
     e.preventDefault();
 
+    if (!apiBase) {
+      toast.error("Server configuration missing. Please refresh and try again.");
+      return;
+    }
+
     try {
       setLoading(true);
 
@@ -96,7 +101,15 @@ const Login = () => {
         navigate("/admin/dashboard", { replace: true });
       }
     } catch (error) {
-      toast.error(error.response?.data?.message || "Login failed");
+      if (!error.response) {
+        toast.error(
+          error.message?.includes("Network")
+            ? "Unable to connect to server. Please check your network."
+            : `Request failed: ${error.message || "Unknown error"}`
+        );
+      } else {
+        toast.error(error.response?.data?.message || "Login failed");
+      }
     } finally {
       setLoading(false);
     }

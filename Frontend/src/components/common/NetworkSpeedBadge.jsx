@@ -8,7 +8,7 @@ const getConnection = () => {
 };
 
 const formatSpeed = (mbps) => {
-  if (typeof mbps !== "number" || Number.isNaN(mbps)) return "0 Kbps";
+  if (typeof mbps !== "number" || Number.isNaN(mbps)) return "Checking...";
   return mbps < 1 ? `${Math.round(mbps * 1000)} Kbps` : `${mbps.toFixed(1)} Mbps`;
 };
 
@@ -61,9 +61,9 @@ const getNetworkSnapshot = (fallbackMbps = null) => {
   const downlink =
     typeof connection?.downlink === "number" ? connection.downlink : null;
   const effectiveType = connection?.effectiveType || "";
-  const effectiveTypeLabel = effectiveType ? effectiveType.toUpperCase() : "";
   const estimatedMbps = estimateFromEffectiveType(effectiveType);
-  const speedMbps = downlink ?? fallbackMbps ?? estimatedMbps;
+  const speedMbps = fallbackMbps ?? downlink ?? estimatedMbps;
+  const effectiveTypeLabel = effectiveType ? effectiveType.toUpperCase() : "";
 
   let quality = "good";
   if (
@@ -79,8 +79,7 @@ const getNetworkSnapshot = (fallbackMbps = null) => {
     quality = "fair";
   }
 
-  const speed = formatSpeed(speedMbps);
-  const label = effectiveTypeLabel ? `${speed} ${effectiveTypeLabel}` : speed;
+  const label = formatSpeed(speedMbps);
 
   return { label, quality };
 };
@@ -114,7 +113,7 @@ function NetworkSpeedBadge() {
     const intervalId = setInterval(() => {
       updateNetwork();
       runSpeedCheck();
-    }, 10000);
+    }, 5000);
 
     return () => {
       window.removeEventListener("online", updateNetwork);

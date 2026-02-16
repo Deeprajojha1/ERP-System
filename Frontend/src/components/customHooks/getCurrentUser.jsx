@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import axios from "../../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
@@ -10,10 +10,30 @@ import { clearTimetable, selectTimetableRevision } from "../../redux/timetableSl
 
 const useGetCurrentUser = () => {
     const dispatch = useDispatch();
+    const userData = useSelector((state) => state.user.userData);
     const apiBase = useSelector((state) => state.config.apiBase);
     const timetableRevision = useSelector(selectTimetableRevision);
+    const [authResolved, setAuthResolved] = useState(() => Boolean(userData));
     
     useEffect(() => {
+        let isMounted = true;
+        const markResolved = () => {
+            if (isMounted) setAuthResolved(true);
+        };
+
+        if (!apiBase) {
+            markResolved();
+            return () => {
+                isMounted = false;
+            };
+        }
+        if (typeof window !== "undefined" && window.location.pathname === "/network-error") {
+            markResolved();
+            return () => {
+                isMounted = false;
+            };
+        }
+
         const fetchUser = async () => {
             try {
                 const res = await axios.get(`${apiBase}/user/me`, {
@@ -29,10 +49,7 @@ const useGetCurrentUser = () => {
                     !error.response &&
                     (
                         error.code === "ERR_NETWORK" ||
-                        error.code === "ERR_NETWORK_SLOW" ||
-                        error.code === "ECONNABORTED" ||
                         error.message === "Network Error" ||
-                        error.message?.toLowerCase().includes("timeout") ||
                         error.message?.includes("ECONNREFUSED")
                     );
                 const isOnNetworkErrorPage =
@@ -52,11 +69,18 @@ const useGetCurrentUser = () => {
                     dispatch(clearLeaves());
                     dispatch(clearTimetable());
                 }
+            } finally {
+                markResolved();
             }
         };
         fetchUser();
 
+        return () => {
+            isMounted = false;
+        };
     }, [dispatch, apiBase, timetableRevision]);
+
+    return authResolved;
 };
 
 export default useGetCurrentUser;

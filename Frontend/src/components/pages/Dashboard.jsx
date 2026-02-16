@@ -19,7 +19,6 @@
  */
 
 import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
 import axios from '../../utils/axiosInstance';
@@ -45,7 +44,6 @@ import './Dashboard.css';
  */
 const Dashboard = () => {
   // Hook for programmatic navigation
-  const navigate = useNavigate();
   const dispatch = useDispatch();
   const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -101,7 +99,9 @@ const Dashboard = () => {
       );
     } finally {
       dispatch(clearUserData());
-      navigate('/login', { replace: true });
+      sessionStorage.removeItem("lastFailedRoute");
+      sessionStorage.removeItem("lastNetworkRedirectAt");
+      window.location.replace("/");
     }
   };
 
