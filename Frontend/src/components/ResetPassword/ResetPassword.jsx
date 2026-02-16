@@ -56,7 +56,7 @@ const ResetPassword = () => {
     const sendOtp = async () => {
         try {
             if (!email) {
-                return toast("Please enter email âŒ");
+                return toast.error("Please enter email", { icon: "❌" });
             }
 
             setSendLoading(true);
@@ -66,13 +66,13 @@ const ResetPassword = () => {
                 { email }
             );
 
-            toast(res.data?.message || "OTP sent âœ…");
+            toast.success(res.data?.message || "OTP sent", { icon: "✅" });
 
             setTime(5);
             setSecond(0);
             setStep(2);
         } catch (error) {
-            toast(error.response?.data?.message || "OTP send failed âŒ");
+            toast.error(error.response?.data?.message || "OTP send failed", { icon: "❌" });
         } finally {
             setSendLoading(false);
         }
@@ -84,7 +84,7 @@ const ResetPassword = () => {
     const verifyOtp = async () => {
         try {
             if (!otp) {
-                return toast("Please enter OTP âŒ");
+                return toast.error("Please enter OTP", { icon: "❌" });
             }
 
             setVerifyLoading(true);
@@ -94,10 +94,10 @@ const ResetPassword = () => {
                 { email, otp }
             );
 
-            toast(res.data?.message || "OTP verified âœ…");
+            toast.success(res.data?.message || "OTP verified", { icon: "✅" });
             setStep(3);
         } catch (error) {
-            toast(error.response?.data?.message || "OTP verification failed âŒ");
+            toast.error(error.response?.data?.message || "OTP verification failed", { icon: "❌" });
         } finally {
             setVerifyLoading(false);
         }
@@ -109,7 +109,7 @@ const ResetPassword = () => {
     const resetPassword = async () => {
         try {
             if (!newPassword || !confirmPassword) {
-                return toast("Please fill both password fields âŒ");
+                return toast.error("Please fill both password fields", { icon: "❌" });
             }
 
             setResetLoading(true);
@@ -119,11 +119,11 @@ const ResetPassword = () => {
                 { email, newPassword, confirmPassword }
             );
 
-            toast(res.data?.message || "Password reset successful âœ…");
+            toast.success(res.data?.message || "Password reset successful", { icon: "✅" });
 
             navigate("/login", { replace: true });
         } catch (error) {
-            toast(error.response?.data?.message || "Reset failed âŒ");
+            toast.error(error.response?.data?.message || "Reset failed", { icon: "❌" });
         } finally {
             setResetLoading(false);
         }

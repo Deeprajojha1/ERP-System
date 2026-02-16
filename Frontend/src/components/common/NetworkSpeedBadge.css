@@ -1,0 +1,52 @@
+.net-speed-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.net-speed-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.net-speed-badge.good {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.net-speed-badge.fair {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.net-speed-badge.poor,
+.net-speed-badge.offline {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+@media (max-width: 480px) {
+  .net-speed-badge {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  .net-speed-icon {
+    width: 13px;
+    height: 13px;
+  }
+}

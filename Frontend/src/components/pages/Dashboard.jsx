@@ -30,6 +30,7 @@ import StudentDetails from '../student/StudentDetails';
 import CoursesDetails from '../student/CoursesDetails';
 import AttendanceOverview from '../student/AttendanceOverview';
 import AttendanceCalendar from '../student/AttendanceCalendar';
+import NetworkSpeedBadge from '../common/NetworkSpeedBadge';
 
 // Import styles
 import './Dashboard.css';
@@ -187,6 +188,7 @@ const Dashboard = () => {
             <span className="welcome-text">
               Welcome, {resolvedStudentData.personalInfo.name}
             </span>
+            <NetworkSpeedBadge />
             <button className="logout-button" onClick={handleLogout}>
               Logout
             </button>
