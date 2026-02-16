@@ -18,11 +18,11 @@
  * Note: React 18+ with new JSX transform - no need to import React
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
 import axios from '../../utils/axiosInstance';
-import { clearUserData } from '../../redux/userSlice';
+import { clearUserData, setUserData } from '../../redux/userSlice';
 
 // Import child components
 import StudentDetails from '../student/StudentDetails';
@@ -136,6 +136,31 @@ const Dashboard = () => {
 
   const attendanceData = userData?.attendanceData || [];
   const enrolledCourses = userData?.enrolledCourses || [];
+
+  useEffect(() => {
+    const shouldFetchStudentData =
+      apiBase &&
+      user?.role === 'student' &&
+      (!Array.isArray(enrolledCourses) || enrolledCourses.length === 0);
+
+    if (!shouldFetchStudentData) return;
+
+    const fetchStudentData = async () => {
+      try {
+        const res = await axios.get(`${apiBase}/user/me`, {
+          withCredentials: true,
+        });
+        dispatch(setUserData(res.data));
+      } catch (error) {
+        console.error(
+          'Failed to refresh student dashboard data:',
+          error.response?.data || error.message
+        );
+      }
+    };
+
+    fetchStudentData();
+  }, [apiBase, user?.role, enrolledCourses, dispatch]);
 
   const coursesData = useMemo(() => {
     return enrolledCourses.map((course) => {

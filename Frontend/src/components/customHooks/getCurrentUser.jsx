@@ -6,13 +6,12 @@ import { setUserData, clearUserData } from "../../redux/userSlice";
 import { clearStudents } from "../../redux/studentSlice";
 import { clearFaculty } from "../../redux/facultySlice";
 import { clearLeaves } from "../../redux/leavesSlice";
-import { clearTimetable, selectTimetableRevision } from "../../redux/timetableSlice";
+import { clearTimetable } from "../../redux/timetableSlice";
 
 const useGetCurrentUser = () => {
     const dispatch = useDispatch();
     const userData = useSelector((state) => state.user.userData);
     const apiBase = useSelector((state) => state.config.apiBase);
-    const timetableRevision = useSelector(selectTimetableRevision);
     const [authResolved, setAuthResolved] = useState(() => Boolean(userData));
     
     useEffect(() => {
@@ -33,6 +32,12 @@ const useGetCurrentUser = () => {
                 isMounted = false;
             };
         }
+        if (typeof window !== "undefined" && !localStorage.getItem("authToken")) {
+            markResolved();
+            return () => {
+                isMounted = false;
+            };
+        }
 
         const fetchUser = async () => {
             try {
@@ -43,8 +48,10 @@ const useGetCurrentUser = () => {
                 dispatch(setUserData(res.data));
 
             } catch (error) {
-                console.log("Get Current User Error:", error.response?.data || error.message);
                 const status = error.response?.status;
+                if (status !== 401 && status !== 403) {
+                    console.log("Get Current User Error:", error.response?.data || error.message);
+                }
                 const isNetworkFailure =
                     !error.response &&
                     (
@@ -78,7 +85,7 @@ const useGetCurrentUser = () => {
         return () => {
             isMounted = false;
         };
-    }, [dispatch, apiBase, timetableRevision]);
+    }, [dispatch, apiBase]);
 
     return authResolved;
 };

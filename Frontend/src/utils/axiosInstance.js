@@ -103,8 +103,12 @@ axiosInstance.interceptors.response.use(
       redirectToNetworkError();
     }
 
-    // Handle 401 unauthorized
-    if (error.response?.status === 401) {
+    // Handle 401 unauthorized:
+    // only clear the local token if this request actually used a Bearer token.
+    const hadBearerToken =
+      Boolean(error.config?.headers?.Authorization) ||
+      Boolean(error.config?.headers?.authorization);
+    if (error.response?.status === 401 && hadBearerToken && !isAuthRoute) {
       localStorage.removeItem("authToken");
     }
 

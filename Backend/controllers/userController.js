@@ -184,14 +184,27 @@ export const login = async (req, res) => {
           enrolledCourses = enrollments.map(enrollment => enrollment.course);
         }
 
+        // Final fallback: infer enrolled courses from marked attendance
+        if (enrolledCourses.length === 0) {
+          const attendanceCourseIds = await AttendanceSession.distinct("course", {
+            "records.student": studentDetails._id,
+          });
+
+          if (attendanceCourseIds.length > 0) {
+            enrolledCourses = await Course.find({ _id: { $in: attendanceCourseIds } })
+              .select("code courseName department semester branch credit")
+              .populate("department", "name code");
+          }
+        }
+
         /* Fetch attendance data for all enrolled courses */
         const attendanceData = await Promise.all(
           enrolledCourses.map(async (course) => {
             const courseId = course._id;
             
             const sessions = await AttendanceSession.find({
-              group: studentDetails.group?._id,
               course: courseId,
+              "records.student": studentDetails._id,
             }).sort({ date: -1 });
 
             let presentCount = 0;
@@ -783,13 +796,25 @@ export const getUser = async (req, res) => {
               enrolledCourses = enrollments.map((enrollment) => enrollment.course);
             }
 
+            if (enrolledCourses.length === 0) {
+              const attendanceCourseIds = await AttendanceSession.distinct("course", {
+                "records.student": studentDetails._id,
+              });
+
+              if (attendanceCourseIds.length > 0) {
+                enrolledCourses = await Course.find({ _id: { $in: attendanceCourseIds } })
+                  .select("code courseName department semester branch credit")
+                  .populate("department", "name code");
+              }
+            }
+
             const attendanceData = await Promise.all(
               enrolledCourses.map(async (course) => {
                 const courseId = course._id;
 
                 const sessions = await AttendanceSession.find({
-                  group: studentDetails.group?._id,
                   course: courseId,
+                  "records.student": studentDetails._id,
                 }).sort({ date: -1 });
 
                 let presentCount = 0;

@@ -15,11 +15,14 @@ const clearTimetableCacheForCourseChange = async (courseId) => {
     isDeleted: { $ne: true },
   }).select("_id");
 
-  await Promise.all(
-    linkedGroups.map((group) =>
-      redisClient.del(`admin:timetable:group:${group._id}`)
-    )
-  );
+    await Promise.all(
+      linkedGroups.map((group) =>
+        Promise.all([
+          redisClient.del(`admin:timetable:group:${group._id}`),
+          redisClient.del(`admin:timetable:group:v2:${group._id}`),
+        ])
+      )
+    );
 };
 
 /* ================= GET ALL COURSES ================= */
