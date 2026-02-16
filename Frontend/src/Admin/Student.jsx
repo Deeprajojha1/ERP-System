@@ -110,7 +110,7 @@ const Student = () => {
           "Fetch data failed:",
           error.response?.data || error.message
         );
-        toast.error(`? ${error.response?.data?.message || "Failed to load students"}`);
+        toast.error(`${error.response?.data?.message || "Failed to load students"}`);
         dispatch(
           setStudentsError(
             error.response?.data?.message ||
@@ -294,7 +294,7 @@ const Student = () => {
         error.response?.data || error.message
       );
       toast.error(
-        `? ${error.response?.data?.message || "Failed to delete student"}`
+        `${error.response?.data?.message || "Failed to delete student"}`
       );
     }
   };

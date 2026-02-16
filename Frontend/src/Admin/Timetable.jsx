@@ -16,11 +16,11 @@ import { MdOutlineSchedule } from "react-icons/md";
 import "./Timetable.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import toast from "react-hot-toast";
-import axios from "../utils/axiosInstance";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import {
   applyTimetableEdit,
   fetchGroupTimetable,
+  saveGroupTimetable,
   fetchTimetableGroups,
   selectTimetableDeptFaculty,
   selectTimetableError,
@@ -35,8 +35,7 @@ import {
 const Timetable = () => {
   const dispatch = useDispatch();
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState("Group");
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
@@ -112,7 +111,7 @@ const Timetable = () => {
     dispatch(fetchTimetableGroups())
       .unwrap()
       .catch((message) => {
-        toast.error(`? ${message || "Failed to load timetable groups"}`);
+        toast.error(`${message || "Failed to load timetable groups"}`);
       });
   }, [apiBase, dispatch]);
 
@@ -124,7 +123,7 @@ const Timetable = () => {
     dispatch(fetchGroupTimetable(current.id))
       .unwrap()
       .catch((message) => {
-        toast.error(`? ${message || "Failed to load group timetable"}`);
+        toast.error(`${message || "Failed to load group timetable"}`);
       });
   }, [apiBase, selectedGroupCode, groupCards, dispatch]);
 
@@ -253,7 +252,7 @@ const Timetable = () => {
     if (saving) return;
     const currentGroup = groupCards.find((g) => g.groupCode === selectedGroupCode);
     if (!currentGroup?.id) {
-      toast.error("? Please select a group first.");
+      toast.error("Please select a group first.");
       return;
     }
 
@@ -262,18 +261,18 @@ const Timetable = () => {
       editForm.facultyId || deptFaculty.find((f) => f.name === editForm.faculty)?.id;
 
     if (editForm.code !== "FREE" && !selectedCourse?.id) {
-      toast.error("? Course ID not found for selected subject code.");
+      toast.error("Course ID not found for selected subject code.");
       return;
     }
 
     if (editForm.code !== "FREE" && !derivedFacultyId) {
-      toast.error("? Please select a faculty for the selected subject.");
+      toast.error("Please select a faculty for the selected subject.");
       return;
     }
 
     const dayKey = dayKeyMap[editForm.day];
     if (!dayKey) {
-      toast.error("? Invalid day selected.");
+      toast.error("Invalid day selected.");
       return;
     }
 
@@ -287,31 +286,22 @@ const Timetable = () => {
 
     try {
       setSaving(true);
-      try {
-        await axios.put(
-          `${apiBase}/admin/timetable/group/${currentGroup.id}`,
+      const postPayload = buildCreatePayload(nextSchedule);
+      await dispatch(
+        saveGroupTimetable({
+          groupId: currentGroup.id,
           putPayload,
-          { withCredentials: true }
-        );
-      } catch (putError) {
-        // If timetable isn't initialized on backend, create via POST.
-        if ([400, 404].includes(putError?.response?.status)) {
-          const postPayload = buildCreatePayload(nextSchedule);
-          await axios.post(
-            `${apiBase}/admin/timetable/group/${currentGroup.id}`,
-            postPayload,
-            { withCredentials: true }
-          );
-        } else {
-          throw putError;
-        }
-      }
+          createPayload: postPayload,
+        })
+      ).unwrap();
 
       applyEdit();
-      dispatch(fetchGroupTimetable(currentGroup.id));
-      toast.success("? Timetable updated successfully");
+      dispatch(fetchGroupTimetable({ groupId: currentGroup.id, silent: true }));
+      toast.success("Timetable updated successfully");
     } catch (error) {
-      toast.error(error.response?.data?.message || "? Failed to update timetable");
+      toast.error(
+        typeof error === "string" ? error : error?.message || "Failed to update timetable"
+      );
     } finally {
       setSaving(false);
     }
@@ -484,7 +474,6 @@ const Timetable = () => {
                       }`}
                       onClick={() => {
                         dispatch(setSelectedGroupCode(g.groupCode));
-                        setMode("Group");
                       }}
                     >
                       <div className="tt-group-badge">

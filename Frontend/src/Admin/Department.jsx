@@ -95,7 +95,7 @@ const Department = () => {
         "Fetch departments failed:",
         err.response?.data || err.message
       );
-      toast.error(`? ${err.response?.data?.message || "Failed to load departments"}`);
+      toast.error(`${err.response?.data?.message || "Failed to load departments"}`);
       setError(
         err.response?.data?.message ||
           "Failed to load departments"
@@ -259,14 +259,14 @@ const Department = () => {
           payload,
           { withCredentials: true }
         );
-        toast.success("? Department updated successfully");
+        toast.success("Department updated successfully");
       } else {
         await axios.post(
           `${apiBase}/admin/department`,
           payload,
           { withCredentials: true }
         );
-        toast.success("? Department added successfully");
+        toast.success("Department added successfully");
       }
 
       setIsOpen(false);
@@ -282,7 +282,7 @@ const Department = () => {
         err.response?.data || err.message
       );
       toast.error(
-        `? ${err.response?.data?.message || "Failed to save department"}`
+        `${err.response?.data?.message || "Failed to save department"}`
       );
     } finally {
       setSubmitting(false);
@@ -301,7 +301,7 @@ const Department = () => {
         {},
         { withCredentials: true }
       );
-      toast.success("? Department deleted successfully");
+      toast.success("Department deleted successfully");
       await refreshDepartments();
     } catch (err) {
       console.error(
@@ -309,7 +309,7 @@ const Department = () => {
         err.response?.data || err.message
       );
       toast.error(
-        `? ${err.response?.data?.message || "Failed to delete department"}`
+        `${err.response?.data?.message || "Failed to delete department"}`
       );
     }
   };

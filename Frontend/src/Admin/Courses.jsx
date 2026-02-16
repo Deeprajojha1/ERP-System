@@ -66,7 +66,7 @@ const Courses = () => {
     } catch (error) {
       console.error("Failed to load courses", error.response?.data || error.message);
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
-      toast.error(`? ${error.response?.data?.message || "Failed to load courses"}`);
+      toast.error(`${error.response?.data?.message || "Failed to load courses"}`);
     }
   };
 

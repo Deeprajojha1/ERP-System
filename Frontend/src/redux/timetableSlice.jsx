@@ -69,8 +69,10 @@ export const fetchTimetableGroups = createAsyncThunk(
 
 export const fetchGroupTimetable = createAsyncThunk(
   "timetable/fetchGroupTimetable",
-  async (groupId, { getState, rejectWithValue }) => {
+  async (arg, { getState, rejectWithValue }) => {
     try {
+      const groupId =
+        typeof arg === "object" && arg !== null ? arg.groupId : arg;
       const apiBase = getState().config.apiBase;
       const res = await axios.get(`${apiBase}/admin/timetable/group/${groupId}`, {
         withCredentials: true,
@@ -84,6 +86,35 @@ export const fetchGroupTimetable = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(
         error.response?.data?.message || "Failed to load group timetable"
+      );
+    }
+  }
+);
+
+export const saveGroupTimetable = createAsyncThunk(
+  "timetable/saveGroupTimetable",
+  async ({ groupId, putPayload, createPayload }, { getState, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      try {
+        await axios.put(`${apiBase}/admin/timetable/group/${groupId}`, putPayload, {
+          withCredentials: true,
+        });
+      } catch (putError) {
+        if ([400, 404].includes(putError?.response?.status)) {
+          await axios.post(
+            `${apiBase}/admin/timetable/group/${groupId}`,
+            createPayload,
+            { withCredentials: true }
+          );
+        } else {
+          throw putError;
+        }
+      }
+      return { groupId };
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update timetable"
       );
     }
   }
@@ -152,8 +183,11 @@ const timetableSlice = createSlice({
         state.groupCards = [];
         state.error = action.payload || "Failed to load timetable groups";
       })
-      .addCase(fetchGroupTimetable.pending, (state) => {
-        state.loading = true;
+      .addCase(fetchGroupTimetable.pending, (state, action) => {
+        const isSilent = Boolean(action.meta?.arg?.silent);
+        if (!isSilent) {
+          state.loading = true;
+        }
         state.error = null;
       })
       .addCase(fetchGroupTimetable.fulfilled, (state, action) => {
@@ -163,11 +197,20 @@ const timetableSlice = createSlice({
         state.deptFaculty = action.payload?.departmentFaculty || [];
       })
       .addCase(fetchGroupTimetable.rejected, (state, action) => {
+        const isSilent = Boolean(action.meta?.arg?.silent);
         state.loading = false;
         state.error = action.payload || "Failed to load group timetable";
-        state.schedule = [];
-        state.groupCourses = [];
-        state.deptFaculty = [];
+        if (!isSilent) {
+          state.schedule = [];
+          state.groupCourses = [];
+          state.deptFaculty = [];
+        }
+      })
+      .addCase(saveGroupTimetable.pending, (state) => {
+        state.error = null;
+      })
+      .addCase(saveGroupTimetable.rejected, (state, action) => {
+        state.error = action.payload || "Failed to update timetable";
       });
   },
 });

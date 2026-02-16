@@ -120,7 +120,7 @@ const Faculty = () => {
         "Fetch faculty failed:",
         error.response?.data || error.message
       );
-      toast.error(`? ${error.response?.data?.message || "Failed to load faculty"}`);
+      toast.error(`${error.response?.data?.message || "Failed to load faculty"}`);
       dispatch(
         setFacultyError(
           error.response?.data?.message ||
@@ -233,7 +233,7 @@ const Faculty = () => {
         error.response?.data || error.message
       );
       toast.error(
-        `? ${error.response?.data?.message || "Failed to delete faculty"}`
+        `${error.response?.data?.message || "Failed to delete faculty"}`
       );
     }
   };
