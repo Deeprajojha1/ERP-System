@@ -179,9 +179,7 @@ router.get("/attendance/:sessionId", isAdmin, getAttendanceById);
 router.patch("/attendance/:sessionId/delete", isAdmin, deleteAttendance);
 router.delete("/attendance/:sessionId", isAdmin, hardDeleteAttendance);
 
-/* =========================
-   LIBRARY
-========================= */
+//Library
 router.get("/librarian", isAdmin, getAllLibrarians);
 router.get("/librarian/:id", isAdmin, getLibrarianById);
 router.post("/librarian", isAdmin, addLibrarian);
