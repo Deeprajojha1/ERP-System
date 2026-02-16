@@ -6,7 +6,7 @@ const departmentSchema = new mongoose.Schema(
     program: [
       {
         type: String,
-        enum: ["btech", "mtech", "bca", "mca", "bba", "mba"],
+        enum: ["btech", "mtech", "bca", "mca", "bba", "mba","bsc", "msc", "bpharma","mpharma","phd"],
         required: true,
       },
     ],
