@@ -237,6 +237,119 @@
   font-size: 21px;
 }
 
+.library-librarian-grid {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.library-librarian-card {
+  border: 1px solid #dbe4f2;
+  border-radius: 10px;
+  background: #f8fbff;
+  padding: 14px 16px;
+  min-height: 76px;
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(260px, 1.2fr) minmax(160px, 1fr) 44px;
+  gap: 12px;
+  align-items: center;
+}
+
+.library-librarian-card h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.library-librarian-card p {
+  margin: 0;
+  color: #334155;
+  font-size: 14px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.library-librarian-card p span {
+  color: #475569;
+  font-weight: 700;
+}
+
+.library-librarian-delete-btn {
+  border: none;
+  background: transparent;
+  color: #dc2626;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 21px;
+  justify-self: end;
+}
+
+.library-librarian-delete-btn:hover {
+  background: #fee2e2;
+}
+
+.library-librarian-delete-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.library-delete-toast-wrap {
+  position: relative;
+  z-index: 99999;
+}
+
+.library-delete-toast {
+  min-width: 320px;
+  max-width: 420px;
+  color: #0f172a;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.25);
+  padding: 12px 14px;
+}
+
+.library-delete-toast p {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.library-delete-toast-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.library-delete-toast-btn {
+  border: none;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.library-delete-toast-btn.yes {
+  background: #dc2626;
+  color: #fff;
+}
+
+.library-delete-toast-btn.no {
+  background: #e5e7eb;
+  color: #111827;
+}
+
 .library-add-librarian-card {
   width: min(640px, 96vw);
   min-height: auto;
@@ -486,6 +599,20 @@
   .library-librarian-empty {
     font-size: 22px;
     min-height: 92px;
+  }
+
+  .library-librarian-grid {
+    gap: 10px;
+  }
+
+  .library-librarian-card {
+    grid-template-columns: 1fr;
+    align-items: flex-start;
+    min-height: auto;
+  }
+
+  .library-librarian-delete-btn {
+    justify-self: flex-end;
   }
 
   .library-form label {

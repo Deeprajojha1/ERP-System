@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FiPlus,
   FiSearch,
@@ -6,6 +6,10 @@ import {
   FiUserPlus,
   FiX,
 } from "react-icons/fi";
+import { HiOutlineTrash } from "react-icons/hi";
+import { useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import axios from "../utils/axiosInstance";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Library.css";
 
@@ -16,6 +20,12 @@ const Library = () => {
   const [showAddBookModal, setShowAddBookModal] = useState(false);
   const [showIssueBookModal, setShowIssueBookModal] = useState(false);
   const [showReturnBookModal, setShowReturnBookModal] = useState(false);
+  const [loadingLibrarians, setLoadingLibrarians] = useState(false);
+  const [creatingLibrarian, setCreatingLibrarian] = useState(false);
+  const [deletingLibrarianId, setDeletingLibrarianId] = useState("");
+  const [librarianError, setLibrarianError] = useState("");
+  const [librarians, setLibrarians] = useState([]);
+  const apiBase = useSelector((state) => state.config.apiBase);
   const [librarianForm, setLibrarianForm] = useState({
     firstName: "",
     lastName: "",
@@ -37,7 +47,27 @@ const Library = () => {
     dueDate: "",
   });
   const books = [];
-  const librarians = [];
+
+  const fetchLibrarians = async () => {
+    if (!apiBase) return;
+    try {
+      setLoadingLibrarians(true);
+      const res = await axios.get(`${apiBase}/admin/librarian`, {
+        withCredentials: true,
+      });
+      setLibrarians(res.data?.librarians || []);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to load librarians");
+    } finally {
+      setLoadingLibrarians(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showManageModal) {
+      fetchLibrarians();
+    }
+  }, [showManageModal]);
 
   const filteredBooks = useMemo(() => {
     const term = query.trim().toLowerCase();
@@ -49,6 +79,7 @@ const Library = () => {
 
   const closeAddLibrarianModal = () => {
     setShowAddLibrarianModal(false);
+    setLibrarianError("");
     setLibrarianForm({
       firstName: "",
       lastName: "",
@@ -59,12 +90,46 @@ const Library = () => {
 
   const handleLibrarianFormChange = (e) => {
     const { name, value } = e.target;
+    if (librarianError) setLibrarianError("");
     setLibrarianForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleCreateLibrarian = (e) => {
+  const handleCreateLibrarian = async (e) => {
     e.preventDefault();
-    closeAddLibrarianModal();
+    const { firstName, lastName, email, password } = librarianForm;
+
+    if (!firstName || !lastName || !email || !password) {
+      setLibrarianError("All fields are required.");
+      return;
+    }
+
+    if (password.length < 8) {
+      setLibrarianError("Password must be at least 8 characters.");
+      return;
+    }
+
+    if (!apiBase) {
+      setLibrarianError("Server configuration missing. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      setCreatingLibrarian(true);
+      await axios.post(
+        `${apiBase}/admin/librarian`,
+        { firstName, lastName, email, password },
+        { withCredentials: true }
+      );
+      toast.success("Librarian created successfully");
+      closeAddLibrarianModal();
+      await fetchLibrarians();
+    } catch (error) {
+      const message = error.response?.data?.message || "Failed to create librarian";
+      setLibrarianError(message);
+      toast.error(message);
+    } finally {
+      setCreatingLibrarian(false);
+    }
   };
 
   const closeAddBookModal = () => {
@@ -107,6 +172,31 @@ const Library = () => {
   const handleIssueBook = (e) => {
     e.preventDefault();
     closeIssueBookModal();
+  };
+
+  const confirmDeleteLibrarian = (librarian) => {
+    const librarianName = librarian?.name || "Unknown";
+    const confirmed = window.confirm(
+      `Are you confirm to delete Librarian - ${librarianName}`
+    );
+    if (!confirmed) return;
+
+    (async () => {
+      try {
+        setDeletingLibrarianId(librarian._id);
+        await axios.patch(
+          `${apiBase}/admin/librarian/${librarian._id}/delete`,
+          {},
+          { withCredentials: true }
+        );
+        setLibrarians((prev) => prev.filter((item) => item._id !== librarian._id));
+        toast.success("Librarian deleted successfully");
+      } catch (error) {
+        toast.error(error.response?.data?.message || "Failed to delete librarian");
+      } finally {
+        setDeletingLibrarianId("");
+      }
+    })();
   };
 
   return (
@@ -226,9 +316,35 @@ const Library = () => {
               Add New Librarian
             </button>
 
-            <div className="library-librarian-empty">
-              {librarians.length === 0 ? "No librarians found" : ""}
-            </div>
+            {loadingLibrarians ? (
+              <div className="library-librarian-empty">Loading librarians...</div>
+            ) : librarians.length === 0 ? (
+              <div className="library-librarian-empty">No librarians found</div>
+            ) : (
+              <div className="library-librarian-grid">
+                {librarians.map((librarian) => (
+                  <div className="library-librarian-card" key={librarian._id || librarian.email}>
+                    <h3>{librarian.name || "Unnamed Librarian"}</h3>
+                    <p>
+                      <span>Email:</span> {librarian.email || "N/A"}
+                    </p>
+                    <p>
+                      <span>Phone:</span> {librarian.phoneNumber || "N/A"}
+                    </p>
+                    <button
+                      type="button"
+                      className="library-librarian-delete-btn"
+                      aria-label={`Delete ${librarian.name || "librarian"}`}
+                      title="Delete librarian"
+                      disabled={deletingLibrarianId === librarian._id}
+                      onClick={() => confirmDeleteLibrarian(librarian)}
+                    >
+                      <HiOutlineTrash />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -303,6 +419,9 @@ const Library = () => {
                 The librarian will have access to library management features
                 only.
               </div>
+              {librarianError && (
+                <div className="library-note">{librarianError}</div>
+              )}
 
               <div className="library-form-actions">
                 <button
@@ -312,8 +431,8 @@ const Library = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="library-btn-create">
-                  Create Librarian
+                <button type="submit" className="library-btn-create" disabled={creatingLibrarian}>
+                  {creatingLibrarian ? "Creating..." : "Create Librarian"}
                 </button>
               </div>
             </form>

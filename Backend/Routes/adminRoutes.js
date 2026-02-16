@@ -80,6 +80,14 @@ import {
   getIssuedBooks,
   returnBook,
 } from "../controllers/libraryController.js";
+import {
+  getAllLibrarians,
+  getLibrarianById,
+  addLibrarian,
+  updateLibrarian,
+  deleteLibrarian,
+  hardDeleteLibrarian,
+} from "../controllers/librarianController.js";
 import { changePassword } from "../controllers/userController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
@@ -174,6 +182,13 @@ router.delete("/attendance/:sessionId", isAdmin, hardDeleteAttendance);
 /* =========================
    LIBRARY
 ========================= */
+router.get("/librarian", isAdmin, getAllLibrarians);
+router.get("/librarian/:id", isAdmin, getLibrarianById);
+router.post("/librarian", isAdmin, addLibrarian);
+router.put("/librarian/:id", isAdmin, updateLibrarian);
+router.patch("/librarian/:id/delete", isAdmin, deleteLibrarian);
+router.delete("/librarian/:id", isAdmin, hardDeleteLibrarian);
+
 router.get("/library/statistics", getStatistics);
 
 router.get("/library/books",  getAllBooks);
