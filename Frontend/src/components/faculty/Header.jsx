@@ -7,6 +7,7 @@ import { clearStudents } from "../../redux/studentSlice";
 import { clearFaculty } from "../../redux/facultySlice";
 import { clearLeaves } from "../../redux/leavesSlice";
 import { clearTimetable } from "../../redux/timetableSlice";
+import NetworkSpeedBadge from "../common/NetworkSpeedBadge";
 import "./Header.css";
 
 function Header() {
@@ -46,6 +47,7 @@ function Header() {
         </div>
       </div>
       <div className="header-meta">
+        <NetworkSpeedBadge />
         <button className="chip logout-chip" onClick={handleLogout}>
           Logout
         </button>

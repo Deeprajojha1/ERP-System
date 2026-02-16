@@ -33,6 +33,8 @@ import FeesOthers from "./Admin/FeesOthers";
 import GeneralSupport from "./Admin/GeneralSupport";
 import Library from "./Admin/Library";
 import Settings from "./Admin/Settings";
+import NetworkError from "./components/NetworkError/NetworkError";
+import PageNotFound from "./components/PageNotFound/PageNotFound";
 
 function App() {
   useGetCurrentUser();
@@ -122,6 +124,7 @@ function App() {
                     <Route path="faculty-dashboard" element={<FacultyDashboard />} />
                     <Route path="course/:courseId" element={<AttendancePage />} />
                     <Route path="leaves" element={<FacultyLeaves />} />
+                    <Route path="*" element={<Navigate to="/page-not-found" replace />} />
                   </Routes>
                 </main>
               </div>
@@ -157,10 +160,14 @@ function App() {
             <Route path="general-support" element={<GeneralSupport />} />
             <Route path="library" element={<Library />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="*" element={<Navigate to="/page-not-found" replace />} />
           </Route>
         )}
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/network-error" element={<NetworkError />} />
+        <Route path="/page-not-found" element={<PageNotFound />} />
+
+        <Route path="*" element={<Navigate to="/page-not-found" replace />} />
       </Routes>
     </>
   );

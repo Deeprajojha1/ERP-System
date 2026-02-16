@@ -76,11 +76,17 @@ const Student = () => {
       try {
         setLoadState(ADMIN_LOAD_STATES.PENDING);
         dispatch(setStudentsLoading(true));
-        const studentRes = await axios.get(`${apiBase}/admin/student`, {
-          withCredentials: true,
-        });
+        const [studentRes, deptRes] = await Promise.all([
+          axios.get(`${apiBase}/admin/student`, {
+            withCredentials: true,
+          }),
+          axios.get(`${apiBase}/admin/department`, {
+            withCredentials: true,
+          }),
+        ]);
         const rows = extractStudentsFromResponse(studentRes.data).map(normalizeStudentRow);
         dispatch(setStudents(rows));
+        setDepartments(deptRes.data?.departments || []);
         setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (error) {
         console.error(

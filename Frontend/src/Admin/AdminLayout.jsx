@@ -33,6 +33,7 @@ import { clearTimetable } from "../redux/timetableSlice";
 import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
+import NetworkSpeedBadge from "../components/common/NetworkSpeedBadge";
 
 const AdminLayout = () => {
   const userData = useSelector((state) => state.user.userData);
@@ -111,6 +112,7 @@ const AdminLayout = () => {
           </div>
         </div>
         <div className="admin-right">
+          <NetworkSpeedBadge />
           <button className="logout-btn" onClick={handleLogout}>
             Logout
           </button>
