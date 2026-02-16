@@ -5,6 +5,11 @@ const LAST_REDIRECT_AT_KEY = "lastNetworkRedirectAt";
 const REDIRECT_COOLDOWN_MS = 2500;
 const OFFLINE_REDIRECT_DELAY_MS = 1500;
 let pendingOfflineRedirect = null;
+const isPublicAuthRoute = (url = "") =>
+  url.includes("/user/login") ||
+  url.includes("/user/send-otp") ||
+  url.includes("/user/verify-otp") ||
+  url.includes("/user/reset-password");
 const isOffline = () =>
   typeof navigator !== "undefined" && navigator.onLine === false;
 
@@ -60,17 +65,13 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     const requestUrl = config.url || "";
-    const isPublicAuthRoute =
-      requestUrl.includes("/user/login") ||
-      requestUrl.includes("/user/send-otp") ||
-      requestUrl.includes("/user/verify-otp") ||
-      requestUrl.includes("/user/reset-password");
+    const isAuthRoute = isPublicAuthRoute(requestUrl);
 
     const token = localStorage.getItem("authToken");
-    if (token && !isPublicAuthRoute) {
+    if (token && !isAuthRoute) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-    if (isPublicAuthRoute) {
+    if (isAuthRoute) {
       // Avoid credentialed CORS for public auth routes.
       config.withCredentials = false;
     }
@@ -86,12 +87,19 @@ axiosInstance.interceptors.response.use(
     const isNetworkFailure =
       !error.response &&
       (error.code === "ERR_NETWORK" ||
+        error.code === "ECONNABORTED" ||
         error.message === "Network Error" ||
         error.message?.includes("ECONNREFUSED"));
     const isHardConnectionRefused = error.message?.includes("ECONNREFUSED");
+    const requestUrl = error.config?.url || "";
+    const isAuthRoute = isPublicAuthRoute(requestUrl);
 
-    // Redirect only when actually offline or server is unreachable/refused.
-    if (isNetworkFailure && (isOffline() || isHardConnectionRefused)) {
+    // Redirect for real network failures except on public auth routes.
+    if (
+      isNetworkFailure &&
+      !isAuthRoute &&
+      (isOffline() || isHardConnectionRefused || error.code === "ERR_NETWORK")
+    ) {
       redirectToNetworkError();
     }
 
