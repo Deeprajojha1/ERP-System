@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
+import { createPortal } from "react-dom";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 import {
@@ -88,6 +89,11 @@ const Settings = () => {
     { id: "admin", label: "Admin Management", icon: <FiShield /> },
     { id: "library", label: "Librarian Management", icon: <FiBookOpen /> },
   ];
+
+  const renderModal = (content) => {
+    if (typeof document === "undefined") return null;
+    return createPortal(content, document.body);
+  };
 
   const closePasswordModal = () => {
     setShowPasswordModal(false);
@@ -375,7 +381,8 @@ const Settings = () => {
         </div>
       )}
 
-      {showPasswordModal && (
+      {showPasswordModal &&
+        renderModal(
         <div className="security-modal-overlay" onClick={closePasswordModal}>
           <div
             className="security-modal"
@@ -480,7 +487,8 @@ const Settings = () => {
         </div>
       )}
 
-      {showAddAdminModal && (
+      {showAddAdminModal &&
+        renderModal(
         <div className="security-modal-overlay" onClick={closeAddAdminModal}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="security-modal-header">
@@ -568,7 +576,8 @@ const Settings = () => {
         </div>
       )}
 
-      {showAddLibrarianModal && (
+      {showAddLibrarianModal &&
+        renderModal(
         <div className="security-modal-overlay" onClick={closeAddLibrarianModal}>
           <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
             <div className="security-modal-header">
