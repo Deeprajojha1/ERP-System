@@ -41,8 +41,8 @@ const bookSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['AVAILABLE', 'ISSUED', 'MAINTENANCE'],
-      default: 'AVAILABLE',
+      enum: ['available', 'issued', 'maintenance'],
+      default: 'available',
     },
     addedBy: {
       type: mongoose.Schema.Types.ObjectId,
