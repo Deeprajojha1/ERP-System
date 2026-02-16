@@ -1,6 +1,7 @@
 import React from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { useSelector } from "react-redux";
+import { Analytics } from "@vercel/analytics/react";
 
 import ResetPassword from "./components/ResetPassword/ResetPassword";
 import Login from "./components/UserLogin/Login";
@@ -41,6 +42,7 @@ function App() {
 
   return (
     <>
+      <Analytics />
       <Routes>
         <Route
           path="/"
