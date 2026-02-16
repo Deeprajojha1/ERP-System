@@ -20,6 +20,13 @@ const PROGRAM_CANONICAL_MAP = {
   mca: "mca",
   bba: "bba",
   mba: "mba",
+  bsc: "bsc",
+  msc: "msc",
+  bpharma: "bpharma",
+  mpharma: "mpharma",
+  phd: "phd",
+  bpharm: "bpharma",
+  mpharm: "mpharma",
 };
 
 const canonicalizeProgram = (value) => {
