@@ -1,5 +1,76 @@
 import puppeteer from "puppeteer";
 
+const getLaunchArgs = () => [
+  ...(process.platform === "linux"
+    ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
+    : []),
+  "--disable-gpu",
+  "--no-first-run",
+];
+
+const getExecutableCandidates = () => {
+  const candidates = [];
+
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    candidates.push(process.env.PUPPETEER_EXECUTABLE_PATH);
+  }
+
+  try {
+    const bundledPath = puppeteer.executablePath?.();
+    if (bundledPath) candidates.push(bundledPath);
+  } catch (_) {
+    // no-op
+  }
+
+  candidates.push(
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    "/usr/bin/google-chrome",
+    "/usr/bin/google-chrome-stable"
+  );
+
+  if (process.platform === "win32") {
+    candidates.push(
+      "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+      "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
+      "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
+    );
+  }
+
+  return [...new Set(candidates.filter(Boolean))];
+};
+
+const launchBrowser = async () => {
+  const args = getLaunchArgs();
+  const errors = [];
+
+  for (const executablePath of getExecutableCandidates()) {
+    try {
+      return await puppeteer.launch({
+        headless: true,
+        executablePath,
+        args,
+      });
+    } catch (error) {
+      errors.push(`${executablePath}: ${error.message}`);
+    }
+  }
+
+  try {
+    return await puppeteer.launch({
+      headless: true,
+      args,
+    });
+  } catch (error) {
+    errors.push(`default: ${error.message}`);
+  }
+
+  throw new Error(
+    `Unable to launch Chromium for PDF rendering. Tried: ${errors.join(" | ")}`
+  );
+};
+
 export const renderPdfFromHtml = async (req, res) => {
   let browser = null;
 
@@ -12,21 +83,21 @@ export const renderPdfFromHtml = async (req, res) => {
       });
     }
 
-    const launchOptions = {
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    };
-    if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-      launchOptions.executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-    }
-
-    browser = await puppeteer.launch(launchOptions);
+    browser = await launchBrowser();
     const page = await browser.newPage();
 
-    await page.setContent(html, {
-      waitUntil: "networkidle0",
-      timeout: 30000,
-    });
+    try {
+      await page.setContent(html, {
+        waitUntil: "networkidle0",
+        timeout: 45000,
+      });
+    } catch (error) {
+      // Some hosts never reach network-idle for synthetic HTML. Fallback to DOM ready.
+      await page.setContent(html, {
+        waitUntil: "domcontentloaded",
+        timeout: 45000,
+      });
+    }
 
     const pdfBuffer = await page.pdf({
       format: options?.format || "A4",
@@ -52,6 +123,7 @@ export const renderPdfFromHtml = async (req, res) => {
 
     return res.status(200).send(pdfBuffer);
   } catch (error) {
+    console.error("[PDF] renderPdfFromHtml failed:", error.message || error);
     return res.status(500).json({
       message: error.message || "Failed to generate PDF",
     });
