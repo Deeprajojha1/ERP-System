@@ -30,6 +30,19 @@ const canonicalizeProgram = (value) => {
   return PROGRAM_CANONICAL_MAP[normalized] || "";
 };
 
+const getDepartmentLeadLabel = (departmentName = "") => {
+  const name = String(departmentName).trim().toLowerCase();
+  if (
+    name.includes("nursing") ||
+    name.includes("pharmacy") ||
+    name.includes("paramacy")
+  ) {
+    return "Principal";
+  }
+  if (name.includes("training")) return "Trainer";
+  return "HOD";
+};
+
 const Department = () => {
   const [faculty, setFaculty] = useState([]);
   const dispatch = useDispatch();
@@ -316,6 +329,9 @@ const Department = () => {
 
   const isExistingSelection =
     !editTarget && nameMode === "existing";
+  const currentLeadLabel = getDepartmentLeadLabel(
+    formData.name || editTarget?.name || ""
+  );
 
   const renderState = () => {
     switch (loadState) {
@@ -373,7 +389,7 @@ const Department = () => {
                 </span>
                 <input
                   type="text"
-                  placeholder="Search department or HOD"
+                  placeholder="Search department or HOD / Principal / Trainer"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -394,6 +410,7 @@ const Department = () => {
                     dept.hod?.name ||
                     dept.hod?.employeeId ||
                     "Not Assigned";
+                  const leadLabel = getDepartmentLeadLabel(dept.name);
                   return (
                     <div
                       className="dept-card"
@@ -415,7 +432,7 @@ const Department = () => {
                       <div className="dept-info">
                         <h2 className="dept-name">{dept.name}</h2>
                         <span className="dept-code">
-                          HOD: {hodName}
+                          {leadLabel}: {hodName}
                         </span>
                       </div>
 
@@ -486,7 +503,7 @@ const Department = () => {
               <h2>
                 {editTarget ? "Edit Department" : "Add Department"}
               </h2>
-              <p>Department details and HOD assignment</p>
+              <p>Department details and lead assignment</p>
             </div>
             <form className="dept-form" onSubmit={handleSubmit}>
               <div className="dept-form-row">
@@ -500,6 +517,23 @@ const Department = () => {
                     onChange={handleChange}
                     required
                   />
+                </label>
+              </div>
+              <div className="dept-form-row">
+                <label>
+                  {currentLeadLabel}
+                  <select
+                    name="hod"
+                    value={formData.hod}
+                    onChange={handleChange}
+                  >
+                    <option value="">Select {currentLeadLabel}</option>
+                    {faculty.map((member) => (
+                      <option key={member._id} value={member._id}>
+                        {member?.user?.name || member?.name || member?.employeeId || "N/A"}
+                      </option>
+                    ))}
+                  </select>
                 </label>
               </div>
               <div className="dept-form-row">
