@@ -136,6 +136,7 @@ const Result = () => {
           <table className="result-table">
             <thead>
               <tr>
+                <th className="result-cell-serial">S. No</th>
                 <th>STUDENT NAME</th>
                 <th>SUBJECT</th>
                 <th>MARKS</th>
@@ -144,23 +145,27 @@ const Result = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r, i) => (
-                <tr key={`${r.student}-${i}`}>
-                  <td className="result-name">{r.student}</td>
-                  <td>{r.subject}</td>
-                  <td>{r.marks}</td>
-                  <td>{r.grade}</td>
-                  <td>
-                    <span className={`result-status ${r.status === "PASS" ? "pass" : "fail"}`}>
-                      {r.status === "PASS" ? <FiCheckCircle /> : <FiXCircle />}
-                      {r.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((r, i) => {
+                const numericId = r.marks || i + 1;
+                return (
+                  <tr key={`${r.student}-${i}`}>
+                    <td className="result-serial-cell">{i + 1}</td>
+                    <td className="result-name">{r.student}</td>
+                    <td>{r.subject}</td>
+                    <td>{r.marks}</td>
+                    <td>{r.grade}</td>
+                    <td>
+                      <span className={`result-status ${r.status === "PASS" ? "pass" : "fail"}`}>
+                        {r.status === "PASS" ? <FiCheckCircle /> : <FiXCircle />}
+                        {r.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="result-empty">
+                  <td colSpan={6} className="result-empty">
                     No results found.
                   </td>
                 </tr>

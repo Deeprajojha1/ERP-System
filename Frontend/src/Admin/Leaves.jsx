@@ -234,6 +234,8 @@ const Leaves = () => {
           <table className="leaves-table">
             <thead>
               <tr>
+                <th className="leaves-cell-serial">S. No</th>
+                <th className="leaves-cell-numeric">NUMERIC NO</th>
                 <th>NAME</th>
                 <th>DEPARTMENT</th>
                 <th>LEAVE TYPE</th>
@@ -243,42 +245,49 @@ const Leaves = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r, i) => (
-                <tr
-                  key={r.id || `${r.name}-${i}`}
-                  className="leaves-row-clickable"
-                  onClick={() => openRequestModal(r)}
-                >
-                  <td className="leaves-name">{r.name}</td>
-                  <td>{r.department}</td>
-                  <td>{r.type}</td>
-                  <td>{r.from}</td>
-                  <td>{r.to}</td>
-                  <td>
-                    <span
-                      className={`leaves-status ${
-                        r.status === "Approved"
-                          ? "approved"
-                          : r.status === "Rejected"
-                          ? "rejected"
-                          : "pending"
-                      }`}
-                    >
-                      {r.status === "Approved" ? (
-                        <FiCheckCircle />
-                      ) : r.status === "Rejected" ? (
-                        <FiXCircle />
-                      ) : (
-                        <FiClock />
-                      )}
-                      {r.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((r, i) => {
+                const numericId = (r.employeeId || "")
+                  .replace(/\D/g, "")
+                  || `${i + 1}`;
+                return (
+                  <tr
+                    key={r.id || `${r.name}-${i}`}
+                    className="leaves-row-clickable"
+                    onClick={() => openRequestModal(r)}
+                  >
+                    <td className="leaves-serial-cell">{i + 1}</td>
+                    <td className="leaves-numeric-cell">{numericId}</td>
+                    <td className="leaves-name">{r.name}</td>
+                    <td>{r.department}</td>
+                    <td>{r.type}</td>
+                    <td>{r.from}</td>
+                    <td>{r.to}</td>
+                    <td>
+                      <span
+                        className={`leaves-status ${
+                          r.status === "Approved"
+                            ? "approved"
+                            : r.status === "Rejected"
+                            ? "rejected"
+                            : "pending"
+                        }`}
+                      >
+                        {r.status === "Approved" ? (
+                          <FiCheckCircle />
+                        ) : r.status === "Rejected" ? (
+                          <FiXCircle />
+                        ) : (
+                          <FiClock />
+                        )}
+                        {r.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="leaves-empty">
+                  <td colSpan={8} className="leaves-empty">
                     No leave requests found.
                   </td>
                 </tr>

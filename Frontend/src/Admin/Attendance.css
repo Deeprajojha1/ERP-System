@@ -181,15 +181,37 @@
   background: #f8fafc;
 }
 
+.attendance-table th.attendance-cell-serial {
+  width: 70px;
+  text-align: center;
+}
+
 .attendance-table tbody td {
   padding: 16px 18px;
   border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
 }
 
+.attendance-table th.attendance-cell-serial {
+  width: 70px;
+  text-align: center;
+}
+
+.attendance-table td.attendance-serial-cell {
+  text-align: center;
+  color: #475569;
+}
+
 .attendance-name {
   font-weight: 600;
 }
+
+.attendance-table td.attendance-serial-cell {
+  text-align: center;
+  color: #475569;
+  letter-spacing: 0.4px;
+}
+
 
 .attendance-status-badge {
   display: inline-flex;
@@ -210,6 +232,47 @@
   text-align: center;
   padding: 20px;
   color: #64748b;
+}
+
+.attendance-percentage {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.attendance-detail {
+  margin-top: 24px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+}
+
+.attendance-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.attendance-detail-header h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.attendance-detail-badge {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.attendance-detail-placeholder {
+  margin-top: 16px;
+  color: #475569;
+  font-style: italic;
 }
 
 .attendance-actions {
@@ -256,6 +319,23 @@
   border-color: #fecaca;
   background: #fef2f2;
   color: #b91c1c;
+}
+
+.attendance-details-section {
+  margin-top: 28px;
+}
+
+.attendance-details-section h2 {
+  margin: 0 0 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.attendance-detail-placeholder {
+  margin-top: 12px;
+  color: #64748b;
+  font-style: italic;
 }
 
 @media (max-width: 1100px) {

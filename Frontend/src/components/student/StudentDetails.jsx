@@ -28,6 +28,37 @@ const StudentDetails = ({ studentData }) => {
     return name ? name.charAt(0).toUpperCase() : 'S';
   };
 
+  const personalRows = [
+    { label: 'Email', value: personalInfo.email },
+    { label: 'Phone', value: personalInfo.phone },
+    { label: 'Date of Birth', value: personalInfo.dateOfBirth },
+    { label: 'Address', value: personalInfo.address },
+  ];
+
+  const guardianRows = [
+    { label: 'Father Name', value: parentInfo.fatherName },
+    { label: 'Father Phone', value: parentInfo.fatherPhone },
+  ];
+
+  const academicRows = [
+    { label: 'Course', value: academicInfo.course },
+    { label: 'Semester', value: academicInfo.semester },
+    { label: 'Academic Year', value: academicInfo.academicYear },
+    { label: 'Roll Number', value: academicInfo.rollNumber },
+    { label: 'Section', value: academicInfo.section },
+    { label: 'Batch', value: academicInfo.batch },
+    { label: 'University', value: academicInfo.university },
+    { label: 'College', value: academicInfo.college },
+  ];
+
+  const renderRows = (rows) =>
+    rows.map((row) => (
+      <div className="info-row" key={row.label}>
+        <span className="label">{row.label}</span>
+        <span className="value">{row.value || 'N/A'}</span>
+      </div>
+    ));
+
   return (
     <div className="student-details-container">
       {/* Header with Profile Logo */}
@@ -49,63 +80,19 @@ const StudentDetails = ({ studentData }) => {
         {/* Personal Information Box */}
         <div className="detail-box personal-info">
           <h3>Personal Information</h3>
-          <div className="info-row">
-            <span className="label">Email:</span>
-            <span className="value">{personalInfo.email}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Phone:</span>
-            <span className="value">{personalInfo.phone}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Date of Birth:</span>
-            <span className="value">{personalInfo.dateOfBirth}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Address:</span>
-            <span className="value">{personalInfo.address}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Father Name:</span>
-            <span className="value">{parentInfo.fatherName}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Father Phone:</span>
-            <span className="value">{parentInfo.fatherPhone}</span>
-          </div>
+          {renderRows(personalRows)}
+        </div>
+
+        {/* Guardian Information Box */}
+        <div className="detail-box guardian-info">
+          <h3>Guardian Contact</h3>
+          {renderRows(guardianRows)}
         </div>
 
         {/* Academic Information Box */}
         <div className="detail-box academic-info">
           <h3>Academic Information</h3>
-          <div className="info-row">
-            <span className="label">Course:</span>
-            <span className="value">{academicInfo.course}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Semester:</span>
-            <span className="value">{academicInfo.semester}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Academic Year:</span>
-            <span className="value">{academicInfo.academicYear}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Section:</span>
-            <span className="value">{academicInfo.section}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">Batch:</span>
-            <span className="value">{academicInfo.batch}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">University:</span>
-            <span className="value">{academicInfo.university}</span>
-          </div>
-          <div className="info-row">
-            <span className="label">College:</span>
-            <span className="value">{academicInfo.college}</span>
-          </div>
+          {renderRows(academicRows)}
         </div>
       </div>
     </div>

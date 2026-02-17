@@ -135,11 +135,23 @@
   background: #f8fafc;
 }
 
+.exam-table th.exam-cell-serial {
+  width: 70px;
+  text-align: center;
+}
+
 .exam-table tbody td {
   padding: 16px 18px;
   border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
 }
+
+.exam-table td.exam-serial-cell {
+  text-align: center;
+  color: #475569;
+  letter-spacing: 0.4px;
+}
+
 
 .exam-name {
   font-weight: 600;

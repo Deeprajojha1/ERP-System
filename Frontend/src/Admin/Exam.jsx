@@ -268,6 +268,7 @@ const Exam = () => {
           <table className="exam-table">
             <thead>
               <tr>
+                <th className="exam-cell-serial">S. No</th>
                 <th>EXAM NAME</th>
                 <th>SUBJECT</th>
                 <th>DATE</th>
@@ -278,39 +279,44 @@ const Exam = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((e) => (
-                <tr key={`${e.name}-${e.date}`}>
-                  <td className="exam-name">{e.name}</td>
-                  <td>{e.subject}</td>
-                  <td>{e.date}</td>
-                  <td>{e.time}</td>
-                  <td>{e.duration}</td>
-                  <td>{e.status.toUpperCase()}</td>
-                  <td>
-                    <div className="exam-actions">
-                      <button
-                        className="exam-action-btn"
-                        type="button"
-                        onClick={() => handlePrint(e)}
-                      >
-                        <FiPrinter />
-                        Print
-                      </button>
-                      <button
-                        className="exam-action-btn export"
-                        type="button"
-                        onClick={() => handleDownload(e)}
-                      >
-                        <FiDownload />
-                        Download
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((e, index) => {
+                const numericId =
+                  (e.date || "").replace(/\D/g, "") || `${index + 1}`;
+                return (
+                  <tr key={`${e.name}-${e.date}-${numericId}`}>
+                    <td className="exam-serial-cell">{index + 1}</td>
+                    <td className="exam-name">{e.name}</td>
+                    <td>{e.subject}</td>
+                    <td>{e.date}</td>
+                    <td>{e.time}</td>
+                    <td>{e.duration}</td>
+                    <td>{e.status.toUpperCase()}</td>
+                    <td>
+                      <div className="exam-actions">
+                        <button
+                          className="exam-action-btn"
+                          type="button"
+                          onClick={() => handlePrint(e)}
+                        >
+                          <FiPrinter />
+                          Print
+                        </button>
+                        <button
+                          className="exam-action-btn export"
+                          type="button"
+                          onClick={() => handleDownload(e)}
+                        >
+                          <FiDownload />
+                          Download
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="exam-empty">
+                  <td colSpan={8} className="exam-empty">
                     No exams found
                   </td>
                 </tr>

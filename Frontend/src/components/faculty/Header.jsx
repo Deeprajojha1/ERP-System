@@ -1,4 +1,5 @@
-﻿import { useSelector, useDispatch } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import axios from "../../utils/axiosInstance";
 import toast from "react-hot-toast";
 import { clearUserData } from "../../redux/userSlice";
@@ -11,18 +12,15 @@ import "./Header.css";
 
 function Header() {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const apiBase = useSelector((state) => state.config.apiBase);
 
   const handleLogout = async () => {
     try {
       await axios.post(`${apiBase}/user/logout`, {});
-      localStorage.removeItem("authToken");
       toast.success("✅ Logged out successfully");
     } catch (error) {
-      console.error(
-        "Logout failed:",
-        error.response?.data || error.message
-      );
+      console.error("Logout failed:", error.response?.data || error.message);
       toast.error(`❌ ${error.response?.data?.message || "Logout failed"}`);
     } finally {
       dispatch(clearUserData());
@@ -32,7 +30,7 @@ function Header() {
       dispatch(clearTimetable());
       sessionStorage.removeItem("lastFailedRoute");
       sessionStorage.removeItem("lastNetworkRedirectAt");
-      window.location.replace("/");
+      navigate("/", { replace: true });
     }
   };
 

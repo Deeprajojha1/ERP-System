@@ -46,6 +46,7 @@ function App() {
   const authResolved = useGetCurrentUser();
 
   const userData = useSelector((state) => state.user.userData);
+  console.log("Current User",userData);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -225,7 +226,7 @@ function App() {
         />
 
         <Route
-          path="/dashboard"
+          path="/dashboard/*"
           element={
             userData?.user?.role === "student" ? (
               <Dashboard />
