@@ -1,9 +1,19 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import axiosInstance from "../utils/axiosInstance";
 import toast from "react-hot-toast";
-import { FiCheckCircle, FiEdit, FiTrash2, FiXCircle } from "react-icons/fi";
+import { FiCheckCircle, FiEdit, FiXCircle } from "react-icons/fi";
 import "./Attendance.css";
+import {
+  fetchAdminDailySummary,
+  fetchGroupAttendanceByDate,
+  selectDailySummary,
+  selectDailySummaryLoading,
+  selectGroupStudents,
+  selectGroupLoading,
+  selectGroupError,
+  selectGroupStatusMap,
+} from "../redux/attendanceSlice";
 
 const formatDate = (dateStr) => {
   if (!dateStr) return "";
@@ -18,114 +28,63 @@ const formatDate = (dateStr) => {
 const DEFAULT_DATE = new Date().toISOString().slice(0, 10);
 
 const Attendance = () => {
+  const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
-  const [dailyDate, setDailyDate] = useState(DEFAULT_DATE);
-  const [dailySummary, setDailySummary] = useState([]);
-  const [dailyLoading, setDailyLoading] = useState(false);
+  const dailySummary = useSelector(selectDailySummary);
+  const dailyLoading = useSelector(selectDailySummaryLoading);
   const [groups, setGroups] = useState([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [selectedGroupId, setSelectedGroupId] = useState(null);
-  const [groupStudents, setGroupStudents] = useState([]);
-  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [dailyDate, setDailyDate] = useState(DEFAULT_DATE);
+  const groupStudents = useSelector(selectGroupStudents);
+  const groupLoading = useSelector(selectGroupLoading);
+  const groupError = useSelector(selectGroupError);
+  const groupStatusMap = useSelector(selectGroupStatusMap);
+  const [studentsFetchingStarted, setStudentsFetchingStarted] = useState(false);
   const [sessionDetails, setSessionDetails] = useState(null);
   const [sessionLoading, setSessionLoading] = useState(false);
   const [recordDisplayCount, setRecordDisplayCount] = useState(10);
   const [studentReport, setStudentReport] = useState(null);
   const [statusMap, setStatusMap] = useState({});
   const [actionLoadingId, setActionLoadingId] = useState(null);
-  const [statusMap, setStatusMap] = useState({});
 
   const groupOptions = useMemo(() => groups || [], [groups]);
 
   useEffect(() => {
-    if (!apiBase) return;
-    fetchGroups();
-  }, [apiBase]);
-
-  useEffect(() => {
     if (!apiBase || !dailyDate) return;
-    fetchDailySummary(dailyDate);
-  }, [apiBase, dailyDate]);
+    setSessionDetails(null);
+    setStatusMap({});
+    dispatch(fetchAdminDailySummary({ date: dailyDate }));
+  }, [apiBase, dailyDate, dispatch]);
 
   useEffect(() => {
-    if (!selectedGroupId) return;
-    fetchGroupStudents(selectedGroupId);
-  }, [apiBase, selectedGroupId]);
+    if (!apiBase || !selectedGroupId) return;
+    dispatch(fetchGroupAttendanceByDate({ groupId: selectedGroupId, date: dailyDate }));
+  }, [apiBase, selectedGroupId, dailyDate, dispatch]);
 
-  const buildStatusMap = (records = []) => {
-    const map = {};
-    for (const record of records) {
-      const id = record.student?._id?.toString() || record.student?.toString();
-      if (id) map[id] = record.status;
-    }
-    setStatusMap(map);
-  };
+  useEffect(() => {
+    setStudentsFetchingStarted(groupLoading);
+  }, [groupLoading]);
 
-  const setSessionWithRecords = (session) => {
-    setSessionDetails(session);
-    setRecordDisplayCount(10);
-    buildStatusMap(session?.records || []);
-  };
-
-  const mapRecordsForPayload = (records = []) =>
-    records.map((record) => ({
-      student: record.student?._id || record.student,
-      status: record.status,
-    }));
-
-  const fetchGroups = async () => {
+  const fetchGroups = useCallback(async () => {
     if (!apiBase) return;
     setGroupsLoading(true);
     try {
       const res = await axiosInstance.get(`${apiBase}/admin/group`);
       const fetched = res.data.groups || [];
-      console.log(res);
       setGroups(fetched);
-      if (!selectedGroupId && fetched.length) {
-        setSelectedGroupId(fetched[0]._id);
-      }
+      setSelectedGroupId((prevId) => prevId || fetched[0]?._id || null);
     } catch (error) {
       toast.error("Failed to load groups");
     } finally {
       setGroupsLoading(false);
     }
-  };
+  }, [apiBase]);
 
-  const fetchDailySummary = async (date) => {
-    setDailyLoading(true);
-    try {
-      const res = await axiosInstance.get(`${apiBase}/admin/attendance/daily`, {
-        params: { date },
-      });
-      setDailySummary(res.data.summary || []);
-      setSessionDetails(null);
-    } catch (error) {
-      toast.error("Unable to load attendance summary");
-      setDailySummary([]);
-    } finally {
-      setDailyLoading(false);
-    }
-  };
-
-  const fetchGroupStudents = async (groupId) => {
-    if (!groupId) return;
-    setStudentsLoading(true);
-    try {
-      const res = await axiosInstance.get(`${apiBase}/admin/attendance/group/${groupId}/students`);
-      const students = (res.data.students || []).map((student) => ({
-        ...student,
-        name: student.user?.name,
-      }));
-      setGroupStudents(students);
-      setStudentReport(null);
-      setStatusMap({});
-    } catch (error) {
-      toast.error("Failed to load students for the selected group");
-      setGroupStudents([]);
-    } finally {
-      setStudentsLoading(false);
-    }
-  };
+  useEffect(() => {
+    if (!apiBase) return;
+    fetchGroups();
+  }, [apiBase, fetchGroups]);
 
   const buildStatusMap = (records = []) => {
     const map = {};
@@ -170,34 +129,27 @@ const Attendance = () => {
   };
 
   const handleChangeStatus = async (studentId, newStatus) => {
-    if (!sessionDetails?.records?.length) {
-      toast.error("No session loaded to edit");
+    if (!sessionDetails) {
+      toast.error("Load a session first");
       return;
     }
-    const updated = sessionDetails.records.map((record) => {
+    const records = sessionDetails.records ? [...sessionDetails.records] : [];
+    const index = records.findIndex((record) => {
       const id = (record.student?._id || record.student)?.toString();
-      if (id === studentId) {
-        return { ...record, status: newStatus };
-      }
-      return record;
+      return id === studentId;
     });
-    await updateSessionRecords(updated, studentId);
+    if (index >= 0) {
+      records[index] = { ...records[index], status: newStatus };
+    } else {
+      records.push({ student: studentId, status: newStatus });
+    }
+    await updateSessionRecords(records, studentId);
   };
 
-  const handleRemoveRecord = async (studentId) => {
-    if (!sessionDetails?.records?.length) {
-      toast.error("No session loaded to delete from");
-      return;
-    }
-    const updated = sessionDetails.records.filter((record) => {
-      const id = (record.student?._id || record.student)?.toString();
-      return id !== studentId;
-    });
-    if (updated.length === sessionDetails.records.length) {
-      toast.error("Record not found in session");
-      return;
-    }
-    await updateSessionRecords(updated, studentId);
+  const handleToggleStatus = (studentId) => {
+    const current = getRowDisplayStatus(studentId);
+    const next = current === "present" ? "absent" : "present";
+    handleChangeStatus(studentId, next);
   };
 
   const handleSessionClick = async (sessionId) => {
@@ -237,6 +189,9 @@ const Attendance = () => {
 
   const markedRecords = sessionDetails?.records || [];
   const totalMarked = markedRecords.length;
+
+  const getRowDisplayStatus = (studentId) =>
+    statusMap[studentId] || groupStatusMap[studentId] || "not-marked";
 
   const summaryColumns = [
     {
@@ -283,7 +238,14 @@ const Attendance = () => {
 
         <div className="attendance-summary-table">
           {dailyLoading ? (
-            <div className="attendance-loading">Loading summary...</div>
+            <div className="attendance-summary-loader">
+              <div className="attendance-dots">
+                <span />
+                <span />
+                <span />
+              </div>
+              <p>Loading sessions...</p>
+            </div>
           ) : dailySummary.length === 0 ? (
             <div className="attendance-empty">No sessions logged for this date.</div>
           ) : (
@@ -323,27 +285,47 @@ const Attendance = () => {
         <div className="attendance-section attendance-vertical">
           <div className="attendance-section-head">
             <h2>Group students</h2>
-            <div className="attendance-select-wrapper">
-              <select
-                value={selectedGroupId || ""}
-                onChange={(event) => setSelectedGroupId(event.target.value)}
-                disabled={groupsLoading}
-              >
-                <option value="">Choose a group</option>
-                {groupOptions.map((group) => (
-                  <option key={group._id} value={group._id}>
-                    {group.name}
-                  </option>
-                ))}
-              </select>
+            <div className="attendance-head-controls">
+              <div className="group-head-meta">
+                <label>
+                  
+                  <input
+                    type="date"
+                    value={dailyDate}
+                    max={new Date().toISOString().slice(0, 10)}
+                    onChange={(event) => setDailyDate(event.target.value)}
+                  />
+                </label>
+              </div>
+              <div className="attendance-select-wrapper">
+                <select
+                  value={selectedGroupId || ""}
+                  onChange={(event) => setSelectedGroupId(event.target.value)}
+                  disabled={groupsLoading}
+                >
+                  <option value="">Choose a group</option>
+                  {groupOptions.map((group) => (
+                    <option key={group._id} value={group._id}>
+                      {group.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
 
           <div className="attendance-students">
-            {studentsLoading ? (
-              <div className="attendance-loading">Loading students...</div>
+            {groupLoading && studentsFetchingStarted ? (
+              <div className="attendance-dots">
+                <span />
+                <span />
+                <span />
+                <p>Loading students...</p>
+              </div>
             ) : !groupStudents.length ? (
-              <div className="attendance-empty">Select a group to display students.</div>
+              <div className="attendance-empty">
+                {groupError || "Select a group to display students."}
+              </div>
             ) : (
               <table>
                 <thead>
@@ -365,50 +347,42 @@ const Attendance = () => {
                       <td>{student.name || student.user?.name || "—"}</td>
                       <td>{student.enrollmentNumber || "—"}</td>
                       <td>
-                        <span
-                          className={`attendance-status ${(statusMap[student.studentId] || "pending").toLowerCase()}`}
-                        >
-                          {statusMap[student.studentId] ? (
-                            <>
-                              {statusMap[student.studentId] === "present" ? (
-                                <FiCheckCircle />
+                        {(() => {
+                          const displayStatus = getRowDisplayStatus(student.studentId);
+                          return (
+                            <span className={`attendance-status ${displayStatus}`}>
+                              {displayStatus === "present" ? (
+                                <>
+                                  <FiCheckCircle />
+                                  Present
+                                </>
+                              ) : displayStatus === "absent" ? (
+                                <>
+                                  <FiXCircle />
+                                  Absent
+                                </>
                               ) : (
-                                <FiXCircle />
+                                <>
+                                  <FiXCircle />
+                                  Not marked
+                                </>
                               )}
-                              {statusMap[student.studentId].toUpperCase()}
-                            </>
-                          ) : (
-                            <>
-                              <FiXCircle />
-                              Not marked
-                            </>
-                          )}
-                        </span>
+                            </span>
+                          );
+                        })()}
                       </td>
                       <td className="student-actions-cell">
                         <button
                           type="button"
-                          className="student-action-btn"
-                          title="Mark present"
+                          className="student-action-btn edit"
+                          title="Toggle present/absent"
                           onClick={(event) => {
                             event.stopPropagation();
-                            handleChangeStatus(student.studentId, "present");
+                            handleToggleStatus(student.studentId);
                           }}
                           disabled={!sessionDetails || actionLoadingId === student.studentId}
                         >
                           <FiEdit />
-                        </button>
-                        <button
-                          type="button"
-                          className="student-action-btn delete"
-                          title="Remove attendance record"
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            handleRemoveRecord(student.studentId);
-                          }}
-                          disabled={!sessionDetails || actionLoadingId === student.studentId}
-                        >
-                          <FiTrash2 />
                         </button>
                       </td>
                     </tr>
