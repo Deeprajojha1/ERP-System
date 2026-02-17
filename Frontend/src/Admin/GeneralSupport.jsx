@@ -389,7 +389,6 @@ const GeneralSupport = () => {
     await downloadPdfFromHtml(apiBase, {
       html,
       fileName: filename,
-      fallbackToPrint: false,
     });
   };
 
