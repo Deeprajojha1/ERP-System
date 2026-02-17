@@ -45,7 +45,8 @@ const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => window.innerWidth >= 769
   );
-  const isActive = (path) => location.pathname.startsWith(path);
+  const isActive = (path) =>
+    location.pathname === path || location.pathname.startsWith(`${path}/`);
   const userName = userData?.user?.name || "Admin User";
   const userEmail = userData?.user?.email || "admin@university.edu";
   const userInitials = userName

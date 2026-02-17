@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { Oval } from "react-loader-spinner";
 import { FiPrinter } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
+import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import "./FacultyLectureReport.css";
 
 const FacultyLectureReport = () => {
@@ -55,13 +56,31 @@ const FacultyLectureReport = () => {
 
     try {
       setLoading(true);
-      
-      // Fetch faculty for the department
-      const facultyRes = await axios.get(`${apiBase}/admin/faculty`, {
-        withCredentials: true,
-      });
-      
+
+      // Fetch faculty + groups + courses so routine IDs can be resolved to names.
+      const [facultyRes, groupRes, courseRes] = await Promise.all([
+        axios.get(`${apiBase}/admin/faculty`, {
+          withCredentials: true,
+        }),
+        axios.get(`${apiBase}/admin/group`, {
+          withCredentials: true,
+        }),
+        axios.get(`${apiBase}/admin/course`, {
+          withCredentials: true,
+        }),
+      ]);
+
       const allFaculty = facultyRes.data?.faculty || [];
+      const allGroups = groupRes.data?.groups || [];
+      const allCourses = courseRes.data?.courses || [];
+
+      const groupById = new Map(
+        allGroups.map((g) => [String(g?._id || g?.id), g])
+      );
+      const courseById = new Map(
+        allCourses.map((c) => [String(c?._id || c?.id), c])
+      );
+
       const deptFaculty = allFaculty.filter(
         (f) => f.department?._id === selectedDepartment || f.department === selectedDepartment
       );
@@ -82,9 +101,14 @@ const FacultyLectureReport = () => {
           Object.keys(daySchedule).forEach((slotNum) => {
             const lecture = daySchedule[slotNum];
             if (lecture && lecture.course) {
+              const courseId = String(lecture.course?._id || lecture.course);
+              const groupId = String(lecture.group?._id || lecture.group);
+              const resolvedCourse = courseById.get(courseId);
+              const resolvedGroup = groupById.get(groupId);
+
               lectures[slotNum] = {
-                course: lecture.course,
-                group: lecture.group,
+                course: resolvedCourse || lecture.course,
+                group: resolvedGroup || lecture.group,
                 status: "taken", // Default to taken for now (can be enhanced with actual attendance data)
               };
             }
@@ -122,8 +146,100 @@ const FacultyLectureReport = () => {
     }
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!reportData?.faculty?.length) {
+      toast.error("No report data to print");
+      return;
+    }
+
+    const esc = (value = "") =>
+      String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const tableRows = reportData.faculty
+      .map((faculty, index) => {
+        const totalLectures = Object.keys(faculty.lectures || {}).length;
+        const takenLectures = Object.values(faculty.lectures || {}).filter(
+          (l) => l.status === "taken"
+        ).length;
+        const notTakenLectures = totalLectures - takenLectures;
+
+        const lectureCells = lectureSlots
+          .map((slot) => {
+            const lecture = faculty.lectures?.[slot.id];
+            if (!lecture) return "<td>-</td>";
+            const courseLabel =
+              lecture.course?.code || lecture.course?.courseName || "Course";
+            const groupLabel = lecture.group?.name || "N/A";
+            return `<td>${esc(courseLabel)}<br/>Group: ${esc(groupLabel)}</td>`;
+          })
+          .join("");
+
+        return `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${esc(faculty.name)}<br/>ID: ${esc(faculty.employeeId || "N/A")}</td>
+            ${lectureCells}
+            <td>${totalLectures}</td>
+            <td>${takenLectures}</td>
+            <td>${notTakenLectures}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
+            h1, h2, h3, p { margin: 0 0 8px; }
+            .meta { margin-bottom: 14px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th, td { border: 1px solid #d1d5db; padding: 6px; vertical-align: top; text-align: left; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h2>HARIDWAR UNIVERSITY</h2>
+          <h3>Department Teacher Lectures Report</h3>
+          <div class="meta">
+            <p><strong>Department:</strong> ${esc(selectedDeptName || "N/A")}</p>
+            <p><strong>Batch:</strong> ${esc(selectedBatch || "N/A")}</p>
+            <p><strong>Date:</strong> ${esc(formatDate(selectedDate) || "N/A")}</p>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>SR NO.</th>
+                <th>FACULTY NAME</th>
+                ${lectureSlots.map((slot) => `<th>LECTURE ${slot.id}</th>`).join("")}
+                <th>TOTAL</th>
+                <th>TAKEN</th>
+                <th>NOT TAKEN</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    try {
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: `Faculty_Lecture_Report_${selectedDeptName || "Department"}_${selectedDate || "Date"}.pdf`,
+        fallbackToPrint: false,
+      });
+    } catch (error) {
+      toast.error(error?.message || "Failed to download report PDF");
+    }
   };
 
   const selectedDeptName = useMemo(() => {

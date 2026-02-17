@@ -67,6 +67,7 @@ import {
   getStudentAttendanceReport,
   getStudentOverallAttendance,
   getDailyAttendanceSummary,
+  getGroupStudentAttendanceByDate,
 } from "../controllers/attendanceController.js";
 
 import {
@@ -171,6 +172,7 @@ router.put("/timetable/group/:groupId", isAdmin, updateGroupTimetable);
 router.post("/attendance", isAdmin, markAttendance);
 router.put("/attendance/:sessionId", isAdmin, updateAttendance);
 router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
+router.get("/attendance/group/:groupId/date/:date", isAdmin, getGroupStudentAttendanceByDate);
 router.get("/attendance/group/:groupId/students", isAdmin, getStudentsByGroup);
 router.get("/attendance/group/:groupId/course/:courseId", isAdmin, getAttendanceByGroupAndCourse);
 router.get("/attendance/student/:studentId", isAdmin, getStudentOverallAttendance);
