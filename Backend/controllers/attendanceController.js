@@ -434,10 +434,14 @@ export const getStudentOverallAttendance = async (req, res) => {
     const courseMap = {};
 
     for (const session of sessions) {
-      const cId = session.course._id.toString();
+      // Guard against orphaned sessions whose course was deleted or missing.
+      const courseDoc = session.course;
+      const cId = courseDoc?._id ? courseDoc._id.toString() : null;
+      if (!cId) continue;
+
       if (!courseMap[cId]) {
         courseMap[cId] = {
-          course: session.course,
+          course: courseDoc,
           present: 0,
           absent: 0,
         };

@@ -380,6 +380,16 @@ const AdminLayout = () => {
               </button>
 
               <button
+                className={`sidebar-btn ${isActive("/admin/teaching-load") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/teaching-load");
+                }}
+              >
+                <TbReportSearch />
+                <span className="sidebar-text">Teaching Load</span>
+              </button>
+
+              <button
                 className={`sidebar-btn ${isActive("/admin/library") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/library");

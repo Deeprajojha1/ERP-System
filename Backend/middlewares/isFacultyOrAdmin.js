@@ -6,7 +6,16 @@ import jwt from "jsonwebtoken";
  */
 const isFacultyOrAdmin = async (req, res, next) => {
   try {
-    const { token } = req.cookies;
+    // 1) Cookie token (desktop browsers)
+    let token = req.cookies?.token;
+
+    // 2) Fallback Authorization header (mobile / blocked third-party cookies)
+    if (!token) {
+      const authHeader = req.headers.authorization || req.headers.Authorization;
+      if (authHeader && /^Bearer\s+/i.test(authHeader)) {
+        token = authHeader.split(/\s+/)[1];
+      }
+    }
 
     if (!token) {
       return res.status(401).json({ message: "Authentication required" });
