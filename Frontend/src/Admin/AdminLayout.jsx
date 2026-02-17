@@ -16,10 +16,11 @@ import { LuBadgeIndianRupee } from "react-icons/lu";
 import { FiBell } from "react-icons/fi";
 import { FiBookOpen } from "react-icons/fi";
 import { FiSettings } from "react-icons/fi";
-import { useNavigate, Outlet, useLocation } from "react-router-dom";
-import axios from "axios";
-import toast from "react-hot-toast";
 import { useDispatch } from "react-redux";
+import axios from "../utils/axiosInstance";
+import { useNavigate, useLocation, Outlet } from "react-router-dom";
+import NetworkSpeedBadge from "../components/common/NetworkSpeedBadge";
+import toast from "react-hot-toast";
 import { clearUserData } from "../redux/userSlice";
 import { clearStudents } from "../redux/studentSlice";
 import { clearFaculty } from "../redux/facultySlice";
@@ -33,7 +34,6 @@ import { clearTimetable } from "../redux/timetableSlice";
 import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
-import NetworkSpeedBadge from "../components/common/NetworkSpeedBadge";
 
 const AdminLayout = () => {
   const userData = useSelector((state) => state.user.userData);
@@ -83,7 +83,6 @@ const AdminLayout = () => {
       );
       toast.error(`${error.response?.data?.message || "Logout failed"}`);
     } finally {
-      localStorage.removeItem("authToken");
       dispatch(clearUserData());
       dispatch(clearStudents());
       dispatch(clearFaculty());
@@ -92,7 +91,7 @@ const AdminLayout = () => {
       dispatch(clearTimetable());
       sessionStorage.removeItem("lastFailedRoute");
       sessionStorage.removeItem("lastNetworkRedirectAt");
-      window.location.replace("/");
+      navigate("/", { replace: true });
     }
   };
 

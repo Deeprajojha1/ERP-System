@@ -499,6 +499,7 @@ const Student = () => {
               <table className="student-table">
                 <thead>
                   <tr>
+                    <th className="student-cell-serial">S. No</th>
                     <th>STUDENT NAME</th>
                     <th>ROLL NO</th>
                     <th>DEPARTMENT</th>
@@ -508,10 +509,18 @@ const Student = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((s, index) => (
-                    <tr key={s._id || s.user?._id || `${s.rollNo || "student"}-${index}`}>
-                      <td className="student-roll">{s.studentName || s.user?.name || s.name || "N/A"}</td>
-                      <td>{s.rollNo || s.enrollmentNumber || s.roll || "N/A"}</td>
+                  {filtered.map((s, index) => {
+                    const numericId =
+                      s.rollNo || s.enrollmentNumber || s.roll || `${index + 1}`;
+                    return (
+                      <tr
+                        key={s._id || s.user?._id || `${numericId}-${index}`}
+                      >
+                        <td className="student-serial-cell">{index + 1}</td>
+                        <td className="student-roll">
+                          {s.studentName || s.user?.name || s.name || "N/A"}
+                        </td>
+                        <td>{s.rollNo || s.enrollmentNumber || s.roll || "N/A"}</td>
                       <td>{s.department?.name || s.department}</td>
                       <td>{s.semester}</td>
                       <td>
@@ -532,7 +541,8 @@ const Student = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
                 </tbody>
               </table>
             )}

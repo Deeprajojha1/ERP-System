@@ -79,12 +79,7 @@ const Login = () => {
 
       const res = await axios.post(`${apiBase}/user/login`, formData);
 
-      // Persist token so mobile browsers (which block cross-site cookies)
-      // can send it via Authorization header on subsequent requests.
-      if (res.data.token) {
-        localStorage.setItem("authToken", res.data.token);
-      }
-
+            // Store user data in Redux
       dispatch(setUserData(res.data));
       toast.success(res.data.message || "Login successful");
 

@@ -51,6 +51,12 @@ const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) 
     if (percentage >= 75) return '#f59e0b';
     return '#ef4444';
   };
+  const attendanceStatus =
+    overallPercentage >= 90
+      ? 'Excellent consistency'
+      : overallPercentage >= 75
+      ? 'On track for minimum criteria'
+      : 'Needs improvement to reach 75%';
 
   const exportToPDF = async () => {
     try {
@@ -110,7 +116,7 @@ const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) 
   return (
     <div className="attendance-overview">
       <div className="overall-attendance">
-        <div className="attendance-header">
+        <div className="attendance-overview-header">
           <h3>Overall Attendance</h3>
           <button className="download-btn" onClick={exportToPDF} title="Download Attendance Report">
             <FiDownload className="download-icon" />
@@ -126,7 +132,7 @@ const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) 
           >
             <div className="circle-inner">
               <span className="percentage">{overallPercentage}%</span>
-              <span className="label">Attendance</span>
+              <span className="circle-label">Attendance</span>
             </div>
           </div>
         </div>
@@ -141,6 +147,13 @@ const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) 
             <span className="stat-label">Total Classes</span>
           </div>
         </div>
+        <p
+          className={`attendance-status-note ${
+            overallPercentage >= 75 ? 'ok' : 'risk'
+          }`}
+        >
+          {attendanceStatus}
+        </p>
       </div>
     </div>
   );

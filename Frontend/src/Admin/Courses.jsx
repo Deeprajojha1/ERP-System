@@ -280,6 +280,7 @@ const Courses = () => {
           <table className="courses-table">
             <thead>
               <tr>
+                <th className="courses-cell-serial">S. No</th>
                 <th>COURSE CODE</th>
                 <th>COURSE NAME</th>
                 <th>DEPARTMENT</th>
@@ -289,29 +290,33 @@ const Courses = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
-                <tr key={c.id || c.code}>
-                  <td className="courses-code">{c.code}</td>
-                  <td>{c.courseName}</td>
-                  <td>{c.department}</td>
-                  <td>{c.studentsInDepartment}</td>
-                  <td>{c.coordinatorName || "-"}</td>
-                  <td className="courses-row-actions">
-                    <button
-                      type="button"
-                      className="courses-edit-btn"
-                      onClick={() => openEditModal(c)}
-                      aria-label={`Edit ${c.code}`}
-                      title="Edit course"
-                    >
-                      <FiEdit2 />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((c, index) => {
+                const numericId = (c.code || "").replace(/\D/g, "") || `${index + 1}`;
+                return (
+                  <tr key={c.id || c.code || numericId}>
+                    <td className="courses-serial-cell">{index + 1}</td>
+                    <td className="courses-code">{c.code}</td>
+                    <td>{c.courseName}</td>
+                    <td>{c.department}</td>
+                    <td>{c.studentsInDepartment}</td>
+                    <td>{c.coordinatorName || "-"}</td>
+                    <td className="courses-row-actions">
+                      <button
+                        type="button"
+                        className="courses-edit-btn"
+                        onClick={() => openEditModal(c)}
+                        aria-label={`Edit ${c.code}`}
+                        title="Edit course"
+                      >
+                        <FiEdit2 />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="courses-empty">
+                  <td colSpan={7} className="courses-empty">
                     No courses found
                   </td>
                 </tr>

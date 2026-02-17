@@ -142,6 +142,22 @@
   background: #f8fafc;
 }
 
+.leaves-table th.leaves-cell-serial,
+.leaves-table th.leaves-cell-numeric {
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.leaves-table th.leaves-cell-serial {
+  width: 70px;
+  text-align: center;
+}
+
+.leaves-table th.leaves-cell-numeric {
+  width: 120px;
+  text-align: right;
+}
+
 .leaves-table tbody td {
   padding: 16px 18px;
   border-bottom: 1px solid #e2e8f0;
@@ -159,6 +175,19 @@
 
 .leaves-name {
   font-weight: 600;
+}
+
+.leaves-table td.leaves-serial-cell {
+  text-align: center;
+  color: #475569;
+  letter-spacing: 0.4px;
+}
+
+.leaves-table td.leaves-numeric-cell {
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #0f172a;
 }
 
 .leaves-status {

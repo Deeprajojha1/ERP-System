@@ -194,10 +194,26 @@
   background: #f8fafc;
 }
 
+.student-table th.student-cell-serial {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.student-table th.student-cell-serial {
+  width: 70px;
+  text-align: center;
+}
+
 .student-table tbody td {
   padding: 16px 18px;
   border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
+}
+
+.student-table td.student-serial-cell {
+  text-align: center;
+  color: #475569;
+  letter-spacing: 0.4px;
 }
 
 .student-roll {

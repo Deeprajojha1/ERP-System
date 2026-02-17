@@ -64,23 +64,13 @@ const axiosInstance = axios.create({
 // ---- request interceptor: attach Bearer token ----
 axiosInstance.interceptors.request.use(
   (config) => {
-    const requestUrl = config.url || "";
-    const isAuthRoute = isPublicAuthRoute(requestUrl);
-
-    const token = localStorage.getItem("authToken");
-    if (token && !isAuthRoute) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    if (isAuthRoute) {
-      // Avoid credentialed CORS for public auth routes.
-      config.withCredentials = false;
-    }
+    // keep sending cookies for every request so the server can
+    // set/read the auth cookie (login, me, logout, etc.).
     return config;
   },
   (error) => Promise.reject(error)
 );
 
-// ---- response interceptor: handle errors ----
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -94,18 +84,12 @@ axiosInstance.interceptors.response.use(
     const requestUrl = error.config?.url || "";
     const isAuthRoute = isPublicAuthRoute(requestUrl);
 
-    // Redirect for real network failures except on public auth routes.
     if (
       isNetworkFailure &&
       !isAuthRoute &&
       (isOffline() || isHardConnectionRefused || error.code === "ERR_NETWORK")
     ) {
       redirectToNetworkError();
-    }
-
-    // Handle 401 unauthorized
-    if (error.response?.status === 401) {
-      localStorage.removeItem("authToken");
     }
 
     return Promise.reject(error);
