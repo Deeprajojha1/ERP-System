@@ -69,6 +69,10 @@ import {
   getDailyAttendanceSummary,
   getGroupStudentAttendanceByDate,
 } from "../controllers/attendanceController.js";
+import {
+  getSubjectWiseAttendanceReport,
+  getSubjectAttendanceReport,
+} from "../controllers/subjectAttendanceController.js";
 
 import {
   getStatistics,
@@ -182,6 +186,8 @@ router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
 router.get("/attendance/group/:groupId/date/:date", isAdmin, getGroupStudentAttendanceByDate);
 router.get("/attendance/group/:groupId/students", isAdmin, getStudentsByGroup);
 router.get("/attendance/group/:groupId/course/:courseId", isAdmin, getAttendanceByGroupAndCourse);
+router.get("/attendance/subject-wise-report", isAdmin, getSubjectWiseAttendanceReport);
+router.get("/attendance/subject-report", isAdmin, getSubjectAttendanceReport);
 router.get("/attendance/student/:studentId", isAdmin, getStudentOverallAttendance);
 router.get("/attendance/student/:studentId/course/:courseId", isAdmin, getStudentAttendanceReport);
 router.get("/attendance/:sessionId", isAdmin, getAttendanceById);
