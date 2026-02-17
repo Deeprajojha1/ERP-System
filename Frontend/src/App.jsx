@@ -35,6 +35,7 @@ import Library from "./Admin/Library";
 import Settings from "./Admin/Settings";
 import FacultyLectureReport from "./Admin/FacultyLectureReport";
 import SubjectAttendance from "./Admin/Subjectattendance";
+import TeachingLoad from "./Admin/Teachingload";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
@@ -266,6 +267,7 @@ function App() {
           <Route path="library" element={<Library />} />
           <Route path="faculty-lecture-report" element={<FacultyLectureReport />} />
           <Route path="subject-attendance" element={<SubjectAttendance />} />
+          <Route path="teaching-load" element={<TeachingLoad />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/page-not-found" replace />} />
         </Route>

@@ -7,6 +7,79 @@ import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
+const buildRoutineWithDetails = async (routineMap) => {
+  if (!routineMap || (routineMap instanceof Map && routineMap.size === 0)) return {};
+
+  const routineObj =
+    routineMap instanceof Map ? Object.fromEntries(routineMap.entries()) : routineMap;
+  const normalizeDaySlots = (daySlots) =>
+    daySlots instanceof Map ? Object.fromEntries(daySlots.entries()) : daySlots;
+
+  const courseIds = new Set();
+  const groupIds = new Set();
+
+  Object.values(routineObj || {}).forEach((daySlotsRaw) => {
+    const daySlots = normalizeDaySlots(daySlotsRaw);
+    if (!daySlots || typeof daySlots !== "object") return;
+    Object.values(daySlots).forEach((slot) => {
+      if (!slot) return;
+      const courseId = slot.course?._id || slot.course;
+      const groupId = slot.group?._id || slot.group;
+      if (courseId) courseIds.add(String(courseId));
+      if (groupId) groupIds.add(String(groupId));
+    });
+  });
+
+  const [courses, groups] = await Promise.all([
+    courseIds.size
+      ? Course.find({ _id: { $in: Array.from(courseIds) } }).select("code courseName")
+      : [],
+    groupIds.size
+      ? Group.find({ _id: { $in: Array.from(groupIds) } }).select("name roomNo")
+      : [],
+  ]);
+
+  const courseMap = new Map(courses.map((c) => [String(c._id), c]));
+  const groupMap = new Map(groups.map((g) => [String(g._id), g]));
+
+  const resolved = {};
+
+  Object.entries(routineObj || {}).forEach(([day, daySlotsRaw]) => {
+    const daySlots = normalizeDaySlots(daySlotsRaw);
+    resolved[day] = {};
+    if (!daySlots || typeof daySlots !== "object") return;
+
+    Object.entries(daySlots).forEach(([lectureNumber, slot]) => {
+      if (!slot) return;
+
+      const courseId = String(slot.course?._id || slot.course || "");
+      const groupId = String(slot.group?._id || slot.group || "");
+
+      const courseDoc = courseMap.get(courseId);
+      const groupDoc = groupMap.get(groupId);
+
+      resolved[day][lectureNumber] = {
+        course: courseDoc
+          ? {
+              _id: courseDoc._id,
+              code: courseDoc.code,
+              courseName: courseDoc.courseName,
+            }
+          : slot.course || null,
+        group: groupDoc
+          ? {
+              _id: groupDoc._id,
+              name: groupDoc.name,
+              roomNo: groupDoc.roomNo || null,
+            }
+          : slot.group || null,
+      };
+    });
+  });
+
+  return resolved;
+};
+
 const clearTimetableCacheForDepartments = async (departmentIds = []) => {
   const normalizedIds = [...new Set((departmentIds || []).filter(Boolean).map(String))];
   await redisClient.del("admin:timetable:groups");
@@ -52,10 +125,18 @@ export const getAllFaculty = async (req, res) => {
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
 
+    const facultyWithRoutineDetails = await Promise.all(
+      faculty.map(async (f) => {
+        const obj = f.toObject();
+        obj.routine = await buildRoutineWithDetails(f.routine);
+        return obj;
+      })
+    );
+
     const responsePayload = {
       message: "Faculty fetched successfully",
-      count: faculty.length,
-      faculty,
+      count: facultyWithRoutineDetails.length,
+      faculty: facultyWithRoutineDetails,
     };
 
     if (!noCache) {
@@ -92,9 +173,12 @@ export const getFacultyById = async (req, res) => {
       });
     }
 
+    const facultyObj = faculty.toObject();
+    facultyObj.routine = await buildRoutineWithDetails(faculty.routine);
+
     res.json({
       message: "Faculty fetched successfully",
-      faculty,
+      faculty: facultyObj,
     });
   } catch (error) {
     res.status(500).json({
