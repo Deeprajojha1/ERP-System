@@ -7,10 +7,7 @@ import Login from "./components/UserLogin/Login";
 import UserRegister from "./components/UserRegister/UserRegister";
 import Layout from "./components/Layout/Layout";
 import Dashboard from "./components/pages/Dashboard";
-import AttendancePage from "./components/faculty/AttendancePage";
-import FacultyDashboard from "./components/faculty/FacultyDashboard";
-import FacultyLeaves from "./components/faculty/FacultyLeaves";
-import Header from "./components/faculty/Header";
+import FacultyErpDashboard from "./components/faculty/FacultyErpDashboard";
 import AdminHome from "./Admin/AdminHome";
 import useGetCurrentUser from "./components/customHooks/getCurrentUser";
 import Department from "./Admin/Department";
@@ -207,18 +204,10 @@ function App() {
           path="/faculty/*"
           element={
             userData?.user?.role === "faculty" ? (
-              <div className="app">
-                <Header />
-
-                <main className="main">
-                  <Routes>
-                    <Route path="faculty-dashboard" element={<FacultyDashboard />} />
-                    <Route path="course/:courseId" element={<AttendancePage />} />
-                    <Route path="leaves" element={<FacultyLeaves />} />
-                    <Route path="*" element={<Navigate to="/page-not-found" replace />} />
-                  </Routes>
-                </main>
-              </div>
+              <Routes>
+                <Route path="faculty-dashboard" element={<FacultyErpDashboard />} />
+                <Route path="*" element={<Navigate to="/page-not-found" replace />} />
+              </Routes>
             ) : (
               <Navigate to="/" replace />
             )

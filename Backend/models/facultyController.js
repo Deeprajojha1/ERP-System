@@ -6,81 +6,8 @@ import Group from "../models/Group.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
-import Assignment from "../models/Assignment.js";
-import Submission from "../models/Submission.js";
-
-const buildRoutineWithDetails = async (routineMap) => {
-  if (!routineMap || (routineMap instanceof Map && routineMap.size === 0)) return {};
-
-  const routineObj =
-    routineMap instanceof Map ? Object.fromEntries(routineMap.entries()) : routineMap;
-  const normalizeDaySlots = (daySlots) =>
-    daySlots instanceof Map ? Object.fromEntries(daySlots.entries()) : daySlots;
-
-  const courseIds = new Set();
-  const groupIds = new Set();
-
-  Object.values(routineObj || {}).forEach((daySlotsRaw) => {
-    const daySlots = normalizeDaySlots(daySlotsRaw);
-    if (!daySlots || typeof daySlots !== "object") return;
-    Object.values(daySlots).forEach((slot) => {
-      if (!slot) return;
-      const courseId = slot.course?._id || slot.course;
-      const groupId = slot.group?._id || slot.group;
-      if (courseId) courseIds.add(String(courseId));
-      if (groupId) groupIds.add(String(groupId));
-    });
-  });
-
-  const [courses, groups] = await Promise.all([
-    courseIds.size
-      ? Course.find({ _id: { $in: Array.from(courseIds) } }).select("code courseName")
-      : [],
-    groupIds.size
-      ? Group.find({ _id: { $in: Array.from(groupIds) } }).select("name roomNo")
-      : [],
-  ]);
-
-  const courseMap = new Map(courses.map((c) => [String(c._id), c]));
-  const groupMap = new Map(groups.map((g) => [String(g._id), g]));
-
-  const resolved = {};
-
-  Object.entries(routineObj || {}).forEach(([day, daySlotsRaw]) => {
-    const daySlots = normalizeDaySlots(daySlotsRaw);
-    resolved[day] = {};
-    if (!daySlots || typeof daySlots !== "object") return;
-
-    Object.entries(daySlots).forEach(([lectureNumber, slot]) => {
-      if (!slot) return;
-
-      const courseId = String(slot.course?._id || slot.course || "");
-      const groupId = String(slot.group?._id || slot.group || "");
-
-      const courseDoc = courseMap.get(courseId);
-      const groupDoc = groupMap.get(groupId);
-
-      resolved[day][lectureNumber] = {
-        course: courseDoc
-          ? {
-              _id: courseDoc._id,
-              code: courseDoc.code,
-              courseName: courseDoc.courseName,
-            }
-          : slot.course || null,
-        group: groupDoc
-          ? {
-              _id: groupDoc._id,
-              name: groupDoc.name,
-              roomNo: groupDoc.roomNo || null,
-            }
-          : slot.group || null,
-      };
-    });
-  });
-
-  return resolved;
-};
+import Assignment from "../models/Assignment.js"
+import Submission from "../models/Submission.js"
 
 const clearTimetableCacheForDepartments = async (departmentIds = []) => {
   const normalizedIds = [...new Set((departmentIds || []).filter(Boolean).map(String))];
@@ -96,10 +23,7 @@ const clearTimetableCacheForDepartments = async (departmentIds = []) => {
 
   await Promise.all(
     groups.map((group) =>
-      Promise.all([
-        redisClient.del(`admin:timetable:group:${group._id}`),
-        redisClient.del(`admin:timetable:group:v2:${group._id}`),
-      ])
+      redisClient.del(`admin:timetable:group:${group._id}`)
     )
   );
 };
@@ -127,18 +51,10 @@ export const getAllFaculty = async (req, res) => {
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
 
-    const facultyWithRoutineDetails = await Promise.all(
-      faculty.map(async (f) => {
-        const obj = f.toObject();
-        obj.routine = await buildRoutineWithDetails(f.routine);
-        return obj;
-      })
-    );
-
     const responsePayload = {
       message: "Faculty fetched successfully",
-      count: facultyWithRoutineDetails.length,
-      faculty: facultyWithRoutineDetails,
+      count: faculty.length,
+      faculty,
     };
 
     if (!noCache) {
@@ -175,12 +91,9 @@ export const getFacultyById = async (req, res) => {
       });
     }
 
-    const facultyObj = faculty.toObject();
-    facultyObj.routine = await buildRoutineWithDetails(faculty.routine);
-
     res.json({
       message: "Faculty fetched successfully",
-      faculty: facultyObj,
+      faculty,
     });
   } catch (error) {
     res.status(500).json({
@@ -456,7 +369,8 @@ export const addRoutineToFaculty = async (req, res) => {
   }
 };
 
-/* ============== CREATE ASSIGNMENT (FACULTY) ============== */
+/*============== creating new assingment================== */
+
 export const createAssignment = async (req, res) => {
   try {
     const { title, description, groupId, dueDate } = req.body;
@@ -465,16 +379,21 @@ export const createAssignment = async (req, res) => {
       return res.status(400).json({ message: "File is required" });
     }
 
+    // 1️⃣ Find faculty using logged-in user ID
     const faculty = await Faculty.findOne({ user: req.userId });
+
     if (!faculty) {
       return res.status(404).json({ message: "Faculty record not found" });
     }
 
+    // 2️⃣ Fetch group to get department
     const group = await Group.findById(groupId);
+
     if (!group) {
       return res.status(404).json({ message: "Group not found" });
     }
 
+    // 3️⃣ Create assignment using FACULTY _id
     const assignment = await Assignment.create({
       title,
       description,
@@ -482,52 +401,65 @@ export const createAssignment = async (req, res) => {
       fileType: req.file.mimetype,
       department: group.department,
       group: groupId,
-      uploadedBy: faculty._id,
+      uploadedBy: faculty._id,   // ✅ FIXED
       dueDate,
     });
 
-    return res.status(201).json({
+    res.status(201).json({
       success: true,
       message: "Assignment created successfully",
       assignment,
     });
+
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* ============== GET FACULTY ASSIGNMENTS ============== */
+/*=============== Get Teacher Assignments ====================*/
+
 export const getTeacherAssignments = async (req, res) => {
   try {
+    // Find faculty using user ID
     const faculty = await Faculty.findOne({ user: req.userId });
+
     if (!faculty) {
       return res.status(404).json({ message: "Faculty record not found" });
     }
 
-    const assignments = await Assignment.find({ uploadedBy: faculty._id })
+    const assignments = await Assignment.find({
+      uploadedBy: faculty._id,  // ✅ FIXED
+    })
       .populate("group", "name")
       .sort({ createdAt: -1 });
 
-    return res.json(assignments);
+    res.json(assignments);
+
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* ============== GET ASSIGNMENT SUBMISSIONS ============== */
+
+
+/*=================== Get Submissions of Assignment ====================*/
+
 export const getAssignmentSubmissions = async (req, res) => {
   try {
-    const submissions = await Submission.find({ assignment: req.params.id })
+    const submissions = await Submission.find({
+      assignment: req.params.id,
+    })
       .populate("student", "name email")
       .sort({ createdAt: -1 });
 
-    return res.json(submissions);
+    res.json(submissions);
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* ============== GRADE SUBMISSION ============== */
+/*================ Grade Submission ===================*/
+
 export const gradeSubmission = async (req, res) => {
   try {
     const { marks, feedback } = req.body;
@@ -538,12 +470,12 @@ export const gradeSubmission = async (req, res) => {
       { new: true }
     );
 
-    return res.json({
+    res.json({
       success: true,
       message: "Submission graded successfully",
       submission,
     });
   } catch (error) {
-    return res.status(500).json({ message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
