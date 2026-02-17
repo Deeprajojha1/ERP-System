@@ -33,6 +33,8 @@ import FeesOthers from "./Admin/FeesOthers";
 import GeneralSupport from "./Admin/GeneralSupport";
 import Library from "./Admin/Library";
 import Settings from "./Admin/Settings";
+import FacultyLectureReport from "./Admin/FacultyLectureReport";
+import SubjectAttendance from "./Admin/Subjectattendance";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
@@ -262,6 +264,8 @@ function App() {
           <Route path="fees/others" element={<FeesOthers />} />
           <Route path="general-support" element={<GeneralSupport />} />
           <Route path="library" element={<Library />} />
+          <Route path="faculty-lecture-report" element={<FacultyLectureReport />} />
+          <Route path="subject-attendance" element={<SubjectAttendance />} />
           <Route path="settings" element={<Settings />} />
           <Route path="*" element={<Navigate to="/page-not-found" replace />} />
         </Route>

@@ -21,7 +21,10 @@ const clearTimetableCacheForDepartments = async (departmentIds = []) => {
 
   await Promise.all(
     groups.map((group) =>
-      redisClient.del(`admin:timetable:group:${group._id}`)
+      Promise.all([
+        redisClient.del(`admin:timetable:group:${group._id}`),
+        redisClient.del(`admin:timetable:group:v2:${group._id}`),
+      ])
     )
   );
 };

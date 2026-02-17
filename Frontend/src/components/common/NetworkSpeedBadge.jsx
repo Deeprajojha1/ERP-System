@@ -92,10 +92,10 @@ function NetworkSpeedBadge() {
   useEffect(() => {
     const updateNetwork = () => setRefreshKey((prev) => prev + 1);
     const connection = getConnection();
-
-    window.addEventListener("online", updateNetwork);
-    window.addEventListener("offline", updateNetwork);
-    connection?.addEventListener?.("change", updateNetwork);
+    const handleNetworkEvent = () => {
+      updateNetwork();
+      runSpeedCheck();
+    };
 
     const runSpeedCheck = async () => {
       if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -109,17 +109,16 @@ function NetworkSpeedBadge() {
       }
     };
 
+    window.addEventListener("online", handleNetworkEvent);
+    window.addEventListener("offline", handleNetworkEvent);
+    connection?.addEventListener?.("change", handleNetworkEvent);
+
     runSpeedCheck();
-    const intervalId = setInterval(() => {
-      updateNetwork();
-      runSpeedCheck();
-    }, 5000);
 
     return () => {
-      window.removeEventListener("online", updateNetwork);
-      window.removeEventListener("offline", updateNetwork);
-      connection?.removeEventListener?.("change", updateNetwork);
-      clearInterval(intervalId);
+      window.removeEventListener("online", handleNetworkEvent);
+      window.removeEventListener("offline", handleNetworkEvent);
+      connection?.removeEventListener?.("change", handleNetworkEvent);
     };
   }, []);
 

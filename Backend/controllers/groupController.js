@@ -76,6 +76,26 @@ const upsertCourseFacultyPair = (courseFaculty = [], courseId, facultyId) => {
   return [...courseFaculty, { course: cId, faculty: fId }];
 };
 
+const collectCourseIdsFromSchedule = (scheduleSlots) => {
+  const scheduleObj = mapScheduleToObject(scheduleSlots);
+  const ids = new Set();
+
+  Object.values(scheduleObj).forEach((lectures = {}) => {
+    Object.values(lectures).forEach((courseId) => {
+      if (courseId) ids.add(String(courseId));
+    });
+  });
+
+  return ids;
+};
+
+const syncGroupCourseIdsFromSchedule = (group) => {
+  // Keep courseIds aligned with current timetable entries.
+  // This replaces stale IDs when a lecture course is edited.
+  const fromSchedule = collectCourseIdsFromSchedule(group.scheduleSlots);
+  group.courseIds = Array.from(fromSchedule);
+};
+
 const syncCourseFacultyIds = async (courseFaculty = []) => {
   if (!Array.isArray(courseFaculty) || courseFaculty.length === 0) return;
   const updateOps = courseFaculty.map((cf) =>
@@ -142,6 +162,7 @@ const clearTimetableCache = async (groupId) => {
   await redisClient.del("admin:timetable:groups");
   await redisClient.del("admin:timetable:groups:v2");
   await redisClient.del(`admin:timetable:group:${groupId}`);
+  await redisClient.del(`admin:timetable:group:v2:${groupId}`);
   await redisClient.del("admin:faculty:all");
 };
 
@@ -322,7 +343,7 @@ export const getGroupTimetable = async (req, res) => {
   try {
     const { groupId } = req.params;
     const noCache = req.query.noCache === "true";
-    const cacheKey = `admin:timetable:group:${groupId}`;
+    const cacheKey = `admin:timetable:group:v2:${groupId}`;
 
     if (!noCache) {
       try {
@@ -337,7 +358,6 @@ export const getGroupTimetable = async (req, res) => {
     }
 
     const group = await Group.findById(groupId)
-      .populate({ path: "courseIds", select: "code courseName semester" })
       .populate({
         path: "courseFaculty.course",
         select: "code courseName",
@@ -351,12 +371,18 @@ export const getGroupTimetable = async (req, res) => {
       return res.status(404).json({ message: "Group not found" });
     }
 
+    const scheduleCourseIds = Array.from(collectCourseIdsFromSchedule(group.scheduleSlots));
+    const scheduleCourses = scheduleCourseIds.length
+      ? await Course.find({
+          _id: { $in: scheduleCourseIds },
+          isDeleted: { $ne: true },
+        }).select("code courseName semester")
+      : [];
+
     const courseMap = {};
-    if (group.courseIds && group.courseIds.length > 0) {
-      group.courseIds.forEach((course) => {
-        courseMap[course._id.toString()] = course;
-      });
-    }
+    scheduleCourses.forEach((course) => {
+      courseMap[course._id.toString()] = course;
+    });
 
     const courseFacultyMap = {};
     const facultyNameMap = {};
@@ -430,9 +456,9 @@ export const getGroupTimetable = async (req, res) => {
     });
 
     let semester = null;
-    if (group.courseIds && group.courseIds.length > 0) {
+    if (scheduleCourses.length > 0) {
       const counts = {};
-      group.courseIds.forEach((course) => {
+      scheduleCourses.forEach((course) => {
         if (typeof course.semester === "number") {
           counts[course.semester] = (counts[course.semester] || 0) + 1;
         }
@@ -444,12 +470,20 @@ export const getGroupTimetable = async (req, res) => {
       }
     }
 
-    // Build courses list for edit dropdowns
-    const courses = (group.courseIds || []).map((c) => ({
-      id: c._id,
-      code: c.code,
-      courseName: c.courseName,
-    }));
+    // Build courses list for edit dropdowns from the group's department.
+    let courses = [];
+    if (group.department) {
+      const departmentCourses = await Course.find({
+        department: group.department,
+        isDeleted: { $ne: true },
+      }).select("code courseName");
+
+      courses = departmentCourses.map((c) => ({
+        id: c._id,
+        code: c.code,
+        courseName: c.courseName,
+      }));
+    }
 
     // Fetch all faculty in this group's department
     let departmentFaculty = [];
@@ -513,6 +547,7 @@ export const createGroupTimetable = async (req, res) => {
     if (Array.isArray(courseFaculty) && courseFaculty.length > 0) {
       group.courseFaculty = courseFaculty;
     }
+    syncGroupCourseIdsFromSchedule(group);
     await group.save();
 
     await syncCourseFacultyIds(group.courseFaculty || []);
@@ -591,6 +626,7 @@ export const updateGroupTimetable = async (req, res) => {
       group.courseFaculty = courseFaculty;
     }
 
+    syncGroupCourseIdsFromSchedule(group);
     await group.save();
     await syncCourseFacultyIds(group.courseFaculty || []);
     await syncFacultyRoutineFromGroup(group);
@@ -897,6 +933,7 @@ export const updateGroup = async (req, res) => {
     try {
       await redisClient.del("admin:timetable:groups");
       await redisClient.del(`admin:timetable:group:${id}`);
+      await redisClient.del(`admin:timetable:group:v2:${id}`);
       await redisClient.del("admin:groups:all");
     } catch (err) {
       console.error("[Redis] updateGroup cache clear failed:", err.message || err);
@@ -927,6 +964,7 @@ export const deleteGroup = async (req, res) => {
     try {
       await redisClient.del("admin:timetable:groups");
       await redisClient.del(`admin:timetable:group:${id}`);
+      await redisClient.del(`admin:timetable:group:v2:${id}`);
       await redisClient.del("admin:groups:all");
     } catch (err) {
       console.error("[Redis] deleteGroup cache clear failed:", err.message || err);
@@ -953,6 +991,7 @@ export const hardDeleteGroup = async (req, res) => {
     try {
       await redisClient.del("admin:timetable:groups");
       await redisClient.del(`admin:timetable:group:${id}`);
+      await redisClient.del(`admin:timetable:group:v2:${id}`);
       await redisClient.del("admin:groups:all");
     } catch (err) {
       console.error("[Redis] hardDeleteGroup cache clear failed:", err.message || err);
