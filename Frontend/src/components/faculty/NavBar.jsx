@@ -1,16 +1,26 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { clearUserData } from "../../redux/userSlice";
-import { Bell, LogOut } from "lucide-react";
+import { Bell, LogOut, RefreshCw } from "lucide-react";
 
-export default function NavBar({ facultyData }) {
+export default function NavBar({ facultyData, onRefresh }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [refreshing, setRefreshing] = useState(false);
 
   const handleLogout = () => {
     dispatch(clearUserData());
     localStorage.removeItem("token");
     navigate("/login");
+  };
+
+  const handleRefresh = async () => {
+    if (onRefresh && !refreshing) {
+      setRefreshing(true);
+      await onRefresh();
+      setTimeout(() => setRefreshing(false), 500);
+    }
   };
 
   const getInitials = (name) => {
@@ -32,7 +42,17 @@ export default function NavBar({ facultyData }) {
         <p className="faculty-navbar-dept">{departmentName}</p>
       </div>
       <div className="faculty-navbar-right">
-        <button className="faculty-navbar-btn">
+        {onRefresh && (
+          <button 
+            onClick={handleRefresh} 
+            className="faculty-navbar-btn"
+            title="Refresh data"
+            disabled={refreshing}
+          >
+            <RefreshCw size={20} className={refreshing ? "spinning" : ""} />
+          </button>
+        )}
+        <button className="faculty-navbar-btn" title="Notifications">
           <Bell size={20} />
         </button>
         <button onClick={handleLogout} className="faculty-logout-btn">

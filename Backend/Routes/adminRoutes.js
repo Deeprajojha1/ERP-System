@@ -91,6 +91,13 @@ import {
 } from "../controllers/librarianController.js";
 import { changePassword } from "../controllers/userController.js";
 
+import {
+  getAdminAssignments,
+  updateAssignment,
+  deleteAssignment,
+  getAssignmentSubmissionsAdmin,
+} from "../controllers/assingmentController.js";
+
 import isAdmin from "../middlewares/isAdmin.js";
 
 const router = express.Router();
@@ -200,5 +207,13 @@ router.delete("/library/books/:id", deleteBook);
 router.post("/library/issues",issueBook);
 router.get("/library/issues", getIssuedBooks);
 router.patch("/library/issues/:id/return", returnBook);
+
+/* =========================
+   ASSIGNMENTS
+========================= */
+router.get("/assignments", isAdmin, getAdminAssignments);
+router.put("/assignment/:id", isAdmin, updateAssignment);
+router.delete("/assignment/:id", isAdmin, deleteAssignment);
+router.get("/assignment/:id/submissions", isAdmin, getAssignmentSubmissionsAdmin);
 
 export default router;

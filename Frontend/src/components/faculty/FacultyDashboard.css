@@ -1152,3 +1152,17 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Spinning animation for refresh button */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}

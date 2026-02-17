@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import { Calendar, Users, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Users, CheckCircle, XCircle } from "lucide-react";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 
 export default function AttendanceSection({ facultyData, showToast }) {
   const [selectedGroup, setSelectedGroup] = useState("");
@@ -32,15 +32,19 @@ export default function AttendanceSection({ facultyData, showToast }) {
       }
       return acc;
     }, []);
+    
+    console.log("Extracted groups:", uniqueGroups);
     setGroups(uniqueGroups);
 
-    if (uniqueGroups.length > 0) {
+    if (uniqueGroups.length > 0 && !selectedGroup) {
+      console.log("Setting initial group:", uniqueGroups[0]._id);
       setSelectedGroup(uniqueGroups[0]._id);
       if (uniqueGroups[0].courses.length > 0) {
+        console.log("Setting initial course:", uniqueGroups[0].courses[0]._id);
         setSelectedCourse(uniqueGroups[0].courses[0]._id);
       }
     }
-  }, [todaySchedule]);
+  }, [todaySchedule, selectedGroup]);
 
   useEffect(() => {
     if (selectedGroup) {
@@ -51,7 +55,7 @@ export default function AttendanceSection({ facultyData, showToast }) {
   const fetchStudents = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/api/faculty/attendance/group/${selectedGroup}/students`, {
+      const response = await axios.get(`${API_BASE_URL}/faculty/attendance/group/${selectedGroup}/students`, {
         withCredentials: true,
       });
       setStudents(response.data.students || []);
@@ -90,6 +94,8 @@ export default function AttendanceSection({ facultyData, showToast }) {
   };
 
   const handleSubmit = async () => {
+    console.log("Submit clicked - selectedGroup:", selectedGroup, "selectedCourse:", selectedCourse);
+    
     if (!selectedGroup || !selectedCourse) {
       showToast("Please select group and course", "error");
       return;
@@ -97,17 +103,20 @@ export default function AttendanceSection({ facultyData, showToast }) {
 
     try {
       setLoading(true);
-      const attendanceData = students.map((student) => ({
+      const records = students.map((student) => ({
         student: student._id,
         status: attendance[student._id] || "present",
       }));
 
+      console.log("Submitting attendance to:", `${API_BASE_URL}/faculty/attendance/${selectedGroup}`);
+      console.log("Attendance data:", { courseId: selectedCourse, date: attendanceDate, records });
+
       await axios.post(
-        `${API_BASE_URL}/api/faculty/attendance/${selectedGroup}`,
+        `${API_BASE_URL}/faculty/attendance/${selectedGroup}`,
         {
           courseId: selectedCourse,
           date: attendanceDate,
-          attendance: attendanceData,
+          records,
         },
         { withCredentials: true }
       );
@@ -124,17 +133,6 @@ export default function AttendanceSection({ facultyData, showToast }) {
   const counts = {
     present: Object.values(attendance).filter((s) => s === "present").length,
     absent: Object.values(attendance).filter((s) => s === "absent").length,
-    late: Object.values(attendance).filter((s) => s === "late").length,
-  };
-
-  const statusClass = (studentId, status) => {
-    const current = attendance[studentId];
-    if (current === status) {
-      if (status === "present") return "bg-green-500 text-white";
-      if (status === "absent") return "bg-red-500 text-white";
-      if (status === "late") return "bg-yellow-500 text-white";
-    }
-    return "bg-navy-700 hover:bg-navy-600";
   };
 
   const selectedGroupData = groups.find((g) => g._id === selectedGroup);
@@ -153,33 +151,48 @@ export default function AttendanceSection({ facultyData, showToast }) {
           <select
             value={selectedGroup}
             onChange={(e) => {
+              console.log("Group changed to:", e.target.value);
               setSelectedGroup(e.target.value);
               const group = groups.find((g) => g._id === e.target.value);
               if (group && group.courses.length > 0) {
+                console.log("Setting course to:", group.courses[0]._id);
                 setSelectedCourse(group.courses[0]._id);
               }
             }}
             className="attendance-filter-select"
+            disabled={groups.length === 0}
           >
-            {groups.map((group) => (
-              <option key={group._id} value={group._id}>
-                {group.name} - Room {group.roomNo}
-              </option>
-            ))}
+            {groups.length === 0 ? (
+              <option value="">No groups available</option>
+            ) : (
+              groups.map((group) => (
+                <option key={group._id} value={group._id}>
+                  {group.name} - Room {group.roomNo}
+                </option>
+              ))
+            )}
           </select>
         </div>
         <div className="attendance-filter-group">
           <label className="attendance-filter-label">Select Course</label>
           <select
             value={selectedCourse}
-            onChange={(e) => setSelectedCourse(e.target.value)}
+            onChange={(e) => {
+              console.log("Course changed to:", e.target.value);
+              setSelectedCourse(e.target.value);
+            }}
             className="attendance-filter-select"
+            disabled={availableCourses.length === 0}
           >
-            {availableCourses.map((course) => (
-              <option key={course._id} value={course._id}>
-                {course.code} - {course.courseName}
-              </option>
-            ))}
+            {availableCourses.length === 0 ? (
+              <option value="">No courses available</option>
+            ) : (
+              availableCourses.map((course) => (
+                <option key={course._id} value={course._id}>
+                  {course.code} - {course.courseName}
+                </option>
+              ))
+            )}
           </select>
         </div>
         <div className="attendance-filter-group">
@@ -210,7 +223,6 @@ export default function AttendanceSection({ facultyData, showToast }) {
       <div className="attendance-summary">
         <span className="attendance-summary-item attendance-summary-present">Present: {counts.present}</span>
         <span className="attendance-summary-item attendance-summary-absent">Absent: {counts.absent}</span>
-        <span className="attendance-summary-item attendance-summary-late">Late: {counts.late}</span>
         <span className="attendance-summary-item attendance-summary-total">Total: {students.length}</span>
       </div>
 
@@ -237,12 +249,6 @@ export default function AttendanceSection({ facultyData, showToast }) {
                   className={`attendance-status-btn ${attendance[student._id] === "absent" ? "active-absent" : ""}`}
                 >
                   Absent
-                </button>
-                <button
-                  onClick={() => markAttendance(student._id, "late")}
-                  className={`attendance-status-btn ${attendance[student._id] === "late" ? "active-late" : ""}`}
-                >
-                  Late
                 </button>
               </div>
             </div>
