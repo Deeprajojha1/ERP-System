@@ -90,6 +90,13 @@ import {
   hardDeleteLibrarian,
 } from "../controllers/librarianController.js";
 import { changePassword } from "../controllers/userController.js";
+import {
+  getAdminAssignments,
+  getSingleAssignmentAdmin,
+  updateAssignment,
+  deleteAssignment,
+  getAssignmentSubmissionsAdmin,
+} from "../controllers/assignmentController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
 
@@ -200,5 +207,14 @@ router.delete("/library/books/:id", deleteBook);
 router.post("/library/issues",issueBook);
 router.get("/library/issues", getIssuedBooks);
 router.patch("/library/issues/:id/return", returnBook);
+
+/* =========================
+   ASSIGNMENTS (ADMIN)
+========================= */
+router.get("/assignments", isAdmin, getAdminAssignments);
+router.get("/assignment/:id", isAdmin, getSingleAssignmentAdmin);
+router.put("/assignment/:id", isAdmin, updateAssignment);
+router.delete("/assignment/:id", isAdmin, deleteAssignment);
+router.get("/assignment/:id/submissions", isAdmin, getAssignmentSubmissionsAdmin);
 
 export default router;

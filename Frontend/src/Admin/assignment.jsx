@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import axios from "../utils/axiosInstance";
+import "./assignment.css";
 
 const Assignment = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -16,7 +17,6 @@ const Assignment = () => {
 
   const [loading, setLoading] = useState(false);
 
-  /* ================= FETCH DEPARTMENTS ================= */
   const fetchDepartments = async () => {
     try {
       const res = await axios.get(`${apiBase}/admin/department`, {
@@ -28,7 +28,6 @@ const Assignment = () => {
     }
   };
 
-  /* ================= FETCH GROUPS ================= */
   const fetchGroups = async (deptId) => {
     try {
       const res = await axios.get(`${apiBase}/admin/group`, {
@@ -36,11 +35,8 @@ const Assignment = () => {
       });
 
       const groupData = res.data?.groups || [];
-
       const filtered = groupData.filter(
-        (g) =>
-          g.department === deptId ||
-          g.department?._id === deptId
+        (g) => g.department === deptId || g.department?._id === deptId
       );
 
       setGroups(filtered);
@@ -49,7 +45,6 @@ const Assignment = () => {
     }
   };
 
-  /* ================= FETCH FACULTY ================= */
   const fetchFaculty = async (deptId) => {
     try {
       const res = await axios.get(`${apiBase}/admin/faculty`, {
@@ -57,11 +52,8 @@ const Assignment = () => {
       });
 
       const facultyData = res.data?.faculty || [];
-
       const filtered = facultyData.filter(
-        (f) =>
-          f.department === deptId ||
-          f.department?._id === deptId
+        (f) => f.department === deptId || f.department?._id === deptId
       );
 
       setFaculty(filtered);
@@ -70,21 +62,18 @@ const Assignment = () => {
     }
   };
 
-  /* ================= FETCH ASSIGNMENTS ================= */
   const fetchAssignments = async () => {
     try {
       setLoading(true);
 
       const query = new URLSearchParams();
-
       if (selectedDept) query.append("departmentId", selectedDept);
       if (selectedGroup) query.append("groupId", selectedGroup);
       if (selectedFaculty) query.append("facultyId", selectedFaculty);
 
-      const res = await axios.get(
-        `${apiBase}/admin/assignments?${query.toString()}`,
-        { withCredentials: true }
-      );
+      const res = await axios.get(`${apiBase}/admin/assignments?${query.toString()}`, {
+        withCredentials: true,
+      });
 
       setAssignments(res.data || []);
     } catch (error) {
@@ -94,7 +83,6 @@ const Assignment = () => {
     }
   };
 
-  /* ================= DELETE ================= */
   const handleDelete = async (id) => {
     try {
       await axios.delete(`${apiBase}/admin/assignment/${id}`, {
@@ -107,13 +95,11 @@ const Assignment = () => {
     }
   };
 
-  /* ================= VIEW SUBMISSIONS ================= */
   const handleViewSubmissions = async (id) => {
     try {
-      const res = await axios.get(
-        `${apiBase}/admin/assignment/${id}/submissions`,
-        { withCredentials: true }
-      );
+      const res = await axios.get(`${apiBase}/admin/assignment/${id}/submissions`, {
+        withCredentials: true,
+      });
 
       console.log("Submissions:", res.data);
       alert("Check console for submissions list");
@@ -121,8 +107,6 @@ const Assignment = () => {
       console.error("Failed to fetch submissions", error);
     }
   };
-
-  /* ================= USE EFFECTS ================= */
 
   useEffect(() => {
     if (apiBase) fetchDepartments();
@@ -137,7 +121,6 @@ const Assignment = () => {
     }
   }, [selectedDept]);
 
-  // 🔥 MAIN FIXED FETCH LOGIC
   useEffect(() => {
     if (selectedDept) {
       fetchAssignments();
@@ -145,94 +128,127 @@ const Assignment = () => {
   }, [selectedDept, selectedGroup, selectedFaculty]);
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>Assignment Management</h2>
+    <div className="assignment-page">
+      <div className="assignment-header">
+        <h2>Assignment Management</h2>
+        <p>Filter by department, group and faculty to view assignments quickly.</p>
+      </div>
 
-      {/* Department */}
-      <select
-        value={selectedDept}
-        onChange={(e) => setSelectedDept(e.target.value)}
-      >
-        <option value="">Select Department</option>
-        {departments.map((d) => (
-          <option key={d._id} value={d._id}>
-            {d.name}
-          </option>
-        ))}
-      </select>
-
-      {/* Group */}
-      {selectedDept && (
-        <select
-          value={selectedGroup}
-          onChange={(e) => setSelectedGroup(e.target.value)}
-        >
-          <option value="">All Groups</option>
-          {groups.map((g) => (
-            <option key={g._id} value={g._id}>
-              {g.name}
-            </option>
-          ))}
-        </select>
-      )}
-
-      {/* Faculty */}
-      {selectedDept && (
-        <select
-          value={selectedFaculty}
-          onChange={(e) => setSelectedFaculty(e.target.value)}
-        >
-          <option value="">All Faculty</option>
-          {faculty.map((f) => (
-            <option key={f._id} value={f._id}>
-              {f.user?.name}
-            </option>
-          ))}
-        </select>
-      )}
-
-      {/* Table */}
-      {loading ? (
-        <p>Loading assignments...</p>
-      ) : assignments.length > 0 ? (
-        <table border="1" cellPadding="10" style={{ marginTop: "20px" }}>
-          <thead>
-            <tr>
-              <th>Title</th>
-              <th>Faculty</th>
-              <th>Group</th>
-              <th>Department</th>
-              <th>Due Date</th>
-              <th>Status</th>
-              <th>Total Submissions</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {assignments.map((a) => (
-              <tr key={a._id}>
-                <td>{a.title}</td>
-                <td>{a.uploadedBy?.user?.name}</td>
-                <td>{a.group?.name}</td>
-                <td>{a.department?.name}</td>
-                <td>{new Date(a.dueDate).toLocaleDateString()}</td>
-                <td>{a.status}</td>
-                <td>{a.totalSubmissions}</td>
-                <td>
-                  <button onClick={() => handleViewSubmissions(a._id)}>
-                    View
-                  </button>
-                  <button onClick={() => handleDelete(a._id)}>
-                    Delete
-                  </button>
-                </td>
-              </tr>
+      <div className="assignment-filters">
+        <div className="assignment-filter-item">
+          <label htmlFor="assignment-department">Department</label>
+          <select
+            id="assignment-department"
+            value={selectedDept}
+            onChange={(e) => setSelectedDept(e.target.value)}
+          >
+            <option value="">Select Department</option>
+            {departments.map((d) => (
+              <option key={d._id} value={d._id}>
+                {d.name}
+              </option>
             ))}
-          </tbody>
-        </table>
-      ) : selectedDept ? (
-        <p style={{ marginTop: "20px" }}>No assignments found</p>
-      ) : null}
+          </select>
+        </div>
+
+        {selectedDept && (
+          <div className="assignment-filter-item">
+            <label htmlFor="assignment-group">Group</label>
+            <select
+              id="assignment-group"
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+            >
+              <option value="">All Groups</option>
+              {groups.map((g) => (
+                <option key={g._id} value={g._id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {selectedDept && (
+          <div className="assignment-filter-item">
+            <label htmlFor="assignment-faculty">Faculty</label>
+            <select
+              id="assignment-faculty"
+              value={selectedFaculty}
+              onChange={(e) => setSelectedFaculty(e.target.value)}
+            >
+              <option value="">All Faculty</option>
+              {faculty.map((f) => (
+                <option key={f._id} value={f._id}>
+                  {f.user?.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+
+      <div className="assignment-table-wrap">
+        {loading ? (
+          <p className="assignment-state">Loading assignments...</p>
+        ) : assignments.length > 0 ? (
+          <table className="assignment-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Faculty</th>
+                <th>Group</th>
+                <th>Department</th>
+                <th>Due Date</th>
+                <th>Status</th>
+                <th>Total Submissions</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {assignments.map((a) => (
+                <tr key={a._id}>
+                  <td className="assignment-title">{a.title}</td>
+                  <td>{a.uploadedBy?.user?.name || "-"}</td>
+                  <td>{a.group?.name || "-"}</td>
+                  <td>{a.department?.name || "-"}</td>
+                  <td>{new Date(a.dueDate).toLocaleDateString()}</td>
+                  <td>
+                    <span
+                      className={`assignment-status ${
+                        a.status === "closed" ? "closed" : "active"
+                      }`}
+                    >
+                      {a.status}
+                    </span>
+                  </td>
+                  <td>{a.totalSubmissions}</td>
+                  <td>
+                    <div className="assignment-actions">
+                      <button
+                        className="assignment-btn view"
+                        onClick={() => handleViewSubmissions(a._id)}
+                      >
+                        View
+                      </button>
+                      <button
+                        className="assignment-btn delete"
+                        onClick={() => handleDelete(a._id)}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : selectedDept ? (
+          <p className="assignment-state">No assignments found</p>
+        ) : (
+          <p className="assignment-state">Select a department to view assignments</p>
+        )}
+      </div>
     </div>
   );
 };

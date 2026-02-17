@@ -1,6 +1,5 @@
-import Assignment from "../models/Assignment.js";
-import Submission from "../models/Submission.js";
-import Group from "../models/Group.js";
+import Assignment from "../models/assignment.js";
+import Submission from "../models/submission.js";
 
 export const getAssignmentsByGroup = async (req, res) => {
   try {

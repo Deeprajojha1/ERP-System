@@ -33,6 +33,7 @@ import Settings from "./Admin/Settings";
 import FacultyLectureReport from "./Admin/FacultyLectureReport";
 import SubjectAttendance from "./Admin/Subjectattendance";
 import TeachingLoad from "./Admin/Teachingload";
+import Assignment from "./Admin/assignment";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
@@ -241,6 +242,7 @@ function App() {
           <Route path="student" element={<Student />} />
           <Route path="courses" element={<Courses />} />
           <Route path="groups" element={<Groups />} />
+          <Route path="assignment" element={<Assignment />} />
           <Route path="timetable" element={<Timetable />} />
           <Route path="exam" element={<Exam />} />
           <Route path="result" element={<Result />} />
