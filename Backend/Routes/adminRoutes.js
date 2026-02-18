@@ -101,7 +101,7 @@ import {
   updateAssignment,
   deleteAssignment,
   getAssignmentSubmissionsAdmin,
-} from "../controllers/assignmentController.js";
+} from "../controllers/assingmentController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
 import upload from "../config/multerConfig.js";
@@ -266,5 +266,6 @@ router.get(
   isAdmin,
   getAssignmentSubmissionsAdmin
 );
+
 
 export default router;

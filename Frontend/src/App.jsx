@@ -33,7 +33,7 @@ import Settings from "./Admin/Settings";
 import FacultyLectureReport from "./Admin/FacultyLectureReport";
 import SubjectAttendance from "./Admin/Subjectattendance";
 import TeachingLoad from "./Admin/Teachingload";
-import Assignment from "./Admin/assignment";
+import Assignment from "./Admin/Assignment";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
