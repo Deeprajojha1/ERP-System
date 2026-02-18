@@ -536,7 +536,6 @@ const Timetable = () => {
     downloadPdfFromHtml(apiBase, {
       html,
       fileName: `${selectedGroupCode || "group"}_timetable.pdf`,
-      fallbackToPrint: false,
     }).catch((error) => {
       toast.error(error.response?.data?.message || "Failed to download timetable PDF");
     });

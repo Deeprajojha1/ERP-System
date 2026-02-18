@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import connectDB from "./config/connectionDB.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import multer from "multer";
+import path from "path";
 import userRoutes from "./Routes/userRoutes.js";
 import adminRoutes from "./Routes/adminRoutes.js";
 import facultyRoutes from "./Routes/facultyRoutes.js";
@@ -19,6 +21,7 @@ const envOrigins = String(process.env.FRONTEND_URL || "")
   .map(normalizeOrigin)
   .filter(Boolean);
 const allowedOrigins = [
+  "https://hu-erp-git-development-subeshs-projects.vercel.app",
   "https://hu-erp-git-development-subeshs-projects.vercel.app",
   "https://hu-erp1.vercel.app",
   "http://localhost:5173",
@@ -70,6 +73,9 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
+// Serve static files (uploads)
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 // routes
 app.use('/api/user/', userRoutes)
 app.use('/api/admin/', adminRoutes)
@@ -79,6 +85,8 @@ app.use('/api/attendance/', attendanceRoutes)
 
 // Handle malformed JSON payloads from clients.
 app.use((err, req, res, next) => {
+  console.error("[Server Error Handler]", err);
+  
   if (
     err instanceof SyntaxError &&
     err.status === 400 &&

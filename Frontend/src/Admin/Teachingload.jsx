@@ -156,6 +156,23 @@ const TeachingLoad = () => {
             </button>
           </div>
 
+          <div className="teaching-load-form-toggle" role="group" aria-label="Select form">
+            <button
+              type="button"
+              className={`teaching-load-form-toggle-btn ${selectedForm === "A" ? "active" : ""}`}
+              onClick={() => setSelectedForm("A")}
+            >
+              Form A
+            </button>
+            <button
+              type="button"
+              className={`teaching-load-form-toggle-btn ${selectedForm === "B" ? "active" : ""}`}
+              onClick={() => setSelectedForm("B")}
+            >
+              Form B
+            </button>
+          </div>
+
           <div className="teaching-load-filter-group">
             <label htmlFor="department-select">Department</label>
             <select
@@ -167,11 +184,16 @@ const TeachingLoad = () => {
                   selectedProgram: "",
                   selectedSemester: "",
                 });
+                updateActiveFormFilters({
+                  selectedDepartment: e.target.value,
+                  selectedProgram: "",
+                  selectedSemester: "",
+                });
               }}
             >
               <option value="">Select Department</option>
-              {departments.map((dept) => (
-                <option key={dept._id} value={dept._id}>
+              {DUMMY_DEPARTMENTS.map((dept) => (
+                <option key={dept.id} value={dept.id}>
                   {dept.name}
                 </option>
               ))}
@@ -179,6 +201,7 @@ const TeachingLoad = () => {
           </div>
 
           <div className="teaching-load-filter-group">
+            <label htmlFor="program-select">Program / Class (Optional)</label>
             <label htmlFor="program-select">Program / Class (Optional)</label>
             <select
               id="program-select"
@@ -188,9 +211,14 @@ const TeachingLoad = () => {
                   selectedProgram: e.target.value,
                   selectedSemester: "",
                 });
+                updateActiveFormFilters({
+                  selectedProgram: e.target.value,
+                  selectedSemester: "",
+                });
               }}
               disabled={!selectedDepartment}
             >
+              <option value="">All Programs</option>
               <option value="">All Programs</option>
               {programs.map((prog) => (
                 <option key={prog} value={prog}>
@@ -205,6 +233,12 @@ const TeachingLoad = () => {
             <select
               id="semester-select"
               value={selectedSemester}
+              onChange={(e) =>
+                updateActiveFormFilters({
+                  selectedSemester: e.target.value,
+                })
+              }
+              disabled={!selectedDepartment}
               onChange={(e) =>
                 updateActiveFormFilters({
                   selectedSemester: e.target.value,
@@ -263,12 +297,18 @@ const TeachingLoad = () => {
               <h4>
                 Department of {selectedDeptName}
                 {selectedProgram ? ` - ${selectedProgram}` : ""}
+                Department of {selectedDeptName}
+                {selectedProgram ? ` - ${selectedProgram}` : ""}
                 {selectedSemester && ` - Semester ${selectedSemester}`}
               </h4>
+              <p className="print-form-label">{selectedForm === "A" ? "Form A" : "Form B"}</p>
               <p className="print-form-label">{selectedForm === "A" ? "Form A" : "Form B"}</p>
             </div>
 
             <div className="teaching-load-table-wrapper">
+              <p className="teaching-load-form-label">
+                Generate {selectedForm === "A" ? "Form A" : "Form B"}
+              </p>
               <p className="teaching-load-form-label">
                 Generate {selectedForm === "A" ? "Form A" : "Form B"}
               </p>
@@ -283,16 +323,35 @@ const TeachingLoad = () => {
                       </div>
                     </th>
                   </tr>
+                  <tr className="teaching-load-table-title-row">
+                    <th colSpan={6}>
+                      <div className="teaching-load-table-title-block">
+                        <p>HARIDWAR UNIVERSITY, ROORKEE</p>
+                        <p>TEACHING LOAD (ODD SEMESTER, 2024 2025)</p>
+                        <p>{selectedForm === "A" ? "Form A" : "Form B"}</p>
+                      </div>
+                    </th>
+                  </tr>
                   <tr>
                     <th>SR NO.</th>
                     <th>Faculty Name</th>
                     <th>Subject Name</th>
+                    <th>Subject Name</th>
                     <th>Subject Code</th>
                     <th>Dept Name</th>
+                    <th>Sem</th>
                     <th>Sem</th>
                   </tr>
                 </thead>
                 <tbody>
+                  {tableRows.map((row) => (
+                    <tr key={row.key}>
+                      <td>{row.srNo}</td>
+                      <td>{row.facultyName}</td>
+                      <td>{row.subjectName}</td>
+                      <td>{row.subjectCode}</td>
+                      <td>{row.deptName}</td>
+                      <td>{row.sem}</td>
                   {tableRows.map((row) => (
                     <tr key={row.key}>
                       <td>{row.srNo}</td>

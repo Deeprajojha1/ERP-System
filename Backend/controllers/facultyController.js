@@ -6,6 +6,8 @@ import Group from "../models/Group.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
+import Assignment from "../models/Assignment.js";
+import Submission from "../models/Submission.js";
 
 const buildRoutineWithDetails = async (routineMap) => {
   if (!routineMap || (routineMap instanceof Map && routineMap.size === 0)) return {};
@@ -451,5 +453,97 @@ export const addRoutineToFaculty = async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+/* ============== CREATE ASSIGNMENT (FACULTY) ============== */
+export const createAssignment = async (req, res) => {
+  try {
+    const { title, description, groupId, dueDate } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "File is required" });
+    }
+
+    const faculty = await Faculty.findOne({ user: req.userId });
+    if (!faculty) {
+      return res.status(404).json({ message: "Faculty record not found" });
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const assignment = await Assignment.create({
+      title,
+      description,
+      fileUrl: req.file.path,
+      fileType: req.file.mimetype,
+      department: group.department,
+      group: groupId,
+      uploadedBy: faculty._id,
+      dueDate,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Assignment created successfully",
+      assignment,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+/* ============== GET FACULTY ASSIGNMENTS ============== */
+export const getTeacherAssignments = async (req, res) => {
+  try {
+    const faculty = await Faculty.findOne({ user: req.userId });
+    if (!faculty) {
+      return res.status(404).json({ message: "Faculty record not found" });
+    }
+
+    const assignments = await Assignment.find({ uploadedBy: faculty._id })
+      .populate("group", "name")
+      .sort({ createdAt: -1 });
+
+    return res.json(assignments);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+/* ============== GET ASSIGNMENT SUBMISSIONS ============== */
+export const getAssignmentSubmissions = async (req, res) => {
+  try {
+    const submissions = await Submission.find({ assignment: req.params.id })
+      .populate("student", "name email")
+      .sort({ createdAt: -1 });
+
+    return res.json(submissions);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+/* ============== GRADE SUBMISSION ============== */
+export const gradeSubmission = async (req, res) => {
+  try {
+    const { marks, feedback } = req.body;
+
+    const submission = await Submission.findByIdAndUpdate(
+      req.params.id,
+      { marks, feedback },
+      { new: true }
+    );
+
+    return res.json({
+      success: true,
+      message: "Submission graded successfully",
+      submission,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };

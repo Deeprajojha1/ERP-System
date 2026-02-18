@@ -1,6 +1,4 @@
 import AttendanceSession from "../models/AttendanceSession.js";
-import Student from "../models/Student.js";
-import Course from "../models/Course.js";
 import Group from "../models/Group.js";
 
 /**
@@ -117,7 +115,7 @@ export const getSubjectWiseAttendanceReport = async (req, res) => {
         let total = 0;
 
         sessions.forEach((session) => {
-          const record = session.attendance.find(
+          const record = session.records.find(
             (att) => att.student.toString() === studentId
           );
 
@@ -143,7 +141,7 @@ export const getSubjectWiseAttendanceReport = async (req, res) => {
         _id: student._id,
         name: student.user?.name || "Unknown",
         fatherName: student.fatherName || "N/A",
-        enrollmentNo: student.enrollmentNo || "N/A",
+        enrollmentNo: student.enrollmentNumber || "N/A",
         phone: student.user?.phoneNumber || student.phoneNumber || "N/A",
         subjectAttendance,
         totalPresent,
@@ -258,7 +256,7 @@ export const getSubjectAttendanceReport = async (req, res) => {
       let totalClasses = 0;
 
       sessions.forEach((session) => {
-        const record = session.attendance.find(
+        const record = session.records.find(
           (att) => att.student.toString() === studentId
         );
 
@@ -276,7 +274,7 @@ export const getSubjectAttendanceReport = async (req, res) => {
         _id: student._id,
         name: student.user?.name || "Unknown",
         fatherName: student.fatherName || "N/A",
-        enrollmentNo: student.enrollmentNo || "N/A",
+        enrollmentNo: student.enrollmentNumber || "N/A",
         phone: student.user?.phoneNumber || student.phoneNumber || "N/A",
         attendance,
         totalPresent,

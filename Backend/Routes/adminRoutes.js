@@ -54,7 +54,11 @@ import {
   updateGroupTimetable,
 } from "../controllers/groupController.js";
 
-import { getAdminProfile } from "../controllers/profileController.js";
+import { 
+  getAdminProfile, 
+  uploadProfileImage, 
+  deleteProfileImage 
+} from "../controllers/profileController.js";
 
 import {
   markAttendance,
@@ -69,6 +73,10 @@ import {
   getDailyAttendanceSummary,
   getGroupStudentAttendanceByDate,
 } from "../controllers/attendanceController.js";
+import {
+  getSubjectWiseAttendanceReport,
+  getSubjectAttendanceReport,
+} from "../controllers/subjectAttendanceController.js";
 
 import {
   getStatistics,
@@ -92,7 +100,15 @@ import {
 import { changePassword } from "../controllers/userController.js";
 import { getTeachingLoad } from "../controllers/teachingLoadController.js";
 
+import {
+  getAdminAssignments,
+  updateAssignment,
+  deleteAssignment,
+  getAssignmentSubmissionsAdmin,
+} from "../controllers/assingmentController.js";
+
 import isAdmin from "../middlewares/isAdmin.js";
+import upload from "../config/multerConfig.js";
 
 const router = express.Router();
 
@@ -101,6 +117,24 @@ const router = express.Router();
 ========================= */
 router.post("/profile", isAdmin, getAdminProfile);
 router.post("/change-password", isAdmin, changePassword);
+router.post("/profile/upload-image", isAdmin, (req, res, next) => {
+  console.log("[Admin Route] Upload request received");
+  upload.single("profileImage")(req, res, (err) => {
+    if (err) {
+      console.error("[Multer Error in Route]", err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ message: "File too large. Maximum size is 5MB." });
+      }
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ message: "Unexpected file field. Expected 'profileImage'." });
+      }
+      return res.status(400).json({ message: err.message || "File upload failed" });
+    }
+    console.log("[Admin Route] File processed successfully");
+    next();
+  });
+}, uploadProfileImage);
+router.delete("/profile/delete-image", isAdmin, deleteProfileImage);
 
 /* =========================
    DEPARTMENT
@@ -177,6 +211,8 @@ router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
 router.get("/attendance/group/:groupId/date/:date", isAdmin, getGroupStudentAttendanceByDate);
 router.get("/attendance/group/:groupId/students", isAdmin, getStudentsByGroup);
 router.get("/attendance/group/:groupId/course/:courseId", isAdmin, getAttendanceByGroupAndCourse);
+router.get("/attendance/subject-wise-report", isAdmin, getSubjectWiseAttendanceReport);
+router.get("/attendance/subject-report", isAdmin, getSubjectAttendanceReport);
 router.get("/attendance/student/:studentId", isAdmin, getStudentOverallAttendance);
 router.get("/attendance/student/:studentId/course/:courseId", isAdmin, getStudentAttendanceReport);
 router.get("/attendance/:sessionId", isAdmin, getAttendanceById);
@@ -202,5 +238,13 @@ router.delete("/library/books/:id", deleteBook);
 router.post("/library/issues",issueBook);
 router.get("/library/issues", getIssuedBooks);
 router.patch("/library/issues/:id/return", returnBook);
+
+/* =========================
+   ASSIGNMENTS
+========================= */
+router.get("/assignments", isAdmin, getAdminAssignments);
+router.put("/assignment/:id", isAdmin, updateAssignment);
+router.delete("/assignment/:id", isAdmin, deleteAssignment);
+router.get("/assignment/:id/submissions", isAdmin, getAssignmentSubmissionsAdmin);
 
 export default router;
