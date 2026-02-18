@@ -51,6 +51,42 @@ export const getAllCourses = async (req, res) => {
         populate: { path: "user", select: "name email" },
       });
 
+    const courseIds = courses.map((course) => course._id);
+    const groupsWithCourseFaculty = courseIds.length
+      ? await Group.find({
+          isDeleted: { $ne: true },
+          "courseFaculty.course": { $in: courseIds },
+        })
+          .select("courseFaculty")
+          .populate({
+            path: "courseFaculty.faculty",
+            select: "user employeeId",
+            populate: { path: "user", select: "name email" },
+          })
+      : [];
+
+    const courseFacultyFromGroups = new Map();
+    groupsWithCourseFaculty.forEach((group) => {
+      (group.courseFaculty || []).forEach((cf) => {
+        const courseId = cf?.course ? String(cf.course) : "";
+        const facultyDoc = cf?.faculty;
+        if (!courseId || !facultyDoc) return;
+
+        const facultyId = String(facultyDoc._id || "");
+        const facultyName = facultyDoc?.user?.name || facultyDoc?.employeeId || "Unknown";
+        if (!facultyId) return;
+
+        if (!courseFacultyFromGroups.has(courseId)) {
+          courseFacultyFromGroups.set(courseId, new Map());
+        }
+
+        const facultyMap = courseFacultyFromGroups.get(courseId);
+        if (!facultyMap.has(facultyId)) {
+          facultyMap.set(facultyId, { _id: facultyDoc._id, name: facultyName });
+        }
+      });
+    });
+
     const studentCounts = await Student.aggregate([
       {
         $group: {
@@ -72,13 +108,33 @@ export const getAllCourses = async (req, res) => {
       const studentsInDepartment = deptId
         ? studentCountMap[deptId] || 0
         : 0;
+      const facultyById = new Map();
+      (course.facultyIds || []).forEach((facultyDoc) => {
+        const facultyId = String(facultyDoc?._id || "");
+        if (!facultyId) return;
+        facultyById.set(facultyId, {
+          _id: facultyDoc._id,
+          name: facultyDoc?.user?.name || facultyDoc?.employeeId || "Unknown",
+        });
+      });
+
+      const mappedFromGroups = courseFacultyFromGroups.get(String(course._id));
+      if (mappedFromGroups) {
+        mappedFromGroups.forEach((faculty, facultyId) => {
+          if (!facultyById.has(facultyId)) {
+            facultyById.set(facultyId, faculty);
+          }
+        });
+      }
+
+      const facultyMembers = Array.from(facultyById.values());
 
       const coordinator =
-        course.facultyIds && course.facultyIds.length > 0
-          ? course.facultyIds[0]
+        facultyMembers.length > 0
+          ? facultyMembers[0]
           : null;
 
-      const coordinatorName = coordinator?.user?.name || null;
+      const coordinatorName = coordinator?.name || null;
 
       return {
         id: course._id,
@@ -86,11 +142,13 @@ export const getAllCourses = async (req, res) => {
         courseName: course.courseName,
         department: course.department?.name || null,
         departmentId: course.department?._id || null,
+        semester: course.semester ?? null,
         credit: course.credit,
         branch: course.branch || null,
         studentsInDepartment,
         coordinatorId: coordinator?._id || null,
         coordinatorName,
+        facultyMembers,
       };
     });
     const responsePayload = {

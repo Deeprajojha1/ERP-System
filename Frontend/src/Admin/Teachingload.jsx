@@ -1,130 +1,172 @@
-import React, { useEffect, useState, useMemo } from "react";
-import axios from "../utils/axiosInstance";
-import { useSelector } from "react-redux";
-import toast from "react-hot-toast";
-import { Oval } from "react-loader-spinner";
+import React, { useEffect, useMemo, useState } from "react";
 import { FiPrinter } from "react-icons/fi";
+import { useSelector } from "react-redux";
+import axios from "../utils/axiosInstance";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Teachingload.css";
 
+const normalizeProgram = (value) => String(value || "").trim().toLowerCase();
+
 const TeachingLoad = () => {
-  const apiBase = useSelector((state) => state.config.apiBase);
-  const [loading, setLoading] = useState(false);
+  const [selectedForm, setSelectedForm] = useState("B");
+  const [formFilters, setFormFilters] = useState({
+    A: { selectedDepartment: "", selectedProgram: "", selectedSemester: "" },
+    B: { selectedDepartment: "", selectedProgram: "", selectedSemester: "" },
+  });
   const [departments, setDepartments] = useState([]);
-  const [programs, setPrograms] = useState([]);
-  const [selectedDepartment, setSelectedDepartment] = useState("");
-  const [selectedProgram, setSelectedProgram] = useState("");
-  const [selectedSemester, setSelectedSemester] = useState("");
-  const [teachingLoadData, setTeachingLoadData] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const apiBase = useSelector((state) => state.config.apiBase);
 
   const semesterOptions = Array.from({ length: 12 }, (_, i) => i + 1);
+  const selectedDepartment = formFilters[selectedForm].selectedDepartment;
+  const selectedProgram = formFilters[selectedForm].selectedProgram;
+  const selectedSemester = formFilters[selectedForm].selectedSemester;
 
-  useEffect(() => {
-    fetchDepartments();
-  }, []);
-
-  useEffect(() => {
-    if (selectedDepartment) {
-      fetchPrograms();
-    }
-  }, [selectedDepartment]);
-
-  useEffect(() => {
-    if (selectedDepartment && selectedProgram) {
-      fetchTeachingLoad();
-    }
-  }, [selectedDepartment, selectedProgram, selectedSemester]);
-
-  const fetchDepartments = async () => {
-    try {
-      const res = await axios.get(`${apiBase}/admin/department`, {
-        withCredentials: true,
-      });
-      setDepartments(res.data?.departments || []);
-    } catch (error) {
-      console.error("Fetch departments failed:", error);
-      toast.error("Failed to load departments");
-    }
+  const updateActiveFormFilters = (updates) => {
+    setFormFilters((prev) => ({
+      ...prev,
+      [selectedForm]: {
+        ...prev[selectedForm],
+        ...updates,
+      },
+    }));
   };
 
-  const fetchPrograms = async () => {
-    try {
-      const res = await axios.get(`${apiBase}/admin/courses`, {
-        withCredentials: true,
-        params: { department: selectedDepartment },
-      });
-      const uniquePrograms = [
-        ...new Set(
-          (res.data?.courses || [])
-            .map((c) => c.program)
-            .filter(Boolean)
-        ),
-      ];
-      setPrograms(uniquePrograms);
-    } catch (error) {
-      console.error("Fetch programs failed:", error);
-      toast.error("Failed to load programs");
-    }
-  };
+  useEffect(() => {
+    if (!apiBase) return;
 
-  const fetchTeachingLoad = async () => {
-    try {
-      setLoading(true);
-      const params = {
-        department: selectedDepartment,
-        program: selectedProgram,
-      };
-      
-      if (selectedSemester) {
-        params.semester = selectedSemester;
+    const fetchMasterData = async () => {
+      try {
+        setIsLoading(true);
+        setLoadError("");
+
+        const [deptRes, courseRes] = await Promise.all([
+          axios.get(`${apiBase}/admin/department`, {
+            withCredentials: true,
+            params: { noCache: "true" },
+          }),
+          axios.get(`${apiBase}/admin/course`, {
+            withCredentials: true,
+            params: { noCache: "true" },
+          }),
+        ]);
+
+        setDepartments(deptRes.data?.departments || []);
+        setCourses(courseRes.data?.courses || []);
+      } catch (error) {
+        setLoadError(error.response?.data?.message || "Failed to fetch course data");
+      } finally {
+        setIsLoading(false);
       }
+    };
 
-      const res = await axios.get(`${apiBase}/admin/teaching-load`, {
-        withCredentials: true,
-        params,
-      });
-      setTeachingLoadData(res.data?.teachingLoad || []);
-    } catch (error) {
-      console.error("Fetch teaching load failed:", error);
-      toast.error("Failed to load teaching load data");
-      setTeachingLoadData([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+    fetchMasterData();
+  }, [apiBase]);
+
+  const selectedDeptName = useMemo(() => {
+    const dept = departments.find((d) => String(d._id) === String(selectedDepartment));
+    return dept?.name || "";
+  }, [departments, selectedDepartment]);
+
+  const programs = useMemo(() => {
+    if (!selectedDepartment) return [];
+    const selectedDept = departments.find(
+      (dept) => String(dept._id) === String(selectedDepartment)
+    );
+    const deptPrograms = selectedDept?.programs || selectedDept?.program || [];
+    if (!Array.isArray(deptPrograms)) return [];
+
+    const dedupedByKey = new Map();
+    deptPrograms.forEach((prog) => {
+      const label = String(prog || "").trim();
+      const key = normalizeProgram(label);
+      if (!key || dedupedByKey.has(key)) return;
+      dedupedByKey.set(key, label);
+    });
+
+    return Array.from(dedupedByKey.values());
+  }, [departments, selectedDepartment]);
+
+  const teachingLoadData = useMemo(() => {
+    if (!selectedDepartment) return [];
+    return courses.filter((course) => {
+      if (String(course.departmentId) !== String(selectedDepartment)) return false;
+      if (
+        selectedProgram &&
+        normalizeProgram(course.branch) !== normalizeProgram(selectedProgram)
+      ) {
+        return false;
+      }
+      if (selectedSemester && String(course.semester) !== String(selectedSemester)) return false;
+      if (Array.isArray(course.facultyIds) && course.facultyIds.length === 0) return false;
+      if (Array.isArray(course.facultyMembers) && course.facultyMembers.length === 0) return false;
+      return true;
+    });
+  }, [courses, selectedDepartment, selectedProgram, selectedSemester]);
+
+  const tableRows = useMemo(
+    () =>
+      teachingLoadData.map((item, index) => ({
+        key: item.id || `${item.code || "row"}-${index}`,
+        srNo: index + 1,
+        facultyName:
+          item.coordinatorName ||
+          (Array.isArray(item.facultyMembers) && item.facultyMembers.length
+            ? item.facultyMembers.map((f) => f.name).filter(Boolean).join(", ")
+            : "-"),
+        subjectName: item.courseName || "-",
+        subjectCode: item.code || "-",
+        deptName: item.department || selectedDeptName || "-",
+        sem: item.semester || "-",
+      })),
+    [teachingLoadData, selectedDeptName]
+  );
 
   const handlePrint = () => {
     window.print();
   };
-
-  const selectedDeptName = useMemo(() => {
-    const dept = departments.find((d) => d._id === selectedDepartment);
-    return dept?.name || "";
-  }, [departments, selectedDepartment]);
 
   return (
     <div className="teaching-load-page">
       <div className="teaching-load-header no-print">
         <div>
           <h1 className="teaching-load-title">Faculty Teaching Load</h1>
-          <p className="teaching-load-subtitle">
-            View class-wise faculty schedule and assignments
-          </p>
+          <p className="teaching-load-subtitle">Live mode: mapped from getAllCourses</p>
         </div>
       </div>
 
       <div className="teaching-load-panel">
         <div className="teaching-load-filters no-print">
+          <div className="teaching-load-form-toggle" role="group" aria-label="Select form">
+            <button
+              type="button"
+              className={`teaching-load-form-toggle-btn ${selectedForm === "A" ? "active" : ""}`}
+              onClick={() => setSelectedForm("A")}
+            >
+              Form A
+            </button>
+            <button
+              type="button"
+              className={`teaching-load-form-toggle-btn ${selectedForm === "B" ? "active" : ""}`}
+              onClick={() => setSelectedForm("B")}
+            >
+              Form B
+            </button>
+          </div>
+
           <div className="teaching-load-filter-group">
             <label htmlFor="department-select">Department</label>
             <select
               id="department-select"
               value={selectedDepartment}
               onChange={(e) => {
-                setSelectedDepartment(e.target.value);
-                setSelectedProgram("");
-                setSelectedSemester("");
-                setTeachingLoadData([]);
+                updateActiveFormFilters({
+                  selectedDepartment: e.target.value,
+                  selectedProgram: "",
+                  selectedSemester: "",
+                });
               }}
             >
               <option value="">Select Department</option>
@@ -137,20 +179,22 @@ const TeachingLoad = () => {
           </div>
 
           <div className="teaching-load-filter-group">
-            <label htmlFor="program-select">Program / Class</label>
+            <label htmlFor="program-select">Program / Class (Optional)</label>
             <select
               id="program-select"
               value={selectedProgram}
               onChange={(e) => {
-                setSelectedProgram(e.target.value);
-                setSelectedSemester("");
+                updateActiveFormFilters({
+                  selectedProgram: e.target.value,
+                  selectedSemester: "",
+                });
               }}
               disabled={!selectedDepartment}
             >
-              <option value="">Select Program</option>
+              <option value="">All Programs</option>
               {programs.map((prog) => (
                 <option key={prog} value={prog}>
-                  {prog}
+                  {String(prog).toUpperCase()}
                 </option>
               ))}
             </select>
@@ -161,8 +205,12 @@ const TeachingLoad = () => {
             <select
               id="semester-select"
               value={selectedSemester}
-              onChange={(e) => setSelectedSemester(e.target.value)}
-              disabled={!selectedProgram}
+              onChange={(e) =>
+                updateActiveFormFilters({
+                  selectedSemester: e.target.value,
+                })
+              }
+              disabled={!selectedDepartment}
             >
               <option value="">All Semesters</option>
               {semesterOptions.map((sem) => (
@@ -183,31 +231,29 @@ const TeachingLoad = () => {
           </button>
         </div>
 
-        {loading ? (
-          <div className="teaching-load-loading">
-            <Oval
-              height={64}
-              width={64}
-              color="#2563eb"
-              secondaryColor="#bfdbfe"
-              strokeWidth={4}
-              strokeWidthSecondary={4}
-              ariaLabel="Loading"
-              visible
-            />
-            <p>Loading teaching load data...</p>
+        {isLoading ? (
+          <div className="teaching-load-empty">
+            <img src={emptyStateImg} alt="Loading" />
+            <h3>Loading</h3>
+            <p>Fetching departments and courses...</p>
           </div>
-        ) : !selectedDepartment || !selectedProgram ? (
+        ) : loadError ? (
+          <div className="teaching-load-empty">
+            <img src={emptyStateImg} alt="Error" />
+            <h3>Failed to Load Data</h3>
+            <p>{loadError}</p>
+          </div>
+        ) : !selectedDepartment ? (
           <div className="teaching-load-empty">
             <img src={emptyStateImg} alt="Select filters" />
-            <h3>Select Department and Program</h3>
-            <p>Choose a department and program to view teaching load</p>
+            <h3>Select Department</h3>
+            <p>Choose a department to view teaching load</p>
           </div>
         ) : teachingLoadData.length === 0 ? (
           <div className="teaching-load-empty">
             <img src={emptyStateImg} alt="No data" />
             <h3>No Teaching Load Data</h3>
-            <p>No faculty assignments found for the selected filters</p>
+            <p>No course records found for the selected filters</p>
           </div>
         ) : (
           <>
@@ -215,37 +261,46 @@ const TeachingLoad = () => {
               <h2>HARIDWAR UNIVERSITY, ROORKEE</h2>
               <h3>TEACHING LOAD (ODD SEMESTER, 2024-2025)</h3>
               <h4>
-                Department of {selectedDeptName} - {selectedProgram}
+                Department of {selectedDeptName}
+                {selectedProgram ? ` - ${selectedProgram}` : ""}
                 {selectedSemester && ` - Semester ${selectedSemester}`}
               </h4>
-              <p className="print-form-label">Form II</p>
+              <p className="print-form-label">{selectedForm === "A" ? "Form A" : "Form B"}</p>
             </div>
 
             <div className="teaching-load-table-wrapper">
+              <p className="teaching-load-form-label">
+                Generate {selectedForm === "A" ? "Form A" : "Form B"}
+              </p>
               <table className="teaching-load-table">
                 <thead>
+                  <tr className="teaching-load-table-title-row">
+                    <th colSpan={6}>
+                      <div className="teaching-load-table-title-block">
+                        <p>HARIDWAR UNIVERSITY, ROORKEE</p>
+                        <p>TEACHING LOAD (ODD SEMESTER, 2024 2025)</p>
+                        <p>{selectedForm === "A" ? "Form A" : "Form B"}</p>
+                      </div>
+                    </th>
+                  </tr>
                   <tr>
                     <th>SR NO.</th>
                     <th>Faculty Name</th>
-                    <th>Subject Code</th>
                     <th>Subject Name</th>
+                    <th>Subject Code</th>
                     <th>Dept Name</th>
-                    <th>Semester</th>
-                    <th>Batch</th>
-                    <th>Remarks</th>
+                    <th>Sem</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {teachingLoadData.map((item, index) => (
-                    <tr key={item._id || index}>
-                      <td>{index + 1}</td>
-                      <td>{item.facultyName || "-"}</td>
-                      <td>{item.subjectName || "-"}</td>
-                      <td>{item.subjectcode || "-"}</td>
-                      <td>{item.deptName || selectedDeptName}</td>
-                      <td>{item.semester || "-"}</td>
-                      <td>{item.batch || "-"}</td>
-                      <td>{item.remarks || "-"}</td>
+                  {tableRows.map((row) => (
+                    <tr key={row.key}>
+                      <td>{row.srNo}</td>
+                      <td>{row.facultyName}</td>
+                      <td>{row.subjectName}</td>
+                      <td>{row.subjectCode}</td>
+                      <td>{row.deptName}</td>
+                      <td>{row.sem}</td>
                     </tr>
                   ))}
                 </tbody>

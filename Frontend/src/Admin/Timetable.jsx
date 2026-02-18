@@ -317,40 +317,218 @@ const Timetable = () => {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 
-    const tableRows = schedule
-      .map(
-        (row) => `
+    const toInitials = (name = "") => {
+      const words = String(name).trim().split(/\s+/).filter(Boolean);
+      if (!words.length) return "";
+      if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+      return words.slice(0, 2).map((word) => word[0].toUpperCase()).join("");
+    };
+
+    const currentGroup = groupCards.find((g) => g.groupCode === selectedGroupCode);
+    const departmentCode =
+      currentGroup?.department?.code ||
+      currentGroup?.departmentCode ||
+      String(selectedGroupCode || "").split("-")[0] ||
+      "CSE";
+    const semesterTitle =
+      currentGroup?.semester != null
+        ? `TIME TABLE SEMESTER ${currentGroup.semester}: ${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`
+        : `TIME TABLE: ${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`;
+    const classTitle = currentGroup?.name || selectedGroupCode || "Group";
+    const roomNo = currentGroup?.roomNo || "-";
+    const wef = new Date().toLocaleDateString("en-GB").replace(/\//g, ".");
+
+    const slotCell = (slot = {}) => {
+      const code = esc(slot.code || "FREE");
+      const initials = slot.by ? `(${toInitials(slot.by)})` : "";
+      return `
+        <div class="tt-sub-code">${code}</div>
+        <div class="tt-sub-fac">${esc(initials)}</div>
+      `;
+    };
+
+    const timetableRowsHtml = normalizedSchedule
+      .map((row, dayIndex) => {
+        const slots = row.slots || [];
+        return `
           <tr>
-            <td>${esc(row.day)}</td>
-            <td>${esc(
-              row.slots
-                .map((s) => `${s.code} (${s.name})${s.by ? ` - ${s.by}` : ""}`)
-                .join(" | "),
-            )}</td>
+            <th class="day-name">${esc(row.day)}</th>
+            <td>${slotCell(slots[0])}</td>
+            <td>${slotCell(slots[1])}</td>
+            ${dayIndex === 0 ? '<td class="break-vertical" rowspan="6"><span>BREAK</span></td>' : ""}
+            <td>${slotCell(slots[2])}</td>
+            <td>${slotCell(slots[3])}</td>
+            ${dayIndex === 0 ? '<td class="break-vertical" rowspan="6"><span>LUNCH BREAK</span></td>' : ""}
+            <td>${slotCell(slots[4])}</td>
+            <td>${slotCell(slots[5])}</td>
+            <td>${slotCell(slots[6])}</td>
           </tr>
-        `,
-      )
+        `;
+      })
+      .join("");
+
+    const facultyRowsHtml = summaryRows
+      .filter((row) => row.code && row.code !== "FREE")
+      .map((row) => `
+        <tr>
+          <td>${esc(toInitials(row.faculty || ""))}</td>
+          <td>${esc(row.faculty || "-")}</td>
+          <td>${esc(departmentCode)}</td>
+          <td>${esc(row.subjectCode || "-")}</td>
+          <td>${esc(row.subjectName || "-")}</td>
+          <td>-</td>
+        </tr>
+      `)
       .join("");
 
     const html = `
       <html>
         <head>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
-            h1 { margin: 0 0 6px; font-size: 22px; }
-            p { margin: 0 0 16px; color: #4b5563; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }
-            th { background: #f3f4f6; }
+            @page { size: A4 landscape; margin: 6mm; }
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              padding: 0;
+              font-family: "Times New Roman", serif;
+              color: #111;
+            }
+            .sheet {
+              width: 100%;
+              border: 1px solid #111;
+            }
+            .uni-title, .sem-title {
+              text-align: center;
+              font-weight: 700;
+              border-bottom: 1px solid #111;
+              letter-spacing: 0.2px;
+            }
+            .uni-title { font-size: 16px; }
+            .sem-title { font-size: 14px; }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              table-layout: fixed;
+            }
+            th, td {
+              border: 1px solid #111;
+              text-align: center;
+              vertical-align: middle;
+              padding: 2px 3px;
+              line-height: 1.05;
+              font-size: 12px;
+            }
+            .meta th {
+              font-size: 13px;
+              font-weight: 700;
+            }
+            .meta .left { text-align: left; padding-left: 8px; }
+            .header-time {
+              font-size: 13px;
+              font-weight: 700;
+            }
+            .header-lecture {
+              font-size: 14px;
+              font-weight: 700;
+            }
+            .day-time {
+              width: 76px;
+              font-size: 13px;
+              font-weight: 700;
+            }
+            .day-name {
+              width: 64px;
+              font-size: 13px;
+              font-weight: 700;
+            }
+            .tt-sub-code {
+              font-weight: 700;
+              font-size: 12px;
+            }
+            .tt-sub-fac {
+              margin-top: 1px;
+              font-size: 12px;
+              font-weight: 700;
+            }
+            .break-vertical {
+              width: 28px;
+              padding: 0;
+            }
+            .break-vertical span {
+              writing-mode: vertical-rl;
+              transform: rotate(180deg);
+              display: inline-block;
+              font-weight: 700;
+              letter-spacing: 1px;
+            }
+            .faculty-table th { font-size: 12px; font-weight: 700; }
+            .footer td { font-size: 12px; font-weight: 700; }
           </style>
         </head>
         <body>
-          <h1>Timetable: ${esc(selectedGroupCode || "Group")}</h1>
-          <p>Generated on: ${esc(new Date().toLocaleString())}</p>
-          <table>
-            <thead><tr><th>Day</th><th>Schedule</th></tr></thead>
-            <tbody>${tableRows}</tbody>
-          </table>
+          <div class="sheet">
+            <div class="uni-title">HARIDWAR UNIVERSITY, ROORKEE</div>
+            <div class="sem-title">${esc(semesterTitle)}</div>
+            <table class="meta">
+              <tr>
+                <th class="left" colspan="4">Class :- ${esc(classTitle)}</th>
+                <th colspan="3">Room No- ${esc(roomNo)}</th>
+                <th colspan="3">(WEF-${esc(wef)})</th>
+              </tr>
+            </table>
+            <table>
+              <thead>
+                <tr>
+                  <th class="day-time" rowspan="2">Day/<br/>Time</th>
+                  <th class="header-lecture">1</th>
+                  <th class="header-lecture">2</th>
+                  <th class="header-lecture"></th>
+                  <th class="header-lecture">3</th>
+                  <th class="header-lecture">4</th>
+                  <th class="header-lecture"></th>
+                  <th class="header-lecture">5</th>
+                  <th class="header-lecture">6</th>
+                  <th class="header-lecture">7</th>
+                </tr>
+                <tr>
+                  <th class="header-time">${esc(lectureSlots[0])}</th>
+                  <th class="header-time">${esc(lectureSlots[1])}</th>
+                  <th class="header-time"></th>
+                  <th class="header-time">${esc(lectureSlots[2])}</th>
+                  <th class="header-time">${esc(lectureSlots[3])}</th>
+                  <th class="header-time"></th>
+                  <th class="header-time">${esc(lectureSlots[4])}</th>
+                  <th class="header-time">${esc(lectureSlots[5])}</th>
+                  <th class="header-time">${esc(lectureSlots[6])}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${timetableRowsHtml}
+              </tbody>
+            </table>
+            <table class="faculty-table">
+              <thead>
+                <tr>
+                  <th>FACULTY INITIALS</th>
+                  <th>FACULTY NAME</th>
+                  <th>DEPARTMENT</th>
+                  <th>SUBJECT CODE</th>
+                  <th>SUBJECT NAME</th>
+                  <th>LTP</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${facultyRowsHtml || '<tr><td colspan="6">No subject mapping available</td></tr>'}
+              </tbody>
+            </table>
+            <table class="footer">
+              <tr>
+                <td>Class Teacher- ____________________</td>
+                <td>Head of Department- ____________________</td>
+                <td>OSD- ____________________</td>
+              </tr>
+            </table>
+          </div>
         </body>
       </html>
     `;

@@ -2,7 +2,7 @@ import axios from "./axiosInstance";
 
 const sanitizeFileName = (name = "report.pdf") =>
   String(name)
-    .replace(/[^\w.\-]/g, "_")
+    .replace(/[^\w.-]/g, "_")
     .replace(/_{2,}/g, "_");
 
 const triggerBlobDownload = (blobData, fileName) => {
@@ -36,7 +36,7 @@ const extractErrorMessage = async (error) => {
     if (!rawText) return fallback;
     const parsed = JSON.parse(rawText);
     return parsed?.message || fallback;
-  } catch (_) {
+  } catch {
     return fallback;
   }
 };

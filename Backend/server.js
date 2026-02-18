@@ -13,12 +13,23 @@ dotenv.config();
 const app = express();
 // CORS configuration
 // NOTE: Origin is only scheme + host (+ optional port), no path.
+const normalizeOrigin = (value = "") => String(value).trim().replace(/\/+$/, "");
+const envOrigins = String(process.env.FRONTEND_URL || "")
+  .split(",")
+  .map(normalizeOrigin)
+  .filter(Boolean);
 const allowedOrigins = [
-  "https://hu-erp-git-development-subeshs-projects.vercel.app", // Local development (Vite)
+  "https://hu-erp-git-development-subeshs-projects.vercel.app",
   "https://hu-erp1.vercel.app",
-  "http://localhost:5173", // Production Vercel
-  process.env.FRONTEND_URL, // Optional override via env on Render
-].filter(Boolean);
+  "http://localhost:5173",
+  "http://localhost:5174",
+  ...envOrigins,
+].map(normalizeOrigin);
+
+const isLocalDevOrigin = (origin = "") =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+const isTrustedVercelOrigin = (origin = "") =>
+  /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
 
 console.log("[CORS] Allowed origins:", allowedOrigins);
 
@@ -33,7 +44,13 @@ app.use(
 
       console.log("[CORS] Incoming origin:", origin);
 
-      if (!allowedOrigins.includes(origin)) {
+      const normalized = normalizeOrigin(origin);
+      const isAllowed =
+        allowedOrigins.includes(normalized) ||
+        isLocalDevOrigin(normalized) ||
+        isTrustedVercelOrigin(normalized);
+
+      if (!isAllowed) {
         console.error("[CORS] Blocked origin:", origin, "Allowed:", allowedOrigins);
         const msg =
           "The CORS policy for this site does not allow access from the specified Origin.";

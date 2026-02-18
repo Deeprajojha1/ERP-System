@@ -90,6 +90,7 @@ import {
   hardDeleteLibrarian,
 } from "../controllers/librarianController.js";
 import { changePassword } from "../controllers/userController.js";
+import { getTeachingLoad } from "../controllers/teachingLoadController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
 
@@ -165,6 +166,7 @@ router.get("/timetable/group", isAdmin, getTimetableGroups);
 router.get("/timetable/group/:groupId", isAdmin, getGroupTimetable);
 router.post("/timetable/group/:groupId", isAdmin, createGroupTimetable);
 router.put("/timetable/group/:groupId", isAdmin, updateGroupTimetable);
+router.get("/teaching-load", isAdmin, getTeachingLoad);
 
 /* =========================
    ATTENDANCE

@@ -1,7 +1,6 @@
 import Faculty from "../models/Faculty.js";
 import Course from "../models/Course.js";
 import Group from "../models/Group.js";
-import Department from "../models/Department.js";
 
 /**
  * Get teaching load data for a specific department and program
@@ -173,9 +172,11 @@ export const getTeachingLoad = async (req, res) => {
           also: facultyData.designation
             ? facultyData.designation.replace("_", " ").toUpperCase()
             : "",
-          subjectName: `${course.courseName || course.code} - ${course.code}`,
+          subjectName: course.courseName || "-",
+          subjectCode: course.code || "-",
           deptName: course.department?.name || "",
           semester: course.semester || "",
+          branch: course.branch || program || "",
           batch: groupNames || "-",
           remarks: `${course.credit || 0} Credits`,
         });
