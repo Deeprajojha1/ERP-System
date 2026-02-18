@@ -89,7 +89,16 @@ export const markGroupAttendance = async (req, res) => {
     const { groupId } = req.params;
     const { courseId, date, records } = req.body;
 
+    console.log("=== MARK GROUP ATTENDANCE ===");
+    console.log("groupId:", groupId);
+    console.log("courseId:", courseId);
+    console.log("date:", date);
+    console.log("records:", JSON.stringify(records, null, 2));
+    console.log("req.role:", req.role);
+    console.log("req.userId:", req.userId);
+
     if (!courseId || !records || !Array.isArray(records)) {
+      console.log("Validation failed: missing courseId or records");
       return res.status(400).json({ message: "courseId & records[] are required" });
     }
 
@@ -124,6 +133,10 @@ export const markGroupAttendance = async (req, res) => {
       { date: sessionDate, group: groupId, course: courseId, records },
       { new: true, upsert: true, runValidators: true }
     );
+
+    console.log("✅ Attendance saved successfully!");
+    console.log("Session ID:", session._id);
+    console.log("Total records saved:", session.records.length);
 
     res.status(201).json({
       message: "Attendance marked successfully",
