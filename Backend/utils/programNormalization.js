@@ -9,7 +9,9 @@ export const PROGRAM_ENUM = [
   "msc",
   "bpharma",
   "mpharma",
+  "dpharma",
   "phd",
+  "bcom"
 ];
 
 const PROGRAM_CANONICAL_MAP = PROGRAM_ENUM.reduce((acc, key) => {
