@@ -14,10 +14,44 @@
  * Note: React 18+ with new JSX transform - no need to import React
  */
 
+import { useState, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import axios from '../../utils/axiosInstance';
+import toast from 'react-hot-toast';
+import { getUser } from '../../redux/userSlice';
 import './StudentDetails.css';
 
 const StudentDetails = ({ studentData }) => {
   const { personalInfo, parentInfo, academicInfo } = studentData;
+  const apiBase = useSelector((state) => state.config.apiBase);
+  const userData = useSelector((state) => state.user.userData);
+  const dispatch = useDispatch();
+  
+  // Profile image states
+  const [profileImage, setProfileImage] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [currentProfileImage, setCurrentProfileImage] = useState(null);
+
+  // Update current profile image when user data changes
+  useEffect(() => {
+    console.log("[Student] userData changed:", userData?.user);
+    if (userData?.user?.profileImage) {
+      // If it's already a full URL (starts with http or /), use it directly
+      if (userData.user.profileImage.startsWith('http') || userData.user.profileImage.startsWith('/')) {
+        console.log("[Student] Using full URL:", userData.user.profileImage);
+        setCurrentProfileImage(userData.user.profileImage);
+      } else {
+        // If it's just a filename, construct the full URL
+        const baseUrl = apiBase?.replace('/api', '') || '';
+        const imageUrl = `${baseUrl}/uploads/profile-images/${userData.user.profileImage}`;
+        console.log("[Student] Constructed URL:", imageUrl);
+        setCurrentProfileImage(imageUrl);
+      }
+    } else {
+      console.log("[Student] No profile image found");
+      setCurrentProfileImage(null);
+    }
+  }, [userData?.user?.profileImage, apiBase]);
   
   /**
    * Get first letter of the name for profile logo
@@ -28,11 +62,108 @@ const StudentDetails = ({ studentData }) => {
     return name ? name.charAt(0).toUpperCase() : 'S';
   };
 
+  // Handle profile image upload
+  const handleProfileImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File size must be less than 5MB');
+      return;
+    }
+
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileImage(typeof reader.result === "string" ? reader.result : "");
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to server
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append('profileImage', file);
+      
+      const uploadUrl = `${apiBase}/user/student/upload-image`;
+      console.log("[Student] Uploading to:", uploadUrl);
+      
+      const response = await axios.post(
+        uploadUrl,
+        formData,
+        {
+          headers: {
+            // Don't set Content-Type manually for FormData - let browser set it with boundary
+          },
+        }
+      );
+      
+      // Update current profile image with the new URL
+      const imageUrl = response.data.profileImage;
+      setCurrentProfileImage(imageUrl);
+      
+      // Refresh user data to get updated profile image
+      await dispatch(getUser());
+      
+      toast.success('Profile image updated successfully');
+      
+    } catch (error) {
+      console.error('Profile image upload error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload profile image';
+      toast.error(errorMessage);
+      
+      // Reset preview on error
+      setProfileImage(currentProfileImage || "");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  // Handle profile image deletion
+  const handleDeleteProfileImage = async () => {
+    try {
+      setUploadingImage(true);
+      
+      const deleteUrl = `${apiBase}/user/student/delete-image`;
+      console.log("[Student] Deleting from:", deleteUrl);
+      
+      await axios.delete(deleteUrl);
+      
+      setCurrentProfileImage(null);
+      setProfileImage("");
+      
+      // Refresh user data to get updated profile image
+      await dispatch(getUser());
+      
+      toast.success('Profile image removed successfully');
+      
+    } catch (error) {
+      console.error('Profile image delete error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to remove profile image';
+      toast.error(errorMessage);
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const personalRows = [
-    { label: 'Email', value: personalInfo.email },
-    { label: 'Phone', value: personalInfo.phone },
-    { label: 'Date of Birth', value: personalInfo.dateOfBirth },
-    { label: 'Address', value: personalInfo.address },
+    { label: "Name", value: personalInfo.name || "N/A" },
+    { label: "Email", value: personalInfo.email || "N/A" },
+    { label: "Phone", value: personalInfo.phoneNumber || "N/A" },
+    { label: "Date of Birth", value: personalInfo.DOB || "N/A" },
   ];
 
   const guardianRows = [
@@ -59,13 +190,55 @@ const StudentDetails = ({ studentData }) => {
       </div>
     ));
 
+  if (!studentData) {
+    return (
+      <div className="student-details-container">
+        <div className="loading">Loading profile data...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="student-details-container">
       {/* Header with Profile Logo */}
       <div className="student-header">
         <div className="profile-section">
           <div className="profile-logo">
-            <span className="profile-initial">{getInitial(personalInfo.name)}</span>
+            {(profileImage || currentProfileImage) ? (
+              <img 
+                src={profileImage || currentProfileImage} 
+                alt="Profile" 
+                className="profile-avatar-img" 
+              />
+            ) : (
+              <span className="profile-initial">{getInitial(userData?.user?.name || 'Student')}</span>
+            )}
+            <div className="profile-actions">
+              <label htmlFor="profile-upload" className="profile-upload-btn">
+                <input
+                  type="file"
+                  id="profile-upload"
+                  accept="image/*"
+                  onChange={handleProfileImageChange}
+                  disabled={uploadingImage}
+                  style={{ display: 'none' }}
+                />
+                {uploadingImage ? (
+                  <div className="settings-spinner"></div>
+                ) : (
+                  <span className="upload-icon">📷</span>
+                )}
+              </label>
+              {(currentProfileImage || profileImage) && (
+                <button 
+                  className="profile-delete-btn"
+                  onClick={handleDeleteProfileImage}
+                  disabled={uploadingImage}
+                >
+                  <span className="delete-icon">🗑️</span>
+                </button>
+              )}
+            </div>
           </div>
           <div className="basic-info">
             <h2>{personalInfo.name}</h2>

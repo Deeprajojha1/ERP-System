@@ -1,9 +1,12 @@
 import { createSlice } from "@reduxjs/toolkit";
+import axios from "../utils/axiosInstance";
 
 const userSlice = createSlice({
   name: "user",
   initialState: {
     userData: null,
+    loading: false,
+    error: null,
   },
   reducers: {
     setUserData: (state, action) => {
@@ -12,9 +15,35 @@ const userSlice = createSlice({
     clearUserData: (state) => {
       state.userData = null;
     },
+    setLoading: (state, action) => {
+      state.loading = action.payload;
+    },
+    setError: (state, action) => {
+      state.error = action.payload;
+    },
   },
 });
 
-export const { setUserData, clearUserData } = userSlice.actions;
+export const { setUserData, clearUserData, setLoading, setError } = userSlice.actions;
+
+// Async action to get user data
+export const getUser = () => async (dispatch) => {
+  try {
+    dispatch(setLoading(true));
+    dispatch(setError(null));
+    
+    const response = await axios.get('/user/me');
+    
+    if (response.data && response.data.user) {
+      dispatch(setUserData(response.data));
+    }
+    
+    dispatch(setLoading(false));
+  } catch (error) {
+    console.error('getUser error:', error);
+    dispatch(setError(error.message || 'Failed to get user data'));
+    dispatch(setLoading(false));
+  }
+};
 
 export default userSlice.reducer;
