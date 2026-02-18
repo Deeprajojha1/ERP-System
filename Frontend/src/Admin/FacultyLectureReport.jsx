@@ -235,7 +235,6 @@ const FacultyLectureReport = () => {
       await downloadPdfFromHtml(apiBase, {
         html,
         fileName: `Faculty_Lecture_Report_${selectedDeptName || "Department"}_${selectedDate || "Date"}.pdf`,
-        fallbackToPrint: false,
       });
     } catch (error) {
       toast.error(error?.message || "Failed to download report PDF");

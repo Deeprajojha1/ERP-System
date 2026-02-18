@@ -16,9 +16,10 @@ const app = express();
 // CORS configuration
 // NOTE: Origin is only scheme + host (+ optional port), no path.
 const allowedOrigins = [
-  "https://hu-erp-git-development-subeshs-projects.vercel.app", // Local development (Vite)
+  "https://hu-erp-git-development-subeshs-projects.vercel.app",
   "https://hu-erp1.vercel.app",
-  "http://localhost:5173", // Production Vercel
+  "http://localhost:5173", // Vite default port
+  "http://localhost:5174", // Vite alternate port
   process.env.FRONTEND_URL, // Optional override via env on Render
 ].filter(Boolean);
 

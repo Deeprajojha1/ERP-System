@@ -73,6 +73,10 @@ import {
   getDailyAttendanceSummary,
   getGroupStudentAttendanceByDate,
 } from "../controllers/attendanceController.js";
+import {
+  getSubjectWiseAttendanceReport,
+  getSubjectAttendanceReport,
+} from "../controllers/subjectAttendanceController.js";
 
 import {
   getStatistics,
@@ -94,6 +98,13 @@ import {
   hardDeleteLibrarian,
 } from "../controllers/librarianController.js";
 import { changePassword } from "../controllers/userController.js";
+
+import {
+  getAdminAssignments,
+  updateAssignment,
+  deleteAssignment,
+  getAssignmentSubmissionsAdmin,
+} from "../controllers/assingmentController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
 import upload from "../config/multerConfig.js";
@@ -198,6 +209,8 @@ router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
 router.get("/attendance/group/:groupId/date/:date", isAdmin, getGroupStudentAttendanceByDate);
 router.get("/attendance/group/:groupId/students", isAdmin, getStudentsByGroup);
 router.get("/attendance/group/:groupId/course/:courseId", isAdmin, getAttendanceByGroupAndCourse);
+router.get("/attendance/subject-wise-report", isAdmin, getSubjectWiseAttendanceReport);
+router.get("/attendance/subject-report", isAdmin, getSubjectAttendanceReport);
 router.get("/attendance/student/:studentId", isAdmin, getStudentOverallAttendance);
 router.get("/attendance/student/:studentId/course/:courseId", isAdmin, getStudentAttendanceReport);
 router.get("/attendance/:sessionId", isAdmin, getAttendanceById);
@@ -223,5 +236,13 @@ router.delete("/library/books/:id", deleteBook);
 router.post("/library/issues",issueBook);
 router.get("/library/issues", getIssuedBooks);
 router.patch("/library/issues/:id/return", returnBook);
+
+/* =========================
+   ASSIGNMENTS
+========================= */
+router.get("/assignments", isAdmin, getAdminAssignments);
+router.put("/assignment/:id", isAdmin, updateAssignment);
+router.delete("/assignment/:id", isAdmin, deleteAssignment);
+router.get("/assignment/:id/submissions", isAdmin, getAssignmentSubmissionsAdmin);
 
 export default router;

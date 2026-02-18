@@ -1,5 +1,6 @@
 import Assignment from "../models/Assignment.js";
 import Submission from "../models/submission.js";
+import Group from "../models/Group.js";
 
 export const getAssignmentsByGroup = async (req, res) => {
   try {
@@ -119,37 +120,6 @@ export const updateAssignment = async (req, res) => {
       updatedAssignment,
     });
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const getSingleAssignmentAdmin = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const assignment = await Assignment.findById(id)
-      .populate({
-        path: "uploadedBy",
-        populate: {
-          path: "user",
-          select: "name email",
-        },
-      })
-      .populate("group", "name")
-      .populate("department", "name");
-
-    if (!assignment) {
-      return res.status(404).json({
-        success: false,
-        message: "Assignment not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      assignment,
-    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
