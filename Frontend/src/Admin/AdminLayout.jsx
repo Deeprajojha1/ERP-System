@@ -282,6 +282,16 @@ const AdminLayout = () => {
               </button>
 
               <button
+                className={`sidebar-btn ${isActive("/admin/assignment") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/assignment");
+                }}
+              >
+                <MdCastForEducation />
+                <span className="sidebar-text">Assignments</span>
+              </button>
+
+              <button
                 className={`sidebar-btn ${isActive("/admin/timetable") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/timetable");
