@@ -5,23 +5,24 @@ import axios from "../utils/axiosInstance";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Teachingload.css";
 
-const normalizeProgram = (value) => String(value || "").trim().toLowerCase();
+const normalizeId = (value) => String(value || "").trim();
 
 const TeachingLoad = () => {
   const [selectedForm, setSelectedForm] = useState("B");
   const [formFilters, setFormFilters] = useState({
-    A: { selectedDepartment: "", selectedProgram: "", selectedSemester: "" },
-    B: { selectedDepartment: "", selectedProgram: "", selectedSemester: "" },
+    A: { selectedDepartment: "", selectedGroup: "", selectedSemester: "" },
+    B: { selectedDepartment: "", selectedGroup: "", selectedSemester: "" },
   });
   const [departments, setDepartments] = useState([]);
   const [courses, setCourses] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState("");
   const apiBase = useSelector((state) => state.config.apiBase);
 
   const semesterOptions = Array.from({ length: 12 }, (_, i) => i + 1);
   const selectedDepartment = formFilters[selectedForm].selectedDepartment;
-  const selectedProgram = formFilters[selectedForm].selectedProgram;
+  const selectedGroup = formFilters[selectedForm].selectedGroup;
   const selectedSemester = formFilters[selectedForm].selectedSemester;
 
   const updateActiveFormFilters = (updates) => {
@@ -42,7 +43,7 @@ const TeachingLoad = () => {
         setIsLoading(true);
         setLoadError("");
 
-        const [deptRes, courseRes] = await Promise.all([
+        const [deptRes, courseRes, groupRes] = await Promise.all([
           axios.get(`${apiBase}/admin/department`, {
             withCredentials: true,
             params: { noCache: "true" },
@@ -51,10 +52,15 @@ const TeachingLoad = () => {
             withCredentials: true,
             params: { noCache: "true" },
           }),
+          axios.get(`${apiBase}/admin/group`, {
+            withCredentials: true,
+            params: { noCache: "true" },
+          }),
         ]);
 
         setDepartments(deptRes.data?.departments || []);
         setCourses(courseRes.data?.courses || []);
+        setGroups(groupRes.data?.groups || []);
       } catch (error) {
         setLoadError(error.response?.data?.message || "Failed to fetch course data");
       } finally {
@@ -70,41 +76,39 @@ const TeachingLoad = () => {
     return dept?.name || "";
   }, [departments, selectedDepartment]);
 
-  const programs = useMemo(() => {
+  const groupOptions = useMemo(() => {
     if (!selectedDepartment) return [];
-    const selectedDept = departments.find(
-      (dept) => String(dept._id) === String(selectedDepartment)
-    );
-    const deptPrograms = selectedDept?.programs || selectedDept?.program || [];
-    if (!Array.isArray(deptPrograms)) return [];
-
-    const dedupedByKey = new Map();
-    deptPrograms.forEach((prog) => {
-      const label = String(prog || "").trim();
-      const key = normalizeProgram(label);
-      if (!key || dedupedByKey.has(key)) return;
-      dedupedByKey.set(key, label);
+    return groups.filter((group) => {
+      const groupDeptId = normalizeId(group.department?._id || group.department);
+      return groupDeptId === normalizeId(selectedDepartment);
     });
+  }, [groups, selectedDepartment]);
 
-    return Array.from(dedupedByKey.values());
-  }, [departments, selectedDepartment]);
+  const selectedGroupCourseIds = useMemo(() => {
+    if (!selectedGroup) return null;
+    const group = groups.find((item) => normalizeId(item._id) === normalizeId(selectedGroup));
+    if (!group) return new Set();
+    return new Set(
+      (group.courseIds || []).map((course) => normalizeId(course?._id || course?.id || course))
+    );
+  }, [groups, selectedGroup]);
 
   const teachingLoadData = useMemo(() => {
     if (!selectedDepartment) return [];
     return courses.filter((course) => {
-      if (String(course.departmentId) !== String(selectedDepartment)) return false;
-      if (
-        selectedProgram &&
-        normalizeProgram(course.branch) !== normalizeProgram(selectedProgram)
-      ) {
+      const courseDeptId = normalizeId(course.departmentId || course.department?._id || course.department);
+      if (courseDeptId !== normalizeId(selectedDepartment)) return false;
+      if (selectedGroupCourseIds) {
+        const courseId = normalizeId(course.id || course._id);
+        if (!selectedGroupCourseIds.has(courseId)) return false;
+      }
+      if (selectedSemester && String(course.semester) !== String(selectedSemester)) {
         return false;
       }
-      if (selectedSemester && String(course.semester) !== String(selectedSemester)) return false;
-      if (Array.isArray(course.facultyIds) && course.facultyIds.length === 0) return false;
       if (Array.isArray(course.facultyMembers) && course.facultyMembers.length === 0) return false;
       return true;
     });
-  }, [courses, selectedDepartment, selectedProgram, selectedSemester]);
+  }, [courses, selectedDepartment, selectedGroupCourseIds, selectedSemester]);
 
   const tableRows = useMemo(
     () =>
@@ -164,7 +168,7 @@ const TeachingLoad = () => {
               onChange={(e) => {
                 updateActiveFormFilters({
                   selectedDepartment: e.target.value,
-                  selectedProgram: "",
+                  selectedGroup: "",
                   selectedSemester: "",
                 });
               }}
@@ -179,22 +183,22 @@ const TeachingLoad = () => {
           </div>
 
           <div className="teaching-load-filter-group">
-            <label htmlFor="program-select">Program / Class (Optional)</label>
+            <label htmlFor="group-select">Group / Class (Optional)</label>
             <select
-              id="program-select"
-              value={selectedProgram}
+              id="group-select"
+              value={selectedGroup}
               onChange={(e) => {
                 updateActiveFormFilters({
-                  selectedProgram: e.target.value,
+                  selectedGroup: e.target.value,
                   selectedSemester: "",
                 });
               }}
               disabled={!selectedDepartment}
             >
-              <option value="">All Programs</option>
-              {programs.map((prog) => (
-                <option key={prog} value={prog}>
-                  {String(prog).toUpperCase()}
+              <option value="">All Groups</option>
+              {groupOptions.map((group) => (
+                <option key={group._id} value={group._id}>
+                  {String(group.name || group.groupCode || "").toUpperCase()}
                 </option>
               ))}
             </select>
@@ -262,7 +266,9 @@ const TeachingLoad = () => {
               <h3>TEACHING LOAD (ODD SEMESTER, 2024-2025)</h3>
               <h4>
                 Department of {selectedDeptName}
-                {selectedProgram ? ` - ${selectedProgram}` : ""}
+                {selectedGroup
+                  ? ` - ${groupOptions.find((group) => normalizeId(group._id) === normalizeId(selectedGroup))?.name || ""}`
+                  : ""}
                 {selectedSemester && ` - Semester ${selectedSemester}`}
               </h4>
               <p className="print-form-label">{selectedForm === "A" ? "Form A" : "Form B"}</p>
