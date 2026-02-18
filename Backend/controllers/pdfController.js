@@ -2,21 +2,10 @@ import puppeteer from "puppeteer";
 
 const getLaunchArgs = () => [
   ...(process.platform === "linux"
-    ? [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--no-zygote",
-        "--single-process",
-      ]
+    ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
     : []),
   "--disable-gpu",
   "--no-first-run",
-  "--no-default-browser-check",
-  "--disable-background-networking",
-  "--disable-background-timer-throttling",
-  "--disable-renderer-backgrounding",
-  "--disable-features=site-per-process,Translate,IsolateOrigins",
 ];
 
 const getExecutableCandidates = () => {
@@ -59,7 +48,7 @@ const launchBrowser = async () => {
   for (const executablePath of getExecutableCandidates()) {
     try {
       return await puppeteer.launch({
-        headless: "new",
+        headless: true,
         executablePath,
         args,
       });
@@ -70,7 +59,7 @@ const launchBrowser = async () => {
 
   try {
     return await puppeteer.launch({
-      headless: "new",
+      headless: true,
       args,
     });
   } catch (error) {

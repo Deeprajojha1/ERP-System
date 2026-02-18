@@ -1,11 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import "./GeneralSupport.css";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
-import axios from "../utils/axiosInstance";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import { downloadTabularFile } from "../utils/tabularDownload";
 import axios from "../utils/axiosInstance";
@@ -32,7 +30,7 @@ const GeneralSupport = () => {
     "Daily Attendance Report",
     "Student Master Report",
     "Faculty Master Report",
-    // "Fees Summary Report",
+    "Fees Summary Report",
     "Exam Schedule Report",
     "Results Summary Report",
   ];
@@ -108,9 +106,7 @@ const GeneralSupport = () => {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
 
-    const headerHtml = headers.map((h) => `<th>${esc(h)}</th>`).join("");
-
-    const bodyHtml = rows
+    const list = rows
       .map(
         (r) => `<tr>${headers.map((h) => `<td>${esc(r[h])}</td>`).join("")}</tr>`,
       )
@@ -120,16 +116,17 @@ const GeneralSupport = () => {
       <html>
         <head>
           <style>
-            body { font-family: Arial; padding: 20px; }
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
+            h1 { margin: 0 0 6px; font-size: 22px; }
+            p { margin: 0 0 16px; color: #4b5563; }
             table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 8px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
             th { background: #f3f4f6; }
           </style>
         </head>
         <body>
-          <h2>${reportType}</h2>
-          <p>Department: ${department}</p>
-          <p>Date Range: ${fromDate || "N/A"} to ${toDate || "N/A"}</p>
+          <h1>${esc(reportType)}</h1>
+          <p>Generated on: ${esc(new Date().toLocaleString())}</p>
           <table>
             <thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
             <tbody>${list}</tbody>
@@ -469,41 +466,46 @@ const GeneralSupport = () => {
       }
 
       if (format === "PDF") {
-        await downloadPDF(dummyData, `${base}.pdf`);
+        await downloadPDF(data, `${base}.pdf`);
       } else if (format === "CSV") {
         await downloadTabularFile(apiBase, {
-          rows: dummyData,
+          rows: data,
           format: "csv",
           fileName: `${base}.csv`,
         });
       } else {
         await downloadTabularFile(apiBase, {
-          rows: dummyData,
+          rows: data,
           format: "xlsx",
           fileName: `${base}.xlsx`,
           sheetName: "Report",
         });
       }
-
-      setRecent((prev) => [
-        {
-          name: `${base}.${format === "PDF" ? "pdf" : format === "CSV" ? "csv" : "xlsx"}`,
-        },
-        ...prev,
-      ]);
     } catch (error) {
       toast.error(error.message || "Failed to generate report");
+      return;
     }
+
+    setRecent((prev) => [
+      { name: `${base}.${format === "PDF" ? "pdf" : format === "CSV" ? "csv" : "xlsx"}` },
+      ...prev,
+    ]);
   };
 
-  // =====================================
-  // UI SECTION (UNCHANGED)
-  // =====================================
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="gs-state pending app-loader-state">
-          <Oval height={64} width={64} color="#2563eb" visible />
+          <Oval
+            height={64}
+            width={64}
+            color="#2563eb"
+            secondaryColor="#bfdbfe"
+            strokeWidth={4}
+            strokeWidthSecondary={4}
+            ariaLabel="Loading"
+            visible
+          />
           <p>Loading reports module...</p>
         </div>
       );
@@ -514,6 +516,7 @@ const GeneralSupport = () => {
         <div className="gs-state error">
           <img src={emptyStateImg} alt="Failed" className="gs-state-img" />
           <h3>Failed to load reports module</h3>
+          <p>Please try again in a moment.</p>
         </div>
       );
     }
@@ -533,7 +536,7 @@ const GeneralSupport = () => {
               Report Type
               <select value={reportType} onChange={(e) => setReportType(e.target.value)}>
                 {reportTypes.map((r) => (
-                  <option key={r}>{r}</option>
+                  <option key={r} value={r}>{r}</option>
                 ))}
               </select>
             </label>
@@ -550,7 +553,7 @@ const GeneralSupport = () => {
                 }}
               >
                 {departments.map((d) => (
-                  <option key={d}>{d}</option>
+                  <option key={d} value={d}>{d}</option>
                 ))}
               </select>
             </label>
@@ -606,17 +609,26 @@ const GeneralSupport = () => {
               <label>
                 From Date
                 <input
-                  type="date"
+                  type="text"
+                  placeholder="dd-mm-yyyy"
                   value={fromDate}
+                  onFocus={(e) => (e.target.type = "date")}
+                  onBlur={(e) => {
+                    if (!e.target.value) e.target.type = "text";
+                  }}
                   onChange={(e) => setFromDate(e.target.value)}
                 />
               </label>
-
               <label>
                 To Date
                 <input
-                  type="date"
+                  type="text"
+                  placeholder="dd-mm-yyyy"
                   value={toDate}
+                  onFocus={(e) => (e.target.type = "date")}
+                  onBlur={(e) => {
+                    if (!e.target.value) e.target.type = "text";
+                  }}
                   onChange={(e) => setToDate(e.target.value)}
                 />
               </label>
@@ -649,7 +661,11 @@ const GeneralSupport = () => {
     );
   };
 
-  return <div className="gs-page">{renderState()}</div>;
+  return (
+    <div className="gs-page">
+      {renderState()}
+    </div>
+  );
 };
 
 export default GeneralSupport;

@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
 import { PiStudentBold } from "react-icons/pi";
 import {
   FiHome,
@@ -31,32 +30,12 @@ const StudentDashboardShell = ({
   onLogout,
   todayLabel,
 }) => {
-  const apiBase = useSelector((state) => state.config.apiBase);
-  const userData = useSelector((state) => state.user.userData);
-
-  /* ---------- Profile Image ---------- */
-  const profileImage = (() => {
-    const fileUrl = userData?.user?.profileImageUrl;
-    const fileName = userData?.user?.profileImage;
-    const base = apiBase?.replace("/api", "") || "";
-    if (fileUrl) {
-      if (fileUrl.startsWith("http")) return fileUrl;
-      return `${base}${fileUrl}`;
-    }
-    if (fileName) {
-      return `${base}/uploads/profile-images/${fileName}`;
-    }
-    return null;
-  })();
-
   const navigate = useNavigate();
   const location = useLocation();
-
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true)
   );
 
-  /* ---------- Resize ---------- */
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
@@ -67,7 +46,6 @@ const StudentDashboardShell = ({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  /* ---------- Section ---------- */
   const currentSection = useMemo(() => {
     const path = location.pathname.toLowerCase();
     if (path.includes("/dashboard/profile")) return "profile";
@@ -77,7 +55,6 @@ const StudentDashboardShell = ({
     return "home";
   }, [location.pathname]);
 
-  /* ---------- Menu ---------- */
   const menuItems = [
     { id: "home", label: "Home", path: "/dashboard", icon: FiHome },
     { id: "profile", label: "Profile", path: "/dashboard/profile", icon: FiUser },
@@ -86,15 +63,13 @@ const StudentDashboardShell = ({
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
   ];
 
-  /* ---------- Initials ---------- */
-  const userInitials = (userData?.user?.name || "Student")
+  const userInitials = (resolvedStudentData.personalInfo.name || "Student")
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
+    .map((word) => word[0]?.toUpperCase())
     .join("");
 
-  /* ---------- Fee ---------- */
   const feeSummary = useMemo(() => {
     const total =
       Number(roleDetails?.totalAcademicFee) ||
@@ -104,17 +79,17 @@ const StudentDashboardShell = ({
       Number(roleDetails?.paidAcademicFee) ||
       Number(roleDetails?.fees?.academic?.paid) ||
       0;
-    return { total, paid, remaining: Math.max(total - paid, 0) };
+    const remaining = Math.max(total - paid, 0);
+    return { total, paid, remaining };
   }, [roleDetails]);
 
-  const formatAmount = (v) =>
+  const formatAmount = (value) =>
     new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       maximumFractionDigits: 0,
-    }).format(Number(v) || 0);
+    }).format(Number(value) || 0);
 
-  /* ---------- Attendance ---------- */
   const dateWiseAttendance = useMemo(() => {
     const rows = [];
     (attendanceData || []).forEach((entry) => {
@@ -134,162 +109,261 @@ const StudentDashboardShell = ({
 
   const handleMenuClick = (item) => {
     navigate(item.path);
-    if (window.innerWidth < 1024) setIsSidebarOpen(false);
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
   };
 
-  /* ---------- Render ---------- */
-  const renderContent = () => {
-    if (currentSection === "profile")
-      return <StudentDetails studentData={resolvedStudentData} />;
-
-    if (currentSection === "attendance")
-      return (
-        <section className="student-attendance-table-card">
-          <h3>Date-wise Attendance</h3>
-        </section>
-      );
-
-    if (currentSection === "courses")
-      return (
-        <CoursesDetails
-          coursesData={coursesData}
-          onCourseClick={onCourseClick}
-        />
-      );
-
-    if (currentSection === "fees")
-      return (
-        <section className="student-fees-page">
-          <h3>Fee Overview</h3>
-          <strong>{formatAmount(feeSummary.total)}</strong>
-        </section>
-      );
-
-    return (
+  const renderHome = () => (
+    <div className="student-home-stack">
       <section className="student-home-hero">
-        <img src={heroImage} alt="Campus" />
+        <div className="student-home-image-wrap">
+          <img src={heroImage} alt="Campus" className="student-home-image" />
+        </div>
+        <div className="student-home-hero-copy">
+          <h3>Welcome Back</h3>
+          <p>
+            Track your attendance, courses, and fee status from one place.
+          </p>
+        </div>
       </section>
-    );
+
+      <section className="student-fee-summary">
+        <article className="student-fee-card">
+          <p>Total Academic Fee</p>
+          <strong>{formatAmount(feeSummary.total)}</strong>
+        </article>
+        <article className="student-fee-card">
+          <p>Paid</p>
+          <strong>{formatAmount(feeSummary.paid)}</strong>
+        </article>
+        <article className="student-fee-card">
+          <p>Remaining</p>
+          <strong>{formatAmount(feeSummary.remaining)}</strong>
+        </article>
+      </section>
+
+      <AttendanceOverview
+        overallAttendance={overallAttendance}
+        attendanceData={attendanceData}
+        studentData={resolvedStudentData}
+      />
+    </div>
+  );
+
+  const renderDateWiseAttendance = () => (
+    <section className="student-attendance-table-card">
+      <h3>Date-wise Attendance</h3>
+      {dateWiseAttendance.length === 0 ? (
+        <p className="student-empty-state">No date-wise attendance data available.</p>
+      ) : (
+        <div className="student-attendance-table-wrap">
+          <table className="student-attendance-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Course</th>
+                <th>Subject</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {dateWiseAttendance.map((row, idx) => (
+                <tr key={`${row.date}-${row.courseCode}-${idx}`}>
+                  <td>
+                    {Number.isNaN(new Date(row.date).getTime())
+                      ? "N/A"
+                      : new Date(row.date).toLocaleDateString("en-IN")}
+                  </td>
+                  <td>{row.courseCode}</td>
+                  <td>{row.courseName}</td>
+                  <td>
+                    <span className={`attendance-chip ${row.status}`}>
+                      {row.status === "present"
+                        ? "Present"
+                        : row.status === "absent"
+                        ? "Absent"
+                        : "No Data"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  );
+
+  const renderFees = () => (
+    <section className="student-fees-page">
+      <h3>Fee Overview</h3>
+      <div className="student-fee-summary">
+        <article className="student-fee-card">
+          <p>Total Academic Fee</p>
+          <strong>{formatAmount(feeSummary.total)}</strong>
+        </article>
+        <article className="student-fee-card">
+          <p>Paid</p>
+          <strong>{formatAmount(feeSummary.paid)}</strong>
+        </article>
+        <article className="student-fee-card">
+          <p>Remaining</p>
+          <strong>{formatAmount(feeSummary.remaining)}</strong>
+        </article>
+      </div>
+    </section>
+  );
+
+  const renderContent = () => {
+    if (currentSection === "profile") {
+      return <StudentDetails studentData={resolvedStudentData} />;
+    }
+    if (currentSection === "attendance") {
+      return renderDateWiseAttendance();
+    }
+    if (currentSection === "courses") {
+      return <CoursesDetails coursesData={coursesData} onCourseClick={onCourseClick} />;
+    }
+    if (currentSection === "fees") {
+      return renderFees();
+    }
+    return renderHome();
   };
 
-  /* ---------- JSX ---------- */
   return (
     <>
-      {/* NAVBAR */}
       <header className="student-admin-nav">
         <div className="student-admin-nav-inner">
           <div className="student-admin-brand">
-            <PiStudentBold />
+            <PiStudentBold className="icons"/>
           </div>
 
           <div className="student-admin-nav-right">
             <div className="student-admin-welcome">
-              <span>
-                Welcome,{" "}
-                {resolvedStudentData?.personalInfo?.name || "Student"}
-              </span>
+              <span>Welcome, {resolvedStudentData.personalInfo.name}</span>
               <small>{todayLabel}</small>
             </div>
-
             <NetworkSpeedBadge />
-
-            <button
-              className="student-admin-logout"
-              onClick={onLogout}
-            >
+            <button className="student-admin-logout" type="button" onClick={onLogout}>
               Logout
             </button>
           </div>
         </div>
       </header>
 
-      {/* LAYOUT */}
       <div
         className={`student-admin-layout ${
           isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"
         }`}
       >
-        {/* REOPEN BTN */}
         {!isSidebarOpen && (
           <button
+            type="button"
             className="student-admin-sidebar-reopen"
             onClick={() => setIsSidebarOpen(true)}
+            aria-label="Open sidebar"
           >
             <FiChevronRight />
           </button>
         )}
 
-        {/* SIDEBAR */}
-        <aside
-          className={`student-admin-sidebar ${
-            isSidebarOpen ? "open" : ""
-          }`}
-        >
-          {/* PROFILE */}
+        <aside className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}>
           <div className="student-admin-sidebar-profile">
             <div className="student-admin-sidebar-profile-main">
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt="Profile"
-                  className="student-admin-sidebar-avatar-img"
-                />
-              ) : (
-                <div className="student-admin-sidebar-avatar">
-                  {userInitials}
-                </div>
-              )}
+              <div className="student-admin-sidebar-avatar">{userInitials || "ST"}</div>
+              <div className="student-admin-sidebar-profile-copy">
+                <h2>{resolvedStudentData.personalInfo.name}</h2>
+                <p>{resolvedStudentData.personalInfo.email}</p>
+              </div>
             </div>
-
-            <div className="student-admin-sidebar-profile-copy">
-              <h2>
-                {resolvedStudentData?.personalInfo?.name}
-              </h2>
-              <p>
-                {resolvedStudentData?.personalInfo?.email}
-              </p>
-            </div>
-
-            {/* TOGGLE */}
             <button
+              type="button"
               className="student-admin-sidebar-toggle"
-              onClick={() =>
-                setIsSidebarOpen((prev) => !prev)
-              }
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              aria-label="Toggle sidebar"
             >
-              {isSidebarOpen ? (
-                <FiChevronLeft />
-              ) : (
-                <FiChevronRight />
-              )}
+              {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
             </button>
           </div>
 
-          {/* MENU */}
           <div className="student-admin-sidebar-menu-scroll">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              return (
-                <button
-                  key={item.id}
-                  className={`student-admin-sidebar-btn ${
-                    currentSection === item.id
-                      ? "active"
-                      : ""
-                  }`}
-                  onClick={() => handleMenuClick(item)}
-                >
-                  <Icon />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
+            <div className="student-admin-sidebar-header">
+              <span className="student-admin-sidebar-title">Menu</span>
+            </div>
+
+            <div className="student-admin-sidebar-section">
+              <label className="student-admin-sidebar-label">DASHBOARD</label>
+              {menuItems.slice(0, 2).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`student-admin-sidebar-btn ${
+                      currentSection === item.id ? "active" : ""
+                    }`}
+                    onClick={() => handleMenuClick(item)}
+                  >
+                    <Icon />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="student-admin-sidebar-section">
+              <label className="student-admin-sidebar-label">ACADEMICS</label>
+              {menuItems.slice(2).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`student-admin-sidebar-btn ${
+                      currentSection === item.id ? "active" : ""
+                    }`}
+                    onClick={() => handleMenuClick(item)}
+                  >
+                    <Icon />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </aside>
 
-        {/* CONTENT */}
         <main className="student-admin-content">
-          {renderContent()}
+          {currentSection === "home" ? (
+            <>
+              {renderContent()}
+              <section id="overview" className="student-admin-stats">
+                <article className="student-admin-stat">
+                  <p>Enrolled Courses</p>
+                  <strong>{coursesData.length}</strong>
+                </article>
+                <article className="student-admin-stat">
+                  <p>Total Sessions</p>
+                  <strong>{totalSessions}</strong>
+                </article>
+              </section>
+            </>
+          ) : (
+            <>
+              <section id="overview" className="student-admin-stats">
+                <article className="student-admin-stat">
+                  <p>Enrolled Courses</p>
+                  <strong>{coursesData.length}</strong>
+                </article>
+                <article className="student-admin-stat">
+                  <p>Total Sessions</p>
+                  <strong>{totalSessions}</strong>
+                </article>
+              </section>
+              {renderContent()}
+            </>
+          )}
         </main>
       </div>
     </>

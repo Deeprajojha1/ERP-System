@@ -7,7 +7,10 @@ import Login from "./components/UserLogin/Login";
 import UserRegister from "./components/UserRegister/UserRegister";
 import Layout from "./components/Layout/Layout";
 import Dashboard from "./components/pages/Dashboard";
-import FacultyErpDashboard from "./components/faculty/FacultyErpDashboard";
+import AttendancePage from "./components/faculty/AttendancePage";
+import FacultyDashboard from "./components/faculty/FacultyDashboard";
+import FacultyLeaves from "./components/faculty/FacultyLeaves";
+import Header from "./components/faculty/Header";
 import AdminHome from "./Admin/AdminHome";
 import useGetCurrentUser from "./components/customHooks/getCurrentUser";
 import Department from "./Admin/Department";
@@ -33,7 +36,6 @@ import Settings from "./Admin/Settings";
 import FacultyLectureReport from "./Admin/FacultyLectureReport";
 import SubjectAttendance from "./Admin/Subjectattendance";
 import TeachingLoad from "./Admin/Teachingload";
-import Assignment from "./Admin/assignment";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
@@ -205,10 +207,18 @@ function App() {
           path="/faculty/*"
           element={
             userData?.user?.role === "faculty" ? (
-              <Routes>
-                <Route path="faculty-dashboard" element={<FacultyErpDashboard />} />
-                <Route path="*" element={<Navigate to="/page-not-found" replace />} />
-              </Routes>
+              <div className="app">
+                <Header />
+
+                <main className="main">
+                  <Routes>
+                    <Route path="faculty-dashboard" element={<FacultyDashboard />} />
+                    <Route path="course/:courseId" element={<AttendancePage />} />
+                    <Route path="leaves" element={<FacultyLeaves />} />
+                    <Route path="*" element={<Navigate to="/page-not-found" replace />} />
+                  </Routes>
+                </main>
+              </div>
             ) : (
               <Navigate to="/" replace />
             )
@@ -242,7 +252,6 @@ function App() {
           <Route path="student" element={<Student />} />
           <Route path="courses" element={<Courses />} />
           <Route path="groups" element={<Groups />} />
-          <Route path="assignment" element={<Assignment />} />
           <Route path="timetable" element={<Timetable />} />
           <Route path="exam" element={<Exam />} />
           <Route path="result" element={<Result />} />
