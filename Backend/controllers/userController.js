@@ -2,13 +2,15 @@ import User from "../models/userModel.js";
 import Student from "../models/Student.js";
 import Faculty from "../models/Faculty.js";
 import Department from "../models/Department.js";
-import Group from "../models/Group.js";
 import Course from "../models/Course.js";
+import Group from "../models/Group.js";
 import Enrollment from "../models/Enrollment.js";
 import AttendanceSession from "../models/AttendanceSession.js";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import validator from "validator";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+import { getFileUrl } from "../config/multerConfig.js";
 import sendEmail from "../config/sendMail.js";
 
 const { isEmail } = validator;
@@ -368,6 +370,18 @@ export const login = async (req, res) => {
       };
     }
 
+    const buildProfileImageUrl = () => {
+      const url = user.profileImage ? getFileUrl(user.profileImage) : null;
+      if (url && url.startsWith("/")) {
+        const hostBase =
+          process.env.BASE_URL ||
+          process.env.BACKEND_URL ||
+          `${req.protocol}://${req.get("host")}`;
+        return `${hostBase.replace(/\/+$/, "")}${url}`;
+      }
+      return url;
+    };
+
     res.json({
       message: "Login successful",
       user: {
@@ -379,6 +393,8 @@ export const login = async (req, res) => {
         DOB: user.DOB,
         role: user.role,
         status: user.status,
+        profileImage: user.profileImage || null,
+        profileImageUrl: buildProfileImageUrl(),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -1007,6 +1023,19 @@ export const getUser = async (req, res) => {
               DOB: user.DOB,
               role: user.role,
               status: user.status,
+              // Return raw filename plus resolved URL for reliable frontend rendering
+              profileImage: user.profileImage || null,
+              profileImageUrl: (() => {
+                const url = user.profileImage ? getFileUrl(user.profileImage) : null;
+                if (url && url.startsWith("/")) {
+                  const hostBase =
+                    process.env.BASE_URL ||
+                    process.env.BACKEND_URL ||
+                    `${req.protocol}://${req.get("host")}`;
+                  return `${hostBase.replace(/\/+$/, "")}${url}`;
+                }
+                return url;
+              })(),
               createdAt: user.createdAt,
               updatedAt: user.updatedAt,
             },

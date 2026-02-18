@@ -134,20 +134,35 @@
   border: 1px solid #bfdbfe;
 }
 
-.settings-avatar-camera {
+.settings-avatar-actions {
   position: absolute;
   right: 3px;
   bottom: 3px;
-  width: 30px;
-  height: 30px;
-  border-radius: 999px;
-  border: none;
-  background: #0284c7;
-  color: #ffffff;
-  display: inline-flex;
+  display: flex;
+  gap: 4px;
+}
+
+.settings-avatar-camera {
+  width: 32px;
+  height: 32px;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
+  border-radius: 50%;
+  display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-avatar-camera:hover:not(:disabled) {
+  background: #f9fafb;
+  border-color: #d1d5db;
+}
+
+.settings-avatar-camera:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .settings-avatar-camera svg {
@@ -155,8 +170,56 @@
   height: 14px;
 }
 
+.settings-avatar-delete {
+  width: 32px;
+  height: 32px;
+  background: #ffffff;
+  border: 2px solid #ef4444;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.settings-avatar-delete:hover:not(:disabled) {
+  background: #ef4444;
+  border-color: #dc2626;
+}
+
+.settings-avatar-delete:hover:not(:disabled) svg {
+  color: #ffffff;
+}
+
+.settings-avatar-delete:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.settings-avatar-delete svg {
+  width: 14px;
+  height: 14px;
+  color: #ef4444;
+  transition: color 0.2s ease;
+}
+
 .settings-avatar-file-input {
   display: none;
+}
+
+.settings-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .settings-user-info h3 {
@@ -597,6 +660,16 @@
     height: 13px;
   }
 
+  .settings-avatar-delete {
+    width: 28px;
+    height: 28px;
+  }
+
+  .settings-avatar-delete svg {
+    width: 13px;
+    height: 13px;
+  }
+
   .security-row {
     padding: 12px 14px;
   }
@@ -836,6 +909,16 @@
   }
 
   .settings-avatar-camera svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  .settings-avatar-delete {
+    width: 24px;
+    height: 24px;
+  }
+
+  .settings-avatar-delete svg {
     width: 12px;
     height: 12px;
   }

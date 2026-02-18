@@ -54,7 +54,11 @@ import {
   updateGroupTimetable,
 } from "../controllers/groupController.js";
 
-import { getAdminProfile } from "../controllers/profileController.js";
+import { 
+  getAdminProfile, 
+  uploadProfileImage, 
+  deleteProfileImage 
+} from "../controllers/profileController.js";
 
 import {
   markAttendance,
@@ -103,6 +107,7 @@ import {
 } from "../controllers/assingmentController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
+import upload from "../config/multerConfig.js";
 
 const router = express.Router();
 
@@ -111,6 +116,24 @@ const router = express.Router();
 ========================= */
 router.post("/profile", isAdmin, getAdminProfile);
 router.post("/change-password", isAdmin, changePassword);
+router.post("/profile/upload-image", isAdmin, (req, res, next) => {
+  console.log("[Admin Route] Upload request received");
+  upload.single("profileImage")(req, res, (err) => {
+    if (err) {
+      console.error("[Multer Error in Route]", err);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ message: "File too large. Maximum size is 5MB." });
+      }
+      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
+        return res.status(400).json({ message: "Unexpected file field. Expected 'profileImage'." });
+      }
+      return res.status(400).json({ message: err.message || "File upload failed" });
+    }
+    console.log("[Admin Route] File processed successfully");
+    next();
+  });
+}, uploadProfileImage);
+router.delete("/profile/delete-image", isAdmin, deleteProfileImage);
 
 /* =========================
    DEPARTMENT

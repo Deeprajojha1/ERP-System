@@ -49,6 +49,19 @@ const AdminLayout = () => {
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const userName = userData?.user?.name || "Admin User";
   const userEmail = userData?.user?.email || "admin@university.edu";
+  const userImg = (() => {
+    const fileUrl = userData?.user?.profileImageUrl;
+    const fileName = userData?.user?.profileImage;
+    const base = apiBase?.replace('/api', '') || '';
+    if (fileUrl) {
+      if (fileUrl.startsWith('http')) return fileUrl;
+      return `${base}${fileUrl}`;
+    }
+    if (fileName) {
+      return `${base}/uploads/profile-images/${fileName}`;
+    }
+    return null;
+  })();
   const userInitials = userName
     .split(" ")
     .filter(Boolean)
@@ -185,7 +198,9 @@ const AdminLayout = () => {
         <div className="admin-sidebar">
           <div className="sidebar-profile">
             <div className="sidebar-profile-main">
-              <div className="sidebar-avatar">{userInitials || "AD"}</div>
+              <div className="sidebar-avatar">
+                {userImg ? <img src={userImg} alt="User" className="avatarimg" /> : userName}
+              </div>
               <div className="sidebar-profile-copy">
                 <h2>{userName}</h2>
                 <p>{userEmail}</p>
