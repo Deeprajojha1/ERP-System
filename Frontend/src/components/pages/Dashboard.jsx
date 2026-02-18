@@ -22,7 +22,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
 import axios from '../../utils/axiosInstance';
-import { clearUserData } from '../../redux/userSlice';
+import { clearUserData, setUserData } from '../../redux/userSlice';
 import { useNavigate } from 'react-router-dom';
 
 // Import child components
@@ -129,14 +129,20 @@ const Dashboard = () => {
     };
   }, [user, roleDetails]);
 
-  const attendanceData = userData?.attendanceData || [];
-  const enrolledCourses = userData?.enrolledCourses || [];
+  const attendanceData = useMemo(
+    () => (Array.isArray(userData?.attendanceData) ? userData.attendanceData : []),
+    [userData?.attendanceData]
+  );
+  const enrolledCourses = useMemo(
+    () => (Array.isArray(userData?.enrolledCourses) ? userData.enrolledCourses : []),
+    [userData?.enrolledCourses]
+  );
 
   useEffect(() => {
     const shouldFetchStudentData =
       apiBase &&
       user?.role === 'student' &&
-      (!Array.isArray(enrolledCourses) || enrolledCourses.length === 0);
+      !Array.isArray(userData?.enrolledCourses);
 
     if (!shouldFetchStudentData) return;
 
@@ -155,7 +161,7 @@ const Dashboard = () => {
     };
 
     fetchStudentData();
-  }, [apiBase, user?.role, enrolledCourses, dispatch]);
+  }, [apiBase, user?.role, userData?.enrolledCourses, dispatch]);
 
   const coursesData = useMemo(() => {
     return enrolledCourses.map((course) => {

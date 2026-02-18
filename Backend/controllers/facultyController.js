@@ -6,10 +6,8 @@ import Group from "../models/Group.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
-import Assignment from "../models/Assignment.js"
-import Submission from "../models/submission.js"
 import Assignment from "../models/Assignment.js";
-import Submission from "../models/Submission.js";
+import Submission from "../models/submission.js";
 
 const buildRoutineWithDetails = async (routineMap) => {
   if (!routineMap || (routineMap instanceof Map && routineMap.size === 0)) return {};

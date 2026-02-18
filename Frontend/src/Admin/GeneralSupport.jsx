@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from "react";
-import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import "./GeneralSupport.css";
 import { Oval } from "react-loader-spinner";
@@ -8,7 +7,6 @@ import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import axios from "../utils/axiosInstance";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import { downloadTabularFile } from "../utils/tabularDownload";
-import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 
 const GeneralSupport = () => {

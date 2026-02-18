@@ -199,7 +199,7 @@ const AdminLayout = () => {
           <div className="sidebar-profile">
             <div className="sidebar-profile-main">
               <div className="sidebar-avatar">
-                {userImg ? <img src={userImg} alt="User" className="avatarimg" /> : userName}
+                {userImg ? <img src={userImg} alt="User" className="avatarimg" /> : (userInitials || "AD")}
               </div>
               <div className="sidebar-profile-copy">
                 <h2>{userName}</h2>
