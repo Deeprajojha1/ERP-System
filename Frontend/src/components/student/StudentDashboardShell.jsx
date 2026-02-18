@@ -35,14 +35,19 @@ const StudentDashboardShell = ({
   const userData = useSelector((state) => state.user.userData);
 
   /* ---------- Profile Image ---------- */
-  const profileImage = userData?.user?.profileImage
-    ? userData.user.profileImage.startsWith("http") ||
-      userData.user.profileImage.startsWith("/")
-      ? userData.user.profileImage
-      : `${apiBase?.replace("/api", "") || ""}/uploads/profile-images/${
-          userData.user.profileImage
-        }`
-    : null;
+  const profileImage = (() => {
+    const fileUrl = userData?.user?.profileImageUrl;
+    const fileName = userData?.user?.profileImage;
+    const base = apiBase?.replace("/api", "") || "";
+    if (fileUrl) {
+      if (fileUrl.startsWith("http")) return fileUrl;
+      return `${base}${fileUrl}`;
+    }
+    if (fileName) {
+      return `${base}/uploads/profile-images/${fileName}`;
+    }
+    return null;
+  })();
 
   const navigate = useNavigate();
   const location = useLocation();

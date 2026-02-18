@@ -62,13 +62,24 @@ const upload = multer({
 // Helper function to get file URL
 export const getFileUrl = (filename) => {
   if (!filename) return null;
-  
-  // Get the base URL from environment or use default
-  const baseUrl = process.env.NODE_ENV === 'production' 
-    ? process.env.BASE_URL || 'http://localhost:3000'
-    : 'http://localhost:3000';
-  
-  return `${baseUrl}/uploads/profile-images/${filename}`;
+
+  // If filename is already an absolute URL (e.g., Cloudinary), return as-is
+  if (/^https?:\/\//i.test(filename)) return filename;
+
+  // Prefer an explicit public base URL when provided (production deploys)
+  const envBase =
+    process.env.BASE_URL ||
+    process.env.BACKEND_URL ||
+    process.env.API_BASE_URL ||
+    process.env.SERVER_URL;
+
+  if (envBase) {
+    const normalized = envBase.replace(/\/+$/, "");
+    return `${normalized}/uploads/profile-images/${filename}`;
+  }
+
+  // Fallback to relative path so the current origin/host serves the file
+  return `/uploads/profile-images/${filename}`;
 };
 
 // Helper function to delete file

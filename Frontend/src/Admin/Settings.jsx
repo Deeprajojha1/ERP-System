@@ -78,22 +78,22 @@ const Settings = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [currentProfileImage, setCurrentProfileImage] = useState(null);
 
+  const resolveImageUrl = (fileUrl, fileName) => {
+    const baseUrl = apiBase?.replace('/api', '') || '';
+    if (fileUrl) {
+      if (fileUrl.startsWith('http')) return fileUrl;
+      return `${baseUrl}${fileUrl}`;
+    }
+    if (fileName) {
+      return `${baseUrl}/uploads/profile-images/${fileName}`;
+    }
+    return null;
+  };
+
   // Update current profile image when user data changes
   React.useEffect(() => {
-    if (user?.profileImage) {
-      // If it's already a full URL (starts with http or /), use it directly
-      if (user.profileImage.startsWith('http') || user.profileImage.startsWith('/')) {
-        setCurrentProfileImage(user.profileImage);
-      } else {
-        // If it's just a filename, construct the full URL
-        const baseUrl = apiBase?.replace('/api', '') || '';
-        const imageUrl = `${baseUrl}/uploads/profile-images/${user.profileImage}`;
-        setCurrentProfileImage(imageUrl);
-      }
-    } else {
-      setCurrentProfileImage(null);
-    }
-  }, [user?.profileImage, apiBase]);
+    setCurrentProfileImage(resolveImageUrl(user?.profileImageUrl, user?.profileImage));
+  }, [user?.profileImage, user?.profileImageUrl, apiBase]);
 
   const handleProfileImageChange = async (e) => {
     const file = e.target.files?.[0];
@@ -161,7 +161,7 @@ const Settings = () => {
       );
       
       // Update current profile image with the new URL
-      const imageUrl = response.data.profileImage;
+      const imageUrl = resolveImageUrl(response.data.profileImageUrl, response.data.profileImage);
       setCurrentProfileImage(imageUrl);
       
       // Update user data in Redux to reflect the change
@@ -169,7 +169,8 @@ const Settings = () => {
         ...userData,
         user: {
           ...userData.user,
-          profileImage: imageUrl
+          profileImage: response.data.profileImage,
+          profileImageUrl: imageUrl
         }
       }));
       

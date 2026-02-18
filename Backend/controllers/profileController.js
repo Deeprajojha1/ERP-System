@@ -154,9 +154,15 @@ export const uploadProfileImage = async (req, res) => {
     const imageUrl = getFileUrl(req.file.filename);
     console.log("[uploadProfileImage] Profile image saved successfully", { imageUrl });
 
+    const url = getFileUrl(user.profileImage);
+    const absoluteUrl = url && url.startsWith("/")
+      ? `${req.protocol}://${req.get("host")}${url}`
+      : url;
+
     res.json({
       message: "Profile image uploaded successfully",
-      profileImage: imageUrl,
+      profileImage: user.profileImage,
+      profileImageUrl: absoluteUrl,
     });
   } catch (error) {
     console.error("[uploadProfileImage] Error:", error);
@@ -257,9 +263,15 @@ export const uploadStudentProfileImage = async (req, res) => {
     const imageUrl = getFileUrl(req.file.filename);
     console.log("[uploadStudentProfileImage] Student profile image saved successfully", { imageUrl });
 
+    const url = getFileUrl(user.profileImage);
+    const absoluteUrl = url && url.startsWith("/")
+      ? `${req.protocol}://${req.get("host")}${url}`
+      : url;
+
     res.json({
       message: "Student profile image uploaded successfully",
-      profileImage: imageUrl,
+      profileImage: user.profileImage,
+      profileImageUrl: absoluteUrl,
     });
   } catch (error) {
     console.error("[uploadStudentProfileImage] Error:", error);

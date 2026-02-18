@@ -32,26 +32,22 @@ const StudentDetails = ({ studentData }) => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [currentProfileImage, setCurrentProfileImage] = useState(null);
 
+  const resolveImageUrl = (fileUrl, fileName) => {
+    const baseUrl = apiBase?.replace('/api', '') || '';
+    if (fileUrl) {
+      if (fileUrl.startsWith('http')) return fileUrl;
+      return `${baseUrl}${fileUrl}`;
+    }
+    if (fileName) {
+      return `${baseUrl}/uploads/profile-images/${fileName}`;
+    }
+    return null;
+  };
+
   // Update current profile image when user data changes
   useEffect(() => {
-    console.log("[Student] userData changed:", userData?.user);
-    if (userData?.user?.profileImage) {
-      // If it's already a full URL (starts with http or /), use it directly
-      if (userData.user.profileImage.startsWith('http') || userData.user.profileImage.startsWith('/')) {
-        console.log("[Student] Using full URL:", userData.user.profileImage);
-        setCurrentProfileImage(userData.user.profileImage);
-      } else {
-        // If it's just a filename, construct the full URL
-        const baseUrl = apiBase?.replace('/api', '') || '';
-        const imageUrl = `${baseUrl}/uploads/profile-images/${userData.user.profileImage}`;
-        console.log("[Student] Constructed URL:", imageUrl);
-        setCurrentProfileImage(imageUrl);
-      }
-    } else {
-      console.log("[Student] No profile image found");
-      setCurrentProfileImage(null);
-    }
-  }, [userData?.user?.profileImage, apiBase]);
+    setCurrentProfileImage(resolveImageUrl(userData?.user?.profileImageUrl, userData?.user?.profileImage));
+  }, [userData?.user?.profileImage, userData?.user?.profileImageUrl, apiBase]);
   
   /**
    * Get first letter of the name for profile logo
@@ -106,7 +102,7 @@ const StudentDetails = ({ studentData }) => {
       );
       
       // Update current profile image with the new URL
-      const imageUrl = response.data.profileImage;
+      const imageUrl = resolveImageUrl(response.data.profileImageUrl, response.data.profileImage);
       setCurrentProfileImage(imageUrl);
       
       // Refresh user data to get updated profile image

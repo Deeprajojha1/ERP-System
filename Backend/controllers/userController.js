@@ -370,6 +370,18 @@ export const login = async (req, res) => {
       };
     }
 
+    const buildProfileImageUrl = () => {
+      const url = user.profileImage ? getFileUrl(user.profileImage) : null;
+      if (url && url.startsWith("/")) {
+        const hostBase =
+          process.env.BASE_URL ||
+          process.env.BACKEND_URL ||
+          `${req.protocol}://${req.get("host")}`;
+        return `${hostBase.replace(/\/+$/, "")}${url}`;
+      }
+      return url;
+    };
+
     res.json({
       message: "Login successful",
       user: {
@@ -381,6 +393,8 @@ export const login = async (req, res) => {
         DOB: user.DOB,
         role: user.role,
         status: user.status,
+        profileImage: user.profileImage || null,
+        profileImageUrl: buildProfileImageUrl(),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -1009,7 +1023,19 @@ export const getUser = async (req, res) => {
               DOB: user.DOB,
               role: user.role,
               status: user.status,
-              profileImage: user.profileImage ? getFileUrl(user.profileImage) : null,
+              // Return raw filename plus resolved URL for reliable frontend rendering
+              profileImage: user.profileImage || null,
+              profileImageUrl: (() => {
+                const url = user.profileImage ? getFileUrl(user.profileImage) : null;
+                if (url && url.startsWith("/")) {
+                  const hostBase =
+                    process.env.BASE_URL ||
+                    process.env.BACKEND_URL ||
+                    `${req.protocol}://${req.get("host")}`;
+                  return `${hostBase.replace(/\/+$/, "")}${url}`;
+                }
+                return url;
+              })(),
               createdAt: user.createdAt,
               updatedAt: user.updatedAt,
             },
