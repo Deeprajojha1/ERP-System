@@ -1,4 +1,4 @@
-import Assignment from "../models/assignment.js";
+import Assignment from "../models/Assignment.js";
 import Submission from "../models/submission.js";
 
 export const getAssignmentsByGroup = async (req, res) => {

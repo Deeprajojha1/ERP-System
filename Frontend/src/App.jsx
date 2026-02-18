@@ -30,7 +30,6 @@ import FeesOthers from "./Admin/FeesOthers";
 import GeneralSupport from "./Admin/GeneralSupport";
 import Library from "./Admin/Library";
 import Settings from "./Admin/Settings";
-import Assignment from "./Admin/Assignment";
 import FacultyLectureReport from "./Admin/FacultyLectureReport";
 import SubjectAttendance from "./Admin/Subjectattendance";
 import TeachingLoad from "./Admin/Teachingload";
@@ -257,7 +256,6 @@ function App() {
           <Route path="fees/others" element={<FeesOthers />} />
           <Route path="general-support" element={<GeneralSupport />} />
           <Route path="library" element={<Library />} />
-          <Route path="assignment" element={<Assignment />} />
           <Route path="faculty-lecture-report" element={<FacultyLectureReport />} />
           <Route path="subject-attendance" element={<SubjectAttendance />} />
           <Route path="teaching-load" element={<TeachingLoad />} />
