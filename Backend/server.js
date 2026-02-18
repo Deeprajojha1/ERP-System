@@ -3,6 +3,8 @@ import dotenv from "dotenv";
 import connectDB from "./config/connectionDB.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import multer from "multer";
+import path from "path";
 import userRoutes from "./Routes/userRoutes.js";
 import adminRoutes from "./Routes/adminRoutes.js";
 import facultyRoutes from "./Routes/facultyRoutes.js";
@@ -13,13 +15,24 @@ dotenv.config();
 const app = express();
 // CORS configuration
 // NOTE: Origin is only scheme + host (+ optional port), no path.
+const normalizeOrigin = (value = "") => String(value).trim().replace(/\/+$/, "");
+const envOrigins = String(process.env.FRONTEND_URL || "")
+  .split(",")
+  .map(normalizeOrigin)
+  .filter(Boolean);
 const allowedOrigins = [
   "https://hu-erp-git-development-subeshs-projects.vercel.app",
+  "https://hu-erp-git-development-subeshs-projects.vercel.app",
   "https://hu-erp1.vercel.app",
-  "http://localhost:5173", // Vite default port
-  "http://localhost:5174", // Vite alternate port
-  process.env.FRONTEND_URL, // Optional override via env on Render
-].filter(Boolean);
+  "http://localhost:5173",
+  "http://localhost:5174",
+  ...envOrigins,
+].map(normalizeOrigin);
+
+const isLocalDevOrigin = (origin = "") =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+const isTrustedVercelOrigin = (origin = "") =>
+  /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
 
 console.log("[CORS] Allowed origins:", allowedOrigins);
 
@@ -34,7 +47,13 @@ app.use(
 
       console.log("[CORS] Incoming origin:", origin);
 
-      if (!allowedOrigins.includes(origin)) {
+      const normalized = normalizeOrigin(origin);
+      const isAllowed =
+        allowedOrigins.includes(normalized) ||
+        isLocalDevOrigin(normalized) ||
+        isTrustedVercelOrigin(normalized);
+
+      if (!isAllowed) {
         console.error("[CORS] Blocked origin:", origin, "Allowed:", allowedOrigins);
         const msg =
           "The CORS policy for this site does not allow access from the specified Origin.";
@@ -54,6 +73,9 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
+// Serve static files (uploads)
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 // routes
 app.use('/api/user/', userRoutes)
 app.use('/api/admin/', adminRoutes)
@@ -63,6 +85,8 @@ app.use('/api/attendance/', attendanceRoutes)
 
 // Handle malformed JSON payloads from clients.
 app.use((err, req, res, next) => {
+  console.error("[Server Error Handler]", err);
+  
   if (
     err instanceof SyntaxError &&
     err.status === 400 &&

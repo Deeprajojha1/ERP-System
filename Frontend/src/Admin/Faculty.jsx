@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
@@ -106,7 +106,8 @@ const Faculty = () => {
     });
   };
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
+    if (!apiBase) return;
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
       dispatch(setFacultyLoading(true));
@@ -131,11 +132,11 @@ const Faculty = () => {
     } finally {
       dispatch(setFacultyLoading(false));
     }
-  };
+  }, [apiBase, dispatch]);
 
   useEffect(() => {
     fetchAll();
-  }, []);
+  }, [fetchAll]);
 
   const syncFacultySilently = async () => {
     const facRes = await axios.get(`${apiBase}/admin/faculty`, {

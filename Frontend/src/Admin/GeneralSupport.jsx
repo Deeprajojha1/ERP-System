@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import "./GeneralSupport.css";
 import { Oval } from "react-loader-spinner";
@@ -7,20 +8,24 @@ import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import axios from "../utils/axiosInstance";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import { downloadTabularFile } from "../utils/tabularDownload";
+import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 
 const GeneralSupport = () => {
   const [reportType, setReportType] = useState("Daily Attendance Report");
   const [department, setDepartment] = useState("All Departments");
-  const [course, setCourse] = useState("All Courses");
+  const [courseProgram, setCourseProgram] = useState("All Courses");
   const [semester, setSemester] = useState("All Semesters");
   const [section, setSection] = useState("All Sections");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [format, setFormat] = useState("Excel");
   const [recent, setRecent] = useState([]);
-  const [groupCards, setGroupCards] = useState([]);
-  const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
+  const [departments, setDepartments] = useState(["All Departments"]);
+  const [departmentRecords, setDepartmentRecords] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [groups, setGroups] = useState([]);
   const apiBase = useSelector((state) => state.config.apiBase);
 
   const reportTypes = [
@@ -32,318 +37,68 @@ const GeneralSupport = () => {
     "Results Summary Report",
   ];
 
-  const departments = [
-    "All Departments",
-    "CSE",
-    "ECE",
-    "MECH",
-    "CIVIL",
-    "HUMANITIES",
-    "AGRICULTURE",
-  ];
-
-  const courseOptions = [
-    "All Courses",
-    "B.Tech",
-    "BCA",
-    "BBA",
-    "M.Tech",
-    "MBA",
-  ];
-
-  const semesterOptions = useMemo(
-    () => ["All Semesters", "1", "2", "3", "4", "5", "6", "7", "8"],
-    []
-  );
-
   useEffect(() => {
     if (!apiBase) return;
 
-    let active = true;
-
-    const fetchGroups = async () => {
+    const fetchDepartments = async () => {
       try {
-        const params = {};
-        if (semester !== "All Semesters") params.semester = semester;
+        setLoadState(ADMIN_LOAD_STATES.PENDING);
+        const [deptRes, courseRes, groupRes] = await Promise.all([
+          axios.get(`${apiBase}/admin/department`, {
+            withCredentials: true,
+            params: { noCache: "true" },
+          }),
+          axios.get(`${apiBase}/admin/course`, {
+            withCredentials: true,
+            params: { noCache: "true" },
+          }),
+          axios.get(`${apiBase}/admin/group`, {
+            withCredentials: true,
+            params: { noCache: "true" },
+          }),
+        ]);
 
-        const res = await axios.get(`${apiBase}/admin/timetable/group`, {
-          withCredentials: true,
-          params,
-        });
+        const fetchedDepartments = deptRes.data?.departments || [];
+        const fetchedNames = fetchedDepartments
+          .map((dept) => String(dept?.name || "").trim())
+          .filter(Boolean);
 
-        const normalized = (res.data?.groups || [])
-          .map((g) => ({
-            id: g?.id || g?._id || g?.groupCode || g?.name || "",
-            name: g?.groupCode || g?.name || g?.groupName || "",
-            semester: String(g?.semester ?? "").trim(),
-          }))
-          .filter((g) => g.name);
-
-        if (active) {
-          setGroupCards(normalized);
-        }
+        setDepartmentRecords(fetchedDepartments);
+        setDepartments(["All Departments", ...fetchedNames]);
+        setCourses(courseRes.data?.courses || []);
+        setGroups(groupRes.data?.groups || []);
+        setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (error) {
-        if (active) {
-          setGroupCards([]);
-        }
+        setLoadState(ADMIN_LOAD_STATES.FAILURE);
+        toast.error(error.response?.data?.message || "Failed to load report filters");
       }
     };
 
-    fetchGroups();
+    fetchDepartments();
+  }, [apiBase]);
 
-    return () => {
-      active = false;
-    };
-  }, [apiBase, semester]);
+  const departmentFilter = useMemo(
+    () => String(department || "").trim().toLowerCase(),
+    [department]
+  );
 
-  const sectionOptions = useMemo(() => {
-    const filteredGroups =
-      semester === "All Semesters"
-        ? groupCards
-        : groupCards.filter((g) => String(g.semester) === String(semester));
+  const toDepartmentTokens = (value = "") =>
+    String(value || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, " ")
+      .split(/\s+/)
+      .filter(Boolean);
 
-    const names = Array.from(new Set(filteredGroups.map((g) => g.name)));
-    return ["All Sections", ...names];
-  }, [groupCards, semester]);
+  const toDepartmentAcronym = (value = "") =>
+    toDepartmentTokens(value)
+      .map((token) => token[0])
+      .join("");
 
-  useEffect(() => {
-    if (!semesterOptions.includes(semester)) {
-      setSemester("All Semesters");
-    }
-  }, [semesterOptions, semester]);
-
-  useEffect(() => {
-    if (!sectionOptions.includes(section)) {
-      setSection("All Sections");
-    }
-  }, [sectionOptions, section]);
-
-  // =====================================
-  // 🔥 Dynamic Dummy Data Generator
-  // =====================================
-  const generateDummyData = () => {
-    const count = 60;
-
-    const names = [
-      "Priya", "Aditya", "Karan", "Riya", "Aman",
-      "Sneha", "Rahul", "Anjali", "Vikas", "Neha",
-    ];
-
-    const attendanceStatuses = ["Present", "Absent", "Late"];
-    const feeStatus = ["Paid", "Pending"];
-    const courses = courseOptions.filter((c) => c !== "All Courses");
-    const subjectCatalog = [
-      { code: "CS201", name: "Data Structures" },
-      { code: "CS202", name: "DBMS" },
-      { code: "CS203", name: "Operating Systems" },
-      { code: "CS204", name: "Computer Networks" },
-      { code: "MA101", name: "Mathematics" },
-      { code: "CS205", name: "Software Engineering" },
-    ];
-    const qualifications = ["B.Tech", "M.Tech", "Ph.D", "MCA", "M.Sc"];
-    const employmentTypes = ["Permanent", "Contract"];
-    const facultyStatuses = ["Active", "On Leave"];
-    const facultyNames = [
-      "Dr. Sharma",
-      "Prof. Verma",
-      "Dr. Gupta",
-      "Prof. Singh",
-      "Dr. Mehta",
-    ];
-    const examTimeSlots = [
-      "09:00 AM - 12:00 PM",
-      "10:00 AM - 01:00 PM",
-      "01:00 PM - 04:00 PM",
-      "02:00 PM - 05:00 PM",
-    ];
-    const examDurations = ["2 Hours", "2.5 Hours", "3 Hours"];
-    const examModes = ["Theory", "Practical"];
-    const hallNumbers = ["A-101", "A-204", "B-110", "C-305", "Lab-2", "Lab-4"];
-
-    const rows = [];
-
-    const start = fromDate ? new Date(fromDate) : new Date("2024-01-01");
-    const end = toDate ? new Date(toDate) : new Date();
-
-    const getRandomDate = () => {
-      const randomTime =
-        start.getTime() +
-        Math.random() * (end.getTime() - start.getTime());
-      return new Date(randomTime).toISOString().slice(0, 10);
-    };
-
-    const allSemesterValues = semesterOptions.filter((s) => s !== "All Semesters");
-    const groupPoolBySemester =
-      semester === "All Semesters"
-        ? groupCards
-        : groupCards.filter((g) => String(g.semester) === String(semester));
-
-    for (let i = 1; i <= count; i++) {
-      const randomName = names[Math.floor(Math.random() * names.length)];
-      const randomAttendanceStatus =
-        attendanceStatuses[Math.floor(Math.random() * attendanceStatuses.length)];
-
-      const dept =
-        department === "All Departments"
-          ? departments[Math.floor(Math.random() * (departments.length - 1)) + 1]
-          : department;
-      const availableCourses = courses;
-      const selectedCourse =
-        course === "All Courses"
-          ? (availableCourses[Math.floor(Math.random() * availableCourses.length)] || "N/A")
-          : course;
-
-      let selectedSemester = semester;
-      let selectedSection = section;
-
-      if (section === "All Sections" && semester === "All Semesters") {
-        const groupPick =
-          groupPoolBySemester[Math.floor(Math.random() * groupPoolBySemester.length)];
-        if (groupPick) {
-          selectedSemester = groupPick.semester || "N/A";
-          selectedSection = groupPick.name || "N/A";
-        } else {
-          selectedSemester =
-            allSemesterValues[Math.floor(Math.random() * allSemesterValues.length)] || "N/A";
-          selectedSection = "N/A";
-        }
-      } else if (section === "All Sections" && semester !== "All Semesters") {
-        const sectionPool = groupPoolBySemester.map((g) => g.name).filter(Boolean);
-        selectedSemester = semester;
-        selectedSection =
-          sectionPool[Math.floor(Math.random() * sectionPool.length)] || "N/A";
-      } else if (section !== "All Sections" && semester === "All Semesters") {
-        const matchedGroup = groupCards.find((g) => g.name === section);
-        selectedSemester = matchedGroup?.semester || "N/A";
-        selectedSection = section;
-      } else {
-        selectedSemester = semester;
-        selectedSection = section;
-      }
-
-      const randomDate = getRandomDate();
-      const randomSubject =
-        subjectCatalog[Math.floor(Math.random() * subjectCatalog.length)];
-
-      if (reportType === "Daily Attendance Report") {
-        rows.push({
-          "S.No": i,
-          "Student Name": randomName,
-          "Course / Program": selectedCourse,
-          Department: dept,
-          Semester: selectedSemester,
-          Section: selectedSection,
-          "Subject Code": randomSubject.code,
-          "Subject / Period": randomSubject.name,
-          "Faculty Name": facultyNames[Math.floor(Math.random() * facultyNames.length)],
-          Date: randomDate,
-          "Attendance Status (Present / Absent / Late)": randomAttendanceStatus,
-          "Attendance Percentage (till date)": `${(65 + Math.random() * 35).toFixed(1)}%`,
-        });
-      }
-
-      if (reportType === "Student Master Report") {
-        rows.push({
-          "S.No": i,
-          "Student Roll No.": `ROLL${1000 + i}`,
-          "Student No.": `98${String(20000000 + i).slice(-8)}`,
-          Name: randomName,
-          "Date of Birth": getRandomDate(),
-          "Father's Name": `${names[Math.floor(Math.random() * names.length)]} Kumar`,
-          "Father No.": `97${String(10000000 + i).slice(-8)}`,
-          Address: `House ${i}, ${dept} Block, Haridwar`,
-          "Aadhaar No.": `${1000 + i} ${2000 + i} ${3000 + i}`,
-          Department: dept,
-          AdmissionDate: randomDate,
-          Year: Math.ceil(Math.random() * 4),
-          Email: `student${i}@erp.edu`,
-        });
-      }
-
-      if (reportType === "Faculty Master Report") {
-        const assignedSubjects = [
-          subjectCatalog[Math.floor(Math.random() * subjectCatalog.length)],
-          subjectCatalog[Math.floor(Math.random() * subjectCatalog.length)],
-        ];
-
-        rows.push({
-          "S.No": i,
-          "Faculty ID": `FAC${500 + i}`,
-          Name: `${randomName} Kumar`,
-          Email: `faculty${i}@erp.edu`,
-          Phone: `98${String(10000000 + i).slice(-8)}`,
-          Address: `Quarter ${i}, Faculty Colony, Haridwar`,
-          "Aadhaar No.": `${4000 + i} ${5000 + i} ${6000 + i}`,
-          Department: dept,
-          "Designation (Professor / Assistant Professor)":
-            Math.random() > 0.5 ? "Professor" : "Assistant Professor",
-          Qualification: qualifications[Math.floor(Math.random() * qualifications.length)],
-          "Experience (Years)": Math.floor(Math.random() * 21),
-          Salary: 35000 + Math.floor(Math.random() * 90000),
-          "Subject Code": assignedSubjects.map((s) => s.code).join(", "),
-          "Subjects Assigned": assignedSubjects.map((s) => s.name).join(", "),
-          "Joining Date": randomDate,
-          "Employment Type (Permanent / Contract)":
-            employmentTypes[Math.floor(Math.random() * employmentTypes.length)],
-          "Status (Active / On Leave)":
-            facultyStatuses[Math.floor(Math.random() * facultyStatuses.length)],
-        });
-      }
-
-      if (reportType === "Fees Summary Report") {
-        rows.push({
-          "S.No": i,
-          Name: randomName,
-          Department: dept,
-          PaymentDate: randomDate,
-          Amount: 50000 + Math.floor(Math.random() * 20000),
-          Status: feeStatus[Math.floor(Math.random() * feeStatus.length)],
-        });
-      }
-
-      if (reportType === "Exam Schedule Report") {
-        rows.push({
-          "S.No": i,
-          "Exam ID": `EXM${2000 + i}`,
-          "Course / Program": selectedCourse,
-          Semester: selectedSemester,
-          Group: selectedSection,
-          "Subject Code": randomSubject.code,
-          "Subject Name": randomSubject.name,
-          "Exam Date": randomDate,
-          "Exam Time (Start-End)": examTimeSlots[Math.floor(Math.random() * examTimeSlots.length)],
-          Duration: examDurations[Math.floor(Math.random() * examDurations.length)],
-          "Exam Type (Theory / Practical)": examModes[Math.floor(Math.random() * examModes.length)],
-          "Room / Hall Number": hallNumbers[Math.floor(Math.random() * hallNumbers.length)],
-          "Faculty / Invigilator Name":
-            facultyNames[Math.floor(Math.random() * facultyNames.length)],
-        });
-      }
-
-      if (reportType === "Results Summary Report") {
-        rows.push({
-          "S.No": i,
-          Name: randomName,
-          Department: dept,
-          Semester: selectedSemester,
-          Group: selectedSection,
-          ResultDate: randomDate,
-          CGPA: (6 + Math.random() * 4).toFixed(2),
-          Result: Math.random() > 0.2 ? "Pass" : "Fail",
-        });
-      }
-    }
-
-    return rows;
-  };
-
-  // =====================================
-  // 📄 Dynamic PDF Generator
-  // =====================================
   const downloadPDF = async (rows, filename) => {
-    if (!rows.length) return;
-
-    const headers = Object.keys(rows[0]);
+    const headers = rows.length ? Object.keys(rows[0]) : [];
+    if (!headers.length) {
+      throw new Error("No data available for export");
+    }
 
     const esc = (value = "") =>
       String(value)
@@ -357,10 +112,7 @@ const GeneralSupport = () => {
 
     const bodyHtml = rows
       .map(
-        (row) =>
-          `<tr>${headers
-            .map((h) => `<td>${esc(row[h])}</td>`)
-            .join("")}</tr>`
+        (r) => `<tr>${headers.map((h) => `<td>${esc(r[h])}</td>`).join("")}</tr>`,
       )
       .join("");
 
@@ -379,8 +131,8 @@ const GeneralSupport = () => {
           <p>Department: ${department}</p>
           <p>Date Range: ${fromDate || "N/A"} to ${toDate || "N/A"}</p>
           <table>
-            <thead><tr>${headerHtml}</tr></thead>
-            <tbody>${bodyHtml}</tbody>
+            <thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
+            <tbody>${list}</tbody>
           </table>
         </body>
       </html>
@@ -389,40 +141,332 @@ const GeneralSupport = () => {
     await downloadPdfFromHtml(apiBase, {
       html,
       fileName: filename,
+      fallbackToPrint: false,
     });
   };
 
-  // =====================================
-  // 🚀 Generate Button Handler
-  // =====================================
+  const matchesDepartment = (deptName = "") => {
+    if (!departmentFilter || departmentFilter === "all departments") return true;
+
+    const normalized = String(deptName || "").trim().toLowerCase();
+    if (!normalized) return false;
+
+    if (normalized === departmentFilter) return true;
+    if (normalized.includes(departmentFilter) || departmentFilter.includes(normalized)) return true;
+
+    const selectedAcronym = toDepartmentAcronym(departmentFilter);
+    const rowAcronym = toDepartmentAcronym(normalized);
+    if (selectedAcronym && rowAcronym && selectedAcronym === rowAcronym) return true;
+
+    return false;
+  };
+
+  const normalizedCourseProgramFilter = useMemo(
+    () => String(courseProgram || "").trim().toLowerCase(),
+    [courseProgram]
+  );
+  const normalizedSectionFilter = useMemo(
+    () => String(section || "").trim().toLowerCase(),
+    [section]
+  );
+
+  const selectedDepartmentRecord = useMemo(() => {
+    if (department === "All Departments") return null;
+    return departmentRecords.find((dept) => String(dept?.name || "") === String(department)) || null;
+  }, [departmentRecords, department]);
+
+  const courseProgramOptions = useMemo(() => {
+    const options = new Map();
+    const departmentPrograms =
+      selectedDepartmentRecord?.programs || selectedDepartmentRecord?.program || [];
+
+    if (Array.isArray(departmentPrograms)) {
+      departmentPrograms.forEach((program) => {
+        const label = String(program || "").trim();
+        if (!label) return;
+        options.set(`prog-${label.toLowerCase()}`, label.toUpperCase());
+      });
+    }
+
+    courses
+      .filter((course) => matchesDepartment(course?.department))
+      .forEach((course) => {
+        const code = String(course?.code || "").trim();
+        const name = String(course?.courseName || "").trim();
+        if (code || name) {
+          const label = code && name ? `${code} - ${name}` : code || name;
+          options.set(`course-${String(label).toLowerCase()}`, label);
+        }
+      });
+
+    return ["All Courses", ...Array.from(options.values())];
+  }, [courses, matchesDepartment, selectedDepartmentRecord]);
+
+  const semesterOptions = useMemo(() => {
+    const semesters = new Set();
+    courses
+      .filter((course) => matchesDepartment(course?.department))
+      .forEach((course) => {
+        const semValue = Number(course?.semester);
+        if (!Number.isNaN(semValue) && semValue > 0) {
+          semesters.add(semValue);
+        }
+      });
+
+    if (!semesters.size) {
+      Array.from({ length: 12 }, (_, index) => index + 1).forEach((value) => semesters.add(value));
+    }
+
+    return ["All Semesters", ...Array.from(semesters).sort((a, b) => a - b)];
+  }, [courses, matchesDepartment]);
+
+  const sectionOptions = useMemo(() => {
+    const options = new Set(["All Sections"]);
+    groups
+      .filter((group) => matchesDepartment(group?.department?.name || group?.department))
+      .forEach((group) => {
+        const name = String(group?.name || "").trim();
+        if (name) options.add(name);
+      });
+    return Array.from(options);
+  }, [groups, matchesDepartment]);
+
+  useEffect(() => {
+    if (!courseProgramOptions.includes(courseProgram)) {
+      setCourseProgram("All Courses");
+    }
+  }, [courseProgramOptions, courseProgram]);
+
+  useEffect(() => {
+    const selectedSemesterExists = semesterOptions.some(
+      (option) => String(option) === String(semester)
+    );
+    if (!selectedSemesterExists) {
+      setSemester("All Semesters");
+    }
+  }, [semesterOptions, semester]);
+
+  useEffect(() => {
+    if (!sectionOptions.includes(section)) {
+      setSection("All Sections");
+    }
+  }, [sectionOptions, section]);
+
+  const matchesCourseProgram = (...candidates) => {
+    if (normalizedCourseProgramFilter === "all courses") return true;
+
+    return candidates.some((candidate) => {
+      const value = String(candidate || "").trim().toLowerCase();
+      if (!value) return false;
+      return (
+        value === normalizedCourseProgramFilter ||
+        value.includes(normalizedCourseProgramFilter) ||
+        normalizedCourseProgramFilter.includes(value)
+      );
+    });
+  };
+
+  const matchesSemester = (value) => {
+    if (String(semester) === "All Semesters") return true;
+    if (value === null || value === undefined || value === "") return false;
+    return String(value) === String(semester);
+  };
+
+  const matchesSection = (...candidates) => {
+    if (normalizedSectionFilter === "all sections") return true;
+
+    return candidates.some((candidate) => {
+      const value = String(candidate || "").trim().toLowerCase();
+      if (!value) return false;
+      return (
+        value === normalizedSectionFilter ||
+        value.includes(normalizedSectionFilter) ||
+        normalizedSectionFilter.includes(value)
+      );
+    });
+  };
+
+  const fetchReportRows = async () => {
+    switch (reportType) {
+      case "Daily Attendance Report": {
+        const date = fromDate || toDate || new Date().toISOString().slice(0, 10);
+        const res = await axios.get(`${apiBase}/admin/attendance/daily`, {
+          withCredentials: true,
+          params: { date },
+        });
+
+        return (res.data?.summary || [])
+          .filter((item) =>
+            matchesCourseProgram(
+              item?.course?.code,
+              item?.course?.courseName,
+              item?.course?.name,
+              item?.group?.name
+            )
+          )
+          .filter((item) => matchesSection(item?.group?.name, item?.section))
+          .map((item) => ({
+            Date: item?.date ? new Date(item.date).toISOString().slice(0, 10) : date,
+            Group: item?.group?.name || "-",
+            Course: item?.course?.code || "-",
+            Present: item?.present ?? 0,
+            Absent: item?.absent ?? 0,
+            "Total Students": item?.totalStudents ?? 0,
+            "Attendance %": item?.percentage ?? 0,
+          }));
+      }
+      case "Student Master Report": {
+        const res = await axios.get(`${apiBase}/admin/student`, {
+          withCredentials: true,
+          params: { noCache: "true" },
+        });
+
+        return (res.data?.students || [])
+          .filter((student) => matchesDepartment(student?.department))
+          .filter((student) =>
+            matchesCourseProgram(student?.program, student?.course, student?.group?.name)
+          )
+          .filter((student) => matchesSemester(student?.semester))
+          .filter((student) => matchesSection(student?.section, student?.group?.name))
+          .map((student) => ({
+            Name: student?.studentName || "-",
+            "Roll No": student?.rollNo || "-",
+            Department: student?.department || "-",
+            Semester: student?.semester ?? "-",
+            Status: student?.status || "-",
+          }));
+      }
+      case "Faculty Master Report": {
+        const res = await axios.get(`${apiBase}/admin/faculty`, {
+          withCredentials: true,
+          params: { noCache: "true" },
+        });
+
+        return (res.data?.faculty || [])
+          .filter((faculty) => matchesDepartment(faculty?.department?.name))
+          .map((faculty) => ({
+            Name: faculty?.user?.name || "-",
+            "Employee ID": faculty?.employeeId || "-",
+            Department: faculty?.department?.name || "-",
+            Designation: faculty?.designation || "-",
+            Qualification: faculty?.qualification || "-",
+            Status: faculty?.user?.status || "-",
+          }));
+      }
+      case "Fees Summary Report": {
+        const res = await axios.get(`${apiBase}/admin/student`, {
+          withCredentials: true,
+          params: { noCache: "true" },
+        });
+
+        const filtered = (res.data?.students || [])
+          .filter((student) => matchesDepartment(student?.department))
+          .filter((student) =>
+            matchesCourseProgram(student?.program, student?.course, student?.group?.name)
+          )
+          .filter((student) => matchesSemester(student?.semester))
+          .filter((student) => matchesSection(student?.section, student?.group?.name));
+
+        const byDepartment = filtered.reduce((acc, student) => {
+          const dept = student?.department || "Unknown";
+          if (!acc[dept]) {
+            acc[dept] = { count: 0, semesterTotal: 0 };
+          }
+          acc[dept].count += 1;
+          acc[dept].semesterTotal += Number(student?.semester || 0);
+          return acc;
+        }, {});
+
+        return Object.entries(byDepartment).map(([dept, stats]) => ({
+          Department: dept,
+          "Total Students": stats.count,
+          "Avg Semester": stats.count
+            ? Number((stats.semesterTotal / stats.count).toFixed(2))
+            : 0,
+        }));
+      }
+      case "Exam Schedule Report": {
+        const res = await axios.get(`${apiBase}/admin/course`, {
+          withCredentials: true,
+          params: { noCache: "true" },
+        });
+
+        return (res.data?.courses || [])
+          .filter((course) => matchesDepartment(course?.department))
+          .filter((course) =>
+            matchesCourseProgram(
+              course?.code,
+              course?.courseName,
+              course?.branch,
+              course?.program
+            )
+          )
+          .filter((course) => matchesSemester(course?.semester))
+          .map((course) => ({
+            "Course Code": course?.code || "-",
+            "Course Name": course?.courseName || "-",
+            Department: course?.department || "-",
+            Semester: course?.semester ?? "-",
+            Coordinator: course?.coordinatorName || "-",
+            "Exam Date": toDate || fromDate || "-",
+          }));
+      }
+      case "Results Summary Report": {
+        const [courseRes, studentRes] = await Promise.all([
+          axios.get(`${apiBase}/admin/course`, {
+            withCredentials: true,
+            params: { noCache: "true" },
+          }),
+          axios.get(`${apiBase}/admin/student`, {
+            withCredentials: true,
+            params: { noCache: "true" },
+          }),
+        ]);
+
+        const students = studentRes.data?.students || [];
+
+        return (courseRes.data?.courses || [])
+          .filter((course) => matchesDepartment(course?.department))
+          .filter((course) =>
+            matchesCourseProgram(
+              course?.code,
+              course?.courseName,
+              course?.branch,
+              course?.program
+            )
+          )
+          .filter((course) => matchesSemester(course?.semester))
+          .map((course) => ({
+            "Course Code": course?.code || "-",
+            "Course Name": course?.courseName || "-",
+            Department: course?.department || "-",
+            Semester: course?.semester ?? "-",
+            "Students In Department": students.filter(
+              (s) => String(s?.department || "") === String(course?.department || "")
+            ).length,
+          }));
+      }
+      default:
+        return [];
+    }
+  };
+
   const handleGenerate = async () => {
-    if (!apiBase) {
-      toast.error("Server configuration missing. Please refresh and try again.");
-      return;
-    }
-
-    const from = fromDate ? new Date(fromDate) : null;
-    const to = toDate ? new Date(toDate) : null;
-
-    if (fromDate && Number.isNaN(from?.getTime())) {
-      toast.error("Invalid From Date");
-      return;
-    }
-
-    if (toDate && Number.isNaN(to?.getTime())) {
-      toast.error("Invalid To Date");
-      return;
-    }
-
-    if (from && to && from > to) {
-      toast.error("From Date cannot be greater than To Date");
-      return;
-    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const base = `${reportType.replace(/\s+/g, "_")}_${stamp}`;
 
     try {
-      const stamp = new Date().toISOString().slice(0, 10);
-      const base = `${reportType.replace(/\s+/g, "_")}_${stamp}`;
-      const dummyData = generateDummyData();
+      const data = await fetchReportRows();
+      const hasDateFilter = Boolean(fromDate || toDate);
+
+      if (!data.length) {
+        const message =
+          reportType === "Daily Attendance Report" && !hasDateFilter
+            ? "No data for today. Please choose From/To date and try again."
+            : "No data found for selected filters";
+        toast.error(message);
+        return;
+      }
 
       if (format === "PDF") {
         await downloadPDF(dummyData, `${base}.pdf`);
@@ -496,7 +540,15 @@ const GeneralSupport = () => {
 
             <label>
               Department
-              <select value={department} onChange={(e) => setDepartment(e.target.value)}>
+              <select
+                value={department}
+                onChange={(e) => {
+                  setDepartment(e.target.value);
+                  setCourseProgram("All Courses");
+                  setSemester("All Semesters");
+                  setSection("All Sections");
+                }}
+              >
                 {departments.map((d) => (
                   <option key={d}>{d}</option>
                 ))}
@@ -507,16 +559,23 @@ const GeneralSupport = () => {
               Export Format
               <select value={format} onChange={(e) => setFormat(e.target.value)}>
                 {["Excel", "CSV", "PDF"].map((f) => (
-                  <option key={f}>{f}</option>
+                  <option key={f} value={f}>
+                    {f}
+                  </option>
                 ))}
               </select>
             </label>
 
             <label>
               Course / Program
-              <select value={course} onChange={(e) => setCourse(e.target.value)}>
-                {courseOptions.map((c) => (
-                  <option key={c}>{c}</option>
+              <select
+                value={courseProgram}
+                onChange={(e) => setCourseProgram(e.target.value)}
+              >
+                {courseProgramOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
               </select>
             </label>
@@ -524,8 +583,10 @@ const GeneralSupport = () => {
             <label>
               Semester
               <select value={semester} onChange={(e) => setSemester(e.target.value)}>
-                {semesterOptions.map((s) => (
-                  <option key={s}>{s}</option>
+                {semesterOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {typeof option === "number" ? `Semester ${option}` : option}
+                  </option>
                 ))}
               </select>
             </label>
@@ -533,8 +594,10 @@ const GeneralSupport = () => {
             <label>
               Section
               <select value={section} onChange={(e) => setSection(e.target.value)}>
-                {sectionOptions.map((s) => (
-                  <option key={s}>{s}</option>
+                {sectionOptions.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
                 ))}
               </select>
             </label>

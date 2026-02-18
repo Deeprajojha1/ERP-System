@@ -2,6 +2,165 @@
   --student-nav-height: 72px;
 }
 
+/* Ensure student dashboard styles are applied */
+.student-admin-layout {
+  padding-top: var(--student-nav-height) !important;
+  min-height: 100vh !important;
+  display: block !important;
+  background: linear-gradient(180deg, #f8fbff 0%, #eef4ff 45%, #f3f7fc 100%) !important;
+  width: 100% !important;
+}
+
+.student-admin-sidebar {
+  width: 292px !important;
+  min-width: 292px !important;
+  border-right: 1px solid #d1d9e4 !important;
+  background: #ffffff !important;
+  display: flex !important;
+  flex-direction: column !important;
+  position: fixed !important;
+  top: var(--student-nav-height) !important;
+  left: 0 !important;
+  align-self: flex-start !important;
+  height: calc(100vh - var(--student-nav-height)) !important;
+  overflow: hidden !important;
+  z-index: 30 !important;
+  transition: width 0.24s ease, min-width 0.24s ease, opacity 0.2s ease !important;
+}
+
+.student-admin-sidebar-profile {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 16px 14px !important;
+  border-bottom: 1px solid #d1d9e4 !important;
+}
+
+.student-admin-sidebar-profile-main {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+}
+
+.student-admin-sidebar-avatar {
+  width: 44px !important;
+  height: 44px !important;
+  border-radius: 50% !important;
+  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: white !important;
+  font-weight: 600 !important;
+  font-size: 16px !important;
+  overflow: hidden !important;
+}
+
+.student-admin-sidebar-avatar-img {
+  width: 50% !important;
+  height: 50% !important;
+  object-fit: cover !important;
+  border-radius: 50% !important;
+}
+
+.student-admin-sidebar-profile-copy h2 {
+  margin: 0 !important;
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #1e293b !important;
+  overflow-wrap: anywhere !important;
+}
+
+.student-admin-sidebar-profile-copy p {
+  margin: 2px 0 0 !important;
+  font-size: 12px !important;
+  color: #64748b !important;
+  overflow-wrap: anywhere !important;
+}
+
+.student-admin-sidebar-toggle,
+.student-admin-sidebar-reopen {
+  width: 34px !important;
+  height: 34px !important;
+  border: 1px solid #cbd5e1 !important;
+  background: #ffffff !important;
+  border-radius: 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  font-size: 16px !important;
+}
+
+.student-admin-sidebar-reopen {
+  position: fixed !important;
+  top: var(--student-nav-height) !important;
+  left: 0 !important;
+  z-index: 45 !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+.student-admin-sidebar-menu-scroll {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  padding-bottom: 12px !important;
+}
+
+.student-admin-sidebar-btn {
+  border: none !important;
+  outline: none !important;
+  background: transparent !important;
+  width: 100% !important;
+  padding: 12px 14px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  color: #4b5563 !important;
+  cursor: pointer !important;
+  transition: 0.2s ease !important;
+  text-align: left !important;
+}
+
+.student-admin-sidebar-btn svg {
+  font-size: 18px !important;
+  color: #4b5563 !important;
+}
+
+.student-admin-sidebar-btn:hover {
+  background: linear-gradient(135deg, #eef4ff 0%, #e2ecfa 100%) !important;
+  color: #1f2937 !important;
+}
+
+.student-admin-sidebar-btn.active {
+  background: linear-gradient(135deg, #dbeafe 0%, #cfe2ff 100%) !important;
+  color: #0284c7 !important;
+}
+
+.student-admin-sidebar-btn.active svg {
+  color: #0284c7 !important;
+}
+
+.student-admin-content {
+  flex: 1 !important;
+  padding: 24px !important;
+  overflow-y: auto !important;
+  transition: margin-left 0.24s ease !important;
+}
+
+.student-admin-layout.sidebar-open .student-admin-content {
+  margin-left: 292px !important;
+}
+
+.student-admin-layout.sidebar-collapsed .student-admin-content {
+  margin-left: 0 !important;
+}
+
 .student-admin-nav {
   position: fixed;
   inset: 0 0 auto 0;
@@ -117,14 +276,24 @@
   width: 44px;
   height: 44px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #93c5fd 0%, #bfdbfe 100%);
-  color: #0b5ea8;
-  display: inline-flex;
+  background: #f8fafc;
+  color: #1e293b;
+  font-size: 1.2rem;
+  font-weight: 800;
+  display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
   flex-shrink: 0;
+  position: relative;
+  overflow: hidden;
+}
+
+.student-admin-sidebar-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
 }
 
 .student-admin-sidebar-profile-copy h2 {

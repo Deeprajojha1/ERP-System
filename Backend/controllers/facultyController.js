@@ -8,6 +8,81 @@ import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 import Assignment from "../models/Assignment.js"
 import Submission from "../models/submission.js"
+import Assignment from "../models/Assignment.js";
+import Submission from "../models/Submission.js";
+
+const buildRoutineWithDetails = async (routineMap) => {
+  if (!routineMap || (routineMap instanceof Map && routineMap.size === 0)) return {};
+
+  const routineObj =
+    routineMap instanceof Map ? Object.fromEntries(routineMap.entries()) : routineMap;
+  const normalizeDaySlots = (daySlots) =>
+    daySlots instanceof Map ? Object.fromEntries(daySlots.entries()) : daySlots;
+
+  const courseIds = new Set();
+  const groupIds = new Set();
+
+  Object.values(routineObj || {}).forEach((daySlotsRaw) => {
+    const daySlots = normalizeDaySlots(daySlotsRaw);
+    if (!daySlots || typeof daySlots !== "object") return;
+    Object.values(daySlots).forEach((slot) => {
+      if (!slot) return;
+      const courseId = slot.course?._id || slot.course;
+      const groupId = slot.group?._id || slot.group;
+      if (courseId) courseIds.add(String(courseId));
+      if (groupId) groupIds.add(String(groupId));
+    });
+  });
+
+  const [courses, groups] = await Promise.all([
+    courseIds.size
+      ? Course.find({ _id: { $in: Array.from(courseIds) } }).select("code courseName")
+      : [],
+    groupIds.size
+      ? Group.find({ _id: { $in: Array.from(groupIds) } }).select("name roomNo")
+      : [],
+  ]);
+
+  const courseMap = new Map(courses.map((c) => [String(c._id), c]));
+  const groupMap = new Map(groups.map((g) => [String(g._id), g]));
+
+  const resolved = {};
+
+  Object.entries(routineObj || {}).forEach(([day, daySlotsRaw]) => {
+    const daySlots = normalizeDaySlots(daySlotsRaw);
+    resolved[day] = {};
+    if (!daySlots || typeof daySlots !== "object") return;
+
+    Object.entries(daySlots).forEach(([lectureNumber, slot]) => {
+      if (!slot) return;
+
+      const courseId = String(slot.course?._id || slot.course || "");
+      const groupId = String(slot.group?._id || slot.group || "");
+
+      const courseDoc = courseMap.get(courseId);
+      const groupDoc = groupMap.get(groupId);
+
+      resolved[day][lectureNumber] = {
+        course: courseDoc
+          ? {
+              _id: courseDoc._id,
+              code: courseDoc.code,
+              courseName: courseDoc.courseName,
+            }
+          : slot.course || null,
+        group: groupDoc
+          ? {
+              _id: groupDoc._id,
+              name: groupDoc.name,
+              roomNo: groupDoc.roomNo || null,
+            }
+          : slot.group || null,
+      };
+    });
+  });
+
+  return resolved;
+};
 
 const clearTimetableCacheForDepartments = async (departmentIds = []) => {
   const normalizedIds = [...new Set((departmentIds || []).filter(Boolean).map(String))];
