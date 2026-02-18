@@ -1,5 +1,6 @@
 import Assignment from "../models/Assignment.js";
 import Submission from "../models/submission.js";
+import Group from "../models/Group.js";
 
 export const getAssignmentsByGroup = async (req, res) => {
   try {
@@ -11,17 +12,18 @@ export const getAssignmentsByGroup = async (req, res) => {
     if (groupId) filter.group = groupId;
     if (facultyId) filter.uploadedBy = facultyId;
 
-    const assignments = await Assignment.find(filter)
-      .populate({
-        path: "uploadedBy",
-        populate: {
-          path: "user",
-          select: "name email",
-        },
-      })
-      .populate("group", "name")
-      .populate("department", "name")
-      .sort({ createdAt: -1 });
+const assignments = await Assignment.find(filter)
+  .populate({
+    path: "uploadedBy",
+    populate: {
+      path: "user",
+      select: "name email",
+    },
+  })
+  .populate("group", "name")
+  .populate("department", "name")
+  .sort({ createdAt: -1 });
+
 
     res.json(assignments);
 
@@ -30,29 +32,24 @@ export const getAssignmentsByGroup = async (req, res) => {
   }
 };
 
-export const submitAssignment = async (req, res) => {
+export const getSingleAssignmentAdmin = async (req, res) => {
   try {
-    const { assignmentId } = req.body;
+    const assignment = await Assignment.findById(req.params.id)
+      .populate({
+        path: "uploadedBy",
+        populate: {
+          path: "user",
+          select: "name email",
+        },
+      })
+      .populate("group", "name")
+      .populate("department", "name");
 
-    const submission = await Submission.create({
-      assignment: assignmentId,
-      student: req.userId,
-      fileUrl: req.file.path,
-    });
+    if (!assignment) {
+      return res.status(404).json({ message: "Assignment not found" });
+    }
 
-    // 🔥 Auto update submission count
-    await Assignment.findByIdAndUpdate(
-      assignmentId,
-      { $inc: { totalSubmissions: 1 } },
-      { new: true }
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "Assignment submitted successfully",
-      submission,
-    });
-
+    res.json(assignment);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -119,37 +116,6 @@ export const updateAssignment = async (req, res) => {
       updatedAssignment,
     });
 
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-export const getSingleAssignmentAdmin = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const assignment = await Assignment.findById(id)
-      .populate({
-        path: "uploadedBy",
-        populate: {
-          path: "user",
-          select: "name email",
-        },
-      })
-      .populate("group", "name")
-      .populate("department", "name");
-
-    if (!assignment) {
-      return res.status(404).json({
-        success: false,
-        message: "Assignment not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      assignment,
-    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

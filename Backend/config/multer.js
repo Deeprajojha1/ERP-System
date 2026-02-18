@@ -3,17 +3,18 @@ import { CloudinaryStorage } from "multer-storage-cloudinary";
 import cloudinary from "./cloudinary.js";
 
 const storage = new CloudinaryStorage({
-  cloudinary,
-  params: {
+  cloudinary: cloudinary,
+  params: async (req, file) => ({
     folder: "assignments",
-    resource_type: "auto",
-  },
+    resource_type: "raw", // VERY IMPORTANT FOR PDF
+    public_id: `${Date.now()}-${file.originalname}`,
+  }),
 });
 
 const upload = multer({
   storage,
   limits: {
-    fileSize: 50 * 1024 * 1024, // 50MB
+    fileSize: 50 * 1024 * 1024,
   },
 });
 

@@ -67,12 +67,7 @@ import {
   getStudentAttendanceReport,
   getStudentOverallAttendance,
   getDailyAttendanceSummary,
-  getGroupStudentAttendanceByDate,
 } from "../controllers/attendanceController.js";
-import {
-  getSubjectWiseAttendanceReport,
-  getSubjectAttendanceReport,
-} from "../controllers/subjectAttendanceController.js";
 
 import {
   getStatistics,
@@ -96,11 +91,12 @@ import {
 import { changePassword } from "../controllers/userController.js";
 
 import {
-  getAdminAssignments,
+  getAssignmentsByGroup,
+  getSingleAssignmentAdmin,
   updateAssignment,
   deleteAssignment,
   getAssignmentSubmissionsAdmin,
-} from "../controllers/assingmentController.js";
+} from "../controllers/assignmentController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
 
@@ -183,13 +179,22 @@ router.put("/timetable/group/:groupId", isAdmin, updateGroupTimetable);
 router.post("/attendance", isAdmin, markAttendance);
 router.put("/attendance/:sessionId", isAdmin, updateAttendance);
 router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
-router.get("/attendance/group/:groupId/date/:date", isAdmin, getGroupStudentAttendanceByDate);
 router.get("/attendance/group/:groupId/students", isAdmin, getStudentsByGroup);
-router.get("/attendance/group/:groupId/course/:courseId", isAdmin, getAttendanceByGroupAndCourse);
-router.get("/attendance/subject-wise-report", isAdmin, getSubjectWiseAttendanceReport);
-router.get("/attendance/subject-report", isAdmin, getSubjectAttendanceReport);
-router.get("/attendance/student/:studentId", isAdmin, getStudentOverallAttendance);
-router.get("/attendance/student/:studentId/course/:courseId", isAdmin, getStudentAttendanceReport);
+router.get(
+  "/attendance/group/:groupId/course/:courseId",
+  isAdmin,
+  getAttendanceByGroupAndCourse,
+);
+router.get(
+  "/attendance/student/:studentId",
+  isAdmin,
+  getStudentOverallAttendance,
+);
+router.get(
+  "/attendance/student/:studentId/course/:courseId",
+  isAdmin,
+  getStudentAttendanceReport,
+);
 router.get("/attendance/:sessionId", isAdmin, getAttendanceById);
 router.patch("/attendance/:sessionId/delete", isAdmin, deleteAttendance);
 router.delete("/attendance/:sessionId", isAdmin, hardDeleteAttendance);
@@ -204,22 +209,37 @@ router.delete("/librarian/:id", isAdmin, hardDeleteLibrarian);
 
 router.get("/library/statistics", getStatistics);
 
-router.get("/library/books",  getAllBooks);
+router.get("/library/books", getAllBooks);
 router.post("/library/books", addBook);
-router.get("/library/books/:id",  getBookById);
-router.put("/library/books/:id",  updateBook);
+router.get("/library/books/:id", getBookById);
+router.put("/library/books/:id", updateBook);
 router.delete("/library/books/:id", deleteBook);
 
-router.post("/library/issues",issueBook);
+router.post("/library/issues", issueBook);
 router.get("/library/issues", getIssuedBooks);
 router.patch("/library/issues/:id/return", returnBook);
 
 /* =========================
-   ASSIGNMENTS
+   ASSIGNMENTS (ADMIN)
 ========================= */
-router.get("/assignments", isAdmin, getAdminAssignments);
+
+// Get filtered assignments
+router.get("/assignments", isAdmin, getAssignmentsByGroup);
+
+// Get single assignment
+router.get("/assignment/:id", isAdmin, getSingleAssignmentAdmin);
+
+// Update assignment
 router.put("/assignment/:id", isAdmin, updateAssignment);
+
+// Delete assignment
 router.delete("/assignment/:id", isAdmin, deleteAssignment);
-router.get("/assignment/:id/submissions", isAdmin, getAssignmentSubmissionsAdmin);
+
+// Get submissions
+router.get(
+  "/assignment/:id/submissions",
+  isAdmin,
+  getAssignmentSubmissionsAdmin
+);
 
 export default router;
