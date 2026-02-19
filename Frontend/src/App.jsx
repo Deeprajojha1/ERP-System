@@ -26,7 +26,16 @@ import FeesAcademic from "./Admin/FeesAcademic";
 import FeesHostel from "./Admin/FeesHostel";
 import FeesTransport from "./Admin/FeesTransport";
 import FeesBackpapers from "./Admin/FeesBackpapers";
+import ReportsHub from "./Admin/ReportsHub";
+import FinancialAnalytics from "./Admin/FinancialAnalytics";
+import StudentAnalytics from "./Admin/StudentAnalytics";
+import FeesDiscounts from "./Admin/FeesDiscounts";
 import FeesOthers from "./Admin/FeesOthers";
+import StudentFeeMapping from "./Admin/StudentFeeMapping";
+import StudentRecords from "./Admin/StudentRecords";
+import BulkOperations from "./Admin/BulkOperations";
+import PaymentMethods from "./Admin/PaymentMethods";
+import AcademicCalendar from "./Admin/AcademicCalendar";
 import GeneralSupport from "./Admin/GeneralSupport";
 import Library from "./Admin/Library";
 import Settings from "./Admin/Settings";
@@ -250,11 +259,21 @@ function App() {
           <Route path="attendance" element={<Attendance />} />
           <Route path="leaves" element={<Leaves />} />
           <Route path="fees" element={<Fees />} />
+          <Route path="fees/mapping" element={<StudentFeeMapping />} />
+          <Route path="fees/records" element={<StudentRecords />} />
+          <Route path="fees/bulk" element={<BulkOperations />} />
           <Route path="fees/academic" element={<FeesAcademic />} />
+          <Route path="fees/structure" element={<FeesAcademic />} />
           <Route path="fees/hostel" element={<FeesHostel />} />
           <Route path="fees/transport" element={<FeesTransport />} />
           <Route path="fees/backpapers" element={<FeesBackpapers />} />
+          <Route path="fees/reports" element={<ReportsHub />} />
+          <Route path="fees/financial" element={<FinancialAnalytics />} />
+          <Route path="fees/student-analytics" element={<StudentAnalytics />} />
           <Route path="fees/others" element={<FeesOthers />} />
+          <Route path="fees/payment-methods" element={<PaymentMethods />} />
+          <Route path="fees/academic-calendar" element={<AcademicCalendar />} />
+          <Route path="fees/discounts" element={<FeesDiscounts />} />
           <Route path="alerts" element={<Alerts />} />
           <Route path="general-support" element={<GeneralSupport />} />
           <Route path="library" element={<Library />} />
