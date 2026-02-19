@@ -9,6 +9,7 @@ import {
   FiEye,
   FiEdit2,
 } from "react-icons/fi";
+import ClipLoader from "./components/ClipLoader";
 import "./StudentFeeMapping.css";
 
 const STUDENT_ROWS = [
@@ -261,6 +262,7 @@ const StudentFeeMapping = () => {
   const [departmentFilter, setDepartmentFilter] = useState("all");
   const [semesterFilter, setSemesterFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [isExporting, setIsExporting] = useState(false);
   const [selectedStudentId, setSelectedStudentId] = useState(
     STUDENT_ROWS[0]?.id ?? ""
   );
@@ -395,7 +397,9 @@ const StudentFeeMapping = () => {
     return `"${normalized}"`;
   };
 
-  const handleExportData = () => {
+  const handleExportData = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
     const headers = [
       "Enrollment ID",
       "Student Name",
@@ -410,31 +414,36 @@ const StudentFeeMapping = () => {
       "Status",
     ];
 
-    const csvRows = filteredStudents.map((row) => [
-      buildCsvValue(row.id),
-      buildCsvValue(row.name),
-      buildCsvValue(row.program),
-      buildCsvValue(row.department),
-      buildCsvValue(row.semester),
-      buildCsvValue(row.baseFee),
-      buildCsvValue(row.discount),
-      buildCsvValue(row.finalFee),
-      buildCsvValue(row.paid),
-      buildCsvValue(row.pending),
-      buildCsvValue(row.status),
-    ].join(","));
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 250));
+      const csvRows = filteredStudents.map((row) => [
+        buildCsvValue(row.id),
+        buildCsvValue(row.name),
+        buildCsvValue(row.program),
+        buildCsvValue(row.department),
+        buildCsvValue(row.semester),
+        buildCsvValue(row.baseFee),
+        buildCsvValue(row.discount),
+        buildCsvValue(row.finalFee),
+        buildCsvValue(row.paid),
+        buildCsvValue(row.pending),
+        buildCsvValue(row.status),
+      ].join(","));
 
-    const csvContent = [headers.map(buildCsvValue).join(","), ...csvRows].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const downloadLink = document.createElement("a");
-    const dateSuffix = new Date().toISOString().split("T")[0];
-    downloadLink.href = url;
-    downloadLink.download = `student-fee-mapping-${dateSuffix}.csv`;
-    document.body.appendChild(downloadLink);
-    downloadLink.click();
-    document.body.removeChild(downloadLink);
-    URL.revokeObjectURL(url);
+      const csvContent = [headers.map(buildCsvValue).join(","), ...csvRows].join("\n");
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      const dateSuffix = new Date().toISOString().split("T")[0];
+      downloadLink.href = url;
+      downloadLink.download = `student-fee-mapping-${dateSuffix}.csv`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -449,11 +458,21 @@ const StudentFeeMapping = () => {
         </div>
         <button
           type="button"
-          className="sfm-export-btn"
+          className="sfm-export-btn admin-btn-with-loader"
           onClick={handleExportData}
+          disabled={isExporting}
         >
-          <FiDownload />
-          <span>Export Data</span>
+          {isExporting ? (
+            <>
+              <ClipLoader size={15} color="#0f172a" trackColor="rgba(15, 23, 42, 0.2)" />
+              <span>Exporting...</span>
+            </>
+          ) : (
+            <>
+              <FiDownload />
+              <span>Export Data</span>
+            </>
+          )}
         </button>
       </header>
 

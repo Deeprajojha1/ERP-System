@@ -902,6 +902,11 @@
   background: #ede9fe;
 }
 
+.quick-management-icon.exam-icon {
+  color: #0369a1;
+  background: #e0f2fe;
+}
+
 .quick-management-label {
   font-size: 14px;
   font-weight: 600;

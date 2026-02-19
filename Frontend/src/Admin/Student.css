@@ -194,6 +194,11 @@
   background: #f8fafc;
 }
 
+.student-table thead th:last-child,
+.student-table tbody td:last-child {
+  text-align: center;
+}
+
 .student-table th.student-cell-serial {
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -245,6 +250,7 @@
 .student-actions {
   display: flex;
   gap: 8px;
+  justify-content: center;
 }
 
 .student-action-btn {
@@ -257,6 +263,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+  min-width: 76px;
+  justify-content: center;
 }
 
 .student-action-btn.ghost {
