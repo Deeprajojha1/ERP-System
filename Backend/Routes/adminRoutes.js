@@ -107,6 +107,13 @@ import {
   getAllAlertsAdmin,
   updateAlertAdmin,
 } from "../controllers/alertController.js";
+import {
+  getAdminAccountOverview,
+  getAndAddBaseFees,
+  getOrUpdateBaseFeeByBranch,
+  getSubmitFeeStudents,
+  submitStudentFeeByAccounts,
+} from "../controllers/accountsController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
 import upload from "../config/multerConfig.js";
@@ -276,5 +283,15 @@ router.post("/alerts", isAdmin, createAlert);
 router.get("/alerts", isAdmin, getAllAlertsAdmin);
 router.put("/alerts/:id", isAdmin, updateAlertAdmin);
 
+/* =========================
+   ACCOUNTS (ADMIN)
+========================= */
+router.get("/account", isAdmin, getAdminAccountOverview);
+router.get("/accounts/addBasefees", isAdmin, getAndAddBaseFees);
+router.post("/accounts/addBasefees", isAdmin, getAndAddBaseFees);
+router.get("/accounts/addbasefee/:branchid", isAdmin, getOrUpdateBaseFeeByBranch);
+router.put("/accounts/addbasefee/:branchid", isAdmin, getOrUpdateBaseFeeByBranch);
+router.get("/accounts/submitfee", isAdmin, getSubmitFeeStudents);
+router.post("/accounts/submitfee/students/:id", isAdmin, submitStudentFeeByAccounts);
 
 export default router;
