@@ -14,6 +14,7 @@ import {
 } from "../controllers/attendanceController.js";
 import isAuth from "../middlewares/isAuth.js";
 import isFacultyOrAdmin from "../middlewares/isFacultyOrAdmin.js";
+import { getMyAlerts, markAlertRead } from "../controllers/alertController.js";
 
 const router = express.Router();
 
@@ -36,5 +37,8 @@ router.get("/attendance/group/:groupId/course/:courseId", isFacultyOrAdmin, getA
 router.get("/attendance/student/:studentId", isFacultyOrAdmin, getStudentOverallAttendance);
 router.get("/attendance/student/:studentId/course/:courseId", isFacultyOrAdmin, getStudentAttendanceReport);
 router.get("/attendance/session/:sessionId", isFacultyOrAdmin, getAttendanceById);
+
+router.get("/alerts", isAuth, isFacultyOrAdmin, getMyAlerts);
+router.post("/alerts/:id/read", isAuth, isFacultyOrAdmin, markAlertRead);
 
 export default router;

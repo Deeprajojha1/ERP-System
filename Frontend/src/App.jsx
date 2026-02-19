@@ -34,6 +34,7 @@ import FacultyLectureReport from "./Admin/FacultyLectureReport";
 import SubjectAttendance from "./Admin/Subjectattendance";
 import TeachingLoad from "./Admin/Teachingload";
 import Assignment from "./Admin/Assignment";
+import Alerts from "./Admin/Alert";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
@@ -254,6 +255,7 @@ function App() {
           <Route path="fees/transport" element={<FeesTransport />} />
           <Route path="fees/backpapers" element={<FeesBackpapers />} />
           <Route path="fees/others" element={<FeesOthers />} />
+          <Route path="alerts" element={<Alerts />} />
           <Route path="general-support" element={<GeneralSupport />} />
           <Route path="library" element={<Library />} />
           <Route path="faculty-lecture-report" element={<FacultyLectureReport />} />
