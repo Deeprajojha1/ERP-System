@@ -7,69 +7,62 @@ const assignmentSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     description: {
       type: String,
-      required: true,
+      default: "",
       trim: true,
     },
-
-    fileUrl: {
-      type: String,
-      required: true,
-    },
-
-    fileType: {
-      type: String,
-      required: true,
-    },
-
-    department: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Department",
-      required: true,
-      index: true,
-    },
-
     group: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Group",
       required: true,
       index: true,
     },
-
+    department: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      required: true,
+      index: true,
+    },
+    dueDate: {
+      type: Date,
+      required: true,
+    },
+    fileUrl: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    fileType: {
+      type: String,
+      default: null,
+      trim: true,
+    },
     uploadedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Faculty",
       required: true,
       index: true,
     },
-
-    dueDate: {
-      type: Date,
-      required: true,
+    status: {
+      type: String,
+      default: "active",
+      trim: true,
     },
-
     totalSubmissions: {
       type: Number,
       default: 0,
+      min: 0,
     },
-
-    status: {
-      type: String,
-      enum: ["active", "closed"],
-      default: "active",
+    isDeleted: {
+      type: Boolean,
+      default: false,
     },
   },
   { timestamps: true }
 );
 
-assignmentSchema.index({ group: 1, uploadedBy: 1 });
-
-assignmentSchema.pre("save", function () {
-  if (this.dueDate && this.dueDate < Date.now()) {
-    this.status = "closed";
-  }
-});
+assignmentSchema.index({ department: 1, group: 1, dueDate: -1 });
+assignmentSchema.index({ uploadedBy: 1, dueDate: -1 });
 
 export default mongoose.model("Assignment", assignmentSchema);

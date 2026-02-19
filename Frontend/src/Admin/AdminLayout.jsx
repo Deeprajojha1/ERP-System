@@ -13,9 +13,19 @@ import { TbReportSearch } from "react-icons/tb";
 import { MdRecordVoiceOver } from "react-icons/md";
 import { GiKoholintEgg } from "react-icons/gi";
 import { LuBadgeIndianRupee } from "react-icons/lu";
-import { FiBell } from "react-icons/fi";
-import { FiBookOpen } from "react-icons/fi";
-import { FiSettings } from "react-icons/fi";
+import {
+  FiBell,
+  FiBookOpen,
+  FiSettings,
+  FiChevronDown,
+  FiLayers,
+  FiPercent,
+  FiFileText,
+  FiClock,
+  FiTrendingUp,
+  FiCreditCard,
+  FiCalendar,
+} from "react-icons/fi";
 import { useDispatch } from "react-redux";
 import axios from "../utils/axiosInstance";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
@@ -35,6 +45,94 @@ import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
 
+const FEE_MENU_SECTIONS = [
+  {
+    label: "DASHBOARD",
+    items: [
+      {
+        label: "Fee Dashboard",
+        paths: ["/admin/fees"],
+        Icon: MdDashboardCustomize,
+      },
+    ],
+  },
+  {
+    label: "CONFIGURATION",
+    items: [
+      {
+        label: "Fee Structure",
+        paths: ["/admin/fees/structure", "/admin/fees/academic"],
+        Icon: FiLayers,
+      },
+      {
+        label: "Discounts & Scholarships",
+        paths: ["/admin/fees/discounts", "/admin/fees/others"],
+        Icon: FiPercent,
+      },
+      {
+        label: "Payment Methods",
+        paths: ["/admin/fees/payment-methods"],
+        Icon: FiCreditCard,
+      },
+      {
+        label: "Academic Calendar",
+        paths: ["/admin/fees/academic-calendar"],
+        Icon: FiCalendar,
+      },
+    ],
+  },
+  {
+    label: "STUDENT MANAGEMENT",
+    items: [
+      {
+        label: "Student Fee Mapping",
+        paths: ["/admin/fees/mapping"],
+        matchChildren: false,
+        Icon: PiStudentFill,
+      },
+      {
+        label: "Student Records",
+        paths: ["/admin/fees/records"],
+        matchChildren: false,
+        Icon: FiBookOpen,
+      },
+      {
+        label: "Bulk Operations",
+        paths: ["/admin/fees/bulk"],
+        matchChildren: false,
+        Icon: LuBadgeIndianRupee,
+      },
+    ],
+  },
+  {
+    label: "ANALYTICS",
+    items: [
+      {
+        label: "Reports Hub",
+        paths: ["/admin/fees/reports"],
+        Icon: FiFileText,
+      },
+      {
+        label: "Financial Analytics",
+        paths: ["/admin/fees/financial"],
+        Icon: FiClock,
+      },
+      {
+        label: "Student Analytics",
+        paths: ["/admin/fees/student-analytics"],
+        Icon: FiTrendingUp,
+      },
+    ],
+  },
+];
+
+const isFeePath = (pathname = "") =>
+  FEE_MENU_SECTIONS.some((section) =>
+    section.items.some((item) =>
+      item.paths.some((path) => pathname.startsWith(path))
+    )
+  );
+
 const AdminLayout = () => {
   const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -44,6 +142,9 @@ const AdminLayout = () => {
   const location = useLocation();
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => window.innerWidth >= 769
+  );
+  const [isFeeMenuOpen, setIsFeeMenuOpen] = useState(() =>
+    isFeePath(location.pathname)
   );
   const isActive = (path) =>
     location.pathname === path || location.pathname.startsWith(`${path}/`);
@@ -69,6 +170,16 @@ const AdminLayout = () => {
     .map((word) => word[0]?.toUpperCase())
     .join("");
   const hasLeaveAlerts = leaveRequestCount > 0;
+  const isFeeRouteActive = isFeePath(location.pathname);
+  const defaultFeeRoute =
+    FEE_MENU_SECTIONS[0]?.items?.[0]?.paths?.[0] || "/admin/fees";
+
+  const pathMatches = (targetPath, allowChildren = true) => {
+    if (!targetPath) return false;
+    if (location.pathname === targetPath) return true;
+    if (!allowChildren) return false;
+    return location.pathname.startsWith(`${targetPath}/`);
+  };
 
   useEffect(() => {
     if (!apiBase || userData?.user?.role !== "admin") return;
@@ -81,6 +192,22 @@ const AdminLayout = () => {
 
     return () => clearInterval(intervalId);
   }, [apiBase, userData?.user?.role, location.pathname, dispatch]);
+
+  useEffect(() => {
+    if (isFeeRouteActive) {
+      setIsFeeMenuOpen(true);
+    }
+  }, [isFeeRouteActive]);
+
+  const handleFeesButtonClick = () => {
+    setIsFeeMenuOpen((prev) => !prev);
+    if (!isFeeRouteActive) {
+      navigate(defaultFeeRoute);
+    }
+  };
+
+  const isFeesButtonActive =
+    isFeeRouteActive || (isFeeMenuOpen && pathMatches(defaultFeeRoute));
 
   const handleLogout = async () => {
     try {
@@ -360,15 +487,58 @@ const AdminLayout = () => {
                 <span className="sidebar-text">Leaves</span>
               </button>
 
-              <button
-                className={`sidebar-btn ${isActive("/admin/fees") ? "active" : ""}`}
-                onClick={() => {
-                  navigate("/admin/fees");
-                }}
+              <div
+                className={`sidebar-dropdown ${
+                  isFeeRouteActive ? "open" : ""
+                }`}
               >
-                <LuBadgeIndianRupee />
-                <span className="sidebar-text">Fees</span>
-              </button>
+                <button
+                  type="button"
+                  className={`sidebar-btn sidebar-dropdown-toggle ${
+                    isFeesButtonActive ? "active" : ""
+                  }`}
+                  onClick={handleFeesButtonClick}
+                  aria-expanded={isFeeMenuOpen}
+                >
+                  <LuBadgeIndianRupee />
+                  <span className="sidebar-text">Fees</span>
+                  <FiChevronDown className="sidebar-dropdown-caret" />
+                </button>
+
+                <div
+                  className={`sidebar-submenu ${isFeeMenuOpen ? "show" : ""}`}
+                >
+                  {FEE_MENU_SECTIONS.map((section) => (
+                    <div
+                      className="sidebar-submenu-section"
+                      key={section.label}
+                    >
+                      <span className="sidebar-subtitle">{section.label}</span>
+                      {section.items.map((item) => {
+                        const allowChildren = item.matchChildren !== false;
+                        const active = item.paths.some((path) =>
+                          pathMatches(path, allowChildren)
+                        );
+                        const Icon = item.Icon;
+                        return (
+                          <button
+                            key={item.label}
+                            type="button"
+                            className={`sidebar-subitem ${
+                              active ? "active" : ""
+                            }`}
+                            onClick={() => navigate(item.paths[0])}
+                            data-muted={section.label === "DASHBOARD"}
+                          >
+                            <Icon />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="sidebar-section">
