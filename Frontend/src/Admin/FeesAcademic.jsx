@@ -6,6 +6,7 @@ import {
   FiTrash2,
   FiCheckCircle,
 } from "react-icons/fi";
+import ClipLoader from "./components/ClipLoader";
 import "./Fees.css";
 
 const ACADEMIC_YEAR_OPTIONS = ["2024-2025", "2023-2024", "2022-2023"];
@@ -123,6 +124,7 @@ const FeesAcademic = () => {
   const [structures] = useState(BASE_STRUCTURES);
   const [modalMode, setModalMode] = useState(null);
   const [formValues, setFormValues] = useState(defaultFormValues);
+  const [isSubmittingStructure, setIsSubmittingStructure] = useState(false);
 
   const handleDuplicate = (structure) => {
     console.log("Duplicate structure", structure.id);
@@ -172,7 +174,26 @@ const FeesAcademic = () => {
     setModalMode("edit");
   };
 
-  const closeModal = () => setModalMode(null);
+  const closeModal = () => {
+    if (isSubmittingStructure) return;
+    setModalMode(null);
+  };
+
+  const handleSubmitStructure = async () => {
+    if (isSubmittingStructure) return;
+    setIsSubmittingStructure(true);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+      if (modalMode === "edit") {
+        console.log("Update structure", formValues);
+      } else {
+        console.log("Create structure", formValues);
+      }
+      setModalMode(null);
+    } finally {
+      setIsSubmittingStructure(false);
+    }
+  };
 
   const handleComponentChange = (key, value) => {
     setFormValues((prev) => ({
@@ -376,11 +397,28 @@ const FeesAcademic = () => {
             </div>
 
             <div className="fee-modal-actions">
-              <button type="button" className="fee-modal-secondary" onClick={closeModal}>
+              <button
+                type="button"
+                className="fee-modal-secondary"
+                onClick={closeModal}
+                disabled={isSubmittingStructure}
+              >
                 Cancel
               </button>
-              <button type="button" className="fee-modal-primary">
-                {modalMode === "edit" ? "Update Structure" : "Create Structure"}
+              <button
+                type="button"
+                className="fee-modal-primary admin-btn-with-loader"
+                onClick={handleSubmitStructure}
+                disabled={isSubmittingStructure}
+              >
+                {isSubmittingStructure ? (
+                  <>
+                    <ClipLoader size={15} />
+                    <span>{modalMode === "edit" ? "Updating..." : "Creating..."}</span>
+                  </>
+                ) : (
+                  modalMode === "edit" ? "Update Structure" : "Create Structure"
+                )}
               </button>
             </div>
           </div>

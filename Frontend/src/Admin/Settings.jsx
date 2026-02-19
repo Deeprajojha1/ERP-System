@@ -17,6 +17,7 @@ import {
   FiUserPlus,
   FiX,
 } from "react-icons/fi";
+import ClipLoader from "./components/ClipLoader";
 import "./Settings.css";
 
 const Settings = () => {
@@ -41,6 +42,8 @@ const Settings = () => {
   const [securitySubmitting, setSecuritySubmitting] = useState(false);
   const [adminError, setAdminError] = useState("");
   const [librarianError, setLibrarianError] = useState("");
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
+  const [librarianSubmitting, setLibrarianSubmitting] = useState(false);
   const [adminForm, setAdminForm] = useState({
     firstName: "",
     lastName: "",
@@ -296,6 +299,7 @@ const Settings = () => {
 
   const closeAddAdminModal = () => {
     setShowAddAdminModal(false);
+    setAdminSubmitting(false);
     setAdminError("");
     setAdminForm({
       firstName: "",
@@ -310,7 +314,7 @@ const Settings = () => {
     if (adminError) setAdminError("");
   };
 
-  const handleCreateAdmin = (e) => {
+  const handleCreateAdmin = async (e) => {
     e.preventDefault();
     const { firstName, lastName, email: adminEmail, password } = adminForm;
 
@@ -327,11 +331,18 @@ const Settings = () => {
       return;
     }
 
-    closeAddAdminModal();
+    try {
+      setAdminSubmitting(true);
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      closeAddAdminModal();
+    } finally {
+      setAdminSubmitting(false);
+    }
   };
 
   const closeAddLibrarianModal = () => {
     setShowAddLibrarianModal(false);
+    setLibrarianSubmitting(false);
     setLibrarianError("");
     setLibrarianForm({
       firstName: "",
@@ -346,7 +357,7 @@ const Settings = () => {
     if (librarianError) setLibrarianError("");
   };
 
-  const handleCreateLibrarian = (e) => {
+  const handleCreateLibrarian = async (e) => {
     e.preventDefault();
     const { firstName, lastName, email: librarianEmail, password } = librarianForm;
 
@@ -363,7 +374,27 @@ const Settings = () => {
       return;
     }
 
-    closeAddLibrarianModal();
+    if (!apiBase) {
+      setLibrarianError("Server configuration missing. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      setLibrarianSubmitting(true);
+      await axios.post(
+        `${apiBase}/admin/librarian`,
+        { firstName, lastName, email: librarianEmail, password },
+        { withCredentials: true }
+      );
+      toast.success("Librarian created successfully");
+      closeAddLibrarianModal();
+    } catch (error) {
+      setLibrarianError(
+        error.response?.data?.message || "Failed to create librarian"
+      );
+    } finally {
+      setLibrarianSubmitting(false);
+    }
   };
 
   return (
@@ -408,13 +439,13 @@ const Settings = () => {
               <div className="settings-avatar-actions">
                 <button
                   type="button"
-                  className="settings-avatar-camera"
+                  className="settings-avatar-camera admin-btn-with-loader"
                   aria-label="Change profile picture"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploadingImage}
                 >
                   {uploadingImage ? (
-                    <div className="settings-spinner"></div>
+                    <ClipLoader size={16} color="#ffffff" />
                   ) : (
                     <FiCamera />
                   )}
@@ -422,13 +453,21 @@ const Settings = () => {
                 {currentProfileImage && (
                   <button
                     type="button"
-                    className="settings-avatar-delete"
+                    className="settings-avatar-delete admin-btn-with-loader"
                     aria-label="Remove profile picture"
                     onClick={handleDeleteProfileImage}
                     disabled={uploadingImage}
                     title="Remove profile picture"
                   >
-                    <FiX />
+                    {uploadingImage ? (
+                      <ClipLoader
+                        size={14}
+                        color="#ef4444"
+                        trackColor="rgba(239, 68, 68, 0.2)"
+                      />
+                    ) : (
+                      <FiX />
+                    )}
                   </button>
                 )}
               </div>
@@ -633,15 +672,23 @@ const Settings = () => {
                   type="button"
                   className="security-cancel-btn"
                   onClick={closePasswordModal}
+                  disabled={securitySubmitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="security-submit-btn"
+                  className="security-submit-btn admin-btn-with-loader"
                   disabled={securitySubmitting}
                 >
-                  {securitySubmitting ? "Changing..." : "Change Password"}
+                  {securitySubmitting ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>Changing...</span>
+                    </>
+                  ) : (
+                    "Change Password"
+                  )}
                 </button>
               </div>
             </form>
@@ -726,11 +773,23 @@ const Settings = () => {
                   type="button"
                   className="security-cancel-btn"
                   onClick={closeAddAdminModal}
+                  disabled={adminSubmitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="security-submit-btn">
-                  Create Admin
+                <button
+                  type="submit"
+                  className="security-submit-btn admin-btn-with-loader"
+                  disabled={adminSubmitting}
+                >
+                  {adminSubmitting ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    "Create Admin"
+                  )}
                 </button>
               </div>
             </form>
@@ -817,11 +876,23 @@ const Settings = () => {
                   type="button"
                   className="security-cancel-btn"
                   onClick={closeAddLibrarianModal}
+                  disabled={librarianSubmitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="security-submit-btn">
-                  Create Librarian
+                <button
+                  type="submit"
+                  className="security-submit-btn admin-btn-with-loader"
+                  disabled={librarianSubmitting}
+                >
+                  {librarianSubmitting ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    "Create Librarian"
+                  )}
                 </button>
               </div>
             </form>

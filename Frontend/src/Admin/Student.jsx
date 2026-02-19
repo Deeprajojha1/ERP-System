@@ -12,6 +12,7 @@ import {
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Student.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import ClipLoader from "./components/ClipLoader";
 
 const normalizeProgram = (value) => {
   return String(value || "")
@@ -766,11 +767,16 @@ const Student = () => {
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary"
+                  className="btn-primary admin-btn-with-loader"
                   disabled={submitting}
                 >
                   {submitting
-                    ? "Saving..."
+                    ? (
+                      <>
+                        <ClipLoader size={15} />
+                        <span>Saving...</span>
+                      </>
+                    )
                     : editTarget
                     ? "Update Student"
                     : "Add Student"}

@@ -36,6 +36,11 @@
   gap: 8px;
 }
 
+.tt-download-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
+}
+
 .tt-title {
   margin: 0;
   font-size: 26px;
@@ -567,6 +572,11 @@
   font-weight: 700;
   cursor: pointer;
   width: 100%;
+}
+
+.tt-submit:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
 }
 
 .tt-note {

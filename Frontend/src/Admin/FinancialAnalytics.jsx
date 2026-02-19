@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { FiTrendingUp, FiArrowUpRight, FiDownload } from "react-icons/fi";
+import ClipLoader from "./components/ClipLoader";
 import "./FinancialAnalytics.css";
 
 const METRICS = [
@@ -30,11 +31,22 @@ const PROGRAM_BREAKUP = [
 const FinancialAnalytics = () => {
   const [range, setRange] = useState("Monthly");
   const [focusProgram, setFocusProgram] = useState("All Programs");
+  const [isExportingInsights, setIsExportingInsights] = useState(false);
 
   const programOptions = useMemo(
     () => ["All Programs", ...PROGRAM_BREAKUP.map((entry) => entry.name)],
     []
   );
+
+  const handleExportInsights = async () => {
+    if (isExportingInsights) return;
+    setIsExportingInsights(true);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 400));
+    } finally {
+      setIsExportingInsights(false);
+    }
+  };
 
   return (
     <div className="financial-analytics-page">
@@ -46,9 +58,23 @@ const FinancialAnalytics = () => {
             Monitor revenue, track program-level performance, and benchmark collection health across campuses.
           </p>
         </div>
-        <button type="button" className="fa-export-btn">
-          <FiDownload />
-          <span>Export Insights</span>
+        <button
+          type="button"
+          className="fa-export-btn admin-btn-with-loader"
+          onClick={handleExportInsights}
+          disabled={isExportingInsights}
+        >
+          {isExportingInsights ? (
+            <>
+              <ClipLoader size={15} color="#0f172a" trackColor="rgba(15, 23, 42, 0.2)" />
+              <span>Exporting...</span>
+            </>
+          ) : (
+            <>
+              <FiDownload />
+              <span>Export Insights</span>
+            </>
+          )}
         </button>
       </header>
 

@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { FiFilter, FiDownloadCloud, FiShare2 } from "react-icons/fi";
 import { MdOutlineAssessment } from "react-icons/md";
+import ClipLoader from "./components/ClipLoader";
 import "./ReportsHub.css";
 
 const RANGE_OPTIONS = ["This Month", "Quarter to Date", "Academic Year"];
@@ -34,6 +35,7 @@ const ReportsHub = () => {
   const [range, setRange] = useState(RANGE_OPTIONS[0]);
   const [dataset, setDataset] = useState(DATASETS[0]);
   const [keyword, setKeyword] = useState("");
+  const [isGeneratingExport, setIsGeneratingExport] = useState(false);
 
   const filteredHistory = useMemo(() => {
     const needle = keyword.trim().toLowerCase();
@@ -42,6 +44,55 @@ const ReportsHub = () => {
       record.title.toLowerCase().includes(needle)
     );
   }, [keyword]);
+
+  const buildCsvValue = (value) =>
+    `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+  const handleGenerateExport = async () => {
+    if (isGeneratingExport) return;
+    setIsGeneratingExport(true);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+
+      const generatedAt = new Date();
+      const metaRows = [
+        ["Generated At", generatedAt.toLocaleString()],
+        ["Reporting Range", range],
+        ["Dataset", dataset],
+        ["Search Keyword", keyword || "All"],
+      ];
+
+      const headers = ["Report ID", "Title", "Range", "Size", "Status"];
+      const rows = filteredHistory.map((record) => [
+        record.id,
+        record.title,
+        record.range,
+        record.size,
+        record.status,
+      ]);
+
+      const csvContent = [
+        ...metaRows.map((row) => row.map(buildCsvValue).join(",")),
+        "",
+        headers.map(buildCsvValue).join(","),
+        ...rows.map((row) => row.map(buildCsvValue).join(",")),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const downloadLink = document.createElement("a");
+      const dateSuffix = generatedAt.toISOString().split("T")[0];
+      const datasetKey = dataset.toLowerCase().replace(/\s+/g, "-");
+      downloadLink.href = url;
+      downloadLink.download = `reports-hub-${datasetKey}-${dateSuffix}.csv`;
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      document.body.removeChild(downloadLink);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsGeneratingExport(false);
+    }
+  };
 
   return (
     <div className="reports-hub-page">
@@ -53,9 +104,23 @@ const ReportsHub = () => {
             Generate curated exports, rerun saved recipes, and share datasets with finance and audit teams.
           </p>
         </div>
-        <button type="button" className="reports-primary-btn">
-          <FiDownloadCloud />
-          <span>Generate Export</span>
+        <button
+          type="button"
+          className="reports-primary-btn admin-btn-with-loader"
+          onClick={handleGenerateExport}
+          disabled={isGeneratingExport}
+        >
+          {isGeneratingExport ? (
+            <>
+              <ClipLoader size={15} />
+              <span>Generating...</span>
+            </>
+          ) : (
+            <>
+              <FiDownloadCloud />
+              <span>Generate Export</span>
+            </>
+          )}
         </button>
       </header>
 

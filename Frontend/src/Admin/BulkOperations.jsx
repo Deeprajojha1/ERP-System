@@ -7,6 +7,7 @@ import {
   FiRefreshCw,
 } from "react-icons/fi";
 import "./BulkOperations.css";
+import ClipLoader from "./components/ClipLoader";
 
 const BULK_STEPS = [
   {
@@ -170,12 +171,21 @@ const BulkOperations = () => {
               {step.actionLabel && StepIcon && (
                 <button
                   type="button"
-                  className="bo-step-btn"
+                  className="bo-step-btn admin-btn-with-loader"
                   onClick={actionHandler}
                   disabled={disableAction}
                 >
-                  <StepIcon />
-                  <span>{step.actionLabel}</span>
+                  {step.key === "upload" && isUploading ? (
+                    <>
+                      <ClipLoader size={15} color="#0f172a" trackColor="rgba(15, 23, 42, 0.2)" />
+                      <span>Uploading...</span>
+                    </>
+                  ) : (
+                    <>
+                      <StepIcon />
+                      <span>{step.actionLabel}</span>
+                    </>
+                  )}
                 </button>
               )}
             </article>
@@ -200,12 +210,21 @@ const BulkOperations = () => {
           <div className="bo-upload-actions">
             <button
               type="button"
-              className="bo-upload-primary"
+              className="bo-upload-primary admin-btn-with-loader"
               onClick={handleTriggerUpload}
               disabled={isUploading}
             >
-              <FiUpload />
-              <span>{isUploading ? "Uploading..." : "Start Upload"}</span>
+              {isUploading ? (
+                <>
+                  <ClipLoader size={16} />
+                  <span>Uploading...</span>
+                </>
+              ) : (
+                <>
+                  <FiUpload />
+                  <span>Start Upload</span>
+                </>
+              )}
             </button>
             {uploadMessage && (
               <p className="bo-upload-status" aria-live="polite">

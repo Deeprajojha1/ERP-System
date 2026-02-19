@@ -7,6 +7,7 @@ import emptyStateImg from "../assets/empty-state.svg";
 import "./Department.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import toast from "react-hot-toast";
+import ClipLoader from "./components/ClipLoader";
 import {
   setDepartments,
   setDepartmentsError,
@@ -593,7 +594,7 @@ const Department = () => {
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary"
+                  className="btn-primary admin-btn-with-loader"
                   disabled={
                     submitting ||
                     isExistingSelection ||
@@ -602,7 +603,12 @@ const Department = () => {
                   }
                 >
                   {submitting
-                    ? "Saving..."
+                    ? (
+                      <>
+                        <ClipLoader size={15} />
+                        <span>Saving...</span>
+                      </>
+                    )
                     : editTarget
                     ? "Update Department"
                     : "Add Department"}

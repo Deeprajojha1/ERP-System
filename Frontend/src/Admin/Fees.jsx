@@ -12,12 +12,21 @@ import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Fees.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import ClipLoader from "./components/ClipLoader";
 
 const Fees = () => {
   const navigate = useNavigate();
   const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
+  const [isExportingReport, setIsExportingReport] = useState(false);
   const yearOptions = ["2024-2025", "2023-2024", "2022-2023"];
   const [selectedYear, setSelectedYear] = useState(yearOptions[0]);
+
+  const handleNavigateToReports = async () => {
+    if (isExportingReport) return;
+    setIsExportingReport(true);
+    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    navigate("/admin/fees/reports");
+  };
 
   const summaryCards = [
     {
@@ -161,11 +170,21 @@ const Fees = () => {
             </select>
             <button
               type="button"
-              className="fee-export-btn"
-              onClick={() => navigate("/admin/fees/reports")}
+              className="fee-export-btn admin-btn-with-loader"
+              onClick={handleNavigateToReports}
+              disabled={isExportingReport}
             >
-              <FiDownload />
-              <span>Export Report</span>
+              {isExportingReport ? (
+                <>
+                  <ClipLoader size={15} />
+                  <span>Opening...</span>
+                </>
+              ) : (
+                <>
+                  <FiDownload />
+                  <span>Export Report</span>
+                </>
+              )}
             </button>
           </div>
         </section>
@@ -245,10 +264,18 @@ const Fees = () => {
             </div>
             <button
               type="button"
-              className="fee-link-btn"
-              onClick={() => navigate("/admin/fees/reports")}
+              className="fee-link-btn admin-btn-with-loader"
+              onClick={handleNavigateToReports}
+              disabled={isExportingReport}
             >
-              View All
+              {isExportingReport ? (
+                <>
+                  <ClipLoader size={14} color="#0f172a" trackColor="rgba(15, 23, 42, 0.2)" />
+                  <span>Opening...</span>
+                </>
+              ) : (
+                "View All"
+              )}
             </button>
           </div>
 
@@ -308,4 +335,3 @@ const Fees = () => {
 };
 
 export default Fees;
-

@@ -275,6 +275,7 @@ function App() {
           <Route path="fees/academic-calendar" element={<AcademicCalendar />} />
           <Route path="fees/discounts" element={<FeesDiscounts />} />
           <Route path="alerts" element={<Alerts />} />
+          <Route path="alert" element={<Navigate to="/admin/alerts" replace />} />
           <Route path="general-support" element={<GeneralSupport />} />
           <Route path="library" element={<Library />} />
           <Route path="faculty-lecture-report" element={<FacultyLectureReport />} />

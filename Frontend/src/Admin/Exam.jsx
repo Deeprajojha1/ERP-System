@@ -7,6 +7,7 @@ import "./Exam.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import toast from "react-hot-toast";
+import ClipLoader from "./components/ClipLoader";
 
 const Exam = () => {
   const [search, setSearch] = useState("");
@@ -14,8 +15,21 @@ const Exam = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
+  const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
+  const [actionLoading, setActionLoading] = useState({});
+  const [isSchedulePrinting, setIsSchedulePrinting] = useState(false);
   const apiBase = useSelector((state) => state.config.apiBase);
+
+  const getExamActionKey = (exam, action) => `${exam.name}-${exam.date}-${action}`;
+  const setExamActionLoading = (exam, action, isLoading) => {
+    const key = getExamActionKey(exam, action);
+    setActionLoading((prev) => ({
+      ...prev,
+      [key]: isLoading,
+    }));
+  };
+  const isExamActionLoading = (exam, action) =>
+    Boolean(actionLoading[getExamActionKey(exam, action)]);
 
   const subjects = [
     "All Subjects",
@@ -29,7 +43,7 @@ const Exam = () => {
     "Mobile Apps",
   ];
 
-  const exams = [
+  const exams = useMemo(() => [
     {
       name: "Microprocessors - Midterm",
       subject: "Microprocessors",
@@ -78,7 +92,7 @@ const Exam = () => {
       duration: "2 hours",
       status: "Scheduled",
     },
-  ];
+  ], []);
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
@@ -92,42 +106,166 @@ const Exam = () => {
       const matchTo = toDate ? e.date <= toDate : true;
       return matchSearch && matchSubject && matchFrom && matchTo;
     });
-  }, [search, subject, fromDate, toDate]);
+  }, [search, subject, fromDate, toDate, exams]);
 
-  const handlePrint = (exam) => {
-    const win = window.open("", "_blank", "width=900,height=700");
-    if (!win) return;
-    win.document.write(`
+  const printWithHiddenFrame = ({ title, htmlContent, onComplete }) => {
+    const printFrame = document.createElement("iframe");
+    printFrame.style.position = "fixed";
+    printFrame.style.right = "0";
+    printFrame.style.bottom = "0";
+    printFrame.style.width = "0";
+    printFrame.style.height = "0";
+    printFrame.style.border = "0";
+    printFrame.setAttribute("aria-hidden", "true");
+    document.body.appendChild(printFrame);
+
+    const frameWindow = printFrame.contentWindow;
+    if (!frameWindow) {
+      if (document.body.contains(printFrame)) document.body.removeChild(printFrame);
+      if (typeof onComplete === "function") onComplete();
+      return;
+    }
+
+    let cleaned = false;
+    let fallbackTimer = null;
+    const cleanup = () => {
+      if (cleaned) return;
+      cleaned = true;
+      if (fallbackTimer) {
+        window.clearTimeout(fallbackTimer);
+        fallbackTimer = null;
+      }
+      if (document.body.contains(printFrame)) {
+        document.body.removeChild(printFrame);
+      }
+      if (typeof onComplete === "function") onComplete();
+    };
+
+    frameWindow.document.open();
+    frameWindow.document.write(`
       <html>
         <head>
-          <title>Exam Sheet</title>
+          <title>${title}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 24px; }
-            h2 { margin: 0 0 12px; }
-            .meta { margin-top: 10px; }
-            .meta div { margin: 6px 0; }
-            .label { font-weight: bold; display: inline-block; width: 90px; }
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1, h2 { margin: 0 0 12px; }
+            .meta { margin: 8px 0 14px; color: #334155; font-size: 13px; }
+            .meta div { margin: 4px 0; }
+            .label { font-weight: 700; display: inline-block; width: 92px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; font-size: 13px; }
+            th { background: #f8fafc; font-weight: 700; }
           </style>
         </head>
-        <body>
-          <h2>Exam Sheet</h2>
-          <div class="meta">
-            <div><span class="label">Name:</span> ${exam.name}</div>
-            <div><span class="label">Subject:</span> ${exam.subject}</div>
-            <div><span class="label">Date:</span> ${exam.date}</div>
-            <div><span class="label">Time:</span> ${exam.time}</div>
-            <div><span class="label">Duration:</span> ${exam.duration}</div>
-            <div><span class="label">Status:</span> ${exam.status.toUpperCase()}</div>
-          </div>
-        </body>
+        <body>${htmlContent}</body>
       </html>
     `);
-    win.document.close();
-    win.focus();
-    win.print();
+    frameWindow.document.close();
+
+    const startPrint = () => {
+      const handleAfterPrint = () => {
+        frameWindow.removeEventListener("afterprint", handleAfterPrint);
+        cleanup();
+      };
+      frameWindow.addEventListener("afterprint", handleAfterPrint);
+      frameWindow.focus();
+      frameWindow.print();
+      fallbackTimer = window.setTimeout(cleanup, 60000);
+    };
+
+    if (frameWindow.document.readyState === "complete") {
+      startPrint();
+    } else {
+      printFrame.onload = startPrint;
+    }
   };
 
-  const handleDownload = (exam) => {
+  const handlePrint = (exam) => {
+    if (isExamActionLoading(exam, "print")) return;
+    setExamActionLoading(exam, "print", true);
+    const html = `
+      <h2>Exam Sheet</h2>
+      <div class="meta">
+        <div><span class="label">Name:</span> ${exam.name}</div>
+        <div><span class="label">Subject:</span> ${exam.subject}</div>
+        <div><span class="label">Date:</span> ${exam.date}</div>
+        <div><span class="label">Time:</span> ${exam.time}</div>
+        <div><span class="label">Duration:</span> ${exam.duration}</div>
+        <div><span class="label">Status:</span> ${exam.status.toUpperCase()}</div>
+      </div>
+    `;
+    printWithHiddenFrame({
+      title: "Exam Sheet",
+      htmlContent: html,
+      onComplete: () => setExamActionLoading(exam, "print", false),
+    });
+  };
+
+  const handlePrintSchedule = () => {
+    if (isSchedulePrinting) return;
+    if (!fromDate || !toDate) {
+      toast.error("Please select both start and end date.");
+      return;
+    }
+    if (fromDate > toDate) {
+      toast.error("Start date cannot be after end date.");
+      return;
+    }
+    if (!filtered.length) {
+      toast.error("No exams found for selected date range.");
+      return;
+    }
+
+    setIsSchedulePrinting(true);
+    const rowsHtml = filtered
+      .map(
+        (exam, index) => `
+          <tr>
+            <td>${index + 1}</td>
+            <td>${exam.name}</td>
+            <td>${exam.subject}</td>
+            <td>${exam.date}</td>
+            <td>${exam.time}</td>
+            <td>${exam.duration}</td>
+            <td>${exam.status.toUpperCase()}</td>
+          </tr>
+        `
+      )
+      .join("");
+
+    const html = `
+      <h1>Exam Schedule</h1>
+      <div class="meta">
+        <div><span class="label">From:</span> ${fromDate}</div>
+        <div><span class="label">To:</span> ${toDate}</div>
+        <div><span class="label">Total:</span> ${filtered.length} exam(s)</div>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>S. No</th>
+            <th>Exam Name</th>
+            <th>Subject</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Duration</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    `;
+
+    printWithHiddenFrame({
+      title: "Exam Schedule",
+      htmlContent: html,
+      onComplete: () => setIsSchedulePrinting(false),
+    });
+  };
+
+  const handleDownload = async (exam) => {
+    if (isExamActionLoading(exam, "download")) return;
+    setExamActionLoading(exam, "download", true);
     const esc = (value = "") =>
       String(value)
         .replace(/&/g, "&amp;")
@@ -158,12 +296,16 @@ const Exam = () => {
       </html>
     `;
 
-    downloadPdfFromHtml(apiBase, {
-      html,
-      fileName: `${exam.name.replace(/\s+/g, "_")}.pdf`,
-    }).catch((error) => {
+    try {
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: `${exam.name.replace(/\s+/g, "_")}.pdf`,
+      });
+    } catch (error) {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    });
+    } finally {
+      setExamActionLoading(exam, "download", false);
+    }
   };
 
 
@@ -262,6 +404,31 @@ const Exam = () => {
               onChange={(e) => setToDate(e.target.value)}
             />
           </div>
+
+          <div className="exam-filter-actions">
+            <button
+              type="button"
+              className="exam-print-schedule-btn admin-btn-with-loader"
+              onClick={handlePrintSchedule}
+              disabled={isSchedulePrinting}
+            >
+              {isSchedulePrinting ? (
+                <>
+                  <ClipLoader
+                    size={15}
+                    color="#0f172a"
+                    trackColor="rgba(15, 23, 42, 0.2)"
+                  />
+                  <span>Printing...</span>
+                </>
+              ) : (
+                <>
+                  <FiPrinter />
+                  <span>Print Schedule</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div className="exam-table-wrap">
@@ -294,20 +461,48 @@ const Exam = () => {
                     <td>
                       <div className="exam-actions">
                         <button
-                          className="exam-action-btn"
+                          className="exam-action-btn admin-btn-with-loader"
                           type="button"
                           onClick={() => handlePrint(e)}
+                          disabled={isExamActionLoading(e, "print")}
                         >
-                          <FiPrinter />
-                          Print
+                          {isExamActionLoading(e, "print") ? (
+                            <>
+                              <ClipLoader
+                                size={14}
+                                color="#0f172a"
+                                trackColor="rgba(15, 23, 42, 0.2)"
+                              />
+                              <span>Printing...</span>
+                            </>
+                          ) : (
+                            <>
+                              <FiPrinter />
+                              <span>Print</span>
+                            </>
+                          )}
                         </button>
                         <button
-                          className="exam-action-btn export"
+                          className="exam-action-btn export admin-btn-with-loader"
                           type="button"
                           onClick={() => handleDownload(e)}
+                          disabled={isExamActionLoading(e, "download")}
                         >
-                          <FiDownload />
-                          Download
+                          {isExamActionLoading(e, "download") ? (
+                            <>
+                              <ClipLoader
+                                size={14}
+                                color="#1d4ed8"
+                                trackColor="rgba(29, 78, 216, 0.25)"
+                              />
+                              <span>Downloading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <FiDownload />
+                              <span>Download</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </td>

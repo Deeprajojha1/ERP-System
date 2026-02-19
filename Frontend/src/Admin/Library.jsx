@@ -11,6 +11,7 @@ import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import axios from "../utils/axiosInstance";
 import emptyStateImg from "../assets/empty-state.svg";
+import ClipLoader from "./components/ClipLoader";
 import "./Library.css";
 
 const Library = () => {
@@ -333,13 +334,21 @@ const Library = () => {
                     </p>
                     <button
                       type="button"
-                      className="library-librarian-delete-btn"
+                      className="library-librarian-delete-btn admin-btn-with-loader"
                       aria-label={`Delete ${librarian.name || "librarian"}`}
                       title="Delete librarian"
                       disabled={deletingLibrarianId === librarian._id}
                       onClick={() => confirmDeleteLibrarian(librarian)}
                     >
-                      <HiOutlineTrash />
+                      {deletingLibrarianId === librarian._id ? (
+                        <ClipLoader
+                          size={14}
+                          color="#dc2626"
+                          trackColor="rgba(220, 38, 38, 0.2)"
+                        />
+                      ) : (
+                        <HiOutlineTrash />
+                      )}
                     </button>
                   </div>
                 ))}
@@ -428,11 +437,23 @@ const Library = () => {
                   type="button"
                   className="library-btn-cancel"
                   onClick={closeAddLibrarianModal}
+                  disabled={creatingLibrarian}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="library-btn-create" disabled={creatingLibrarian}>
-                  {creatingLibrarian ? "Creating..." : "Create Librarian"}
+                <button
+                  type="submit"
+                  className="library-btn-create admin-btn-with-loader"
+                  disabled={creatingLibrarian}
+                >
+                  {creatingLibrarian ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    "Create Librarian"
+                  )}
                 </button>
               </div>
             </form>

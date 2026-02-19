@@ -38,10 +38,34 @@
   border-radius: 16px;
   padding: 14px;
   display: grid;
-  grid-template-columns: 2fr 1fr 1fr 1fr;
+  grid-template-columns: 2fr 1fr 1fr 1fr auto;
   gap: 12px;
   margin-bottom: 16px;
   align-items: end;
+}
+
+.exam-filter-actions {
+  display: flex;
+  align-items: flex-end;
+}
+
+.exam-print-schedule-btn {
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.exam-print-schedule-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.8;
 }
 
 .exam-search {
@@ -168,6 +192,11 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+
+.exam-action-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.78;
 }
 
 .exam-action-btn.export {

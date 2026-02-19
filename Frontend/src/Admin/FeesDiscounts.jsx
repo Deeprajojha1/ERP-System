@@ -8,6 +8,7 @@ import {
   FiTag,
 } from "react-icons/fi";
 import { MdOutlineToggleOn, MdOutlineToggleOff } from "react-icons/md";
+import ClipLoader from "./components/ClipLoader";
 import "./FeesDiscounts.css";
 
 const FILTERS = [
@@ -95,18 +96,21 @@ const DEFAULT_FORM = {
   conditionDetails: "",
 };
 
-const StatsCard = ({ icon: Icon, label, value, subtitle }) => (
-  <article className="fee-discount-stat">
-    <div className="fee-discount-stat-icon">
-      <Icon />
-    </div>
-    <div>
-      <p>{label}</p>
-      <strong>{value}</strong>
-      <span>{subtitle}</span>
-    </div>
-  </article>
-);
+const StatsCard = ({ icon, label, value, subtitle }) => {
+  const IconComponent = icon;
+  return (
+    <article className="fee-discount-stat">
+      <div className="fee-discount-stat-icon">
+        <IconComponent />
+      </div>
+      <div>
+        <p>{label}</p>
+        <strong>{value}</strong>
+        <span>{subtitle}</span>
+      </div>
+    </article>
+  );
+};
 
 const FeesDiscounts = () => {
   const [filter, setFilter] = useState("all");
@@ -114,6 +118,7 @@ const FeesDiscounts = () => {
   const [modalMode, setModalMode] = useState(null);
   const [formValues, setFormValues] = useState(DEFAULT_FORM);
   const [editingRule, setEditingRule] = useState(null);
+  const [isSubmittingRule, setIsSubmittingRule] = useState(false);
 
   const filteredRules = useMemo(() => {
     if (filter === "all") return rules;
@@ -142,6 +147,7 @@ const FeesDiscounts = () => {
   };
 
   const closeModal = () => {
+    if (isSubmittingRule) return;
     setModalMode(null);
     setEditingRule(null);
   };
@@ -150,13 +156,21 @@ const FeesDiscounts = () => {
     console.log("Toggle rule", ruleId);
   };
 
-  const handleSubmit = () => {
-    if (modalMode === "edit") {
-      console.log("Update rule", editingRule?.id, formValues);
-    } else {
-      console.log("Create rule", formValues);
+  const handleSubmit = async () => {
+    if (isSubmittingRule) return;
+    setIsSubmittingRule(true);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 350));
+      if (modalMode === "edit") {
+        console.log("Update rule", editingRule?.id, formValues);
+      } else {
+        console.log("Create rule", formValues);
+      }
+      setModalMode(null);
+      setEditingRule(null);
+    } finally {
+      setIsSubmittingRule(false);
     }
-    closeModal();
   };
 
   const stats = [
@@ -397,11 +411,28 @@ const FeesDiscounts = () => {
             </div>
 
             <div className="fee-discounts-modal-actions">
-              <button type="button" className="fee-discounts-modal-secondary" onClick={closeModal}>
+              <button
+                type="button"
+                className="fee-discounts-modal-secondary"
+                onClick={closeModal}
+                disabled={isSubmittingRule}
+              >
                 Cancel
               </button>
-              <button type="button" className="fee-discounts-modal-primary" onClick={handleSubmit}>
-                {modalMode === "edit" ? "Update Rule" : "Create Rule"}
+              <button
+                type="button"
+                className="fee-discounts-modal-primary admin-btn-with-loader"
+                onClick={handleSubmit}
+                disabled={isSubmittingRule}
+              >
+                {isSubmittingRule ? (
+                  <>
+                    <ClipLoader size={15} />
+                    <span>{modalMode === "edit" ? "Updating..." : "Creating..."}</span>
+                  </>
+                ) : (
+                  modalMode === "edit" ? "Update Rule" : "Create Rule"
+                )}
               </button>
             </div>
           </div>

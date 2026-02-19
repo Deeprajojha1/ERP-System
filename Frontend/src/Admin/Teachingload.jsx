@@ -3,6 +3,7 @@ import { FiPrinter } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import axios from "../utils/axiosInstance";
 import emptyStateImg from "../assets/empty-state.svg";
+import ClipLoader from "./components/ClipLoader";
 import "./Teachingload.css";
 
 const normalizeId = (value) => String(value || "").trim();
@@ -17,6 +18,7 @@ const TeachingLoad = () => {
   const [courses, setCourses] = useState([]);
   const [groups, setGroups] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
   const [loadError, setLoadError] = useState("");
   const apiBase = useSelector((state) => state.config.apiBase);
 
@@ -128,8 +130,18 @@ const TeachingLoad = () => {
     [teachingLoadData, selectedDeptName]
   );
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!teachingLoadData.length || isPrinting) return;
+
+    try {
+      setIsPrinting(true);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      window.print();
+    } finally {
+      setTimeout(() => {
+        setIsPrinting(false);
+      }, 150);
+    }
   };
 
   return (
@@ -226,12 +238,21 @@ const TeachingLoad = () => {
           </div>
 
           <button
-            className="teaching-load-print-btn"
+            className="teaching-load-print-btn admin-btn-with-loader"
             onClick={handlePrint}
-            disabled={!teachingLoadData.length}
+            disabled={!teachingLoadData.length || isPrinting}
           >
-            <FiPrinter />
-            Print This
+            {isPrinting ? (
+              <>
+                <ClipLoader size={15} />
+                <span>Printing...</span>
+              </>
+            ) : (
+              <>
+                <FiPrinter />
+                <span>Print This</span>
+              </>
+            )}
           </button>
         </div>
 

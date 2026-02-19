@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { FiCheckCircle, FiAlertCircle } from "react-icons/fi";
+import ClipLoader from "./components/ClipLoader";
 import "./PaymentMethods.css";
 
 const DEFAULT_METHODS = [
@@ -58,6 +59,7 @@ const PaymentMethods = () => {
     receipt: "",
   });
   const [cashEntries, setCashEntries] = useState([]);
+  const [savingCashEntry, setSavingCashEntry] = useState(false);
   const activeCount = useMemo(
     () => methods.filter((method) => method.status === "Active").length,
     [methods]
@@ -77,17 +79,24 @@ const PaymentMethods = () => {
     setCashEntry((previous) => ({ ...previous, [field]: value }));
   };
 
-  const handleCashEntrySubmit = (event) => {
+  const handleCashEntrySubmit = async (event) => {
     event.preventDefault();
+    if (savingCashEntry) return;
     if (!cashEntry.studentName || !cashEntry.enrollment || !cashEntry.amount) return;
-    setCashEntries((previous) => [
-      {
-        id: Date.now().toString(),
-        ...cashEntry,
-      },
-      ...previous,
-    ]);
-    setCashEntry({ studentName: "", enrollment: "", amount: "", date: "", receipt: "" });
+    setSavingCashEntry(true);
+    try {
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
+      setCashEntries((previous) => [
+        {
+          id: Date.now().toString(),
+          ...cashEntry,
+        },
+        ...previous,
+      ]);
+      setCashEntry({ studentName: "", enrollment: "", amount: "", date: "", receipt: "" });
+    } finally {
+      setSavingCashEntry(false);
+    }
   };
 
   return (
@@ -231,7 +240,16 @@ const PaymentMethods = () => {
               placeholder="Receipt # or remarks"
             />
           </label>
-          <button type="submit" className="pm-cash-submit">Save Entry</button>
+          <button type="submit" className="pm-cash-submit admin-btn-with-loader" disabled={savingCashEntry}>
+            {savingCashEntry ? (
+              <>
+                <ClipLoader size={15} />
+                <span>Saving...</span>
+              </>
+            ) : (
+              "Save Entry"
+            )}
+          </button>
         </form>
 
         {cashEntries.length > 0 && (
