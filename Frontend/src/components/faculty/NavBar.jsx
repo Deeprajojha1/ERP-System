@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { clearUserData } from "../../redux/userSlice";
-import { Bell, LogOut, RefreshCw } from "lucide-react";
+import { LogOut, RefreshCw } from "lucide-react";
+import AlertNotifications from "../common/AlertNotifications";
 
 export default function NavBar({ facultyData, onRefresh }) {
   const navigate = useNavigate();
@@ -52,9 +53,7 @@ export default function NavBar({ facultyData, onRefresh }) {
             <RefreshCw size={20} className={refreshing ? "spinning" : ""} />
           </button>
         )}
-        <button className="faculty-navbar-btn" title="Notifications">
-          <Bell size={20} />
-        </button>
+        <AlertNotifications />
         <button onClick={handleLogout} className="faculty-logout-btn">
           <LogOut size={18} />
           <span>Logout</span>

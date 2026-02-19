@@ -545,6 +545,16 @@ const AdminLayout = () => {
               <label className="sidebar-label">SYSTEM</label>
 
               <button
+                className={`sidebar-btn ${isActive("/admin/alerts") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/alerts");
+                }}
+              >
+                <FiBell />
+                <span className="sidebar-text">Alerts</span>
+              </button>
+
+              <button
                 className={`sidebar-btn ${isActive("/admin/general-support") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/general-support");

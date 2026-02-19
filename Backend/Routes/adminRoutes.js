@@ -102,6 +102,11 @@ import {
   deleteAssignment,
   getAssignmentSubmissionsAdmin,
 } from "../controllers/assingmentController.js";
+import {
+  createAlert,
+  getAllAlertsAdmin,
+  updateAlertAdmin,
+} from "../controllers/alertController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
 import upload from "../config/multerConfig.js";
@@ -266,6 +271,10 @@ router.get(
   isAdmin,
   getAssignmentSubmissionsAdmin
 );
+
+router.post("/alerts", isAdmin, createAlert);
+router.get("/alerts", isAdmin, getAllAlertsAdmin);
+router.put("/alerts/:id", isAdmin, updateAlertAdmin);
 
 
 export default router;

@@ -625,16 +625,23 @@ const StudentFeeMapping = () => {
 
             {detailCards.length ? (
               <div className="sfm-detail-grid">
-                {detailCards.map((card) => (
-                  <article
-                    key={card.key}
-                    className={`sfm-detail-card ${card.tone ? `sfm-detail-${card.tone}` : ""}`.trim()}
-                  >
-                    <p className="sfm-detail-label">{card.title}</p>
-                    <h3>{formatCurrency(card.amount)}</h3>
-                    <p className="sfm-detail-desc">{card.helper}</p>
-                  </article>
-                ))}
+                {detailCards.map((card) => {
+                  const classes = ["sfm-detail-card"];
+                  if (card.tone) {
+                    classes.push(`sfm-detail-${card.tone}`);
+                  }
+                  return (
+                    <article key={card.key} className={classes.join(" ")}>
+                      <p className="sfm-detail-label">{card.title}</p>
+                      <h3>
+                        {card.isDeduction
+                          ? `-${formatCurrency(card.amount)}`
+                          : formatCurrency(card.amount)}
+                      </h3>
+                      <p className="sfm-detail-desc">{card.helper}</p>
+                    </article>
+                  );
+                })}
               </div>
             ) : (
               <p className="sfm-detail-empty">No detailed mapping data recorded for this student.</p>
