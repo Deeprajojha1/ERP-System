@@ -233,6 +233,11 @@
   cursor: pointer;
 }
 
+.exam-download-all-btn:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
 .exam-filters {
   background: linear-gradient(
     135deg,
@@ -578,6 +583,12 @@
   padding: 10px 16px;
   border-radius: 10px;
   cursor: pointer;
+}
+
+.btn-secondary:disabled,
+.btn-primary:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
 }
 
 @media (max-width: 900px) {

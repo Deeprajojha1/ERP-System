@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FiArrowLeft,
   FiCalendar,
@@ -17,6 +17,7 @@ import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
+import ClipLoader from "./components/ClipLoader";
 
 const pad2 = (value) => String(value).padStart(2, "0");
 const escapeHtml = (value = "") =>
@@ -77,6 +78,12 @@ const Exam = () => {
   const [groups, setGroups] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [bulkDownloadLoading, setBulkDownloadLoading] = useState(false);
+  const [masterReportDownloadLoading, setMasterReportDownloadLoading] = useState(false);
+  const [examActionLoading, setExamActionLoading] = useState({
+    id: "",
+    action: "",
+  });
 
   const [formData, setFormData] = useState({
     examName: "",
@@ -100,7 +107,8 @@ const Exam = () => {
 
   const apiBase = useSelector((state) => state.config.apiBase);
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
+    if (!apiBase) return;
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
       const [examRes, courseRes, groupRes, facultyRes] = await Promise.all([
@@ -119,12 +127,11 @@ const Exam = () => {
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
       toast.error(error.response?.data?.message || "Failed to load exams");
     }
-  };
+  }, [apiBase]);
 
   useEffect(() => {
-    if (!apiBase) return;
     fetchAll();
-  }, [apiBase]);
+  }, [fetchAll]);
 
   const fetchExamMasterReport = async () => {
     try {
@@ -183,6 +190,13 @@ const Exam = () => {
       return matchSearch && matchSubject && matchFrom && matchTo;
     });
   }, [search, subject, fromDate, toDate, normalizedExams]);
+
+  const getExamActionKey = (exam) =>
+    String(exam?._id || `${exam?.name || ""}-${exam?.date || ""}`).trim();
+
+  const isExamActionLoading = (exam, action) =>
+    examActionLoading.id === getExamActionKey(exam) &&
+    examActionLoading.action === action;
 
   const selectedCourse = useMemo(
     () => courses.find((course) => String(course?.id || course?._id || "") === formData.course),
@@ -489,39 +503,65 @@ const Exam = () => {
       if (typeof onComplete === "function") onComplete();
     };
 
+    frameWindow.onafterprint = cleanup;
     frameWindow.document.open();
-    frameWindow.document.write(`
+    frameWindow.document.write(htmlContent);
+    frameWindow.document.close();
+
+    fallbackTimer = window.setTimeout(cleanup, 1500);
+
+    window.setTimeout(() => {
+      try {
+        if (title) frameWindow.document.title = title;
+        frameWindow.focus();
+        frameWindow.print();
+      } catch {
+        cleanup();
+      }
+    }, 120);
+  };
+
+  const handlePrint = (exam) => {
+    const actionKey = getExamActionKey(exam);
+    if (!actionKey || isExamActionLoading(exam, "print")) return;
+
+    setExamActionLoading({ id: actionKey, action: "print" });
+    const html = `
       <html>
         <head>
-          <title>${title}</title>
+          <title>Exam Sheet</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 24px; }
-            h2 { margin: 0 0 12px; }
-            .meta { margin-top: 10px; }
-            .meta div { margin: 6px 0; }
-            .label { font-weight: bold; display: inline-block; width: 100px; }
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { margin: 0 0 12px; font-size: 24px; }
+            .row { margin: 8px 0; }
+            .label { font-weight: 700; width: 100px; display: inline-block; }
           </style>
         </head>
         <body>
-          <h2>Exam Sheet</h2>
-          <div class="meta">
-            <div><span class="label">Name:</span> ${exam.name}</div>
-            <div><span class="label">Subject:</span> ${exam.subject}</div>
-            <div><span class="label">Date:</span> ${exam.date}</div>
-            <div><span class="label">Time:</span> ${exam.timeLabel}</div>
-            <div><span class="label">Duration:</span> ${exam.duration}</div>
-            <div><span class="label">Room:</span> ${exam.roomNo}</div>
-            <div><span class="label">Status:</span> ${exam.status}</div>
-          </div>
+          <h1>Exam Sheet</h1>
+          <div class="row"><span class="label">Name:</span> ${escapeHtml(exam.name)}</div>
+          <div class="row"><span class="label">Subject:</span> ${escapeHtml(exam.subject)}</div>
+          <div class="row"><span class="label">Date:</span> ${escapeHtml(exam.date)}</div>
+          <div class="row"><span class="label">Time:</span> ${escapeHtml(exam.timeLabel)}</div>
+          <div class="row"><span class="label">Duration:</span> ${escapeHtml(exam.duration)}</div>
+          <div class="row"><span class="label">Room:</span> ${escapeHtml(exam.roomNo)}</div>
+          <div class="row"><span class="label">Status:</span> ${escapeHtml(exam.status)}</div>
         </body>
       </html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
+    `;
+
+    printWithHiddenFrame({
+      title: `Exam Sheet - ${exam.name || "Exam"}`,
+      htmlContent: html,
+      onComplete: () => setExamActionLoading({ id: "", action: "" }),
+    });
   };
 
-  const handleDownload = (exam) => {
+  const handleDownload = async (exam) => {
+    const actionKey = getExamActionKey(exam);
+    if (!actionKey || isExamActionLoading(exam, "download")) return;
+
+    setExamActionLoading({ id: actionKey, action: "download" });
     const html = `
       <html>
         <head>
@@ -545,15 +585,20 @@ const Exam = () => {
       </html>
     `;
 
-    downloadPdfFromHtml(apiBase, {
-      html,
-      fileName: `${exam.name.replace(/\s+/g, "_")}.pdf`,
-    }).catch((error) => {
+    try {
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: `${exam.name.replace(/\s+/g, "_")}.pdf`,
+      });
+    } catch (error) {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    });
+    } finally {
+      setExamActionLoading({ id: "", action: "" });
+    }
   };
 
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
+    if (bulkDownloadLoading) return;
     if (!filtered.length) {
       toast.error("No exams available to download");
       return;
@@ -608,15 +653,21 @@ const Exam = () => {
       </html>
     `;
 
-    downloadPdfFromHtml(apiBase, {
-      html,
-      fileName: "All_Exams_Cumulative.pdf",
-    }).catch((error) => {
+    try {
+      setBulkDownloadLoading(true);
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: "All_Exams_Cumulative.pdf",
+      });
+    } catch (error) {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    });
+    } finally {
+      setBulkDownloadLoading(false);
+    }
   };
 
-  const handleDownloadMasterReport = () => {
+  const handleDownloadMasterReport = async () => {
+    if (masterReportDownloadLoading) return;
     if (!normalizedMasterReport.length) {
       toast.error("No exam master records available to download");
       return;
@@ -685,12 +736,17 @@ const Exam = () => {
       </html>
     `;
 
-    downloadPdfFromHtml(apiBase, {
-      html,
-      fileName: "Exam_Master_Report.pdf",
-    }).catch((error) => {
+    try {
+      setMasterReportDownloadLoading(true);
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: "Exam_Master_Report.pdf",
+      });
+    } catch (error) {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    });
+    } finally {
+      setMasterReportDownloadLoading(false);
+    }
   };
 
   const renderState = () => {
@@ -825,8 +881,24 @@ const Exam = () => {
               {renderSectionHeader("Examination Scheduling")}
               <div className="exam-card-head">
                 <div className="exam-header-actions">
-                  <button className="exam-download-all-btn" type="button" onClick={handleDownloadAll}>
-                    Download All
+                  <button
+                    className="exam-download-all-btn admin-btn-with-loader"
+                    type="button"
+                    onClick={handleDownloadAll}
+                    disabled={bulkDownloadLoading || !filtered.length}
+                  >
+                    {bulkDownloadLoading ? (
+                      <>
+                        <ClipLoader
+                          size={15}
+                          color="#1d4ed8"
+                          trackColor="rgba(29, 78, 216, 0.25)"
+                        />
+                        <span>Downloading...</span>
+                      </>
+                    ) : (
+                      "Download All"
+                    )}
                   </button>
                   <button className="exam-add-btn" type="button" onClick={openModal}>
                     + Create Exam
@@ -913,21 +985,57 @@ const Exam = () => {
                         <td>{item.status}</td>
                         <td>
                           <div className="exam-actions">
-                            <button className="exam-action-btn" type="button" onClick={() => handlePrint(item)}>
-                              <FiPrinter />
-                              Print
+                            <button
+                              className="exam-action-btn admin-btn-with-loader"
+                              type="button"
+                              onClick={() => handlePrint(item)}
+                              disabled={isExamActionLoading(item, "print")}
+                            >
+                              {isExamActionLoading(item, "print") ? (
+                                <>
+                                  <ClipLoader
+                                    size={14}
+                                    color="#0f172a"
+                                    trackColor="rgba(15, 23, 42, 0.2)"
+                                  />
+                                  <span>Printing...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <FiPrinter />
+                                  <span>Print</span>
+                                </>
+                              )}
                             </button>
-                            <button className="exam-action-btn" type="button" onClick={() => openEditModal(exams.find((e) => e?._id === item._id) || {})}>
+                            <button
+                              className="exam-action-btn"
+                              type="button"
+                              onClick={() => openEditModal(exams.find((e) => e?._id === item._id) || {})}
+                            >
                               <FiEdit2 />
                               Edit
                             </button>
                             <button
-                              className="exam-action-btn export"
+                              className="exam-action-btn export admin-btn-with-loader"
                               type="button"
                               onClick={() => handleDownload(item)}
+                              disabled={isExamActionLoading(item, "download")}
                             >
-                              <FiDownload />
-                              Download
+                              {isExamActionLoading(item, "download") ? (
+                                <>
+                                  <ClipLoader
+                                    size={14}
+                                    color="#1d4ed8"
+                                    trackColor="rgba(29, 78, 216, 0.25)"
+                                  />
+                                  <span>Downloading...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <FiDownload />
+                                  <span>Download</span>
+                                </>
+                              )}
                             </button>
                           </div>
                         </td>
@@ -953,12 +1061,23 @@ const Exam = () => {
               <div className="exam-card-head">
                 <div className="exam-header-actions">
                   <button
-                    className="exam-download-all-btn"
+                    className="exam-download-all-btn admin-btn-with-loader"
                     type="button"
                     onClick={handleDownloadMasterReport}
-                    disabled={masterReportLoading}
+                    disabled={masterReportLoading || masterReportDownloadLoading}
                   >
-                    Download Master Report
+                    {masterReportDownloadLoading ? (
+                      <>
+                        <ClipLoader
+                          size={15}
+                          color="#1d4ed8"
+                          trackColor="rgba(29, 78, 216, 0.25)"
+                        />
+                        <span>Downloading...</span>
+                      </>
+                    ) : (
+                      "Download Master Report"
+                    )}
                   </button>
                 </div>
               </div>
@@ -1328,17 +1447,22 @@ const Exam = () => {
               </label>
 
               <div className="exam-modal-actions">
-                <button type="button" className="btn-secondary" onClick={closeModal}>
+                <button type="button" className="btn-secondary" onClick={closeModal} disabled={submitting}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting
-                    ? editingExamId
-                      ? "Updating..."
-                      : "Creating..."
-                    : editingExamId
-                      ? "Update Exam"
-                      : "Create Exam"}
+                <button
+                  type="submit"
+                  className="btn-primary admin-btn-with-loader"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>{editingExamId ? "Updating..." : "Creating..."}</span>
+                    </>
+                  ) : (
+                    <span>{editingExamId ? "Update Exam" : "Create Exam"}</span>
+                  )}
                 </button>
               </div>
             </form>
