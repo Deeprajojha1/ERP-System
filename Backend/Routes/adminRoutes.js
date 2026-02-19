@@ -108,6 +108,23 @@ import {
   updateAlertAdmin,
 } from "../controllers/alertController.js";
 import {
+  getAllExams,
+  getExamById,
+  addExam,
+  updateExam,
+  deleteExam,
+  hardDeleteExam,
+} from "../controllers/examController.js";
+import {
+  getAllResults,
+  getResultById,
+  addResult,
+  updateResult,
+  getStudentResultSummary,
+  deleteResult,
+  hardDeleteResult,
+} from "../controllers/resultController.js";
+import {
   getAdminAccountOverview,
   getAndAddBaseFees,
   getOrUpdateBaseFeeByBranch,
@@ -282,6 +299,27 @@ router.get(
 router.post("/alerts", isAdmin, createAlert);
 router.get("/alerts", isAdmin, getAllAlertsAdmin);
 router.put("/alerts/:id", isAdmin, updateAlertAdmin);
+
+/* =========================
+   EXAMS (ADMIN)
+========================= */
+router.get("/exam", isAdmin, getAllExams);
+router.get("/exam/:id", isAdmin, getExamById);
+router.post("/exam", isAdmin, addExam);
+router.put("/exam/:id", isAdmin, updateExam);
+router.patch("/exam/:id/delete", isAdmin, deleteExam);
+router.delete("/exam/:id", isAdmin, hardDeleteExam);
+
+/* =========================
+   RESULTS (ADMIN)
+========================= */
+router.get("/result", isAdmin, getAllResults);
+router.get("/result/:id", isAdmin, getResultById);
+router.post("/result", isAdmin, addResult);
+router.put("/result/:id", isAdmin, updateResult);
+router.get("/result/student/:studentId/summary", isAdmin, getStudentResultSummary);
+router.patch("/result/:id/delete", isAdmin, deleteResult);
+router.delete("/result/:id", isAdmin, hardDeleteResult);
 
 /* =========================
    ACCOUNTS (ADMIN)
