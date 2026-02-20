@@ -1,5 +1,5 @@
-import React, { useMemo, useRef, useState } from "react";
-import { useSelector } from "react-redux";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { createPortal } from "react-dom";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
@@ -15,9 +15,11 @@ import {
   FiUserPlus,
   FiX,
 } from "react-icons/fi";
+import { setUserData } from "../redux/userSlice";
 import "./Settings.css";
 
 const Settings = () => {
+  const dispatch = useDispatch();
   const userData = useSelector((state) => state.user.userData);
   const user = userData?.user || {};
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -71,14 +73,56 @@ const Settings = () => {
       lastName: parts.slice(1).join(" ") || "",
     };
   });
-  const [profileImage, setProfileImage] = useState("");
+  const [profileImage, setProfileImage] = useState(user?.profileImage || "");
+
+  useEffect(() => {
+    setProfileImage(user?.profileImage || "");
+  }, [user?.profileImage]);
 
   const handleProfileImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    if (!apiBase) {
+      toast.error("Server configuration missing");
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload a valid image file");
+      return;
+    }
+
     const reader = new FileReader();
-    reader.onloadend = () => {
-      setProfileImage(typeof reader.result === "string" ? reader.result : "");
+    reader.onloadend = async () => {
+      const imageData = typeof reader.result === "string" ? reader.result : "";
+      if (!imageData) {
+        toast.error("Failed to process image");
+        return;
+      }
+
+      try {
+        const response = await axios.put(
+          `${apiBase}/user/profile-image`,
+          { profileImage: imageData },
+          { withCredentials: true }
+        );
+
+        setProfileImage(imageData);
+        if (response.data?.user && userData) {
+          dispatch(
+            setUserData({
+              ...userData,
+              user: {
+                ...userData.user,
+                profileImage: response.data.user.profileImage || imageData,
+              },
+            })
+          );
+        }
+        toast.success("Profile image updated successfully");
+      } catch (error) {
+        toast.error(error.response?.data?.message || "Failed to update profile image");
+      }
     };
     reader.readAsDataURL(file);
   };

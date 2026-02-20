@@ -41,6 +41,11 @@ const userSchema = new mongoose.Schema(
     DOB: {
         type: Date
     },
+    profileImage: {
+      type: String,
+      default: "",
+      trim: true,
+    },
     isDeleted: {
       type: Boolean,
       default: false,

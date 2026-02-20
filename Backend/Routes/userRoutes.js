@@ -6,6 +6,7 @@ import {
   resetPassword,
   getUser,
   logout,
+  updateProfileImage,
 } from "../controllers/userController.js";
 import { renderPdfFromHtml } from "../controllers/pdfController.js";
 import { getStudentProfile } from "../controllers/profileController.js";
@@ -31,6 +32,7 @@ router.post("/reset-password", resetPassword);
 router.post("/logout", logout);
 // get user
 router.get("/me", isAuth, getUser);
+router.put("/profile-image", isAuth, updateProfileImage);
 router.post("/pdf/render", isAuth, renderPdfFromHtml);
 router.post("/export/tabular", isAuth, exportTabularData);
 

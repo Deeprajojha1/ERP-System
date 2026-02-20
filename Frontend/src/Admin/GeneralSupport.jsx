@@ -10,9 +10,9 @@ import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 
 const GeneralSupport = () => {
-  const [reportType, setReportType] = useState("Daily Attendance Report");
+  const [reportType, setReportType] = useState("Attendance Report");
   const [department, setDepartment] = useState("All Departments");
-  const [courseProgram, setCourseProgram] = useState("All Courses");
+  const [courseProgram, setCourseProgram] = useState("All Groups");
   const [semester, setSemester] = useState("All Semesters");
   const [section, setSection] = useState("All Sections");
   const [fromDate, setFromDate] = useState("");
@@ -21,16 +21,14 @@ const GeneralSupport = () => {
   const [recent, setRecent] = useState([]);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [departments, setDepartments] = useState(["All Departments"]);
-  const [departmentRecords, setDepartmentRecords] = useState([]);
   const [courses, setCourses] = useState([]);
   const [groups, setGroups] = useState([]);
   const apiBase = useSelector((state) => state.config.apiBase);
 
   const reportTypes = [
-    "Daily Attendance Report",
+    "Attendance Report",
     "Student Master Report",
     "Faculty Master Report",
-    "Fees Summary Report",
     "Exam Schedule Report",
     "Results Summary Report",
   ];
@@ -61,7 +59,6 @@ const GeneralSupport = () => {
           .map((dept) => String(dept?.name || "").trim())
           .filter(Boolean);
 
-        setDepartmentRecords(fetchedDepartments);
         setDepartments(["All Departments", ...fetchedNames]);
         setCourses(courseRes.data?.courses || []);
         setGroups(groupRes.data?.groups || []);
@@ -91,6 +88,15 @@ const GeneralSupport = () => {
     toDepartmentTokens(value)
       .map((token) => token[0])
       .join("");
+
+  const toDepartmentName = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    if (typeof value === "object") {
+      return String(value.name || value.departmentName || value.code || "").trim();
+    }
+    return String(value).trim();
+  };
 
   const downloadPDF = async (rows, filename) => {
     const headers = rows.length ? Object.keys(rows[0]) : [];
@@ -145,7 +151,7 @@ const GeneralSupport = () => {
   const matchesDepartment = (deptName = "") => {
     if (!departmentFilter || departmentFilter === "all departments") return true;
 
-    const normalized = String(deptName || "").trim().toLowerCase();
+    const normalized = toDepartmentName(deptName).toLowerCase();
     if (!normalized) return false;
 
     if (normalized === departmentFilter) return true;
@@ -167,37 +173,17 @@ const GeneralSupport = () => {
     [section]
   );
 
-  const selectedDepartmentRecord = useMemo(() => {
-    if (department === "All Departments") return null;
-    return departmentRecords.find((dept) => String(dept?.name || "") === String(department)) || null;
-  }, [departmentRecords, department]);
-
   const courseProgramOptions = useMemo(() => {
-    const options = new Map();
-    const departmentPrograms =
-      selectedDepartmentRecord?.programs || selectedDepartmentRecord?.program || [];
-
-    if (Array.isArray(departmentPrograms)) {
-      departmentPrograms.forEach((program) => {
-        const label = String(program || "").trim();
-        if (!label) return;
-        options.set(`prog-${label.toLowerCase()}`, label.toUpperCase());
-      });
-    }
-
-    courses
-      .filter((course) => matchesDepartment(course?.department))
-      .forEach((course) => {
-        const code = String(course?.code || "").trim();
-        const name = String(course?.courseName || "").trim();
-        if (code || name) {
-          const label = code && name ? `${code} - ${name}` : code || name;
-          options.set(`course-${String(label).toLowerCase()}`, label);
-        }
+    const options = new Set();
+    groups
+      .filter((group) => matchesDepartment(group?.department?.name || group?.department))
+      .forEach((group) => {
+        const label = String(group?.name || "").trim();
+        if (label) options.add(label);
       });
 
-    return ["All Courses", ...Array.from(options.values())];
-  }, [courses, matchesDepartment, selectedDepartmentRecord]);
+    return ["All Groups", ...Array.from(options).sort((a, b) => a.localeCompare(b))];
+  }, [groups, matchesDepartment]);
 
   const semesterOptions = useMemo(() => {
     const semesters = new Set();
@@ -230,7 +216,7 @@ const GeneralSupport = () => {
 
   useEffect(() => {
     if (!courseProgramOptions.includes(courseProgram)) {
-      setCourseProgram("All Courses");
+      setCourseProgram("All Groups");
     }
   }, [courseProgramOptions, courseProgram]);
 
@@ -250,7 +236,7 @@ const GeneralSupport = () => {
   }, [sectionOptions, section]);
 
   const matchesCourseProgram = (...candidates) => {
-    if (normalizedCourseProgramFilter === "all courses") return true;
+    if (normalizedCourseProgramFilter === "all groups") return true;
 
     return candidates.some((candidate) => {
       const value = String(candidate || "").trim().toLowerCase();
@@ -285,37 +271,143 @@ const GeneralSupport = () => {
 
   const fetchReportRows = async () => {
     switch (reportType) {
-      case "Daily Attendance Report": {
+      case "Attendance Report": {
         const date = fromDate || toDate || new Date().toISOString().slice(0, 10);
-        const res = await axios.get(`${apiBase}/admin/attendance/daily`, {
-          withCredentials: true,
-          params: { date },
+        const [dailyRes, studentsRes] = await Promise.all([
+          axios.get(`${apiBase}/admin/attendance/daily`, {
+            withCredentials: true,
+            params: { date },
+          }),
+          axios.get(`${apiBase}/admin/student`, {
+            withCredentials: true,
+            params: { noCache: "true", full: "true" },
+          }),
+        ]);
+
+        const summary = dailyRes.data?.summary || [];
+        const students = studentsRes.data?.students || [];
+        const studentById = new Map(
+          students.map((student) => [String(student?._id || ""), student])
+        );
+
+        const groupIds = Array.from(
+          new Set(summary.map((item) => String(item?.group?._id || item?.group || "")).filter(Boolean))
+        );
+
+        const detailResponses = await Promise.all(
+          groupIds.map(async (groupId) => {
+            try {
+              const response = await axios.get(
+                `${apiBase}/admin/attendance/group/${groupId}/date/${date}`,
+                { withCredentials: true }
+              );
+              return { groupId, data: response.data };
+            } catch {
+              return { groupId, data: null };
+            }
+          })
+        );
+
+        const facultyByGroupCourse = new Map();
+        groups.forEach((group) => {
+          const gId = String(group?._id || "");
+          (group?.courseFaculty || []).forEach((cf) => {
+            const courseId = String(cf?.course?._id || cf?.course || "");
+            if (!gId || !courseId) return;
+            const facultyName =
+              cf?.faculty?.user?.name ||
+              cf?.faculty?.name ||
+              cf?.faculty?.employeeId ||
+              "-";
+            facultyByGroupCourse.set(`${gId}:${courseId}`, facultyName);
+          });
         });
 
-        return (res.data?.summary || [])
-          .filter((item) =>
-            matchesCourseProgram(
-              item?.course?.code,
-              item?.course?.courseName,
-              item?.course?.name,
-              item?.group?.name
-            )
-          )
-          .filter((item) => matchesSection(item?.group?.name, item?.section))
-          .map((item) => ({
-            Date: item?.date ? new Date(item.date).toISOString().slice(0, 10) : date,
-            Group: item?.group?.name || "-",
-            Course: item?.course?.code || "-",
-            Present: item?.present ?? 0,
-            Absent: item?.absent ?? 0,
-            "Total Students": item?.totalStudents ?? 0,
-            "Attendance %": item?.percentage ?? 0,
-          }));
+        const rows = [];
+        detailResponses.forEach((item) => {
+          const groupData = item?.data;
+          if (!groupData || !Array.isArray(groupData.students)) return;
+
+          const groupName = groupData?.group?.name || "-";
+          const groupId = String(groupData?.group?._id || item.groupId || "");
+
+          groupData.students.forEach((entry) => {
+            const studentId = String(entry?.studentId || "");
+            const studentMaster = studentById.get(studentId) || {};
+            const departmentName = toDepartmentName(studentMaster?.department) || "-";
+            const studentProgram =
+              studentMaster?.program ||
+              studentMaster?.course ||
+              "-";
+            const studentSemester = studentMaster?.semester ?? "-";
+            const studentSection = studentMaster?.section || groupName;
+            const studentCode = entry?.enrollmentNumber || studentMaster?.rollNo || "-";
+            const studentAttendancePct =
+              entry?.summary?.totalSessions > 0
+                ? Number(
+                    ((entry.summary.presentCount / entry.summary.totalSessions) * 100).toFixed(2)
+                  )
+                : 0;
+
+            if (!matchesDepartment(departmentName)) return;
+            if (!matchesSemester(studentSemester)) return;
+            if (!matchesSection(studentSection, groupName)) return;
+
+            const attendanceEntries = entry?.attendanceEntries || [];
+            attendanceEntries.forEach((attendance) => {
+              const courseCode = attendance?.course?.code || "-";
+              const courseName = attendance?.course?.courseName || "-";
+              const subjectPeriod =
+                courseCode !== "-" || courseName !== "-"
+                  ? `${courseCode}${courseName !== "-" ? ` - ${courseName}` : ""}`
+                  : "-";
+              const facultyName =
+                facultyByGroupCourse.get(
+                  `${groupId}:${String(attendance?.course?._id || "")}`
+                ) || "-";
+
+              if (
+                !matchesCourseProgram(
+                  studentProgram,
+                  courseCode,
+                  courseName,
+                  groupName
+                )
+              ) {
+                return;
+              }
+
+              rows.push({
+                "Student Name": entry?.name || "Unknown",
+                Program: studentProgram,
+                Department: departmentName,
+                Semester: studentSemester,
+                Group: groupName,
+                "Student Code": studentCode,
+                "Subject / Period": subjectPeriod,
+                "Faculty Name": facultyName,
+                Date: date,
+                "Attendance Status":
+                  attendance?.status === "present"
+                    ? "Present"
+                    : attendance?.status === "absent"
+                    ? "Absent"
+                    : "Not Marked",
+                "Attendance Percentage": studentAttendancePct,
+              });
+            });
+          });
+        });
+
+        return rows.map((row, index) => ({
+          "SN.": index + 1,
+          ...row,
+        }));
       }
       case "Student Master Report": {
         const res = await axios.get(`${apiBase}/admin/student`, {
           withCredentials: true,
-          params: { noCache: "true" },
+          params: { noCache: "true", full: "true" },
         });
 
         return (res.data?.students || [])
@@ -325,13 +417,30 @@ const GeneralSupport = () => {
           )
           .filter((student) => matchesSemester(student?.semester))
           .filter((student) => matchesSection(student?.section, student?.group?.name))
-          .map((student) => ({
-            Name: student?.studentName || "-",
-            "Roll No": student?.rollNo || "-",
-            Department: student?.department || "-",
-            Semester: student?.semester ?? "-",
-            Status: student?.status || "-",
-          }));
+          .map((student, index) => {
+            const dob = student?.user?.DOB ? new Date(student.user.DOB) : null;
+            const admissionDate = student?.createdAt ? new Date(student.createdAt) : null;
+
+            return {
+              "S.No": index + 1,
+              "Student Roll No.": student?.rollNo || student?.enrollmentNumber || "-",
+              "Student No.": student?.enrollmentNumber || student?.rollNo || "-",
+              Name: student?.user?.name || student?.studentName || "-",
+              "Date of Birth":
+                dob && !Number.isNaN(dob.getTime()) ? dob.toISOString().slice(0, 10) : "-",
+              "Father's Name": student?.fatherName || "-",
+              "Father No.": student?.fatherPhoneNumber || "-",
+              Address: student?.user?.address || student?.address || "-",
+              "Aadhaar No.": student?.user?.aadharNumber || "-",
+              Department: toDepartmentName(student?.department) || "-",
+              AdmissionDate:
+                admissionDate && !Number.isNaN(admissionDate.getTime())
+                  ? admissionDate.toISOString().slice(0, 10)
+                  : "-",
+              Year: student?.academicYear || "-",
+              Email: student?.collegeEmail || student?.user?.email || "-",
+            };
+          });
       }
       case "Faculty Master Report": {
         const res = await axios.get(`${apiBase}/admin/faculty`, {
@@ -339,21 +448,89 @@ const GeneralSupport = () => {
           params: { noCache: "true" },
         });
 
+        const designationLabelMap = {
+          professor: "Professor",
+          assistant_prof: "Assistant Professor",
+          hod: "HOD",
+          training: "Training",
+          other: "Other",
+        };
+
+        const formatDate = (value) => {
+          if (!value) return "-";
+          const dateObj = new Date(value);
+          if (Number.isNaN(dateObj.getTime())) return "-";
+          return dateObj.toISOString().slice(0, 10);
+        };
+
+        const formatStatus = (value) => {
+          const status = String(value || "").trim().toLowerCase();
+          if (!status) return "-";
+          return status
+            .split(/\s+/)
+            .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+            .join(" ");
+        };
+
         return (res.data?.faculty || [])
           .filter((faculty) => matchesDepartment(faculty?.department?.name))
-          .map((faculty) => ({
-            Name: faculty?.user?.name || "-",
-            "Employee ID": faculty?.employeeId || "-",
-            Department: faculty?.department?.name || "-",
-            Designation: faculty?.designation || "-",
-            Qualification: faculty?.qualification || "-",
-            Status: faculty?.user?.status || "-",
-          }));
+          .map((faculty, index) => {
+            const courseMap = new Map();
+            const routine = faculty?.routine || {};
+            Object.values(routine).forEach((daySlots) => {
+              if (!daySlots || typeof daySlots !== "object") return;
+              Object.values(daySlots).forEach((slot) => {
+                const code = String(slot?.course?.code || "").trim();
+                const name = String(slot?.course?.courseName || "").trim();
+                if (!code) return;
+                if (!courseMap.has(code)) {
+                  courseMap.set(code, name || "-");
+                }
+              });
+            });
+
+            const subjectCodes = Array.from(courseMap.keys());
+            const subjectNames = subjectCodes.map((code) => courseMap.get(code) || "-");
+
+            const joiningDate = faculty?.joiningDate ? new Date(faculty.joiningDate) : null;
+            const experienceYears =
+              joiningDate && !Number.isNaN(joiningDate.getTime())
+                ? Number(
+                    Math.max(
+                      0,
+                      (Date.now() - joiningDate.getTime()) /
+                        (1000 * 60 * 60 * 24 * 365.25),
+                    ).toFixed(1),
+                  )
+                : "-";
+
+            return {
+              "S.No": index + 1,
+              "Faculty ID": faculty?.employeeId || String(faculty?._id || "-"),
+              Name: faculty?.user?.name || "-",
+              Email: faculty?.user?.email || "-",
+              Phone: faculty?.user?.phoneNumber || "-",
+              Address: faculty?.user?.address || faculty?.address || "-",
+              "Aadhaar No.": faculty?.user?.aadharNumber || "-",
+              Department: toDepartmentName(faculty?.department) || "-",
+              "Designation (Professor / Assistant Professor)":
+                designationLabelMap[faculty?.designation] ||
+                faculty?.designation ||
+                "-",
+              Qualification: faculty?.qualification || "-",
+              "Experience (Years)": experienceYears,
+              Salary: faculty?.salary ?? "-",
+              "Subject Code": subjectCodes.length ? subjectCodes.join(", ") : "-",
+              "Subjects Assigned": subjectNames.length ? subjectNames.join(", ") : "-",
+              "Joining Date": formatDate(faculty?.joiningDate),
+              "Status (Active / On Leave)": formatStatus(faculty?.user?.status),
+            };
+          });
       }
       case "Fees Summary Report": {
         const res = await axios.get(`${apiBase}/admin/student`, {
           withCredentials: true,
-          params: { noCache: "true" },
+          params: { noCache: "true", full: "true" },
         });
 
         const filtered = (res.data?.students || [])
@@ -365,7 +542,7 @@ const GeneralSupport = () => {
           .filter((student) => matchesSection(student?.section, student?.group?.name));
 
         const byDepartment = filtered.reduce((acc, student) => {
-          const dept = student?.department || "Unknown";
+          const dept = toDepartmentName(student?.department) || "Unknown";
           if (!acc[dept]) {
             acc[dept] = { count: 0, semesterTotal: 0 };
           }
@@ -390,57 +567,100 @@ const GeneralSupport = () => {
 
         return (res.data?.courses || [])
           .filter((course) => matchesDepartment(course?.department))
+          .map((course) => {
+            const courseId = String(course?.id || course?._id || "");
+            const linkedGroups = groups
+              .filter((group) =>
+                Array.isArray(group?.courseIds) &&
+                group.courseIds.some(
+                  (courseRef) =>
+                    String(courseRef?._id || courseRef?.id || courseRef) === courseId
+                )
+              )
+              .map((group) => String(group?.name || "").trim())
+              .filter(Boolean);
+
+            return {
+              course,
+              linkedGroups,
+              groupLabel: linkedGroups.length ? linkedGroups.join(", ") : "-",
+            };
+          })
           .filter((course) =>
             matchesCourseProgram(
-              course?.code,
-              course?.courseName,
-              course?.branch,
-              course?.program
+              course?.course?.code,
+              course?.course?.courseName,
+              course?.course?.branch,
+              course?.course?.program,
+              course?.groupLabel
             )
           )
-          .filter((course) => matchesSemester(course?.semester))
-          .map((course) => ({
-            "Course Code": course?.code || "-",
-            "Course Name": course?.courseName || "-",
-            Department: course?.department || "-",
-            Semester: course?.semester ?? "-",
-            Coordinator: course?.coordinatorName || "-",
-            "Exam Date": toDate || fromDate || "-",
-          }));
+          .filter((item) => matchesSemester(item?.course?.semester))
+          .map((item, index) => {
+            const course = item.course;
+            const examDate = toDate || fromDate || "-";
+            return {
+              "S.No": index + 1,
+              "Exam ID": String(course?.id || course?._id || `EXAM-${index + 1}`),
+              "Course / Program": course?.branch || course?.program || "-",
+              Semester: course?.semester ?? "-",
+              Group: item.groupLabel,
+              "Subject Code": course?.code || "-",
+              "Subject Name": course?.courseName || "-",
+              "Exam Date": examDate,
+              "Exam Time (Start-End)": "-",
+              Duration: "-",
+              "Exam Type (Theory / Practical)": course?.examType || "-",
+              "Room / Hall Number": "-",
+              "Faculty / Invigilator Name": course?.coordinatorName || "-",
+            };
+          });
       }
       case "Results Summary Report": {
-        const [courseRes, studentRes] = await Promise.all([
-          axios.get(`${apiBase}/admin/course`, {
-            withCredentials: true,
-            params: { noCache: "true" },
-          }),
-          axios.get(`${apiBase}/admin/student`, {
-            withCredentials: true,
-            params: { noCache: "true" },
-          }),
-        ]);
+        const studentRes = await axios.get(`${apiBase}/admin/student`, {
+          withCredentials: true,
+          params: { noCache: "true", full: "true" },
+        });
 
-        const students = studentRes.data?.students || [];
+        const formatDate = (value) => {
+          if (!value) return "-";
+          const dateObj = new Date(value);
+          if (Number.isNaN(dateObj.getTime())) return "-";
+          return dateObj.toISOString().slice(0, 10);
+        };
 
-        return (courseRes.data?.courses || [])
-          .filter((course) => matchesDepartment(course?.department))
-          .filter((course) =>
+        const resultDate = toDate || fromDate || new Date().toISOString().slice(0, 10);
+
+        return (studentRes.data?.students || [])
+          .filter((student) => matchesDepartment(student?.department))
+          .filter((student) => matchesSemester(student?.semester))
+          .filter((student) =>
             matchesCourseProgram(
-              course?.code,
-              course?.courseName,
-              course?.branch,
-              course?.program
+              student?.group?.name,
+              student?.section,
+              student?.program
             )
           )
-          .filter((course) => matchesSemester(course?.semester))
-          .map((course) => ({
-            "Course Code": course?.code || "-",
-            "Course Name": course?.courseName || "-",
-            Department: course?.department || "-",
-            Semester: course?.semester ?? "-",
-            "Students In Department": students.filter(
-              (s) => String(s?.department || "") === String(course?.department || "")
-            ).length,
+          .filter((student) =>
+            matchesSection(student?.section, student?.group?.name)
+          )
+          .map((student, index) => ({
+            "S.No": index + 1,
+            Name: student?.user?.name || student?.studentName || "-",
+            Department: toDepartmentName(student?.department) || "-",
+            Semester: student?.semester ?? "-",
+            Group: student?.group?.name || "-",
+            ResultDate: formatDate(student?.resultDate) !== "-" ? formatDate(student?.resultDate) : resultDate,
+            CGPA:
+              student?.cgpa ??
+              student?.result?.cgpa ??
+              student?.examResult?.cgpa ??
+              "-",
+            Result:
+              student?.resultStatus ||
+              student?.result ||
+              student?.examResult?.status ||
+              "-",
           }));
       }
       default:
@@ -458,7 +678,7 @@ const GeneralSupport = () => {
 
       if (!data.length) {
         const message =
-          reportType === "Daily Attendance Report" && !hasDateFilter
+          reportType === "Attendance Report" && !hasDateFilter
             ? "No data for today. Please choose From/To date and try again."
             : "No data found for selected filters";
         toast.error(message);
@@ -547,7 +767,7 @@ const GeneralSupport = () => {
                 value={department}
                 onChange={(e) => {
                   setDepartment(e.target.value);
-                  setCourseProgram("All Courses");
+                  setCourseProgram("All Groups");
                   setSemester("All Semesters");
                   setSection("All Sections");
                 }}
@@ -570,7 +790,7 @@ const GeneralSupport = () => {
             </label>
 
             <label>
-              Course / Program
+              Group
               <select
                 value={courseProgram}
                 onChange={(e) => setCourseProgram(e.target.value)}

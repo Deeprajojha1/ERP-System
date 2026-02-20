@@ -92,6 +92,40 @@ import {
 import { changePassword } from "../controllers/userController.js";
 import { getTeachingLoad } from "../controllers/teachingLoadController.js";
 
+import {
+  getAllExams,
+  getExamById,
+  addExam,
+  updateExam,
+  deleteExam,
+  hardDeleteExam,
+} from "../controllers/examController.js";
+
+import {
+  getAllResults,
+  getResultById,
+  addResult,
+  updateResult,
+  deleteResult,
+  hardDeleteResult,
+  getStudentResultSummary,
+} from "../controllers/resultController.js";
+import {
+  getAllExamRegistrations,
+  getExamRegistrationById,
+  addExamRegistration,
+  updateExamRegistration,
+  deleteExamRegistration,
+} from "../controllers/examRegistrationController.js";
+import {
+  getAllAdmitCards,
+  getAdmitCardById,
+  issueAdmitCard,
+  holdAdmitCard,
+  cancelAdmitCard,
+  deleteAdmitCard,
+} from "../controllers/admitCardController.js";
+
 import isAdmin from "../middlewares/isAdmin.js";
 
 const router = express.Router();
@@ -183,6 +217,46 @@ router.get("/attendance/:sessionId", isAdmin, getAttendanceById);
 router.patch("/attendance/:sessionId/delete", isAdmin, deleteAttendance);
 router.delete("/attendance/:sessionId", isAdmin, hardDeleteAttendance);
 
+/* =========================
+   EXAMS
+========================= */
+router.get("/exam", isAdmin, getAllExams);
+router.get("/exam/:id", isAdmin, getExamById);
+router.post("/exam", isAdmin, addExam);
+router.put("/exam/:id", isAdmin, updateExam);
+router.patch("/exam/:id/delete", isAdmin, deleteExam);
+router.delete("/exam/:id", isAdmin, hardDeleteExam);
+
+/* =========================
+   RESULTS
+========================= */
+router.get("/result", isAdmin, getAllResults);
+router.get("/result/student/:studentId/summary", isAdmin, getStudentResultSummary);
+router.get("/result/:id", isAdmin, getResultById);
+router.post("/result", isAdmin, addResult);
+router.put("/result/:id", isAdmin, updateResult);
+router.patch("/result/:id/delete", isAdmin, deleteResult);
+router.delete("/result/:id", isAdmin, hardDeleteResult);
+
+/* =========================
+   EXAM REGISTRATION
+========================= */
+router.get("/exam-registration", isAdmin, getAllExamRegistrations);
+router.get("/exam-registration/:id", isAdmin, getExamRegistrationById);
+router.post("/exam-registration", isAdmin, addExamRegistration);
+router.put("/exam-registration/:id", isAdmin, updateExamRegistration);
+router.patch("/exam-registration/:id/delete", isAdmin, deleteExamRegistration);
+
+/* =========================
+   ADMIT CARD
+========================= */
+router.get("/admit-card", isAdmin, getAllAdmitCards);
+router.get("/admit-card/:id", isAdmin, getAdmitCardById);
+router.post("/admit-card/issue/:registrationId", isAdmin, issueAdmitCard);
+router.patch("/admit-card/:id/hold", isAdmin, holdAdmitCard);
+router.patch("/admit-card/:id/cancel", isAdmin, cancelAdmitCard);
+router.patch("/admit-card/:id/delete", isAdmin, deleteAdmitCard);
+
 //Library
 router.get("/librarian", isAdmin, getAllLibrarians);
 router.get("/librarian/:id", isAdmin, getLibrarianById);
@@ -204,3 +278,6 @@ router.get("/library/issues", getIssuedBooks);
 router.patch("/library/issues/:id/return", returnBook);
 
 export default router;
+
+
+

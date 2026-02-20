@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { Oval } from "react-loader-spinner";
 import { PiStudentFill } from "react-icons/pi";
+import { PiExamFill } from "react-icons/pi";
 import { GiTeacher } from "react-icons/gi";
 import { GoOrganization } from "react-icons/go";
 import { MdCastForEducation } from "react-icons/md";
@@ -371,6 +372,16 @@ const AdminHome = () => {
                     <GiJusticeStar />
                   </div>
                   <span className="quick-management-label">Subjects</span>
+                </button>
+
+                <button
+                  className="quick-management-card"
+                  onClick={() => navigate('/admin/exam')}
+                >
+                  <div className="quick-management-icon exam-icon">
+                    <PiExamFill />
+                  </div>
+                  <span className="quick-management-label">Examination Scheduling</span>
                 </button>
 
                 <button 

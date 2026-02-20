@@ -10,6 +10,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import validator from "validator";
 import sendEmail from "../config/sendMail.js";
+import { uploadImageToCloudinary } from "../config/cloudinaryUpload.js";
 
 const { isEmail } = validator;
 
@@ -377,6 +378,7 @@ export const login = async (req, res) => {
         aadharNumber: user.aadharNumber,
         phoneNumber: user.phoneNumber,
         DOB: user.DOB,
+        profileImage: user.profileImage || "",
         role: user.role,
         status: user.status,
         createdAt: user.createdAt,
@@ -727,6 +729,63 @@ export const changePassword = async (req, res) => {
   }
 };
 
+/* ================= UPDATE PROFILE IMAGE (AUTHENTICATED USER) ================= */
+export const updateProfileImage = async (req, res) => {
+  try {
+    const { profileImage } = req.body || {};
+
+    if (typeof profileImage !== "string" || !profileImage.trim()) {
+      return res.status(400).json({
+        message: "profileImage is required and must be a non-empty string",
+      });
+    }
+
+    if (!profileImage.startsWith("data:image/") && !/^https?:\/\//i.test(profileImage)) {
+      return res.status(400).json({
+        message: "profileImage must be a valid image data URL or image URL",
+      });
+    }
+
+    const finalImageUrl = profileImage.startsWith("data:image/")
+      ? await uploadImageToCloudinary({
+          file: profileImage,
+          publicId: `user_${req.userId}_${Date.now()}`,
+        })
+      : profileImage.trim();
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { profileImage: finalImageUrl },
+      { new: true, runValidators: true }
+    ).select("-passwordHash -resetOtp -otpExpires");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "Profile image updated successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        aadharNumber: user.aadharNumber,
+        phoneNumber: user.phoneNumber,
+        DOB: user.DOB,
+        profileImage: user.profileImage || "",
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Server Error",
+    });
+  }
+};
+
 // get current user
 export const getUser = async (req, res) => {
     try {
@@ -1005,6 +1064,7 @@ export const getUser = async (req, res) => {
               aadharNumber: user.aadharNumber,
               phoneNumber: user.phoneNumber,
               DOB: user.DOB,
+              profileImage: user.profileImage || "",
               role: user.role,
               status: user.status,
               createdAt: user.createdAt,

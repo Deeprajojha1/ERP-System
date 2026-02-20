@@ -98,6 +98,7 @@ export const getAdminProfile = async (req, res) => {
         aadharNumber: user.aadharNumber,
         phoneNumber: user.phoneNumber,
         DOB: user.DOB,
+        profileImage: user.profileImage || "",
         role: user.role,
         status: user.status,
       },
