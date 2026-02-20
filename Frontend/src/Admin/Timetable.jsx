@@ -28,10 +28,9 @@ const DAY_LABEL_TO_KEY = {
 
 const Timetable = () => {
   const [query, setQuery] = useState("");
-  const [mode, setMode] = useState("Group");
   const [selectedGroup, setSelectedGroup] = useState("BCSE-6A");
   const [loadState, setLoadState] = useState("success");
-  const [isEditing, setIsEditing] = useState(false);
+  const isEditing = false;
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
     slotIndex: 0,
@@ -339,35 +338,37 @@ const Timetable = () => {
               Groups with semester, room and student count
             </span>
           </div>
-          <div className="tt-group-grid">
-            {filteredGroups.length === 0 ? (
-              <div className="tt-empty">No groups found.</div>
-            ) : (
-              filteredGroups.map((g) => (
-                <button
-                  key={g.group}
-                  type="button"
-                  className={`tt-group-card ${
-                    selectedGroup === g.group ? "active" : ""
-                  }`}
-                  onClick={() => {
-                    setSelectedGroup(g.group);
-                    setMode("Group");
-                  }}
-                >
-                  <div className="tt-group-badge">
-                    <FiGrid />
-                    {g.group}
+          {filteredGroups.length === 0 ? (
+            <div className="tt-empty">No groups found.</div>
+          ) : (
+            <div className="tt-group-slider">
+              <Slider {...sliderSettings}>
+                {filteredGroups.map((g) => (
+                  <div key={g.group}>
+                    <button
+                      type="button"
+                      className={`tt-group-card ${
+                        selectedGroup === g.group ? "active" : ""
+                      }`}
+                      onClick={() => {
+                        setSelectedGroup(g.group);
+                      }}
+                    >
+                      <div className="tt-group-badge">
+                        <FiGrid />
+                        {g.group}
+                      </div>
+                      <div className="tt-group-meta">
+                        <span>{g.sem}</span>
+                        <span>Room {g.room}</span>
+                        <span>{g.students} Students</span>
+                      </div>
+                    </button>
                   </div>
-                  <div className="tt-group-meta">
-                    <span>{g.sem}</span>
-                    <span>Room {g.room}</span>
-                    <span>{g.students} Students</span>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
+                ))}
+              </Slider>
+            </div>
+          )}
         </div>
 
         <div className="tt-flow">
