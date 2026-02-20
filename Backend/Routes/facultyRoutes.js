@@ -12,6 +12,10 @@ import {
   getStudentAttendanceReport,
   getStudentOverallAttendance,
 } from "../controllers/attendanceController.js";
+import {
+  getInvigilatorAdmitCards,
+  verifyStudentAdmitCardAtHall,
+} from "../controllers/facultyAdmitCardController.js";
 import isAuth from "../middlewares/isAuth.js";
 import isFacultyOrAdmin from "../middlewares/isFacultyOrAdmin.js";
 import { getMyAlerts, markAlertRead } from "../controllers/alertController.js";
@@ -38,7 +42,8 @@ router.get("/attendance/student/:studentId", isFacultyOrAdmin, getStudentOverall
 router.get("/attendance/student/:studentId/course/:courseId", isFacultyOrAdmin, getStudentAttendanceReport);
 router.get("/attendance/session/:sessionId", isFacultyOrAdmin, getAttendanceById);
 
-router.get("/alerts", isAuth, isFacultyOrAdmin, getMyAlerts);
-router.post("/alerts/:id/read", isAuth, isFacultyOrAdmin, markAlertRead);
+/* Admit Card Routes (Invigilator) */
+router.get("/admit-card", isFacultyOrAdmin, getInvigilatorAdmitCards);
+router.patch("/admit-card/:id/verify", isFacultyOrAdmin, verifyStudentAdmitCardAtHall);
 
 export default router;

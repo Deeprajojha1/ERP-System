@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FiArrowLeft,
   FiCalendar,
@@ -16,8 +16,8 @@ import "./Exam.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import axios from "../utils/axiosInstance";
+import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
-import ClipLoader from "./components/ClipLoader";
 
 const pad2 = (value) => String(value).padStart(2, "0");
 const escapeHtml = (value = "") =>
@@ -69,6 +69,9 @@ const Exam = () => {
   const [activeSection, setActiveSection] = useState("");
   const [masterReportRows, setMasterReportRows] = useState([]);
   const [masterReportLoading, setMasterReportLoading] = useState(false);
+  const [activeSection, setActiveSection] = useState("");
+  const [masterReportRows, setMasterReportRows] = useState([]);
+  const [masterReportLoading, setMasterReportLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [editingExamId, setEditingExamId] = useState(null);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
@@ -78,12 +81,6 @@ const Exam = () => {
   const [groups, setGroups] = useState([]);
   const [faculty, setFaculty] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-  const [bulkDownloadLoading, setBulkDownloadLoading] = useState(false);
-  const [masterReportDownloadLoading, setMasterReportDownloadLoading] = useState(false);
-  const [examActionLoading, setExamActionLoading] = useState({
-    id: "",
-    action: "",
-  });
 
   const [formData, setFormData] = useState({
     examName: "",
@@ -107,8 +104,7 @@ const Exam = () => {
 
   const apiBase = useSelector((state) => state.config.apiBase);
 
-  const fetchAll = useCallback(async () => {
-    if (!apiBase) return;
+  const fetchAll = async () => {
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
       const [examRes, courseRes, groupRes, facultyRes] = await Promise.all([
@@ -127,11 +123,12 @@ const Exam = () => {
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
       toast.error(error.response?.data?.message || "Failed to load exams");
     }
-  }, [apiBase]);
+  };
 
   useEffect(() => {
+    if (!apiBase) return;
     fetchAll();
-  }, [fetchAll]);
+  }, [apiBase]);
 
   const fetchExamMasterReport = async () => {
     try {
@@ -180,8 +177,12 @@ const Exam = () => {
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
     return normalizedExams.filter((e) => {
+    return normalizedExams.filter((e) => {
       const matchSearch =
         e.name.toLowerCase().includes(term) ||
+        e.subject.toLowerCase().includes(term) ||
+        e.subjectCode.toLowerCase().includes(term);
+      const matchSubject = subject === "All Subjects" || e.subject === subject;
         e.subject.toLowerCase().includes(term) ||
         e.subjectCode.toLowerCase().includes(term);
       const matchSubject = subject === "All Subjects" || e.subject === subject;
@@ -190,13 +191,6 @@ const Exam = () => {
       return matchSearch && matchSubject && matchFrom && matchTo;
     });
   }, [search, subject, fromDate, toDate, normalizedExams]);
-
-  const getExamActionKey = (exam) =>
-    String(exam?._id || `${exam?.name || ""}-${exam?.date || ""}`).trim();
-
-  const isExamActionLoading = (exam, action) =>
-    examActionLoading.id === getExamActionKey(exam) &&
-    examActionLoading.action === action;
 
   const selectedCourse = useMemo(
     () => courses.find((course) => String(course?.id || course?._id || "") === formData.course),
@@ -470,57 +464,6 @@ const Exam = () => {
     }
   };
 
-  const printWithHiddenFrame = ({ title, htmlContent, onComplete }) => {
-    const printFrame = document.createElement("iframe");
-    printFrame.style.position = "fixed";
-    printFrame.style.right = "0";
-    printFrame.style.bottom = "0";
-    printFrame.style.width = "0";
-    printFrame.style.height = "0";
-    printFrame.style.border = "0";
-    printFrame.setAttribute("aria-hidden", "true");
-    document.body.appendChild(printFrame);
-
-    const frameWindow = printFrame.contentWindow;
-    if (!frameWindow) {
-      if (document.body.contains(printFrame)) document.body.removeChild(printFrame);
-      if (typeof onComplete === "function") onComplete();
-      return;
-    }
-
-    let cleaned = false;
-    let fallbackTimer = null;
-    const cleanup = () => {
-      if (cleaned) return;
-      cleaned = true;
-      if (fallbackTimer) {
-        window.clearTimeout(fallbackTimer);
-        fallbackTimer = null;
-      }
-      if (document.body.contains(printFrame)) {
-        document.body.removeChild(printFrame);
-      }
-      if (typeof onComplete === "function") onComplete();
-    };
-
-    frameWindow.onafterprint = cleanup;
-    frameWindow.document.open();
-    frameWindow.document.write(htmlContent);
-    frameWindow.document.close();
-
-    fallbackTimer = window.setTimeout(cleanup, 1500);
-
-    window.setTimeout(() => {
-      try {
-        if (title) frameWindow.document.title = title;
-        frameWindow.focus();
-        frameWindow.print();
-      } catch {
-        cleanup();
-      }
-    }, 120);
-  };
-
   const handlePrint = (exam) => {
     const actionKey = getExamActionKey(exam);
     if (!actionKey || isExamActionLoading(exam, "print")) return;
@@ -531,9 +474,44 @@ const Exam = () => {
         <head>
           <title>Exam Sheet</title>
           <style>
+            body { font-family: Arial, sans-serif; padding: 24px; }
+            h2 { margin: 0 0 12px; }
+            .meta { margin-top: 10px; }
+            .meta div { margin: 6px 0; }
+            .label { font-weight: bold; display: inline-block; width: 100px; }
+          </style>
+        </head>
+        <body>
+          <h2>Exam Sheet</h2>
+          <div class="meta">
+            <div><span class="label">Name:</span> ${exam.name}</div>
+            <div><span class="label">Subject:</span> ${exam.subject}</div>
+            <div><span class="label">Date:</span> ${exam.date}</div>
+            <div><span class="label">Time:</span> ${exam.timeLabel}</div>
+            <div><span class="label">Duration:</span> ${exam.duration}</div>
+            <div><span class="label">Room:</span> ${exam.roomNo}</div>
+            <div><span class="label">Status:</span> ${exam.status}</div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWithHiddenFrame({
+      title: `Exam Sheet - ${exam.name || "Exam"}`,
+      htmlContent: html,
+      onComplete: () => setExamActionLoading({ id: "", action: "" }),
+    });
+  };
+
+  const handleDownload = (exam) => {
+    const html = `
+      <html>
+        <head>
+          <style>
             body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
             h1 { margin: 0 0 12px; font-size: 24px; }
             .row { margin: 8px 0; }
+            .label { font-weight: 700; width: 100px; display: inline-block; }
             .label { font-weight: 700; width: 100px; display: inline-block; }
           </style>
         </head>
@@ -546,34 +524,6 @@ const Exam = () => {
           <div class="row"><span class="label">Duration:</span> ${escapeHtml(exam.duration)}</div>
           <div class="row"><span class="label">Room:</span> ${escapeHtml(exam.roomNo)}</div>
           <div class="row"><span class="label">Status:</span> ${escapeHtml(exam.status)}</div>
-        </body>
-      </html>
-    `;
-
-    printWithHiddenFrame({
-      title: `Exam Sheet - ${exam.name || "Exam"}`,
-      htmlContent: html,
-      onComplete: () => setExamActionLoading({ id: "", action: "" }),
-    });
-  };
-
-  const handleDownload = async (exam) => {
-    const actionKey = getExamActionKey(exam);
-    if (!actionKey || isExamActionLoading(exam, "download")) return;
-
-    setExamActionLoading({ id: actionKey, action: "download" });
-    const html = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
-            h1 { margin: 0 0 12px; font-size: 24px; }
-            .row { margin: 8px 0; }
-            .label { font-weight: 700; width: 100px; display: inline-block; }
-          </style>
-        </head>
-        <body>
-          <h1>Exam Sheet</h1>
           <div class="row"><span class="label">Name:</span> ${escapeHtml(exam.name)}</div>
           <div class="row"><span class="label">Subject:</span> ${escapeHtml(exam.subject)}</div>
           <div class="row"><span class="label">Date:</span> ${escapeHtml(exam.date)}</div>
@@ -597,8 +547,7 @@ const Exam = () => {
     }
   };
 
-  const handleDownloadAll = async () => {
-    if (bulkDownloadLoading) return;
+  const handleDownloadAll = () => {
     if (!filtered.length) {
       toast.error("No exams available to download");
       return;
@@ -653,21 +602,15 @@ const Exam = () => {
       </html>
     `;
 
-    try {
-      setBulkDownloadLoading(true);
-      await downloadPdfFromHtml(apiBase, {
-        html,
-        fileName: "All_Exams_Cumulative.pdf",
-      });
-    } catch (error) {
+    downloadPdfFromHtml(apiBase, {
+      html,
+      fileName: "All_Exams_Cumulative.pdf",
+    }).catch((error) => {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    } finally {
-      setBulkDownloadLoading(false);
-    }
+    });
   };
 
-  const handleDownloadMasterReport = async () => {
-    if (masterReportDownloadLoading) return;
+  const handleDownloadMasterReport = () => {
     if (!normalizedMasterReport.length) {
       toast.error("No exam master records available to download");
       return;
@@ -736,17 +679,12 @@ const Exam = () => {
       </html>
     `;
 
-    try {
-      setMasterReportDownloadLoading(true);
-      await downloadPdfFromHtml(apiBase, {
-        html,
-        fileName: "Exam_Master_Report.pdf",
-      });
-    } catch (error) {
+    downloadPdfFromHtml(apiBase, {
+      html,
+      fileName: "Exam_Master_Report.pdf",
+    }).catch((error) => {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    } finally {
-      setMasterReportDownloadLoading(false);
-    }
+    });
   };
 
   const renderState = () => {
@@ -768,6 +706,7 @@ const Exam = () => {
       );
     }
 
+
     if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="exam-state error">
@@ -777,6 +716,22 @@ const Exam = () => {
         </div>
       );
     }
+
+    const renderSectionHeader = (title) => (
+      <div className="exam-card-head exam-card-head-right">
+        <button
+          type="button"
+          className="exam-back-btn exam-back-btn-floating"
+          onClick={() => setActiveSection("")}
+        >
+          <FiArrowLeft />
+          Back
+        </button>
+        <h2 className="exam-card-title exam-card-title-box">{title}</h2>
+      </div>
+    );
+
+    const showCards = !activeSection;
 
     const renderSectionHeader = (title) => (
       <div className="exam-card-head exam-card-head-right">
@@ -881,24 +836,8 @@ const Exam = () => {
               {renderSectionHeader("Examination Scheduling")}
               <div className="exam-card-head">
                 <div className="exam-header-actions">
-                  <button
-                    className="exam-download-all-btn admin-btn-with-loader"
-                    type="button"
-                    onClick={handleDownloadAll}
-                    disabled={bulkDownloadLoading || !filtered.length}
-                  >
-                    {bulkDownloadLoading ? (
-                      <>
-                        <ClipLoader
-                          size={15}
-                          color="#1d4ed8"
-                          trackColor="rgba(29, 78, 216, 0.25)"
-                        />
-                        <span>Downloading...</span>
-                      </>
-                    ) : (
-                      "Download All"
-                    )}
+                  <button className="exam-download-all-btn" type="button" onClick={handleDownloadAll}>
+                    Download All
                   </button>
                   <button className="exam-add-btn" type="button" onClick={openModal}>
                     + Create Exam
@@ -918,7 +857,29 @@ const Exam = () => {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
+              <div className="exam-filters">
+                <div className="exam-search">
+                  <span className="exam-search-icon" aria-hidden="true">
+                    <FiSearch />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search by exam name or subject..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
 
+                <div className="exam-select">
+                  <label>Subject</label>
+                  <select value={subject} onChange={(e) => setSubject(e.target.value)}>
+                    {subjects.map((item) => (
+                      <option key={item} value={item}>
+                        {item}
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div className="exam-select">
                   <label>Subject</label>
                   <select value={subject} onChange={(e) => setSubject(e.target.value)}>
@@ -943,7 +904,34 @@ const Exam = () => {
                     onChange={(e) => setFromDate(e.target.value)}
                   />
                 </div>
+                <div className="exam-date">
+                  <label>From</label>
+                  <input
+                    type="text"
+                    placeholder="dd-mm-yyyy"
+                    value={fromDate}
+                    onFocus={(e) => (e.target.type = "date")}
+                    onBlur={(e) => {
+                      if (!e.target.value) e.target.type = "text";
+                    }}
+                    onChange={(e) => setFromDate(e.target.value)}
+                  />
+                </div>
 
+                <div className="exam-date">
+                  <label>To</label>
+                  <input
+                    type="text"
+                    placeholder="dd-mm-yyyy"
+                    value={toDate}
+                    onFocus={(e) => (e.target.type = "date")}
+                    onBlur={(e) => {
+                      if (!e.target.value) e.target.type = "text";
+                    }}
+                    onChange={(e) => setToDate(e.target.value)}
+                  />
+                </div>
+              </div>
                 <div className="exam-date">
                   <label>To</label>
                   <input
@@ -985,57 +973,21 @@ const Exam = () => {
                         <td>{item.status}</td>
                         <td>
                           <div className="exam-actions">
-                            <button
-                              className="exam-action-btn admin-btn-with-loader"
-                              type="button"
-                              onClick={() => handlePrint(item)}
-                              disabled={isExamActionLoading(item, "print")}
-                            >
-                              {isExamActionLoading(item, "print") ? (
-                                <>
-                                  <ClipLoader
-                                    size={14}
-                                    color="#0f172a"
-                                    trackColor="rgba(15, 23, 42, 0.2)"
-                                  />
-                                  <span>Printing...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <FiPrinter />
-                                  <span>Print</span>
-                                </>
-                              )}
+                            <button className="exam-action-btn" type="button" onClick={() => handlePrint(item)}>
+                              <FiPrinter />
+                              Print
                             </button>
-                            <button
-                              className="exam-action-btn"
-                              type="button"
-                              onClick={() => openEditModal(exams.find((e) => e?._id === item._id) || {})}
-                            >
+                            <button className="exam-action-btn" type="button" onClick={() => openEditModal(exams.find((e) => e?._id === item._id) || {})}>
                               <FiEdit2 />
                               Edit
                             </button>
                             <button
-                              className="exam-action-btn export admin-btn-with-loader"
+                              className="exam-action-btn export"
                               type="button"
                               onClick={() => handleDownload(item)}
-                              disabled={isExamActionLoading(item, "download")}
                             >
-                              {isExamActionLoading(item, "download") ? (
-                                <>
-                                  <ClipLoader
-                                    size={14}
-                                    color="#1d4ed8"
-                                    trackColor="rgba(29, 78, 216, 0.25)"
-                                  />
-                                  <span>Downloading...</span>
-                                </>
-                              ) : (
-                                <>
-                                  <FiDownload />
-                                  <span>Download</span>
-                                </>
-                              )}
+                              <FiDownload />
+                              Download
                             </button>
                           </div>
                         </td>
@@ -1061,23 +1013,12 @@ const Exam = () => {
               <div className="exam-card-head">
                 <div className="exam-header-actions">
                   <button
-                    className="exam-download-all-btn admin-btn-with-loader"
+                    className="exam-download-all-btn"
                     type="button"
                     onClick={handleDownloadMasterReport}
-                    disabled={masterReportLoading || masterReportDownloadLoading}
+                    disabled={masterReportLoading}
                   >
-                    {masterReportDownloadLoading ? (
-                      <>
-                        <ClipLoader
-                          size={15}
-                          color="#1d4ed8"
-                          trackColor="rgba(29, 78, 216, 0.25)"
-                        />
-                        <span>Downloading...</span>
-                      </>
-                    ) : (
-                      "Download Master Report"
-                    )}
+                    Download Master Report
                   </button>
                 </div>
               </div>
@@ -1236,9 +1177,11 @@ const Exam = () => {
     <div className="exam-page">
       {renderState()}
       {isOpen && (
+      {isOpen && (
         <div className="exam-modal">
           <div
             className="exam-modal-backdrop"
+            onClick={closeModal}
             onClick={closeModal}
             role="button"
             tabIndex={0}
@@ -1248,10 +1191,20 @@ const Exam = () => {
             <div className="exam-modal-head">
               <h2>{editingExamId ? "Edit Exam" : "Create Exam"}</h2>
               <p>{editingExamId ? "Update examination details" : "Schedule a new examination"}</p>
+              <h2>{editingExamId ? "Edit Exam" : "Create Exam"}</h2>
+              <p>{editingExamId ? "Update examination details" : "Schedule a new examination"}</p>
             </div>
+            <form className="exam-form" onSubmit={handleCreateOrUpdateExam}>
             <form className="exam-form" onSubmit={handleCreateOrUpdateExam}>
               <label>
                 Exam Name *
+                <input
+                  name="examName"
+                  placeholder="e.g., Data Structures - Midterm"
+                  value={formData.examName}
+                  onChange={handleFormChange}
+                  required
+                />
                 <input
                   name="examName"
                   placeholder="e.g., Data Structures - Midterm"
@@ -1318,12 +1271,79 @@ const Exam = () => {
                 </label>
               </div>
 
+
+              <div className="exam-form-row">
+                <label>
+                  Course *
+                  <select name="course" value={formData.course} onChange={handleFormChange} required>
+                    <option value="" disabled>
+                      Select Course
+                    </option>
+                    {courses.map((course) => {
+                      const id = String(course?.id || course?._id || "");
+                      return (
+                        <option key={id} value={id}>
+                          {`${course?.code || "-"} - ${course?.courseName || "Course"}`}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+
+                <label>
+                  Group
+                  <select name="group" value={formData.group} onChange={handleFormChange}>
+                    <option value="">No Group</option>
+                    {filteredGroups.map((group) => (
+                      <option key={group?._id} value={group?._id}>
+                        {group?.name || "Group"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <div className="exam-form-row">
+                <label>
+                  Session *
+                  <input
+                    name="session"
+                    placeholder="e.g., 2025-26 ODD"
+                    value={formData.session}
+                    onChange={handleFormChange}
+                    required
+                  />
+                </label>
+
+                <label>
+                  Semester *
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    name="semester"
+                    value={formData.semester}
+                    onChange={handleFormChange}
+                    required
+                  />
+                </label>
+              </div>
+
               <div className="exam-form-row">
                 <label>
                   Date *
                   <input type="date" name="examDate" value={formData.examDate} onChange={handleFormChange} required />
+                  <input type="date" name="examDate" value={formData.examDate} onChange={handleFormChange} required />
                 </label>
                 <label>
+                  Start Time *
+                  <input
+                    type="time"
+                    name="startTime"
+                    value={formData.startTime}
+                    onChange={handleFormChange}
+                    required
+                  />
                   Start Time *
                   <input
                     type="time"
@@ -1447,22 +1467,17 @@ const Exam = () => {
               </label>
 
               <div className="exam-modal-actions">
-                <button type="button" className="btn-secondary" onClick={closeModal} disabled={submitting}>
+                <button type="button" className="btn-secondary" onClick={closeModal}>
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="btn-primary admin-btn-with-loader"
-                  disabled={submitting}
-                >
-                  {submitting ? (
-                    <>
-                      <ClipLoader size={15} />
-                      <span>{editingExamId ? "Updating..." : "Creating..."}</span>
-                    </>
-                  ) : (
-                    <span>{editingExamId ? "Update Exam" : "Create Exam"}</span>
-                  )}
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting
+                    ? editingExamId
+                      ? "Updating..."
+                      : "Creating..."
+                    : editingExamId
+                      ? "Update Exam"
+                      : "Create Exam"}
                 </button>
               </div>
             </form>
