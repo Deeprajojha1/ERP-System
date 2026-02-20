@@ -263,8 +263,14 @@ const StudentDashboardShell = ({
     <>
       <header className="student-admin-nav">
         <div className="student-admin-nav-inner">
-          <div className="student-admin-brand">
-            <PiStudentBold className="icons" />
+          <div className="student-admin-nav-left">
+            <div className="student-admin-brand">
+              <PiStudentBold className="icons circle" />
+              <div className="student-admin-brand-copy">
+                <h1>Student Desk</h1>
+                <p>HU ERP Portal</p>
+              </div>
+            </div>
           </div>
 
           <div className="student-admin-nav-right">
@@ -297,7 +303,10 @@ const StudentDashboardShell = ({
           </button>
         )}
 
-        <aside className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}>
+        <aside
+          id="student-dashboard-sidebar"
+          className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}
+        >
           <div className="student-admin-sidebar-profile">
             <div className="student-admin-sidebar-profile-main">
               {profileImage ? (

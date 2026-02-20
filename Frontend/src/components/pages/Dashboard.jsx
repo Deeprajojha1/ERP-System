@@ -24,6 +24,8 @@ import { useSelector } from 'react-redux';
 import axios from '../../utils/axiosInstance';
 import { clearUserData, setUserData } from '../../redux/userSlice';
 import { useNavigate } from 'react-router-dom';
+import ClipLoader from '../../Admin/components/ClipLoader';
+import { ADMIN_LOAD_STATES } from '../../Admin/constants/loadStates';
 
 // Import child components
 import AttendanceCalendar from '../student/AttendanceCalendar';
@@ -42,9 +44,18 @@ const Dashboard = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const userData = useSelector((state) => state.user.userData);
+  const userLoading = useSelector((state) => state.user.loading);
+  const userError = useSelector((state) => state.user.error);
   const apiBase = useSelector((state) => state.config.apiBase);
   const user = userData?.user;
   const roleDetails = userData?.roleDetails;
+
+  const dashboardLoadState = useMemo(() => {
+    if (userLoading) return ADMIN_LOAD_STATES.PENDING;
+    if (userData) return ADMIN_LOAD_STATES.SUCCESS;
+    if (userError) return ADMIN_LOAD_STATES.FAILURE;
+    return ADMIN_LOAD_STATES.INITIAL;
+  }, [userLoading, userData, userError]);
 
   /**
    * STATE: showCalendar
@@ -106,8 +117,11 @@ const Dashboard = () => {
         studentId: roleDetails?.enrollmentNumber || 'N/A',
         name: user?.name || 'Student',
         email: user?.email || 'N/A',
-        phone: user?.phoneNumber || 'N/A',
-        dateOfBirth: user?.DOB || 'N/A',
+        phoneNumber: user?.phoneNumber || user?.phone || 'N/A',
+        DOB: user?.DOB || user?.dateOfBirth || 'N/A',
+        // Keep legacy keys for any older consumers.
+        phone: user?.phoneNumber || user?.phone || 'N/A',
+        dateOfBirth: user?.DOB || user?.dateOfBirth || 'N/A',
         address: 'N/A',
       },
       parentInfo: {
@@ -123,7 +137,7 @@ const Dashboard = () => {
         rollNumber: roleDetails?.enrollmentNumber || 'N/A',
         section: roleDetails?.group?.name || 'N/A',
         batch: 'N/A',
-        university: 'N/A',
+        university: 'Haridwar University',
         college: 'N/A',
       },
     };
@@ -215,6 +229,36 @@ const Dashboard = () => {
   /**
    * RENDER: Dashboard UI
    */
+  if (dashboardLoadState === ADMIN_LOAD_STATES.PENDING) {
+    return (
+      <div
+        className="student-dashboard-page"
+        style={{
+          minHeight: "40vh",
+          display: "grid",
+          placeItems: "center",
+        }}
+      >
+        <div
+          style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "10px",
+            color: "#334155",
+            fontWeight: 600,
+          }}
+        >
+          <ClipLoader
+            size={18}
+            color="#0284c7"
+            trackColor="rgba(2, 132, 199, 0.22)"
+          />
+          <span>Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="student-dashboard-page">
       <StudentDashboardShell
