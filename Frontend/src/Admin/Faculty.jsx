@@ -21,6 +21,36 @@ const DESIGNATION_OPTIONS = [
   { value: "other", label: "Other" },
 ];
 
+const STATUS_OPTIONS = [
+  { value: "all", label: "All Status" },
+  { value: "active", label: "Active" },
+  { value: "inactive", label: "Inactive" },
+  { value: "on leave", label: "On Leave" },
+];
+
+const normalizeStatusValue = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/_/g, " ")
+    .toLowerCase();
+
+const formatStatusLabel = (value) =>
+  value
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+
+const getStatusBadgeClass = (value) => {
+  switch (value) {
+    case "active":
+      return "status-active";
+    case "on leave":
+      return "status-leave";
+    default:
+      return "status-inactive";
+  }
+};
+
 const getAssignedCourseCount = (facultyMember) => {
   const directCount = facultyMember?.courseIds?.length;
   if (typeof directCount === "number" && directCount > 0) return directCount;
@@ -43,7 +73,7 @@ const getAssignedCourseCount = (facultyMember) => {
 const Faculty = () => {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All Departments");
-  const [status, setStatus] = useState("All Status");
+  const [status, setStatus] = useState(STATUS_OPTIONS[0].value);
   const [isOpen, setIsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
@@ -152,8 +182,6 @@ const Faculty = () => {
     });
     setDepartments(deptRes.data?.departments || []);
   };
-
-  const statuses = ["All Status", "Active", "Inactive", "On Leave"];
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -336,9 +364,12 @@ const Faculty = () => {
         f.department?._id === department ||
         f.department?.name === department ||
         f.department === department;
+      const facultyStatus = normalizeStatusValue(
+        f.user?.status || f.status || "active"
+      );
       const matchStatus =
-        status === "All Status" ||
-        (f.user?.status || f.status) === status;
+        status === "all" ||
+        facultyStatus === status;
       return matchSearch && matchDept && matchStatus;
     });
   }, [faculty, search, department, status]);
@@ -432,9 +463,9 @@ const Faculty = () => {
                 ))}
               </select>
               <select value={status} onChange={(e) => setStatus(e.target.value)}>
-                {statuses.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -469,17 +500,18 @@ const Faculty = () => {
                         .slice(0, 2)
                         .toUpperCase()}
                     </div>
-                    <span
-                      className={`faculty-status ${
-                        (f.user?.status || f.status) === "Active"
-                          ? "status-active"
-                          : (f.user?.status || f.status) === "On Leave"
-                          ? "status-leave"
-                          : "status-inactive"
-                      }`}
-                    >
-                      {(f.user?.status || f.status || "active").toUpperCase()}
-                    </span>
+                    {(() => {
+                      const rawStatus = f.user?.status || f.status || "active";
+                      const normalized = normalizeStatusValue(rawStatus);
+                      const label =
+                        STATUS_OPTIONS.find((opt) => opt.value === normalized)?.label ||
+                        formatStatusLabel(normalized);
+                      return (
+                        <span className={`faculty-status ${getStatusBadgeClass(normalized)}`}>
+                          {label}
+                        </span>
+                      );
+                    })()}
                   </div>
 
                   <div className="faculty-info">

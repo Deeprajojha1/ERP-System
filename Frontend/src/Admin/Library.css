@@ -484,6 +484,12 @@
   cursor: pointer;
 }
 
+.library-btn-cancel:disabled,
+.library-btn-create:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
 .library-issue-book-card {
   width: min(640px, 96vw);
   min-height: auto;

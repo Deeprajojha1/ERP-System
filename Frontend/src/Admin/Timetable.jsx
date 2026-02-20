@@ -17,6 +17,7 @@ import "./Timetable.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import toast from "react-hot-toast";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import ClipLoader from "./components/ClipLoader";
 import {
   applyTimetableEdit,
   fetchGroupTimetable,
@@ -37,6 +38,7 @@ const Timetable = () => {
   const [query, setQuery] = useState("");
   const [isEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
     slotIndex: 0,
@@ -308,7 +310,10 @@ const Timetable = () => {
     }
   };
 
-  const downloadTimetable = () => {
+  const downloadTimetable = async () => {
+    if (downloading) return;
+    setDownloading(true);
+
     const esc = (value = "") =>
       String(value)
         .replace(/&/g, "&amp;")
@@ -639,12 +644,22 @@ const Timetable = () => {
 
           <div className="tt-toggle">
             <button
-              className="tt-download-btn"
+              className="tt-download-btn admin-btn-with-loader"
               type="button"
               onClick={downloadTimetable}
+              disabled={downloading}
             >
-              <FiDownload />
-              Download
+              {downloading ? (
+                <>
+                  <ClipLoader size={15} color="#0f172a" trackColor="rgba(15, 23, 42, 0.2)" />
+                  <span>Downloading...</span>
+                </>
+              ) : (
+                <>
+                  <FiDownload />
+                  <span>Download</span>
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -916,12 +931,19 @@ const Timetable = () => {
                 </select>
               </label>
               <button
-                className="tt-submit"
+                className="tt-submit admin-btn-with-loader"
                 type="button"
                 onClick={handleSubmitTimetable}
                 disabled={saving}
               >
-                {saving ? "Saving..." : "Submit"}
+                {saving ? (
+                  <>
+                    <ClipLoader size={15} />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  "Submit"
+                )}
               </button>
             </div>
 
@@ -947,5 +969,3 @@ const Timetable = () => {
 };
 
 export default Timetable;
-
-

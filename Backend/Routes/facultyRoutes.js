@@ -18,6 +18,7 @@ import {
 } from "../controllers/facultyAdmitCardController.js";
 import isAuth from "../middlewares/isAuth.js";
 import isFacultyOrAdmin from "../middlewares/isFacultyOrAdmin.js";
+import { getMyAlerts, markAlertRead } from "../controllers/alertController.js";
 
 const router = express.Router();
 

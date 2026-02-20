@@ -344,7 +344,7 @@ const CoursesDetails = ({ coursesData }) => {
           </div>
         </header>
 
-        <section className="course-detail-card">
+        <section className="course-detail-card course-detail-card-resources">
           <h4><FiFolder /> Course Resources</h4>
           <div className="course-resource-list">
             {detailData.resources.map((resource) => (
@@ -362,7 +362,7 @@ const CoursesDetails = ({ coursesData }) => {
           </div>
         </section>
 
-        <section className="course-detail-card">
+        <section className="course-detail-card course-detail-card-overview">
           <h4><FiFileText /> Course Overview</h4>
           <p className="course-overview-text">{detailData.overview}</p>
           <div className="course-overview-actions">
@@ -375,7 +375,7 @@ const CoursesDetails = ({ coursesData }) => {
           </div>
         </section>
 
-        <section className="course-detail-card">
+        <section className="course-detail-card course-detail-card-info">
           <h4>Course Information</h4>
           <div className="course-teacher-box">
             <div className="course-teacher-avatar">
@@ -441,7 +441,7 @@ const CoursesDetails = ({ coursesData }) => {
           )}
         </section>
 
-        <section className="course-detail-card">
+        <section className="course-detail-card course-detail-card-progress">
           <div className="course-progress-head">
             <div>
               <h4>My Course Progress</h4>

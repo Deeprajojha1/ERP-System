@@ -30,3 +30,18 @@ body {
     align-items: center;
     justify-content: center;
 }
+
+.admin-btn-with-loader {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+
+.admin-btn-spinner {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+    flex-shrink: 0;
+}

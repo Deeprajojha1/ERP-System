@@ -67,7 +67,6 @@ import {
   getStudentAttendanceReport,
   getStudentOverallAttendance,
   getDailyAttendanceSummary,
-  getGroupStudentAttendanceByDate,
 } from "../controllers/attendanceController.js";
 
 import {
@@ -208,7 +207,6 @@ router.get("/teaching-load", isAdmin, getTeachingLoad);
 router.post("/attendance", isAdmin, markAttendance);
 router.put("/attendance/:sessionId", isAdmin, updateAttendance);
 router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
-router.get("/attendance/group/:groupId/date/:date", isAdmin, getGroupStudentAttendanceByDate);
 router.get("/attendance/group/:groupId/students", isAdmin, getStudentsByGroup);
 router.get("/attendance/group/:groupId/course/:courseId", isAdmin, getAttendanceByGroupAndCourse);
 router.get("/attendance/student/:studentId", isAdmin, getStudentOverallAttendance);
@@ -267,13 +265,13 @@ router.delete("/librarian/:id", isAdmin, hardDeleteLibrarian);
 
 router.get("/library/statistics", getStatistics);
 
-router.get("/library/books",  getAllBooks);
+router.get("/library/books", getAllBooks);
 router.post("/library/books", addBook);
-router.get("/library/books/:id",  getBookById);
-router.put("/library/books/:id",  updateBook);
+router.get("/library/books/:id", getBookById);
+router.put("/library/books/:id", updateBook);
 router.delete("/library/books/:id", deleteBook);
 
-router.post("/library/issues",issueBook);
+router.post("/library/issues", issueBook);
 router.get("/library/issues", getIssuedBooks);
 router.patch("/library/issues/:id/return", returnBook);
 

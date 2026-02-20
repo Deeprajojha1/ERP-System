@@ -12,6 +12,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import heroImage from "../../assets/college_47233.jpg";
 import NetworkSpeedBadge from "../common/NetworkSpeedBadge";
+import AlertNotifications from "../common/AlertNotifications";
 import StudentDetails from "./StudentDetails";
 import AttendanceOverview from "./AttendanceOverview";
 import CoursesDetails from "./CoursesDetails";
@@ -68,6 +69,7 @@ const StudentDashboardShell = ({
     .filter(Boolean)
     .slice(0, 2)
     .map((word) => word[0]?.toUpperCase())
+    .map((word) => word[0]?.toUpperCase())
     .join("");
 
   const feeSummary = useMemo(() => {
@@ -81,13 +83,17 @@ const StudentDashboardShell = ({
       0;
     const remaining = Math.max(total - paid, 0);
     return { total, paid, remaining };
+    const remaining = Math.max(total - paid, 0);
+    return { total, paid, remaining };
   }, [roleDetails]);
 
+  const formatAmount = (value) =>
   const formatAmount = (value) =>
     new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       maximumFractionDigits: 0,
+    }).format(Number(value) || 0);
     }).format(Number(value) || 0);
 
   const dateWiseAttendance = useMemo(() => {
@@ -201,6 +207,12 @@ const StudentDashboardShell = ({
       <div className="student-fee-summary">
         <article className="student-fee-card">
           <p>Total Academic Fee</p>
+  const renderFees = () => (
+    <section className="student-fees-page">
+      <h3>Fee Overview</h3>
+      <div className="student-fee-summary">
+        <article className="student-fee-card">
+          <p>Total Academic Fee</p>
           <strong>{formatAmount(feeSummary.total)}</strong>
         </article>
         <article className="student-fee-card">
@@ -214,6 +226,34 @@ const StudentDashboardShell = ({
       </div>
     </section>
   );
+        </article>
+        <article className="student-fee-card">
+          <p>Paid</p>
+          <strong>{formatAmount(feeSummary.paid)}</strong>
+        </article>
+        <article className="student-fee-card">
+          <p>Remaining</p>
+          <strong>{formatAmount(feeSummary.remaining)}</strong>
+        </article>
+      </div>
+    </section>
+  );
+
+  const renderContent = () => {
+    if (currentSection === "profile") {
+      return <StudentDetails studentData={resolvedStudentData} />;
+    }
+    if (currentSection === "attendance") {
+      return renderDateWiseAttendance();
+    }
+    if (currentSection === "courses") {
+      return <CoursesDetails coursesData={coursesData} onCourseClick={onCourseClick} />;
+    }
+    if (currentSection === "fees") {
+      return renderFees();
+    }
+    return renderHome();
+  };
 
   const renderContent = () => {
     if (currentSection === "profile") {
@@ -260,8 +300,10 @@ const StudentDashboardShell = ({
         {!isSidebarOpen && (
           <button
             type="button"
+            type="button"
             className="student-admin-sidebar-reopen"
             onClick={() => setIsSidebarOpen(true)}
+            aria-label="Open sidebar"
             aria-label="Open sidebar"
           >
             <FiChevronRight />
@@ -279,15 +321,62 @@ const StudentDashboardShell = ({
             </div>
             <button
               type="button"
+              type="button"
               className="student-admin-sidebar-toggle"
               onClick={() => setIsSidebarOpen((prev) => !prev)}
               aria-label="Toggle sidebar"
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              aria-label="Toggle sidebar"
             >
+              {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
               {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
             </button>
           </div>
 
           <div className="student-admin-sidebar-menu-scroll">
+            <div className="student-admin-sidebar-header">
+              <span className="student-admin-sidebar-title">Menu</span>
+            </div>
+
+            <div className="student-admin-sidebar-section">
+              <label className="student-admin-sidebar-label">DASHBOARD</label>
+              {menuItems.slice(0, 2).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`student-admin-sidebar-btn ${
+                      currentSection === item.id ? "active" : ""
+                    }`}
+                    onClick={() => handleMenuClick(item)}
+                  >
+                    <Icon />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="student-admin-sidebar-section">
+              <label className="student-admin-sidebar-label">ACADEMICS</label>
+              {menuItems.slice(2).map((item) => {
+                const Icon = item.icon;
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`student-admin-sidebar-btn ${
+                      currentSection === item.id ? "active" : ""
+                    }`}
+                    onClick={() => handleMenuClick(item)}
+                  >
+                    <Icon />
+                    <span>{item.label}</span>
+                  </button>
+                );
+              })}
+            </div>
             <div className="student-admin-sidebar-header">
               <span className="student-admin-sidebar-title">Menu</span>
             </div>

@@ -93,4 +93,99 @@
   .gs-row {
     grid-template-columns: 1fr;
   }
+}.gs-page {
+  padding: 8px 4px 24px;
+}
+
+.gs-title {
+  margin: 0 0 16px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.gs-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  margin-bottom: 16px;
+}
+
+.gs-card-head h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+}
+
+.gs-card-head p {
+  margin: 0 0 16px;
+  color: #64748b;
+}
+
+.gs-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.gs-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #334155;
+}
+
+.gs-form input,
+.gs-form select {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+.gs-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+
+.gs-generate {
+  margin-top: 4px;
+  border: none;
+  background: #16a34a;
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gs-recent {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 10px;
+  min-height: 44px;
+}
+
+.gs-recent-item {
+  padding: 8px 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.gs-recent-item:last-child {
+  border-bottom: none;
+}
+
+.gs-empty {
+  color: #64748b;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .gs-row {
+    grid-template-columns: 1fr;
+  }
 }

@@ -40,6 +40,8 @@ const Settings = () => {
   const [securitySubmitting, setSecuritySubmitting] = useState(false);
   const [adminError, setAdminError] = useState("");
   const [librarianError, setLibrarianError] = useState("");
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
+  const [librarianSubmitting, setLibrarianSubmitting] = useState(false);
   const [adminForm, setAdminForm] = useState({
     firstName: "",
     lastName: "",
@@ -56,6 +58,35 @@ const Settings = () => {
   const fullName = user?.name || "System Administrator";
   const email = user?.email || "admin@huroorkee.ac.in";
   const role = (user?.role || "admin").toUpperCase();
+  const phoneNumber = user?.phoneNumber || "";
+  const formatDateYmd = (value) => {
+    if (!value) return "";
+
+    if (typeof value === "string") {
+      const isoLikeMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (isoLikeMatch) {
+        return `${isoLikeMatch[1]}/${isoLikeMatch[2]}/${isoLikeMatch[3]}`;
+      }
+
+      const slashLikeMatch = value.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
+      if (slashLikeMatch) {
+        return `${slashLikeMatch[1]}/${slashLikeMatch[2]}/${slashLikeMatch[3]}`;
+      }
+    }
+
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return "";
+
+    return `${parsed.getFullYear()}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${String(
+      parsed.getDate()
+    ).padStart(2, "0")}`;
+  };
+  const dobValue = formatDateYmd(user?.DOB || user?.dateOfBirth);
+  const aadhaarNumber = user?.aadhaarNumber || user?.aadharNumber || "";
+  const accountStatus = user?.status
+    ? `${user.status.charAt(0).toUpperCase()}${user.status.slice(1)}`
+    : "";
+  const userId = user?.id || user?._id || "";
 
   const initials = useMemo(() => {
     return fullName
@@ -198,6 +229,7 @@ const Settings = () => {
 
   const closeAddAdminModal = () => {
     setShowAddAdminModal(false);
+    setAdminSubmitting(false);
     setAdminError("");
     setAdminForm({
       firstName: "",
@@ -212,7 +244,7 @@ const Settings = () => {
     if (adminError) setAdminError("");
   };
 
-  const handleCreateAdmin = (e) => {
+  const handleCreateAdmin = async (e) => {
     e.preventDefault();
     const { firstName, lastName, email: adminEmail, password } = adminForm;
 
@@ -229,11 +261,18 @@ const Settings = () => {
       return;
     }
 
-    closeAddAdminModal();
+    try {
+      setAdminSubmitting(true);
+      await new Promise((resolve) => setTimeout(resolve, 350));
+      closeAddAdminModal();
+    } finally {
+      setAdminSubmitting(false);
+    }
   };
 
   const closeAddLibrarianModal = () => {
     setShowAddLibrarianModal(false);
+    setLibrarianSubmitting(false);
     setLibrarianError("");
     setLibrarianForm({
       firstName: "",
@@ -248,7 +287,7 @@ const Settings = () => {
     if (librarianError) setLibrarianError("");
   };
 
-  const handleCreateLibrarian = (e) => {
+  const handleCreateLibrarian = async (e) => {
     e.preventDefault();
     const { firstName, lastName, email: librarianEmail, password } = librarianForm;
 
@@ -265,7 +304,27 @@ const Settings = () => {
       return;
     }
 
-    closeAddLibrarianModal();
+    if (!apiBase) {
+      setLibrarianError("Server configuration missing. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      setLibrarianSubmitting(true);
+      await axios.post(
+        `${apiBase}/admin/librarian`,
+        { firstName, lastName, email: librarianEmail, password },
+        { withCredentials: true }
+      );
+      toast.success("Librarian created successfully");
+      closeAddLibrarianModal();
+    } catch (error) {
+      setLibrarianError(
+        error.response?.data?.message || "Failed to create librarian"
+      );
+    } finally {
+      setLibrarianSubmitting(false);
+    }
   };
 
   return (
@@ -351,6 +410,51 @@ const Settings = () => {
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, lastName: e.target.value }))
                 }
+              />
+            </label>
+            <label>
+              Phone Number
+              <input
+                value={phoneNumber || "N/A"}
+                readOnly
+                disabled
+                className="settings-readonly-input"
+              />
+            </label>
+            <label>
+              Date of Birth
+              <input
+                value={dobValue || "N/A"}
+                readOnly
+                disabled
+                className="settings-readonly-input"
+              />
+            </label>
+            <label>
+              Aadhaar Number
+              <input
+                value={aadhaarNumber || "N/A"}
+                readOnly
+                disabled
+                className="settings-readonly-input"
+              />
+            </label>
+            <label>
+              Account Status
+              <input
+                value={accountStatus || "N/A"}
+                readOnly
+                disabled
+                className="settings-readonly-input"
+              />
+            </label>
+            <label>
+              User ID
+              <input
+                value={userId || "N/A"}
+                readOnly
+                disabled
+                className="settings-readonly-input"
               />
             </label>
           </div>
@@ -515,15 +619,23 @@ const Settings = () => {
                   type="button"
                   className="security-cancel-btn"
                   onClick={closePasswordModal}
+                  disabled={securitySubmitting}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="security-submit-btn"
+                  className="security-submit-btn admin-btn-with-loader"
                   disabled={securitySubmitting}
                 >
-                  {securitySubmitting ? "Changing..." : "Change Password"}
+                  {securitySubmitting ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>Changing...</span>
+                    </>
+                  ) : (
+                    "Change Password"
+                  )}
                 </button>
               </div>
             </form>
@@ -608,11 +720,23 @@ const Settings = () => {
                   type="button"
                   className="security-cancel-btn"
                   onClick={closeAddAdminModal}
+                  disabled={adminSubmitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="security-submit-btn">
-                  Create Admin
+                <button
+                  type="submit"
+                  className="security-submit-btn admin-btn-with-loader"
+                  disabled={adminSubmitting}
+                >
+                  {adminSubmitting ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    "Create Admin"
+                  )}
                 </button>
               </div>
             </form>
@@ -699,11 +823,23 @@ const Settings = () => {
                   type="button"
                   className="security-cancel-btn"
                   onClick={closeAddLibrarianModal}
+                  disabled={librarianSubmitting}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="security-submit-btn">
-                  Create Librarian
+                <button
+                  type="submit"
+                  className="security-submit-btn admin-btn-with-loader"
+                  disabled={librarianSubmitting}
+                >
+                  {librarianSubmitting ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>Creating...</span>
+                    </>
+                  ) : (
+                    "Create Librarian"
+                  )}
                 </button>
               </div>
             </form>

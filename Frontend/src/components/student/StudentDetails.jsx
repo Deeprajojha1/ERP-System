@@ -46,9 +46,7 @@ const StudentDetails = ({ studentData }) => {
     { label: 'Academic Year', value: academicInfo.academicYear },
     { label: 'Roll Number', value: academicInfo.rollNumber },
     { label: 'Section', value: academicInfo.section },
-    { label: 'Batch', value: academicInfo.batch },
     { label: 'University', value: academicInfo.university },
-    { label: 'College', value: academicInfo.college },
   ];
 
   const renderRows = (rows) =>

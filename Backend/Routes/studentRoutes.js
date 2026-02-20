@@ -17,6 +17,7 @@ import {
 } from "../controllers/studentAdmitCardController.js";
 import isAuth from "../middlewares/isAuth.js";
 import isStudent from "../middlewares/isStudent.js";
+import { getMyAlerts, markAlertRead } from "../controllers/alertController.js";
 
 const router = express.Router();
 

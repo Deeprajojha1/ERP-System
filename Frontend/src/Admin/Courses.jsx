@@ -9,6 +9,7 @@ import { FiEdit2 } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 import toast from "react-hot-toast";
 import { selectTimetableRevision } from "../redux/timetableSlice";
+import ClipLoader from "./components/ClipLoader";
 
 const Courses = () => {
   const [search, setSearch] = useState("");
@@ -451,8 +452,19 @@ const Courses = () => {
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? "Saving..." : "Submit"}
+                <button
+                  type="submit"
+                  className="btn-primary admin-btn-with-loader"
+                  disabled={submitting}
+                >
+                  {submitting ? (
+                    <>
+                      <ClipLoader size={15} />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    "Submit"
+                  )}
                 </button>
               </div>
             </form>

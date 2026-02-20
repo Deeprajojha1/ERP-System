@@ -94,10 +94,7 @@ const clearTimetableCacheForDepartments = async (departmentIds = []) => {
 
   await Promise.all(
     groups.map((group) =>
-      Promise.all([
-        redisClient.del(`admin:timetable:group:${group._id}`),
-        redisClient.del(`admin:timetable:group:v2:${group._id}`),
-      ])
+      redisClient.del(`admin:timetable:group:${group._id}`)
     )
   );
 };
@@ -125,18 +122,10 @@ export const getAllFaculty = async (req, res) => {
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
 
-    const facultyWithRoutineDetails = await Promise.all(
-      faculty.map(async (f) => {
-        const obj = f.toObject();
-        obj.routine = await buildRoutineWithDetails(f.routine);
-        return obj;
-      })
-    );
-
     const responsePayload = {
       message: "Faculty fetched successfully",
-      count: facultyWithRoutineDetails.length,
-      faculty: facultyWithRoutineDetails,
+      count: faculty.length,
+      faculty,
     };
 
     if (!noCache) {
@@ -173,12 +162,9 @@ export const getFacultyById = async (req, res) => {
       });
     }
 
-    const facultyObj = faculty.toObject();
-    facultyObj.routine = await buildRoutineWithDetails(faculty.routine);
-
     res.json({
       message: "Faculty fetched successfully",
-      faculty: facultyObj,
+      faculty,
     });
   } catch (error) {
     res.status(500).json({

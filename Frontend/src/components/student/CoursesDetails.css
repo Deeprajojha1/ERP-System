@@ -7,23 +7,32 @@
 
 .student-courses-top {
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.courses-header {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  flex-wrap: wrap;
 }
 
 .courses-header h3 {
   margin: 0;
   color: #0b1f44;
-  font-size: 1.35rem;
+  font-size: 1.7rem;
   font-weight: 800;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
 
 .courses-header p {
-  margin: 6px 0 0;
+  margin: 0;
   color: #516a8b;
-  font-size: 0.85rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -78,7 +87,8 @@
 .courses-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
+  align-items: stretch;
 }
 
 .no-courses {
@@ -97,10 +107,10 @@
   border: 1px solid #d8e2ef;
   border-radius: 14px;
   background: #ffffff;
-  padding: 12px 12px 10px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
 }
 
@@ -110,24 +120,36 @@
 
 .course-head-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 10px;
+}
+
+.course-head-row > div {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
 }
 
 .course-head-row h4 {
   margin: 0;
   color: #0b1f44;
-  font-size: 1.2rem;
-  line-height: 1.1;
-  font-weight: 800;
+  font-size: 1.12rem;
+  line-height: 1.3;
+  font-weight: 700;
+  letter-spacing: -0.005em;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .course-code {
-  margin: 6px 0 0;
+  margin: 0;
   color: #5f7696;
-  font-size: 0.78rem;
+  font-size: 0.9rem;
   font-weight: 700;
+  letter-spacing: 0.01em;
 }
 
 .course-status-chip {
@@ -135,10 +157,11 @@
   border-radius: 999px;
   background: #0f2a63;
   color: #ffffff;
-  font-size: 0.75rem;
+  font-size: 0.82rem;
   font-weight: 800;
-  padding: 5px 9px;
+  padding: 7px 12px;
   white-space: nowrap;
+  align-self: flex-start;
 }
 
 .course-badges {
@@ -160,30 +183,32 @@
 .course-faculty {
   margin: 0;
   color: #1f3659;
-  font-size: 0.85rem;
+  font-size: 0.94rem;
   font-weight: 700;
 }
 
 .course-meta {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  gap: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #dbe5f1;
 }
 
 .course-meta label {
   display: block;
   margin: 0;
   color: #6b7f99;
-  font-size: 0.7rem;
+  font-size: 0.76rem;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.06em;
 }
 
 .course-meta p {
   margin: 4px 0 0;
   color: #1f3659;
-  font-size: 0.78rem;
+  font-size: 1rem;
   font-weight: 700;
 }
 
@@ -191,6 +216,8 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+  margin-top: auto;
+  padding-top: 2px;
 }
 
 .course-btn {
@@ -870,6 +897,28 @@
   white-space: nowrap;
 }
 
+@media (min-width: 1024px) {
+  .student-course-detail-page {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 14px;
+    align-items: start;
+  }
+
+  .course-detail-hero {
+    grid-column: 1 / -1;
+  }
+
+  .course-detail-card-overview,
+  .course-detail-card-progress {
+    grid-column: 1 / 2;
+  }
+
+  .course-detail-card-resources,
+  .course-detail-card-info {
+    grid-column: 2 / 3;
+  }
+}
+
 @media (max-width: 1280px) {
   .courses-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -880,6 +929,12 @@
   .student-courses-top {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .courses-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .student-courses-controls {
@@ -930,6 +985,36 @@
   .course-detail-hero-copy h3 {
     font-size: 1.15rem;
   }
+
+  .student-course-detail-page {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .course-resource-item {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .course-resource-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .course-overview-actions,
+  .course-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .course-progress-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .course-progress-head strong {
+    font-size: 1rem;
+  }
 }
 
 @media (max-width: 560px) {
@@ -938,15 +1023,15 @@
   }
 
   .courses-header h3 {
-    font-size: 1.5rem;
+    font-size: 1.3rem;
   }
 
   .courses-header p {
-    font-size: 0.95rem;
+    font-size: 0.86rem;
   }
 
   .course-head-row h4 {
-    font-size: 1.4rem;
+    font-size: 1.02rem;
   }
 
   .course-actions,
