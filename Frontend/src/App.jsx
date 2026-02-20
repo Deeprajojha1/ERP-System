@@ -14,6 +14,7 @@ import Department from "./Admin/Department";
 import AdminLayout from "./Admin/AdminLayout";
 import Faculty from "./Admin/Faculty";
 import Student from "./Admin/Student";
+import Hostel from "./Admin/Hostel";
 import Courses from "./Admin/Courses";
 import Groups from "./Admin/Groups";
 import Timetable from "./Admin/Timetable";
@@ -250,6 +251,7 @@ function App() {
           <Route path="department" element={<Department />} />
           <Route path="faculty" element={<Faculty />} />
           <Route path="student" element={<Student />} />
+          <Route path="hostel" element={<Hostel />} />
           <Route path="courses" element={<Courses />} />
           <Route path="groups" element={<Groups />} />
           <Route path="assignment" element={<Assignment />} />

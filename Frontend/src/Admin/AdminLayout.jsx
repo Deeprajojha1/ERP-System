@@ -16,6 +16,7 @@ import { LuBadgeIndianRupee } from "react-icons/lu";
 import {
   FiBell,
   FiBookOpen,
+  FiHome,
   FiSettings,
   FiChevronDown,
   FiLayers,
@@ -397,6 +398,16 @@ const AdminLayout = () => {
                 }}>
                 <PiStudentFill />
                 <span className="sidebar-text">Students</span>
+              </button>
+
+              <button
+                className={`sidebar-btn ${isActive("/admin/hostel") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/hostel");
+                }}
+              >
+                <FiHome />
+                <span className="sidebar-text">Hostel</span>
               </button>
             </div>
 
