@@ -381,7 +381,7 @@ export default function Alerts() {
                 >
                   {isSubmitting ? (
                     <>
-                      <ClipLoader size={15} />
+                      <ClipLoader size={15} color="#000000" />
                       <span>Creating...</span>
                     </>
                   ) : (

@@ -8,6 +8,7 @@ import axios from "../utils/axiosInstance";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import ClipLoader from "./components/ClipLoader";
 
 const round2 = (value) => {
   const num = Number(value || 0);
@@ -63,6 +64,8 @@ const Result = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingResultId, setEditingResultId] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
+  const [downloadingResultId, setDownloadingResultId] = useState(null);
   const [formData, setFormData] = useState({
     student: "",
     academicYear: "",
@@ -536,41 +539,48 @@ const Result = () => {
     </html>
   `;
 
-  const handleDownloadResult = (resultDoc) => {
+  const handleDownloadResult = async (resultDoc) => {
     if (!resultDoc?._id) {
       toast.error("Invalid result selected");
       return;
     }
 
-    const html = getResultPdfHtmlDocument({ sheetsHtml: getResultSheetHtml(resultDoc) });
+    setDownloadingResultId(resultDoc._id);
+    try {
+      const html = getResultPdfHtmlDocument({ sheetsHtml: getResultSheetHtml(resultDoc) });
 
-    const studentKey = String(resultDoc?.student?.enrollmentNumber || resultDoc?._id || "result")
-      .replace(/\s+/g, "_");
+      const studentKey = String(resultDoc?.student?.enrollmentNumber || resultDoc?._id || "result")
+        .replace(/\s+/g, "_");
 
-    downloadPdfFromHtml(apiBase, {
-      html,
-      fileName: `${studentKey}_result.pdf`,
-    }).catch((error) => {
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: `${studentKey}_result.pdf`,
+      });
+    } catch (error) {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    });
+    } finally {
+      setDownloadingResultId(null);
+    }
   };
 
-  const handleDownloadOverallReport = () => {
+  const handleDownloadOverallReport = async () => {
     if (!filteredResultDocs.length) {
       toast.error("No results available to download");
       return;
     }
 
-    const selectedDepartmentLabel =
-      department === "All"
-        ? "All Departments"
-        : departmentOptions.find((item) => item.value === department)?.label || "All Departments";
-    const selectedGroupLabel =
-      group === "All"
-        ? "All Groups"
-        : groupOptions.find((item) => item.value === group)?.label || "All Groups";
-    const selectedSemesterLabel =
-      semesterFilter === "All" ? "All Semesters" : `Sem ${semesterFilter}`;
+    setDownloadingReport(true);
+    try {
+      const selectedDepartmentLabel =
+        department === "All"
+          ? "All Departments"
+          : departmentOptions.find((item) => item.value === department)?.label || "All Departments";
+      const selectedGroupLabel =
+        group === "All"
+          ? "All Groups"
+          : groupOptions.find((item) => item.value === group)?.label || "All Groups";
+      const selectedSemesterLabel =
+        semesterFilter === "All" ? "All Semesters" : `Sem ${semesterFilter}`;
 
     const rows = filteredResultDocs
       .map((resultDoc, index) => {
@@ -673,12 +683,15 @@ const Result = () => {
         </body>
       </html>
     `;
-    downloadPdfFromHtml(apiBase, {
-      html,
-      fileName: "Overall_Results_Report.pdf",
-    }).catch((error) => {
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: "Overall_Results_Report.pdf",
+      });
+    } catch (error) {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    });
+    } finally {
+      setDownloadingReport(false);
+    }
   };
 
   const renderState = () => {
@@ -715,8 +728,15 @@ const Result = () => {
         <div className="result-header">
           <h1 className="result-title">Results & Grades</h1>
           <div className="result-header-actions">
-            <button className="result-download-all-btn" type="button" onClick={handleDownloadOverallReport}>
-              Download Overall Report
+            <button className="result-download-all-btn admin-btn-with-loader" type="button" onClick={handleDownloadOverallReport} disabled={downloadingReport}>
+              {downloadingReport ? (
+                <>
+                  <ClipLoader size={15} color="#000000" />
+                  <span>Downloading...</span>
+                </>
+              ) : (
+                "Download Overall Report"
+              )}
             </button>
             <button className="result-add-btn" type="button" onClick={openCreateModal}>
               + Add Result
@@ -823,12 +843,22 @@ const Result = () => {
                         Edit
                       </button>
                       <button
-                        className="result-action-btn export"
+                        className="result-action-btn export admin-btn-with-loader"
                         type="button"
                         onClick={() => handleDownloadResult(resultsById.get(String(item?._id || "")) || {})}
+                        disabled={downloadingResultId === item._id}
                       >
-                        <FiDownload />
-                        Download
+                        {downloadingResultId === item._id ? (
+                          <>
+                            <ClipLoader size={13} color="#000000" />
+                            <span>...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FiDownload />
+                            Download
+                          </>
+                        )}
                       </button>
                     </div>
                   </td>
@@ -1057,11 +1087,18 @@ const Result = () => {
               </div>
 
               <div className="result-modal-actions">
-                <button type="button" className="btn-secondary" onClick={closeModal}>
+                <button type="button" className="btn-secondary" onClick={closeModal} disabled={submitting}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? "Saving..." : editingResultId ? "Update Result" : "Create Result"}
+                <button type="submit" className="btn-primary admin-btn-with-loader" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <ClipLoader size={15} color="#000000" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    editingResultId ? "Update Result" : "Create Result"
+                  )}
                 </button>
               </div>
             </form>
