@@ -2,16 +2,15 @@ import User from "../models/userModel.js";
 import Student from "../models/Student.js";
 import Faculty from "../models/Faculty.js";
 import Department from "../models/Department.js";
-import Course from "../models/Course.js";
 import Group from "../models/Group.js";
+import Course from "../models/Course.js";
 import Enrollment from "../models/Enrollment.js";
 import AttendanceSession from "../models/AttendanceSession.js";
 import bcrypt from "bcryptjs";
-import validator from "validator";
 import jwt from "jsonwebtoken";
-import dotenv from "dotenv";
-import { getFileUrl } from "../config/multerConfig.js";
+import validator from "validator";
 import sendEmail from "../config/sendMail.js";
+import { uploadImageToCloudinary } from "../config/cloudinaryUpload.js";
 
 const { isEmail } = validator;
 
@@ -370,18 +369,6 @@ export const login = async (req, res) => {
       };
     }
 
-    const buildProfileImageUrl = () => {
-      const url = user.profileImage ? getFileUrl(user.profileImage) : null;
-      if (url && url.startsWith("/")) {
-        const hostBase =
-          process.env.BASE_URL ||
-          process.env.BACKEND_URL ||
-          `${req.protocol}://${req.get("host")}`;
-        return `${hostBase.replace(/\/+$/, "")}${url}`;
-      }
-      return url;
-    };
-
     res.json({
       message: "Login successful",
       user: {
@@ -391,10 +378,9 @@ export const login = async (req, res) => {
         aadharNumber: user.aadharNumber,
         phoneNumber: user.phoneNumber,
         DOB: user.DOB,
+        profileImage: user.profileImage || "",
         role: user.role,
         status: user.status,
-        profileImage: user.profileImage || null,
-        profileImageUrl: buildProfileImageUrl(),
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
@@ -743,6 +729,63 @@ export const changePassword = async (req, res) => {
   }
 };
 
+/* ================= UPDATE PROFILE IMAGE (AUTHENTICATED USER) ================= */
+export const updateProfileImage = async (req, res) => {
+  try {
+    const { profileImage } = req.body || {};
+
+    if (typeof profileImage !== "string" || !profileImage.trim()) {
+      return res.status(400).json({
+        message: "profileImage is required and must be a non-empty string",
+      });
+    }
+
+    if (!profileImage.startsWith("data:image/") && !/^https?:\/\//i.test(profileImage)) {
+      return res.status(400).json({
+        message: "profileImage must be a valid image data URL or image URL",
+      });
+    }
+
+    const finalImageUrl = profileImage.startsWith("data:image/")
+      ? await uploadImageToCloudinary({
+          file: profileImage,
+          publicId: `user_${req.userId}_${Date.now()}`,
+        })
+      : profileImage.trim();
+
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      { profileImage: finalImageUrl },
+      { new: true, runValidators: true }
+    ).select("-passwordHash -resetOtp -otpExpires");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      message: "Profile image updated successfully",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        aadharNumber: user.aadharNumber,
+        phoneNumber: user.phoneNumber,
+        DOB: user.DOB,
+        profileImage: user.profileImage || "",
+        role: user.role,
+        status: user.status,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Server Error",
+    });
+  }
+};
+
 // get current user
 export const getUser = async (req, res) => {
     try {
@@ -1021,21 +1064,9 @@ export const getUser = async (req, res) => {
               aadharNumber: user.aadharNumber,
               phoneNumber: user.phoneNumber,
               DOB: user.DOB,
+              profileImage: user.profileImage || "",
               role: user.role,
               status: user.status,
-              // Return raw filename plus resolved URL for reliable frontend rendering
-              profileImage: user.profileImage || null,
-              profileImageUrl: (() => {
-                const url = user.profileImage ? getFileUrl(user.profileImage) : null;
-                if (url && url.startsWith("/")) {
-                  const hostBase =
-                    process.env.BASE_URL ||
-                    process.env.BACKEND_URL ||
-                    `${req.protocol}://${req.get("host")}`;
-                  return `${hostBase.replace(/\/+$/, "")}${url}`;
-                }
-                return url;
-              })(),
               createdAt: user.createdAt,
               updatedAt: user.updatedAt,
             },

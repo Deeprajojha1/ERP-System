@@ -14,11 +14,28 @@ import "./Student.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import ClipLoader from "./components/ClipLoader";
 
-const normalizeProgram = (value) => {
-  return String(value || "")
+const PROGRAM_CANONICAL_MAP = {
+  btech: "btech",
+  mtech: "mtech",
+  bca: "bca",
+  mca: "mca",
+  bba: "bba",
+  mba: "mba",
+  bsc: "bsc",
+  msc: "msc",
+  bpharma: "bpharma",
+  mpharma: "mpharma",
+  phd: "phd",
+  bpharm: "bpharma",
+  mpharm: "mpharma",
+};
+
+const canonicalizeProgram = (value) => {
+  const normalized = String(value || "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z]/g, "");
+  return PROGRAM_CANONICAL_MAP[normalized] || "";
 };
 
 const Student = () => {
@@ -173,7 +190,7 @@ const Student = () => {
     const selectedDept = departments.find((d) => d._id === formData.department);
     const deptPrograms = selectedDept?.programs || selectedDept?.program || [];
     if (!Array.isArray(deptPrograms)) return [];
-    return [...new Set(deptPrograms.map((prog) => normalizeProgram(prog)).filter(Boolean))];
+    return [...new Set(deptPrograms.map((prog) => canonicalizeProgram(prog)).filter(Boolean))];
   }, [departments, formData.department]);
 
   const handleChange = (e) => {
@@ -189,7 +206,7 @@ const Student = () => {
     if (name === "program") {
       setFormData((prev) => ({
         ...prev,
-        program: normalizeProgram(value),
+        program: canonicalizeProgram(value),
       }));
       return;
     }
@@ -248,7 +265,7 @@ const Student = () => {
         DOB: fullStudent.user?.DOB ? fullStudent.user.DOB.slice(0, 10) : "",
         enrollmentNumber: fullStudent.enrollmentNumber || fullStudent.rollNo || "",
         department: fullStudent.department?._id || fullStudent.department || "",
-        program: normalizeProgram(fullStudent.program || ""),
+        program: canonicalizeProgram(fullStudent.program || ""),
         semester: fullStudent.semester || "",
         academicYear: fullStudent.academicYear || "",
         fatherName: fullStudent.fatherName || "",
@@ -294,7 +311,7 @@ const Student = () => {
     const base = {
       enrollmentNumber: formData.enrollmentNumber,
       department: formData.department,
-      program: normalizeProgram(formData.program),
+      program: canonicalizeProgram(formData.program),
       semester: formData.semester
         ? Number(formData.semester)
         : "",

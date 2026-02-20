@@ -538,17 +538,13 @@ const Timetable = () => {
       </html>
     `;
 
-    try {
-      await downloadPdfFromHtml(apiBase, {
-        html,
-        fileName: `${selectedGroupCode || "group"}_timetable.pdf`,
-        fallbackToPrint: false,
-      });
-    } catch (error) {
+    downloadPdfFromHtml(apiBase, {
+      html,
+      fileName: `${selectedGroupCode || "group"}_timetable.pdf`,
+      fallbackToPrint: false,
+    }).catch((error) => {
       toast.error(error.response?.data?.message || "Failed to download timetable PDF");
-    } finally {
-      setDownloading(false);
-    }
+    });
   };
 
   const palette = [

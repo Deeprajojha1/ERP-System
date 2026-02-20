@@ -54,11 +54,7 @@ import {
   updateGroupTimetable,
 } from "../controllers/groupController.js";
 
-import { 
-  getAdminProfile, 
-  uploadProfileImage, 
-  deleteProfileImage 
-} from "../controllers/profileController.js";
+import { getAdminProfile } from "../controllers/profileController.js";
 
 import {
   markAttendance,
@@ -96,18 +92,6 @@ import { changePassword } from "../controllers/userController.js";
 import { getTeachingLoad } from "../controllers/teachingLoadController.js";
 
 import {
-  getAssignmentsByGroup,
-  getSingleAssignmentAdmin,
-  updateAssignment,
-  deleteAssignment,
-  getAssignmentSubmissionsAdmin,
-} from "../controllers/assingmentController.js";
-import {
-  createAlert,
-  getAllAlertsAdmin,
-  updateAlertAdmin,
-} from "../controllers/alertController.js";
-import {
   getAllExams,
   getExamById,
   addExam,
@@ -115,25 +99,33 @@ import {
   deleteExam,
   hardDeleteExam,
 } from "../controllers/examController.js";
+
 import {
   getAllResults,
   getResultById,
   addResult,
   updateResult,
-  getStudentResultSummary,
   deleteResult,
   hardDeleteResult,
+  getStudentResultSummary,
 } from "../controllers/resultController.js";
 import {
-  getAdminAccountOverview,
-  getAndAddBaseFees,
-  getOrUpdateBaseFeeByBranch,
-  getSubmitFeeStudents,
-  submitStudentFeeByAccounts,
-} from "../controllers/accountsController.js";
+  getAllExamRegistrations,
+  getExamRegistrationById,
+  addExamRegistration,
+  updateExamRegistration,
+  deleteExamRegistration,
+} from "../controllers/examRegistrationController.js";
+import {
+  getAllAdmitCards,
+  getAdmitCardById,
+  issueAdmitCard,
+  holdAdmitCard,
+  cancelAdmitCard,
+  deleteAdmitCard,
+} from "../controllers/admitCardController.js";
 
 import isAdmin from "../middlewares/isAdmin.js";
-import upload from "../config/multerConfig.js";
 
 const router = express.Router();
 
@@ -142,24 +134,6 @@ const router = express.Router();
 ========================= */
 router.post("/profile", isAdmin, getAdminProfile);
 router.post("/change-password", isAdmin, changePassword);
-router.post("/profile/upload-image", isAdmin, (req, res, next) => {
-  console.log("[Admin Route] Upload request received");
-  upload.single("profileImage")(req, res, (err) => {
-    if (err) {
-      console.error("[Multer Error in Route]", err);
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(413).json({ message: "File too large. Maximum size is 5MB." });
-      }
-      if (err.code === 'LIMIT_UNEXPECTED_FILE') {
-        return res.status(400).json({ message: "Unexpected file field. Expected 'profileImage'." });
-      }
-      return res.status(400).json({ message: err.message || "File upload failed" });
-    }
-    console.log("[Admin Route] File processed successfully");
-    next();
-  });
-}, uploadProfileImage);
-router.delete("/profile/delete-image", isAdmin, deleteProfileImage);
 
 /* =========================
    DEPARTMENT
@@ -234,24 +208,52 @@ router.post("/attendance", isAdmin, markAttendance);
 router.put("/attendance/:sessionId", isAdmin, updateAttendance);
 router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
 router.get("/attendance/group/:groupId/students", isAdmin, getStudentsByGroup);
-router.get(
-  "/attendance/group/:groupId/course/:courseId",
-  isAdmin,
-  getAttendanceByGroupAndCourse,
-);
-router.get(
-  "/attendance/student/:studentId",
-  isAdmin,
-  getStudentOverallAttendance,
-);
-router.get(
-  "/attendance/student/:studentId/course/:courseId",
-  isAdmin,
-  getStudentAttendanceReport,
-);
+router.get("/attendance/group/:groupId/course/:courseId", isAdmin, getAttendanceByGroupAndCourse);
+router.get("/attendance/student/:studentId", isAdmin, getStudentOverallAttendance);
+router.get("/attendance/student/:studentId/course/:courseId", isAdmin, getStudentAttendanceReport);
 router.get("/attendance/:sessionId", isAdmin, getAttendanceById);
 router.patch("/attendance/:sessionId/delete", isAdmin, deleteAttendance);
 router.delete("/attendance/:sessionId", isAdmin, hardDeleteAttendance);
+
+/* =========================
+   EXAMS
+========================= */
+router.get("/exam", isAdmin, getAllExams);
+router.get("/exam/:id", isAdmin, getExamById);
+router.post("/exam", isAdmin, addExam);
+router.put("/exam/:id", isAdmin, updateExam);
+router.patch("/exam/:id/delete", isAdmin, deleteExam);
+router.delete("/exam/:id", isAdmin, hardDeleteExam);
+
+/* =========================
+   RESULTS
+========================= */
+router.get("/result", isAdmin, getAllResults);
+router.get("/result/student/:studentId/summary", isAdmin, getStudentResultSummary);
+router.get("/result/:id", isAdmin, getResultById);
+router.post("/result", isAdmin, addResult);
+router.put("/result/:id", isAdmin, updateResult);
+router.patch("/result/:id/delete", isAdmin, deleteResult);
+router.delete("/result/:id", isAdmin, hardDeleteResult);
+
+/* =========================
+   EXAM REGISTRATION
+========================= */
+router.get("/exam-registration", isAdmin, getAllExamRegistrations);
+router.get("/exam-registration/:id", isAdmin, getExamRegistrationById);
+router.post("/exam-registration", isAdmin, addExamRegistration);
+router.put("/exam-registration/:id", isAdmin, updateExamRegistration);
+router.patch("/exam-registration/:id/delete", isAdmin, deleteExamRegistration);
+
+/* =========================
+   ADMIT CARD
+========================= */
+router.get("/admit-card", isAdmin, getAllAdmitCards);
+router.get("/admit-card/:id", isAdmin, getAdmitCardById);
+router.post("/admit-card/issue/:registrationId", isAdmin, issueAdmitCard);
+router.patch("/admit-card/:id/hold", isAdmin, holdAdmitCard);
+router.patch("/admit-card/:id/cancel", isAdmin, cancelAdmitCard);
+router.patch("/admit-card/:id/delete", isAdmin, deleteAdmitCard);
 
 //Library
 router.get("/librarian", isAdmin, getAllLibrarians);
@@ -273,63 +275,7 @@ router.post("/library/issues", issueBook);
 router.get("/library/issues", getIssuedBooks);
 router.patch("/library/issues/:id/return", returnBook);
 
-/* =========================
-   ASSIGNMENTS (ADMIN)
-========================= */
-
-// Get filtered assignments
-router.get("/assignments", isAdmin, getAssignmentsByGroup);
-
-// Get single assignment
-router.get("/assignment/:id", isAdmin, getSingleAssignmentAdmin);
-
-// Update assignment
-router.put("/assignment/:id", isAdmin, updateAssignment);
-
-// Delete assignment
-router.delete("/assignment/:id", isAdmin, deleteAssignment);
-
-// Get submissions
-router.get(
-  "/assignment/:id/submissions",
-  isAdmin,
-  getAssignmentSubmissionsAdmin
-);
-
-router.post("/alerts", isAdmin, createAlert);
-router.get("/alerts", isAdmin, getAllAlertsAdmin);
-router.put("/alerts/:id", isAdmin, updateAlertAdmin);
-
-/* =========================
-   EXAMS (ADMIN)
-========================= */
-router.get("/exam", isAdmin, getAllExams);
-router.get("/exam/:id", isAdmin, getExamById);
-router.post("/exam", isAdmin, addExam);
-router.put("/exam/:id", isAdmin, updateExam);
-router.patch("/exam/:id/delete", isAdmin, deleteExam);
-router.delete("/exam/:id", isAdmin, hardDeleteExam);
-
-/* =========================
-   RESULTS (ADMIN)
-========================= */
-router.get("/result", isAdmin, getAllResults);
-router.get("/result/:id", isAdmin, getResultById);
-router.post("/result", isAdmin, addResult);
-router.put("/result/:id", isAdmin, updateResult);
-router.get("/result/student/:studentId/summary", isAdmin, getStudentResultSummary);
-router.patch("/result/:id/delete", isAdmin, deleteResult);
-router.delete("/result/:id", isAdmin, hardDeleteResult);
-
-/* =========================
-   ACCOUNTS (ADMIN)
-========================= */
-router.get("/account", isAdmin, getAdminAccountOverview);
-router.get("/accounts/addBasefees", isAdmin, getAndAddBaseFees);
-router.post("/accounts/addBasefees", isAdmin, getAndAddBaseFees);
-router.get("/accounts/addbasefee/:branchid", isAdmin, getOrUpdateBaseFeeByBranch);
-router.put("/accounts/addbasefee/:branchid", isAdmin, getOrUpdateBaseFeeByBranch);
-router.get("/accounts/submitfee", isAdmin, getSubmitFeeStudents);
-router.post("/accounts/submitfee/students/:id", isAdmin, submitStudentFeeByAccounts);
-
 export default router;
+
+
+

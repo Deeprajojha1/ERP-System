@@ -151,19 +151,7 @@ const AdminLayout = () => {
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const userName = userData?.user?.name || "Admin User";
   const userEmail = userData?.user?.email || "admin@university.edu";
-  const userImg = (() => {
-    const fileUrl = userData?.user?.profileImageUrl;
-    const fileName = userData?.user?.profileImage;
-    const base = apiBase?.replace('/api', '') || '';
-    if (fileUrl) {
-      if (fileUrl.startsWith('http')) return fileUrl;
-      return `${base}${fileUrl}`;
-    }
-    if (fileName) {
-      return `${base}/uploads/profile-images/${fileName}`;
-    }
-    return null;
-  })();
+  const userProfileImage = userData?.user?.profileImage || "";
   const userInitials = userName
     .split(" ")
     .filter(Boolean)
@@ -327,7 +315,15 @@ const AdminLayout = () => {
           <div className="sidebar-profile">
             <div className="sidebar-profile-main">
               <div className="sidebar-avatar">
-                {userImg ? <img src={userImg} alt="User" className="avatarimg" /> : (userInitials || "AD")}
+                {userProfileImage ? (
+                  <img
+                    src={userProfileImage}
+                    alt={`${userName} profile`}
+                    className="sidebar-avatar-image"
+                  />
+                ) : (
+                  userInitials || "AD"
+                )}
               </div>
               <div className="sidebar-profile-copy">
                 <h2>{userName}</h2>
@@ -435,16 +431,6 @@ const AdminLayout = () => {
               </button>
 
               <button
-                className={`sidebar-btn ${isActive("/admin/assignment") ? "active" : ""}`}
-                onClick={() => {
-                  navigate("/admin/assignment");
-                }}
-              >
-                <MdCastForEducation />
-                <span className="sidebar-text">Assignments</span>
-              </button>
-
-              <button
                 className={`sidebar-btn ${isActive("/admin/timetable") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/timetable");
@@ -498,58 +484,15 @@ const AdminLayout = () => {
                 <span className="sidebar-text">Leaves</span>
               </button>
 
-              <div
-                className={`sidebar-dropdown ${
-                  isFeeRouteActive ? "open" : ""
-                }`}
+              <button
+                className={`sidebar-btn ${isActive("/admin/fees") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/fees");
+                }}
               >
-                <button
-                  type="button"
-                  className={`sidebar-btn sidebar-dropdown-toggle ${
-                    isFeesButtonActive ? "active" : ""
-                  }`}
-                  onClick={handleFeesButtonClick}
-                  aria-expanded={isFeeMenuOpen}
-                >
-                  <LuBadgeIndianRupee />
-                  <span className="sidebar-text">Fees</span>
-                  <FiChevronDown className="sidebar-dropdown-caret" />
-                </button>
-
-                <div
-                  className={`sidebar-submenu ${isFeeMenuOpen ? "show" : ""}`}
-                >
-                  {FEE_MENU_SECTIONS.map((section) => (
-                    <div
-                      className="sidebar-submenu-section"
-                      key={section.label}
-                    >
-                      <span className="sidebar-subtitle">{section.label}</span>
-                      {section.items.map((item) => {
-                        const allowChildren = item.matchChildren !== false;
-                        const active = item.paths.some((path) =>
-                          pathMatches(path, allowChildren)
-                        );
-                        const Icon = item.Icon;
-                        return (
-                          <button
-                            key={item.label}
-                            type="button"
-                            className={`sidebar-subitem ${
-                              active ? "active" : ""
-                            }`}
-                            onClick={() => navigate(item.paths[0])}
-                            data-muted={section.label === "DASHBOARD"}
-                          >
-                            <Icon />
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ))}
-                </div>
-              </div>
+                <LuBadgeIndianRupee />
+                <span className="sidebar-text">Fees</span>
+              </button>
             </div>
 
             <div className="sidebar-section">
