@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
+import toast from "react-hot-toast";
 import {
   setStudents,
   setStudentsError,
@@ -10,6 +11,14 @@ import {
 } from "../redux/studentSlice";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Student.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+
+const normalizeProgram = (value) => {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+};
 
 const Student = () => {
   const [search, setSearch] = useState("");
@@ -19,7 +28,7 @@ const Student = () => {
   const [departments, setDepartments] = useState([]);
   const [groups, setGroups] = useState([]);
   const dispatch = useDispatch();
-  const { students, loading, error } = useSelector(
+  const { students } = useSelector(
     (state) => state.student
   );
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -41,36 +50,64 @@ const Student = () => {
     group: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
+
+  const extractStudentsFromResponse = (payload) => {
+    if (Array.isArray(payload?.students)) return payload.students;
+    if (Array.isArray(payload?.data?.students)) return payload.data.students;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload)) return payload;
+    return [];
+  };
+
+  const normalizeStudentRow = (student) => ({
+    ...student,
+    _id: student?._id || student?.id || student?.studentId || "",
+    studentName:
+      student?.studentName ||
+      student?.user?.name ||
+      student?.name ||
+      student?.fullName ||
+      "",
+    rollNo: student?.rollNo || student?.enrollmentNumber || student?.roll || "",
+    department:
+      student?.department?.name ||
+      student?.department?.departmentName ||
+      student?.department ||
+      "",
+    status: student?.status || student?.user?.status || "active",
+  });
 
   useEffect(() => {
     const fetchAll = async () => {
       try {
+        setLoadState(ADMIN_LOAD_STATES.PENDING);
         dispatch(setStudentsLoading(true));
-        const [studentRes, deptRes, groupRes] = await Promise.all([
+        const [studentRes, deptRes] = await Promise.all([
           axios.get(`${apiBase}/admin/student`, {
             withCredentials: true,
           }),
           axios.get(`${apiBase}/admin/department`, {
             withCredentials: true,
           }),
-          axios.get(`${apiBase}/admin/group`, {
-            withCredentials: true,
-          }),
         ]);
-        dispatch(setStudents(studentRes.data?.students || []));
+        const rows = extractStudentsFromResponse(studentRes.data).map(normalizeStudentRow);
+        dispatch(setStudents(rows));
         setDepartments(deptRes.data?.departments || []);
-        setGroups(groupRes.data?.groups || []);
+        setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (error) {
         console.error(
           "Fetch data failed:",
           error.response?.data || error.message
         );
+        toast.error(`${error.response?.data?.message || "Failed to load students"}`);
         dispatch(
           setStudentsError(
             error.response?.data?.message ||
               "Failed to load students"
           )
         );
+        setLoadState(ADMIN_LOAD_STATES.FAILURE);
       } finally {
         dispatch(setStudentsLoading(false));
       }
@@ -79,14 +116,36 @@ const Student = () => {
     fetchAll();
   }, []);
 
+  const ensureModalDependencies = async () => {
+    const [deptRes, groupRes] = await Promise.all([
+      axios.get(`${apiBase}/admin/department`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      }),
+      axios.get(`${apiBase}/admin/group`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      }),
+    ]);
+    setDepartments(deptRes.data?.departments || []);
+    setGroups(groupRes.data?.groups || []);
+  };
+
+  const syncStudentsSilently = async () => {
+    const res = await axios.get(`${apiBase}/admin/student`, {
+      withCredentials: true,
+    });
+    dispatch(setStudents(extractStudentsFromResponse(res.data).map(normalizeStudentRow)));
+  };
+
   const filtered = useMemo(() => {
     return students.filter((s) => {
       const term = search.toLowerCase();
       const matchSearch =
-        (s.user?.name || s.name || "")
+        (s.studentName || s.user?.name || s.name || "")
           .toLowerCase()
           .includes(term) ||
-        (s.enrollmentNumber || s.roll || "")
+        (s.rollNo || s.enrollmentNumber || s.roll || "")
           .toLowerCase()
           .includes(term) ||
         (s.department?.name || s.department || "")
@@ -94,7 +153,6 @@ const Student = () => {
           .includes(term);
       const matchDept =
         department === "All Departments" ||
-        s.department?._id === department ||
         s.department?.name === department ||
         s.department === department;
       return matchSearch && matchDept;
@@ -110,84 +168,123 @@ const Student = () => {
     );
   }, [groups, formData.department]);
 
+  const selectedDepartmentPrograms = useMemo(() => {
+    const selectedDept = departments.find((d) => d._id === formData.department);
+    const deptPrograms = selectedDept?.programs || selectedDept?.program || [];
+    if (!Array.isArray(deptPrograms)) return [];
+    return [...new Set(deptPrograms.map((prog) => normalizeProgram(prog)).filter(Boolean))];
+  }, [departments, formData.department]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    if (name === "department") {
+      setFormData((prev) => ({
+        ...prev,
+        department: value,
+        program: "",
+      }));
+      return;
+    }
+    if (name === "program") {
+      setFormData((prev) => ({
+        ...prev,
+        program: normalizeProgram(value),
+      }));
+      return;
+    }
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const openAddModal = () => {
-    setEditTarget(null);
-    setFormData({
-      name: "",
-      email: "",
-      password: "",
-      aadharNumber: "",
-      phoneNumber: "",
-      DOB: "",
-      enrollmentNumber: "",
-      department: "",
-      program: "",
-      semester: "",
-      academicYear: "",
-      fatherName: "",
-      fatherPhoneNumber: "",
-      collegeEmail: "",
-      group: "",
-    });
-    setIsOpen(true);
+  const openAddModal = async () => {
+    try {
+      await ensureModalDependencies();
+      setEditTarget(null);
+      setFormData({
+        name: "",
+        email: "",
+        password: "",
+        aadharNumber: "",
+        phoneNumber: "",
+        DOB: "",
+        enrollmentNumber: "",
+        department: "",
+        program: "",
+        semester: "",
+        academicYear: "",
+        fatherName: "",
+        fatherPhoneNumber: "",
+        collegeEmail: "",
+        group: "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
   };
 
-  const openEditModal = (student) => {
-    setEditTarget(student);
-    setFormData({
-      name: student.user?.name || student.name || "",
-      email: student.user?.email || student.email || "",
-      password: "",
-      aadharNumber:
-        student.user?.aadharNumber || student.aadharNumber || "",
-      phoneNumber:
-        student.user?.phoneNumber || student.phoneNumber || "",
-      DOB: student.user?.DOB ? student.user.DOB.slice(0, 10) : "",
-      enrollmentNumber: student.enrollmentNumber || "",
-      department: student.department?._id || student.department || "",
-      program: student.program || "",
-      semester: student.semester || "",
-      academicYear: student.academicYear || "",
-      fatherName: student.fatherName || "",
-      fatherPhoneNumber: student.fatherPhoneNumber || "",
-      collegeEmail: student.collegeEmail || "",
-      group: student.group?._id || student.group || "",
-    });
-    setIsOpen(true);
+  const openEditModal = async (student) => {
+    if (!student?._id) return;
+    try {
+      await ensureModalDependencies();
+      const res = await axios.get(
+        `${apiBase}/admin/student/${student._id}?full=true`,
+        { withCredentials: true }
+      );
+      const fullStudent = res.data?.student || student;
+      setEditTarget(fullStudent);
+      setFormData({
+        name: fullStudent.user?.name || fullStudent.studentName || fullStudent.name || "",
+        email: fullStudent.user?.email || fullStudent.email || "",
+        password: "",
+        aadharNumber:
+          fullStudent.user?.aadharNumber || fullStudent.aadharNumber || "",
+        phoneNumber:
+          fullStudent.user?.phoneNumber || fullStudent.phoneNumber || "",
+        DOB: fullStudent.user?.DOB ? fullStudent.user.DOB.slice(0, 10) : "",
+        enrollmentNumber: fullStudent.enrollmentNumber || fullStudent.rollNo || "",
+        department: fullStudent.department?._id || fullStudent.department || "",
+        program: normalizeProgram(fullStudent.program || ""),
+        semester: fullStudent.semester || "",
+        academicYear: fullStudent.academicYear || "",
+        fatherName: fullStudent.fatherName || "",
+        fatherPhoneNumber: fullStudent.fatherPhoneNumber || "",
+        collegeEmail: fullStudent.collegeEmail || "",
+        group: fullStudent.group?._id || fullStudent.group || "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch student details failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load student details");
+    }
   };
 
   const handleDelete = async (student) => {
     if (!student?._id) return;
     const ok = window.confirm(
-      `Delete student "${student.user?.name || student.name}"?`
+      `Delete student "${student.studentName || student.user?.name || student.name}"?`
     );
     if (!ok) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/student/${student._id}`,
+      await axios.patch(
+        `${apiBase}/admin/student/${student._id}/delete`,
+        {},
         { withCredentials: true }
       );
-      const res = await axios.get(
-        `${apiBase}/admin/student`,
-        { withCredentials: true }
+      dispatch(
+        setStudents(students.filter((item) => item._id !== student._id))
       );
-      dispatch(setStudents(res.data?.students || []));
+      toast.success("Student deleted successfully", { icon: "\u2705" });
     } catch (error) {
       console.error(
         "Delete student failed:",
         error.response?.data || error.message
       );
-      alert(
-        error.response?.data?.message ||
-          "Failed to delete student"
+      toast.error(
+        `${error.response?.data?.message || "Failed to delete student"}`
       );
     }
   };
@@ -196,7 +293,7 @@ const Student = () => {
     const base = {
       enrollmentNumber: formData.enrollmentNumber,
       department: formData.department,
-      program: formData.program,
+      program: normalizeProgram(formData.program),
       semester: formData.semester
         ? Number(formData.semester)
         : "",
@@ -227,24 +324,46 @@ const Student = () => {
       const payload = buildPayload();
 
       if (editTarget?._id) {
-        await axios.put(
+        const res = await axios.put(
           `${apiBase}/admin/student/${editTarget._id}`,
           payload,
           { withCredentials: true }
         );
+        const updatedStudent =
+          res.data?.student ||
+          res.data?.updatedStudent ||
+          res.data?.data ||
+          null;
+        if (updatedStudent?._id) {
+          dispatch(
+            setStudents(
+              students.map((item) =>
+                item._id === updatedStudent._id ? updatedStudent : item
+              )
+            )
+          );
+        } else {
+          await syncStudentsSilently();
+        }
+        toast.success("Student updated successfully", { icon: "\u2705" });
       } else {
-        await axios.post(
+        const res = await axios.post(
           `${apiBase}/admin/student`,
           payload,
           { withCredentials: true }
         );
+        const createdStudent =
+          res.data?.student ||
+          res.data?.newStudent ||
+          res.data?.data ||
+          null;
+        if (createdStudent?._id) {
+          dispatch(setStudents([createdStudent, ...students]));
+        } else {
+          await syncStudentsSilently();
+        }
+        toast.success("Student added successfully", { icon: "\u2705" });
       }
-
-      const res = await axios.get(
-        `${apiBase}/admin/student`,
-        { withCredentials: true }
-      );
-      dispatch(setStudents(res.data?.students || []));
 
       setIsOpen(false);
       setEditTarget(null);
@@ -270,10 +389,9 @@ const Student = () => {
         "Add student failed:",
         error.response?.data || error.message
       );
-      alert(
-        error.response?.data?.message ||
-          "Failed to add student"
-      );
+      toast.error(error.response?.data?.message || "Failed to add student", {
+        icon: "\u274C",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -281,9 +399,9 @@ const Student = () => {
 
 
   const renderState = () => {
-    if (loading) {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="student-state pending">
+        <div className="student-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -298,7 +416,7 @@ const Student = () => {
         </div>
       );
     }
-    if (error) {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="student-state error">
           <img
@@ -317,7 +435,9 @@ const Student = () => {
         <div className="student-header">
           <div>
             <h1 className="student-title">Students</h1>
-            <p className="student-subtitle">Manage enrolled students</p>
+            <p className="student-subtitle">
+              {filtered.length} Students in the organization
+            </p>
           </div>
           <button className="student-add-btn" type="button" onClick={openAddModal}>
             + Add Student
@@ -327,7 +447,9 @@ const Student = () => {
         <div className="student-panel">
           <div className="student-filters">
             <div className="student-search">
-              <span className="student-search-icon">??</span>
+              <span className="student-search-icon" aria-hidden="true">
+                <FiSearch />
+              </span>
               <input
                 type="text"
                 placeholder="Search by name, roll or dept"
@@ -342,7 +464,7 @@ const Student = () => {
             >
               <option value="All Departments">All Departments</option>
               {departments.map((d) => (
-                <option key={d._id} value={d._id}>
+                <option key={d._id} value={d.name}>
                   {d.name}
                 </option>
               ))}
@@ -350,7 +472,7 @@ const Student = () => {
           </div>
 
           <div className="student-table-wrap">
-            {filtered.length == 0 ? (
+            {filtered.length === 0 ? (
               <div className="student-empty-state">
                 <img src={emptyStateImg} alt="No data" />
                 <h3>Oops! Data not found</h3>
@@ -360,6 +482,7 @@ const Student = () => {
               <table className="student-table">
                 <thead>
                   <tr>
+                    <th className="student-cell-serial">S. No</th>
                     <th>STUDENT NAME</th>
                     <th>ROLL NO</th>
                     <th>DEPARTMENT</th>
@@ -369,10 +492,18 @@ const Student = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((s) => (
-                    <tr key={s._id || s.user?._id}>
-                      <td className="student-roll">{s.user?.name || s.name}</td>
-                      <td>{s.enrollmentNumber || s.roll || "N/A"}</td>
+                  {filtered.map((s, index) => {
+                    const numericId =
+                      s.rollNo || s.enrollmentNumber || s.roll || `${index + 1}`;
+                    return (
+                      <tr
+                        key={s._id || s.user?._id || `${numericId}-${index}`}
+                      >
+                        <td className="student-serial-cell">{index + 1}</td>
+                        <td className="student-roll">
+                          {s.studentName || s.user?.name || s.name || "N/A"}
+                        </td>
+                        <td>{s.rollNo || s.enrollmentNumber || s.roll || "N/A"}</td>
                       <td>{s.department?.name || s.department}</td>
                       <td>{s.semester}</td>
                       <td>
@@ -393,7 +524,8 @@ const Student = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  );
+                })}
                 </tbody>
               </table>
             )}
@@ -536,9 +668,11 @@ const Student = () => {
                     <option value="" disabled>
                       Select Program
                     </option>
-                    <option value="btech">B.Tech</option>
-                    <option value="mtech">M.Tech</option>
-                    <option value="mba">MBA</option>
+                    {selectedDepartmentPrograms.map((prog) => (
+                      <option key={prog} value={prog}>
+                        {String(prog).toUpperCase()}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>
@@ -651,4 +785,5 @@ const Student = () => {
 };
 
 export default Student;
+
 

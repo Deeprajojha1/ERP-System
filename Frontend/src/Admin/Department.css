@@ -35,11 +35,16 @@
 
 .dept-toolbar {
   margin-bottom: 16px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
+  background: linear-gradient(
+    135deg,
+    #eff6ff 0%,
+    #f8fbff 45%,
+    #f0fdfa 100%
+  );
+  border: 1px solid #dbeafe;
   border-radius: 12px;
   padding: 12px;
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.05);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
 }
 
 .dept-search {
@@ -47,15 +52,40 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #bfdbfe;
   border-radius: 10px;
   padding: 10px 12px;
-  background: #ffffff;
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #f0f9ff 60%,
+    #ecfeff 100%
+  );
+  transition: border-color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.dept-search:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+  transform: translateY(-1px);
 }
 
 .dept-search-icon {
-  font-size: 16px;
-  color: #64748b;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: linear-gradient(
+    145deg,
+    #dbeafe 0%,
+    #eff6ff 100%
+  );
+  border: 1px solid #bfdbfe;
+  font-size: 15px;
 }
 
 .dept-search input {
@@ -111,7 +141,7 @@
 }
 
 .dept-card {
-  background: #ffffff;
+  background: var(--dept-card-gradient, #ffffff);
   border-radius: 16px;
   padding: 18px;
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
@@ -137,11 +167,18 @@
   width: 56px;
   height: 56px;
   border-radius: 12px;
-  background: #f3f4f6;
+  background: var(
+    --dept-icon-gradient,
+    linear-gradient(135deg, #2563eb, #1d4ed8)
+  );
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 26px;
+  font-size: 20px;
+  color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.6px;
+  box-shadow: 0 10px 18px rgba(30, 64, 175, 0.25);
 }
 
 .dept-status {
@@ -233,8 +270,10 @@
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  padding: calc(var(--admin-nav-height, 74px) + 12px) 12px 12px;
 }
 
 .dept-modal-backdrop {
@@ -251,6 +290,8 @@
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
   padding: 20px;
+  max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 24px));
+  overflow-y: auto;
 }
 
 .dept-modal-head h2 {
@@ -290,6 +331,54 @@
   border-radius: 10px;
   padding: 10px 12px;
   font-size: 14px;
+}
+
+.dept-program-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px 12px;
+  min-height: 52px;
+  background: #ffffff;
+}
+
+.dept-program-input-wrap:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.dept-program-input-wrap input {
+  border: none;
+  outline: none;
+  flex: 1 1 180px;
+  min-width: 140px;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.dept-program-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #dbeafe;
+  color: #1e3a8a;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dept-program-chip-remove {
+  border: none;
+  background: transparent;
+  color: #1e3a8a;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
 }
 
 .dept-help {

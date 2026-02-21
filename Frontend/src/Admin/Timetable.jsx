@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
-import axios from "axios";
-import jsPDF from "jspdf";
+import { useDispatch, useSelector } from "react-redux";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import Slider from "react-slick";
@@ -16,31 +14,47 @@ import {
 } from "react-icons/fi";
 import { MdOutlineSchedule } from "react-icons/md";
 import "./Timetable.css";
-
-const DAY_LABEL_TO_KEY = {
-  Mon: "monday",
-  Tue: "tuesday",
-  Wed: "wednesday",
-  Thu: "thursday",
-  Fri: "friday",
-  Sat: "saturday",
-};
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import toast from "react-hot-toast";
+import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import {
+  applyTimetableEdit,
+  fetchGroupTimetable,
+  saveGroupTimetable,
+  fetchTimetableGroups,
+  selectTimetableDeptFaculty,
+  selectTimetableError,
+  selectTimetableGroupCards,
+  selectTimetableGroupCourses,
+  selectTimetableLoading,
+  selectTimetableSchedule,
+  selectTimetableSelectedGroupCode,
+  setSelectedGroupCode,
+} from "../redux/timetableSlice";
 
 const Timetable = () => {
+  const dispatch = useDispatch();
   const [query, setQuery] = useState("");
-  const [selectedGroup, setSelectedGroup] = useState("BCSE-6A");
-  const [loadState, setLoadState] = useState("success");
-  const isEditing = false;
+  const [isEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState({
     dayIndex: 0,
     slotIndex: 0,
   });
-  const [groupCards, setGroupCards] = useState([]);
-  const [schedule, setSchedule] = useState([]);
-  const [groupCourses, setGroupCourses] = useState([]);
-  const [deptFaculty, setDeptFaculty] = useState([]);
+  const selectedGroupCode = useSelector(selectTimetableSelectedGroupCode);
+  const groupCards = useSelector(selectTimetableGroupCards);
+  const schedule = useSelector(selectTimetableSchedule);
+  const groupCourses = useSelector(selectTimetableGroupCourses);
+  const deptFaculty = useSelector(selectTimetableDeptFaculty);
+  const timetableLoading = useSelector(selectTimetableLoading);
+  const timetableError = useSelector(selectTimetableError);
 
   const apiBase = useSelector((state) => state.config.apiBase);
+  const loadState = useMemo(() => {
+    if (timetableLoading) return ADMIN_LOAD_STATES.PENDING;
+    if (timetableError) return ADMIN_LOAD_STATES.FAILURE;
+    return ADMIN_LOAD_STATES.SUCCESS;
+  }, [timetableLoading, timetableError]);
 
   const groups = useMemo(() => groupCards.map((g) => g.groupCode), [groupCards]);
 
@@ -62,100 +76,60 @@ const Timetable = () => {
     });
     return Array.from(names);
   }, [schedule]);
-  const slots = [
-    "09:00-10:00",
-    "10:00-11:00",
-    "11:00-12:00",
-    "01:00-02:00",
-    "02:00-03:00",
+  const lectureSlots = [
+    "09:10 AM-10:05 AM",
+    "10:05 AM-11:00 AM",
+    "11:10 AM-12:05 PM",
+    "12:05 PM-01:00 PM",
+    "02:00 PM-02:55 PM",
+    "02:55 PM-03:50 PM",
+    "03:50 PM-04:45 PM",
   ];
-  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-  const buildScheduleFromBackend = (timetable = []) => {
-    const byDay = {};
-    timetable.forEach((entry) => {
-      if (!entry?.day) return;
-      byDay[String(entry.day).toLowerCase()] = entry.lectures || [];
-    });
-
-    return days.map((label, dayIdx) => {
-      const key = DAY_LABEL_TO_KEY[label];
-      const lectures = byDay[key] || [];
-
-      const rowSlots = slots.map((_, slotIdx) => {
-        const lectureNumber = slotIdx + 1;
-        const lecture = lectures.find((l) => l.lectureNumber === lectureNumber);
-
-        if (!lecture) {
-          return { code: "FREE", name: "Free", by: "", color: 3 };
-        }
-
-        return {
-          code: lecture.courseCode || "FREE",
-          name: lecture.courseName || "Free",
-          by: lecture.facultyName || "",
-          color: (dayIdx + slotIdx) % 5,
-        };
-      });
-
-      return { day: label, slots: rowSlots };
-    });
+  const days = useMemo(() => ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], []);
+  const dayKeyMap = {
+    Mon: "monday",
+    Tue: "tuesday",
+    Wed: "wednesday",
+    Thu: "thursday",
+    Fri: "friday",
+    Sat: "saturday",
   };
+
+  const normalizedSchedule = useMemo(() => {
+    return schedule.map((row) => {
+      const normalizedSlots = Array.from(
+        { length: lectureSlots.length },
+        (_, idx) => row.slots?.[idx] || { code: "FREE", name: "Free", by: "", color: idx % 5 }
+      );
+      return { ...row, slots: normalizedSlots };
+    });
+  }, [schedule, lectureSlots.length]);
 
   /* ---------- Fetch group cards ---------- */
   useEffect(() => {
     if (!apiBase) return;
-    const fetchGroups = async () => {
-      try {
-        setLoadState("pending");
-        const res = await axios.get(`${apiBase}/admin/timetable/group`, {
-          withCredentials: true,
-        });
-        const cards = res.data?.groups || [];
-        setGroupCards(cards);
-        if (cards.length > 0 && !selectedGroupCode) {
-          setSelectedGroupCode(cards[0].groupCode);
-        } else {
-          setLoadState("success");
-        }
-      } catch (err) {
-        console.error("Fetch timetable groups failed", err.response?.data || err.message);
-        setLoadState("failure");
-      }
-    };
-    fetchGroups();
-  }, [apiBase]);
+    dispatch(fetchTimetableGroups())
+      .unwrap()
+      .catch((message) => {
+        toast.error(`${message || "Failed to load timetable groups"}`);
+      });
+  }, [apiBase, dispatch]);
 
   /* ---------- Fetch selected group timetable ---------- */
   useEffect(() => {
     if (!apiBase || !selectedGroupCode || groupCards.length === 0) return;
     const current = groupCards.find((g) => g.groupCode === selectedGroupCode);
     if (!current) return;
-    const fetchTimetable = async () => {
-      try {
-        setLoadState("pending");
-        const res = await axios.get(
-          `${apiBase}/admin/timetable/group/${current.id}`,
-          { withCredentials: true }
-        );
-        const timetable = res.data?.group?.timetable || [];
-        const courses = res.data?.group?.courses || [];
-        const departmentFaculty = res.data?.group?.departmentFaculty || [];
-        setSchedule(buildScheduleFromBackend(timetable));
-        setGroupCourses(courses);
-        setDeptFaculty(departmentFaculty);
-        setLoadState("success");
-      } catch (err) {
-        console.error("Fetch group timetable failed", err.response?.data || err.message);
-        setLoadState("failure");
-      }
-    };
-    fetchTimetable();
-  }, [apiBase, selectedGroupCode, groupCards]);
+    dispatch(fetchGroupTimetable(current.id))
+      .unwrap()
+      .catch((message) => {
+        toast.error(`${message || "Failed to load group timetable"}`);
+      });
+  }, [apiBase, selectedGroupCode, groupCards, dispatch]);
 
   const summaryRows = useMemo(() => {
     const seen = new Map();
-    schedule.forEach((row) => {
+    normalizedSchedule.forEach((row) => {
       row.slots.forEach((slot) => {
         if (slot.code && slot.code !== "FREE" && !seen.has(slot.code)) {
           seen.set(slot.code, {
@@ -169,10 +143,21 @@ const Timetable = () => {
       });
     });
     return Array.from(seen.values());
-  }, [schedule]);
+  }, [normalizedSchedule]);
+
+  const subjectCodeOptions = useMemo(() => {
+    if (groupCourses.length > 0) return groupCourses;
+    const current = groupCards.find((g) => g.groupCode === selectedGroupCode);
+    const fallbackCourses = current?.courses || [];
+    return fallbackCourses.map((c) => ({
+      id: c?._id || c?.id,
+      code: c?.code,
+      courseName: c?.courseName,
+    }));
+  }, [groupCourses, groupCards, selectedGroupCode]);
 
   const currentSlot =
-    schedule?.[selectedSlot.dayIndex]?.slots?.[
+    normalizedSchedule?.[selectedSlot.dayIndex]?.slots?.[
       selectedSlot.slotIndex
     ] || { code: "FREE", name: "Free", by: "" };
 
@@ -181,15 +166,18 @@ const Timetable = () => {
     lecture: 1,
     subject: currentSlot.name,
     faculty: currentSlot.by,
+    facultyId: "",
     code: currentSlot.code,
   });
 
   React.useEffect(() => {
+    const matchedFaculty = deptFaculty.find((f) => f.name === currentSlot.by);
     setEditForm({
       day: days[selectedSlot.dayIndex],
       lecture: selectedSlot.slotIndex + 1,
       subject: currentSlot.name,
       faculty: currentSlot.by,
+      facultyId: matchedFaculty?.id || "",
       code: currentSlot.code,
     });
   }, [
@@ -199,46 +187,180 @@ const Timetable = () => {
     currentSlot.name,
     currentSlot.by,
     currentSlot.code,
+    deptFaculty,
+    days,
   ]);
 
   const applyEdit = () => {
-    setSchedule((prev) => {
-      const next = prev.map((d) => ({
-        ...d,
-        slots: d.slots.map((s) => ({ ...s })),
-      }));
-      const dIdx = days.indexOf(editForm.day);
-      const sIdx = Math.max(0, (editForm.lecture || 1) - 1);
-      if (next[dIdx] && next[dIdx].slots[sIdx]) {
-        next[dIdx].slots[sIdx] = {
-          ...next[dIdx].slots[sIdx],
-          code: editForm.code || "FREE",
-          name: editForm.subject || "Free",
-          by: editForm.faculty || "",
-        };
-      }
-      return next;
+    dispatch(
+      applyTimetableEdit({
+        day: editForm.day,
+        lecture: editForm.lecture,
+        code: editForm.code,
+        subject: editForm.subject,
+        faculty: editForm.faculty,
+      })
+    );
+  };
+
+  const buildNextSchedule = () => {
+    const next = normalizedSchedule.map((d) => ({
+      ...d,
+      slots: d.slots.map((s) => ({ ...s })),
+    }));
+    const dayIndex = days.indexOf(editForm.day);
+    const slotIndex = Math.max(0, Number(editForm.lecture || 1) - 1);
+    if (!next[dayIndex] || !next[dayIndex].slots[slotIndex]) return next;
+    next[dayIndex].slots[slotIndex] = {
+      ...next[dayIndex].slots[slotIndex],
+      code: editForm.code || "FREE",
+      name: editForm.subject || "Free",
+      by: editForm.faculty || "",
+    };
+    return next;
+  };
+
+  const buildCreatePayload = (nextSchedule) => {
+    const scheduleSlots = {};
+    const courseFacultyMap = new Map();
+
+    nextSchedule.forEach((row) => {
+      const dayKey = dayKeyMap[row.day];
+      if (!dayKey) return;
+      row.slots.forEach((slot, idx) => {
+        if (!slot?.code || slot.code === "FREE") return;
+        const matchCourse = subjectCodeOptions.find((c) => c.code === slot.code);
+        const courseId = matchCourse?.id;
+        if (!courseId) return;
+        if (!scheduleSlots[dayKey]) scheduleSlots[dayKey] = {};
+        scheduleSlots[dayKey][String(idx + 1)] = courseId;
+
+        const matchFaculty = deptFaculty.find((f) => f.name === slot.by);
+        if (matchFaculty?.id) {
+          const key = `${courseId}-${matchFaculty.id}`;
+          courseFacultyMap.set(key, { course: courseId, faculty: matchFaculty.id });
+        }
+      });
     });
+
+    return {
+      scheduleSlots,
+      courseFaculty: Array.from(courseFacultyMap.values()),
+    };
+  };
+
+  const handleSubmitTimetable = async () => {
+    if (saving) return;
+    const currentGroup = groupCards.find((g) => g.groupCode === selectedGroupCode);
+    if (!currentGroup?.id) {
+      toast.error("Please select a group first.");
+      return;
+    }
+
+    const selectedCourse = subjectCodeOptions.find((c) => c.code === editForm.code);
+    const derivedFacultyId =
+      editForm.facultyId || deptFaculty.find((f) => f.name === editForm.faculty)?.id;
+
+    if (editForm.code !== "FREE" && !selectedCourse?.id) {
+      toast.error("Course ID not found for selected subject code.");
+      return;
+    }
+
+    if (editForm.code !== "FREE" && !derivedFacultyId) {
+      toast.error("Please select a faculty for the selected subject.");
+      return;
+    }
+
+    const dayKey = dayKeyMap[editForm.day];
+    if (!dayKey) {
+      toast.error("Invalid day selected.");
+      return;
+    }
+
+    const nextSchedule = buildNextSchedule();
+    const putPayload = {
+      day: dayKey,
+      lectureNumber: Number(editForm.lecture),
+      courseId: editForm.code === "FREE" ? null : selectedCourse.id,
+      facultyId: editForm.code === "FREE" ? null : derivedFacultyId,
+    };
+
+    try {
+      setSaving(true);
+      const postPayload = buildCreatePayload(nextSchedule);
+      await dispatch(
+        saveGroupTimetable({
+          groupId: currentGroup.id,
+          putPayload,
+          createPayload: postPayload,
+        })
+      ).unwrap();
+
+      applyEdit();
+      dispatch(fetchGroupTimetable({ groupId: currentGroup.id, silent: true }));
+      toast.success("Timetable updated successfully");
+    } catch (error) {
+      toast.error(
+        typeof error === "string" ? error : error?.message || "Failed to update timetable"
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const downloadTimetable = () => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text(`Timetable: ${selectedGroupCode}`, 14, 18);
-    doc.setFontSize(11);
-    let y = 28;
-    schedule.forEach((row) => {
-      const line = `${row.day}: ${row.slots
-        .map((s) => `${s.code} (${s.name})`)
-        .join(" | ")}`;
-      doc.text(line, 14, y);
-      y += 7;
-      if (y > 280) {
-        doc.addPage();
-        y = 20;
-      }
+    const esc = (value = "") =>
+      String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const tableRows = schedule
+      .map(
+        (row) => `
+          <tr>
+            <td>${esc(row.day)}</td>
+            <td>${esc(
+              row.slots
+                .map((s) => `${s.code} (${s.name})${s.by ? ` - ${s.by}` : ""}`)
+                .join(" | "),
+            )}</td>
+          </tr>
+        `,
+      )
+      .join("");
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
+            h1 { margin: 0 0 6px; font-size: 22px; }
+            p { margin: 0 0 16px; color: #4b5563; }
+            table { width: 100%; border-collapse: collapse; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; vertical-align: top; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h1>Timetable: ${esc(selectedGroupCode || "Group")}</h1>
+          <p>Generated on: ${esc(new Date().toLocaleString())}</p>
+          <table>
+            <thead><tr><th>Day</th><th>Schedule</th></tr></thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    downloadPdfFromHtml(apiBase, {
+      html,
+      fileName: `${selectedGroupCode || "group"}_timetable.pdf`,
+    }).catch((error) => {
+      toast.error(error.response?.data?.message || "Failed to download timetable PDF");
     });
-    doc.save(`${selectedGroupCode}_timetable.pdf`);
   };
 
   const palette = [
@@ -253,22 +375,42 @@ const Timetable = () => {
     className: "center",
     centerMode: true,
     infinite: true,
-    centerPadding: "24px",
+    centerPadding: "28px",
     slidesToShow: 3,
+    slidesToScroll: 1,
     speed: 500,
     arrows: true,
     dots: false,
     responsive: [
-      { breakpoint: 1200, settings: { slidesToShow: 2, centerPadding: "20px" } },
-      { breakpoint: 900, settings: { slidesToShow: 1, centerPadding: "20px" } },
-      { breakpoint: 640, settings: { slidesToShow: 1, centerPadding: "12px" } },
+      {
+        breakpoint: 1200,
+        settings: { slidesToShow: 2, slidesToScroll: 1, centerPadding: "20px" },
+      },
+      {
+        breakpoint: 900,
+        settings: {
+          slidesToShow: 1,
+          slidesToScroll: 1,
+          centerMode: false,
+          centerPadding: "0px",
+        },
+      },
+      {
+        breakpoint: 640,
+        settings: {
+          slidesToShow: 1,
+          slidesToScroll: 1,
+          centerMode: false,
+          centerPadding: "0px",
+        },
+      },
     ],
   };
 
   const renderState = () => {
-    if (loadState === "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="tt-state pending">
+        <div className="tt-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -283,7 +425,7 @@ const Timetable = () => {
         </div>
       );
     }
-    if (loadState === "failure") {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="tt-state error">
           <img src={emptyStateImg} alt="Failed" className="tt-state-img" />
@@ -338,37 +480,37 @@ const Timetable = () => {
               Groups with semester, room and student count
             </span>
           </div>
-          {filteredGroups.length === 0 ? (
-            <div className="tt-empty">No groups found.</div>
-          ) : (
-            <div className="tt-group-slider">
+          <div className="tt-group-slider">
+            {filteredGroups.length === 0 ? (
+              <div className="tt-empty">No groups found.</div>
+            ) : (
               <Slider {...sliderSettings}>
                 {filteredGroups.map((g) => (
-                  <div key={g.group}>
+                  <div key={g.id}>
                     <button
                       type="button"
                       className={`tt-group-card ${
-                        selectedGroup === g.group ? "active" : ""
+                        selectedGroupCode === g.groupCode ? "active" : ""
                       }`}
                       onClick={() => {
-                        setSelectedGroup(g.group);
+                        dispatch(setSelectedGroupCode(g.groupCode));
                       }}
                     >
                       <div className="tt-group-badge">
                         <FiGrid />
-                        {g.group}
+                        {g.groupCode}
                       </div>
                       <div className="tt-group-meta">
-                        <span>{g.sem}</span>
-                        <span>Room {g.room}</span>
-                        <span>{g.students} Students</span>
+                        <span>{g.semester ? `Sem ${g.semester}` : "Sem -"}</span>
+                        <span>Room {g.roomNo || "-"}</span>
+                        <span>{g.studentCount ?? 0} Students</span>
                       </div>
                     </button>
                   </div>
                 ))}
               </Slider>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         <div className="tt-flow">
@@ -383,7 +525,9 @@ const Timetable = () => {
                   <select
                     className="tt-select"
                     value={selectedGroupCode}
-                    onChange={(e) => setSelectedGroupCode(e.target.value)}
+                    onChange={(e) =>
+                      dispatch(setSelectedGroupCode(e.target.value))
+                    }
                   >
                     {groups.map((g) => (
                       <option key={g} value={g}>
@@ -407,46 +551,58 @@ const Timetable = () => {
                 <div className="tt-calendar-scroll">
                   <div className="tt-calendar-head">
                     <div className="tt-calendar-cell tt-label">Day</div>
-                    {slots.map((s) => (
-                      <div key={s} className="tt-calendar-cell tt-slot">
-                        {s}
-                      </div>
+                    {lectureSlots.map((s, i) => (
+                      <React.Fragment key={s}>
+                        {(i === 2 || i === 4) && (
+                          <div className="tt-calendar-cell tt-break-head">
+                            {i === 2 ? "Break" : "Lunch Break"}
+                          </div>
+                        )}
+                        <div className="tt-calendar-cell tt-slot">
+                          <span className="tt-slot-no">{i + 1}</span>
+                          <span>{s}</span>
+                        </div>
+                      </React.Fragment>
                     ))}
                   </div>
-                  {schedule.map((row) => (
+                  {normalizedSchedule.map((row) => (
                     <div key={row.day} className="tt-calendar-row">
                       <div className="tt-calendar-cell tt-label">
                         {row.day}
                       </div>
                       {row.slots.map((slot, idx) => (
-                        <div
-                          key={`${row.day}-${idx}`}
-                          className="tt-calendar-cell"
-                        >
-                          <button
-                            type="button"
-                            className={`${palette[slot.color]} ${
-                              isEditing &&
-                              selectedSlot.dayIndex ===
-                                days.indexOf(row.day) &&
-                              selectedSlot.slotIndex === idx
-                                ? "t-active"
-                                : ""
-                            }`}
-                            disabled={!isEditing}
-                            onClick={() => {
-                              if (!isEditing) return;
-                              setSelectedSlot({
-                                dayIndex: days.indexOf(row.day),
-                                slotIndex: idx,
-                              });
-                            }}
-                          >
-                            <span className="t-code">{slot.code}</span>
-                            <span className="t-name">{slot.name}</span>
-                            <span className="t-by">{slot.by}</span>
-                          </button>
-                        </div>
+                        <React.Fragment key={`${row.day}-${idx}`}>
+                          {(idx === 2 || idx === 4) && (
+                            <div className="tt-calendar-cell tt-break-col">
+                              {idx === 2 ? "Break" : "Lunch Break"}
+                            </div>
+                          )}
+                          <div className="tt-calendar-cell">
+                            <button
+                              type="button"
+                              className={`${palette[slot.color]} ${
+                                isEditing &&
+                                selectedSlot.dayIndex ===
+                                  days.indexOf(row.day) &&
+                                selectedSlot.slotIndex === idx
+                                  ? "t-active"
+                                  : ""
+                              }`}
+                              disabled={!isEditing}
+                              onClick={() => {
+                                if (!isEditing) return;
+                                setSelectedSlot({
+                                  dayIndex: days.indexOf(row.day),
+                                  slotIndex: idx,
+                                });
+                              }}
+                            >
+                              <span className="t-code">{slot.code}</span>
+                              <span className="t-name">{slot.name}</span>
+                              <span className="t-by">{slot.by}</span>
+                            </button>
+                          </div>
+                        </React.Fragment>
                       ))}
                     </div>
                   ))}
@@ -519,7 +675,7 @@ const Timetable = () => {
                     }));
                   }}
                 >
-                  {slots.map((s, i) => (
+                  {lectureSlots.map((s, i) => (
                     <option key={s} value={i + 1}>
                       {`Lecture ${i + 1}`}
                     </option>
@@ -532,7 +688,7 @@ const Timetable = () => {
                   value={editForm.code}
                   onChange={(e) => {
                     const code = e.target.value;
-                    const match = groupCourses.find((c) => c.code === code);
+                    const match = subjectCodeOptions.find((c) => c.code === code);
                     setEditForm((prev) => ({
                       ...prev,
                       code,
@@ -541,7 +697,7 @@ const Timetable = () => {
                   }}
                 >
                   <option value="FREE">FREE</option>
-                  {groupCourses.map((c) => (
+                  {subjectCodeOptions.map((c) => (
                     <option key={c.code} value={c.code}>
                       {c.code}
                     </option>
@@ -559,17 +715,22 @@ const Timetable = () => {
               <label className="tt-label-field">
                 Faculty
                 <select
-                  value={editForm.faculty}
-                  onChange={(e) =>
+                  value={editForm.facultyId}
+                  onChange={(e) => {
+                    const nextFacultyId = e.target.value;
+                    const match = deptFaculty.find(
+                      (f) => String(f.id) === String(nextFacultyId)
+                    );
                     setEditForm((prev) => ({
                       ...prev,
-                      faculty: e.target.value,
-                    }))
-                  }
+                      facultyId: nextFacultyId,
+                      faculty: match?.name || "",
+                    }));
+                  }}
                 >
                   <option value="">Select Faculty</option>
                   {deptFaculty.map((f) => (
-                    <option key={f.id} value={f.name}>
+                    <option key={f.id} value={f.id}>
                       {f.name}
                     </option>
                   ))}
@@ -578,9 +739,10 @@ const Timetable = () => {
               <button
                 className="tt-submit"
                 type="button"
-                onClick={applyEdit}
+                onClick={handleSubmitTimetable}
+                disabled={saving}
               >
-                Submit
+                {saving ? "Saving..." : "Submit"}
               </button>
             </div>
 
@@ -606,3 +768,5 @@ const Timetable = () => {
 };
 
 export default Timetable;
+
+

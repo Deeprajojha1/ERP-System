@@ -1,9 +1,12 @@
 import React, { useMemo, useState } from "react";
-import { FiDownload, FiPrinter } from "react-icons/fi";
+import { FiDownload, FiPrinter, FiSearch } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
-import jsPDF from "jspdf";
+import { useSelector } from "react-redux";
 import "./Exam.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import toast from "react-hot-toast";
 
 const Exam = () => {
   const [search, setSearch] = useState("");
@@ -11,7 +14,8 @@ const Exam = () => {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState("success");
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
+  const apiBase = useSelector((state) => state.config.apiBase);
 
   const subjects = [
     "All Subjects",
@@ -124,31 +128,49 @@ const Exam = () => {
   };
 
   const handleDownload = (exam) => {
-    const doc = new jsPDF();
-    doc.setFontSize(16);
-    doc.text("Exam Sheet", 14, 18);
-    doc.setFontSize(11);
-    const lines = [
-      `Name: ${exam.name}`,
-      `Subject: ${exam.subject}`,
-      `Date: ${exam.date}`,
-      `Time: ${exam.time}`,
-      `Duration: ${exam.duration}`,
-      `Status: ${exam.status.toUpperCase()}`,
-    ];
-    let y = 30;
-    lines.forEach((line) => {
-      doc.text(line, 14, y);
-      y += 8;
+    const esc = (value = "") =>
+      String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+
+    const html = `
+      <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1 { margin: 0 0 12px; font-size: 24px; }
+            .row { margin: 8px 0; }
+            .label { font-weight: 700; width: 90px; display: inline-block; }
+          </style>
+        </head>
+        <body>
+          <h1>Exam Sheet</h1>
+          <div class="row"><span class="label">Name:</span> ${esc(exam.name)}</div>
+          <div class="row"><span class="label">Subject:</span> ${esc(exam.subject)}</div>
+          <div class="row"><span class="label">Date:</span> ${esc(exam.date)}</div>
+          <div class="row"><span class="label">Time:</span> ${esc(exam.time)}</div>
+          <div class="row"><span class="label">Duration:</span> ${esc(exam.duration)}</div>
+          <div class="row"><span class="label">Status:</span> ${esc(exam.status.toUpperCase())}</div>
+        </body>
+      </html>
+    `;
+
+    downloadPdfFromHtml(apiBase, {
+      html,
+      fileName: `${exam.name.replace(/\s+/g, "_")}.pdf`,
+    }).catch((error) => {
+      toast.error(error.response?.data?.message || "Failed to download PDF");
     });
-    doc.save(`${exam.name.replace(/\s+/g, "_")}.pdf`);
   };
 
 
   const renderState = () => {
-    if (loadState === "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="exam-state pending">
+        <div className="exam-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -163,7 +185,7 @@ const Exam = () => {
         </div>
       );
     }
-    if (loadState === "failure") {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="exam-state error">
           <img src={emptyStateImg} alt="Failed" className="exam-state-img" />
@@ -188,7 +210,9 @@ const Exam = () => {
 
         <div className="exam-filters">
           <div className="exam-search">
-            <span className="exam-search-icon">🔍</span>
+            <span className="exam-search-icon" aria-hidden="true">
+              <FiSearch />
+            </span>
             <input
               type="text"
               placeholder="Search by exam name or subject..."
@@ -244,6 +268,7 @@ const Exam = () => {
           <table className="exam-table">
             <thead>
               <tr>
+                <th className="exam-cell-serial">S. No</th>
                 <th>EXAM NAME</th>
                 <th>SUBJECT</th>
                 <th>DATE</th>
@@ -254,39 +279,44 @@ const Exam = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((e) => (
-                <tr key={`${e.name}-${e.date}`}>
-                  <td className="exam-name">{e.name}</td>
-                  <td>{e.subject}</td>
-                  <td>{e.date}</td>
-                  <td>{e.time}</td>
-                  <td>{e.duration}</td>
-                  <td>{e.status.toUpperCase()}</td>
-                  <td>
-                    <div className="exam-actions">
-                      <button
-                        className="exam-action-btn"
-                        type="button"
-                        onClick={() => handlePrint(e)}
-                      >
-                        <FiPrinter />
-                        Print
-                      </button>
-                      <button
-                        className="exam-action-btn export"
-                        type="button"
-                        onClick={() => handleDownload(e)}
-                      >
-                        <FiDownload />
-                        Download
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((e, index) => {
+                const numericId =
+                  (e.date || "").replace(/\D/g, "") || `${index + 1}`;
+                return (
+                  <tr key={`${e.name}-${e.date}-${numericId}`}>
+                    <td className="exam-serial-cell">{index + 1}</td>
+                    <td className="exam-name">{e.name}</td>
+                    <td>{e.subject}</td>
+                    <td>{e.date}</td>
+                    <td>{e.time}</td>
+                    <td>{e.duration}</td>
+                    <td>{e.status.toUpperCase()}</td>
+                    <td>
+                      <div className="exam-actions">
+                        <button
+                          className="exam-action-btn"
+                          type="button"
+                          onClick={() => handlePrint(e)}
+                        >
+                          <FiPrinter />
+                          Print
+                        </button>
+                        <button
+                          className="exam-action-btn export"
+                          type="button"
+                          onClick={() => handleDownload(e)}
+                        >
+                          <FiDownload />
+                          Download
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="exam-empty">
+                  <td colSpan={8} className="exam-empty">
                     No exams found
                   </td>
                 </tr>
@@ -359,3 +389,5 @@ const Exam = () => {
 };
 
 export default Exam;
+
+

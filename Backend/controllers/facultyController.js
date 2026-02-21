@@ -5,20 +5,153 @@ import Department from "../models/Department.js";
 import Group from "../models/Group.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
+import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
+import Assignment from "../models/Assignment.js";
+import Submission from "../models/submission.js";
+
+const buildRoutineWithDetails = async (routineMap) => {
+  if (!routineMap || (routineMap instanceof Map && routineMap.size === 0)) return {};
+
+  const routineObj =
+    routineMap instanceof Map ? Object.fromEntries(routineMap.entries()) : routineMap;
+  const normalizeDaySlots = (daySlots) =>
+    daySlots instanceof Map ? Object.fromEntries(daySlots.entries()) : daySlots;
+
+  const courseIds = new Set();
+  const groupIds = new Set();
+
+  Object.values(routineObj || {}).forEach((daySlotsRaw) => {
+    const daySlots = normalizeDaySlots(daySlotsRaw);
+    if (!daySlots || typeof daySlots !== "object") return;
+    Object.values(daySlots).forEach((slot) => {
+      if (!slot) return;
+      const courseId = slot.course?._id || slot.course;
+      const groupId = slot.group?._id || slot.group;
+      if (courseId) courseIds.add(String(courseId));
+      if (groupId) groupIds.add(String(groupId));
+    });
+  });
+
+  const [courses, groups] = await Promise.all([
+    courseIds.size
+      ? Course.find({ _id: { $in: Array.from(courseIds) } }).select("code courseName")
+      : [],
+    groupIds.size
+      ? Group.find({ _id: { $in: Array.from(groupIds) } }).select("name roomNo")
+      : [],
+  ]);
+
+  const courseMap = new Map(courses.map((c) => [String(c._id), c]));
+  const groupMap = new Map(groups.map((g) => [String(g._id), g]));
+
+  const resolved = {};
+
+  Object.entries(routineObj || {}).forEach(([day, daySlotsRaw]) => {
+    const daySlots = normalizeDaySlots(daySlotsRaw);
+    resolved[day] = {};
+    if (!daySlots || typeof daySlots !== "object") return;
+
+    Object.entries(daySlots).forEach(([lectureNumber, slot]) => {
+      if (!slot) return;
+
+      const courseId = String(slot.course?._id || slot.course || "");
+      const groupId = String(slot.group?._id || slot.group || "");
+
+      const courseDoc = courseMap.get(courseId);
+      const groupDoc = groupMap.get(groupId);
+
+      resolved[day][lectureNumber] = {
+        course: courseDoc
+          ? {
+              _id: courseDoc._id,
+              code: courseDoc.code,
+              courseName: courseDoc.courseName,
+            }
+          : slot.course || null,
+        group: groupDoc
+          ? {
+              _id: groupDoc._id,
+              name: groupDoc.name,
+              roomNo: groupDoc.roomNo || null,
+            }
+          : slot.group || null,
+      };
+    });
+  });
+
+  return resolved;
+};
+
+const clearTimetableCacheForDepartments = async (departmentIds = []) => {
+  const normalizedIds = [...new Set((departmentIds || []).filter(Boolean).map(String))];
+  await redisClient.del("admin:timetable:groups");
+  await redisClient.del("admin:timetable:groups:v2");
+
+  if (normalizedIds.length === 0) return;
+
+  const groups = await Group.find({
+    department: { $in: normalizedIds },
+    isDeleted: { $ne: true },
+  }).select("_id");
+
+  await Promise.all(
+    groups.map((group) =>
+      Promise.all([
+        redisClient.del(`admin:timetable:group:${group._id}`),
+        redisClient.del(`admin:timetable:group:v2:${group._id}`),
+      ])
+    )
+  );
+};
 
 /* ================= GET ALL FACULTY ================= */
 
 export const getAllFaculty = async (req, res) => {
   try {
-    const faculty = await Faculty.find()
+    const noCache = req.query.noCache === "true";
+    const cacheKey = "admin:faculty:all";
+
+    if (!noCache) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          return res.json(cachedData);
+        }
+      } catch (err) {
+        console.error("[Redis] getAllFaculty cache read failed:", err.message || err);
+      }
+    }
+
+    const faculty = await Faculty.find({ isDeleted: { $ne: true } })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
 
-    res.json({
+    const facultyWithRoutineDetails = await Promise.all(
+      faculty.map(async (f) => {
+        const obj = f.toObject();
+        obj.routine = await buildRoutineWithDetails(f.routine);
+        return obj;
+      })
+    );
+
+    const responsePayload = {
       message: "Faculty fetched successfully",
-      count: faculty.length,
-      faculty,
-    });
+      count: facultyWithRoutineDetails.length,
+      faculty: facultyWithRoutineDetails,
+    };
+
+    if (!noCache) {
+      try {
+        await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+          EX: DEFAULT_CACHE_TTL,
+        });
+      } catch (err) {
+        console.error("[Redis] getAllFaculty cache write failed:", err.message || err);
+      }
+    }
+
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -32,7 +165,7 @@ export const getFacultyById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const faculty = await Faculty.findById(id)
+    const faculty = await Faculty.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
 
@@ -42,9 +175,12 @@ export const getFacultyById = async (req, res) => {
       });
     }
 
+    const facultyObj = faculty.toObject();
+    facultyObj.routine = await buildRoutineWithDetails(faculty.routine);
+
     res.json({
       message: "Faculty fetched successfully",
-      faculty,
+      faculty: facultyObj,
     });
   } catch (error) {
     res.status(500).json({
@@ -144,10 +280,19 @@ export const addFaculty = async (req, res) => {
         .populate("user", "name email aadharNumber phoneNumber DOB role status")
         .populate("department");
 
-      res.status(201).json({
+      const responsePayload = {
         message: "Faculty added successfully",
         faculty: populatedFaculty,
-      });
+      };
+
+      try {
+        await redisClient.del("admin:faculty:all");
+        await clearTimetableCacheForDepartments([department]);
+      } catch (err) {
+        console.error("[Redis] addFaculty cache clear failed:", err.message || err);
+      }
+
+      res.status(201).json(responsePayload);
     } catch (txnError) {
       await session.abortTransaction();
       session.endSession();
@@ -166,6 +311,7 @@ export const updateFaculty = async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    const existingFaculty = await Faculty.findById(id).select("department");
 
     const faculty = await Faculty.findByIdAndUpdate(id, updateData, {
       new: true,
@@ -180,10 +326,22 @@ export const updateFaculty = async (req, res) => {
       });
     }
 
-    res.json({
+    const responsePayload = {
       message: "Faculty updated successfully",
       faculty,
-    });
+    };
+
+    try {
+      await redisClient.del("admin:faculty:all");
+      await clearTimetableCacheForDepartments([
+        existingFaculty?.department,
+        faculty.department?._id || faculty.department,
+      ]);
+    } catch (err) {
+      console.error("[Redis] updateFaculty cache clear failed:", err.message || err);
+    }
+
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({
       message: error.message,
@@ -197,6 +355,43 @@ export const deleteFaculty = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const faculty = await Faculty.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
+    if (!faculty) {
+      return res.status(404).json({
+        message: "Faculty not found",
+      });
+    }
+
+    /* Soft-delete the associated user as well */
+    await User.findByIdAndUpdate(faculty.user, { isDeleted: true });
+
+    try {
+      await redisClient.del("admin:faculty:all");
+      await clearTimetableCacheForDepartments([faculty.department]);
+    } catch (err) {
+      console.error("[Redis] deleteFaculty cache clear failed:", err.message || err);
+    }
+
+    res.json({
+      message: "Faculty deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+/* ================= HARD DELETE FACULTY ================= */
+
+export const hardDeleteFaculty = async (req, res) => {
+  try {
+    const { id } = req.params;
+
     const faculty = await Faculty.findById(id);
     if (!faculty) {
       return res.status(404).json({
@@ -204,12 +399,19 @@ export const deleteFaculty = async (req, res) => {
       });
     }
 
-    /* Delete faculty and associated user */
+    /* Hard-delete faculty and associated user */
     await Faculty.findByIdAndDelete(id);
     await User.findByIdAndDelete(faculty.user);
 
+    try {
+      await redisClient.del("admin:faculty:all");
+      await clearTimetableCacheForDepartments([faculty.department]);
+    } catch (err) {
+      console.error("[Redis] hardDeleteFaculty cache clear failed:", err.message || err);
+    }
+
     res.json({
-      message: "Faculty deleted successfully",
+      message: "Faculty permanently deleted",
     });
   } catch (error) {
     res.status(500).json({
@@ -251,5 +453,97 @@ export const addRoutineToFaculty = async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+};
+
+/* ============== CREATE ASSIGNMENT (FACULTY) ============== */
+export const createAssignment = async (req, res) => {
+  try {
+    const { title, description, groupId, dueDate } = req.body;
+
+    if (!req.file) {
+      return res.status(400).json({ message: "File is required" });
+    }
+
+    const faculty = await Faculty.findOne({ user: req.userId });
+    if (!faculty) {
+      return res.status(404).json({ message: "Faculty record not found" });
+    }
+
+    const group = await Group.findById(groupId);
+    if (!group) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const assignment = await Assignment.create({
+      title,
+      description,
+      fileUrl: req.file.path,
+      fileType: req.file.mimetype,
+      department: group.department,
+      group: groupId,
+      uploadedBy: faculty._id,
+      dueDate,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Assignment created successfully",
+      assignment,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+/* ============== GET FACULTY ASSIGNMENTS ============== */
+export const getTeacherAssignments = async (req, res) => {
+  try {
+    const faculty = await Faculty.findOne({ user: req.userId });
+    if (!faculty) {
+      return res.status(404).json({ message: "Faculty record not found" });
+    }
+
+    const assignments = await Assignment.find({ uploadedBy: faculty._id })
+      .populate("group", "name")
+      .sort({ createdAt: -1 });
+
+    return res.json(assignments);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+/* ============== GET ASSIGNMENT SUBMISSIONS ============== */
+export const getAssignmentSubmissions = async (req, res) => {
+  try {
+    const submissions = await Submission.find({ assignment: req.params.id })
+      .populate("student", "name email")
+      .sort({ createdAt: -1 });
+
+    return res.json(submissions);
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+/* ============== GRADE SUBMISSION ============== */
+export const gradeSubmission = async (req, res) => {
+  try {
+    const { marks, feedback } = req.body;
+
+    const submission = await Submission.findByIdAndUpdate(
+      req.params.id,
+      { marks, feedback },
+      { new: true }
+    );
+
+    return res.json({
+      success: true,
+      message: "Submission graded successfully",
+      submission,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };

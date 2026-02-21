@@ -1,15 +1,44 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
 import {
   setFaculty,
   setFacultyError,
   setFacultyLoading,
 } from "../redux/facultySlice";
 import emptyStateImg from "../assets/empty-state.svg";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import "./Faculty.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+
+const DESIGNATION_OPTIONS = [
+  { value: "professor", label: "Professor" },
+  { value: "assistant_prof", label: "Assistant Professor" },
+  { value: "hod", label: "HOD" },
+  { value: "training", label: "Training" },
+  { value: "other", label: "Other" },
+];
+
+const getAssignedCourseCount = (facultyMember) => {
+  const directCount = facultyMember?.courseIds?.length;
+  if (typeof directCount === "number" && directCount > 0) return directCount;
+
+  const routine = facultyMember?.routine;
+  if (!routine || typeof routine !== "object") return 0;
+
+  const uniqueCourseIds = new Set();
+  Object.values(routine).forEach((daySlots) => {
+    if (!daySlots || typeof daySlots !== "object") return;
+    Object.values(daySlots).forEach((slotDetail) => {
+      const courseId = slotDetail?.course?._id || slotDetail?.course;
+      if (courseId) uniqueCourseIds.add(String(courseId));
+    });
+  });
+
+  return uniqueCourseIds.size;
+};
 
 const Faculty = () => {
   const [search, setSearch] = useState("");
@@ -19,7 +48,7 @@ const Faculty = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
   const dispatch = useDispatch();
-  const { faculty, loading, error } = useSelector(
+  const { faculty } = useSelector(
     (state) => state.faculty
   );
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -37,31 +66,68 @@ const Faculty = () => {
     joiningDate: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
+  const cardGradients = [
+    "linear-gradient(145deg, #dbeafe 0%, #f8fbff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #dcfce7 0%, #f2fff7 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fef3c7 0%, #fffbeb 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fee2e2 0%, #fff5f5 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #ede9fe 0%, #f7f5ff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #cffafe 0%, #f0fdff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fce7f3 0%, #fff1f8 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #e0f2fe 0%, #f2faff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #e2e8f0 0%, #f8fafc 45%, #ffffff 100%)",
+  ];
+  const avatarGradients = [
+    "linear-gradient(135deg, #2563eb, #1d4ed8)",
+    "linear-gradient(135deg, #059669, #047857)",
+    "linear-gradient(135deg, #d97706, #b45309)",
+    "linear-gradient(135deg, #ef4444, #b91c1c)",
+    "linear-gradient(135deg, #7c3aed, #5b21b6)",
+    "linear-gradient(135deg, #0891b2, #155e75)",
+    "linear-gradient(135deg, #db2777, #9d174d)",
+    "linear-gradient(135deg, #0284c7, #0c4a6e)",
+    "linear-gradient(135deg, #475569, #1e293b)",
+  ];
+
+  const resetForm = () => {
+    setFormData({
+      name: "",
+      email: "",
+      password: "",
+      aadharNumber: "",
+      phoneNumber: "",
+      DOB: "",
+      employeeId: "",
+      department: "",
+      designation: "",
+      qualification: "",
+      joiningDate: "",
+    });
+  };
 
   const fetchAll = async () => {
     try {
+      setLoadState(ADMIN_LOAD_STATES.PENDING);
       dispatch(setFacultyLoading(true));
-      const [facRes, deptRes] = await Promise.all([
-        axios.get(`${apiBase}/admin/faculty`, {
-          withCredentials: true,
-        }),
-        axios.get(`${apiBase}/admin/department`, {
-          withCredentials: true,
-        }),
-      ]);
+      const facRes = await axios.get(`${apiBase}/admin/faculty`, {
+        withCredentials: true,
+      });
       dispatch(setFaculty(facRes.data?.faculty || []));
-      setDepartments(deptRes.data?.departments || []);
+      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       console.error(
         "Fetch faculty failed:",
         error.response?.data || error.message
       );
+      toast.error(`${error.response?.data?.message || "Failed to load faculty"}`);
       dispatch(
         setFacultyError(
           error.response?.data?.message ||
             "Failed to load faculty"
         )
       );
+      setLoadState(ADMIN_LOAD_STATES.FAILURE);
     } finally {
       dispatch(setFacultyLoading(false));
     }
@@ -70,6 +136,21 @@ const Faculty = () => {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const syncFacultySilently = async () => {
+    const facRes = await axios.get(`${apiBase}/admin/faculty`, {
+      withCredentials: true,
+    });
+    dispatch(setFaculty(facRes.data?.faculty || []));
+  };
+
+  const ensureModalDependencies = async () => {
+    const deptRes = await axios.get(`${apiBase}/admin/department`, {
+      withCredentials: true,
+      params: { noCache: "true" },
+    });
+    setDepartments(deptRes.data?.departments || []);
+  };
 
   const statuses = ["All Status", "Active", "Inactive", "On Leave"];
 
@@ -81,35 +162,53 @@ const Faculty = () => {
     }));
   };
 
-  const openEditModal = (facultyMember) => {
-    setEditTarget(facultyMember);
-    setFormData({
-      name: facultyMember.user?.name || facultyMember.name || "",
-      email: facultyMember.user?.email || facultyMember.email || "",
-      password: "",
-      aadharNumber:
-        facultyMember.user?.aadharNumber ||
-        facultyMember.aadharNumber ||
-        "",
-      phoneNumber:
-        facultyMember.user?.phoneNumber ||
-        facultyMember.phoneNumber ||
-        "",
-      DOB: facultyMember.user?.DOB
-        ? facultyMember.user.DOB.slice(0, 10)
-        : "",
-      employeeId: facultyMember.employeeId || "",
-      department:
-        facultyMember.department?._id ||
-        facultyMember.department ||
-        "",
-      designation: facultyMember.designation || "",
-      qualification: facultyMember.qualification || "",
-      joiningDate: facultyMember.joiningDate
-        ? facultyMember.joiningDate.slice(0, 10)
-        : "",
-    });
-    setIsOpen(true);
+  const openEditModal = async (facultyMember) => {
+    try {
+      await ensureModalDependencies();
+      setEditTarget(facultyMember);
+      setFormData({
+        name: facultyMember.user?.name || facultyMember.name || "",
+        email: facultyMember.user?.email || facultyMember.email || "",
+        password: "",
+        aadharNumber:
+          facultyMember.user?.aadharNumber ||
+          facultyMember.aadharNumber ||
+          "",
+        phoneNumber:
+          facultyMember.user?.phoneNumber ||
+          facultyMember.phoneNumber ||
+          "",
+        DOB: facultyMember.user?.DOB
+          ? facultyMember.user.DOB.slice(0, 10)
+          : "",
+        employeeId: facultyMember.employeeId || "",
+        department:
+          facultyMember.department?._id ||
+          facultyMember.department ||
+          "",
+        designation: facultyMember.designation || "",
+        qualification: facultyMember.qualification || "",
+        joiningDate: facultyMember.joiningDate
+          ? facultyMember.joiningDate.slice(0, 10)
+          : "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
+  };
+
+  const openAddModal = async () => {
+    try {
+      await ensureModalDependencies();
+      setEditTarget(null);
+      resetForm();
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
   };
 
   const handleDelete = async (facultyMember) => {
@@ -119,19 +218,22 @@ const Faculty = () => {
     );
     if (!ok) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/faculty/${facultyMember._id}`,
+      await axios.patch(
+        `${apiBase}/admin/faculty/${facultyMember._id}/delete`,
+        {},
         { withCredentials: true }
       );
-      await fetchAll();
+      dispatch(
+        setFaculty(faculty.filter((item) => item._id !== facultyMember._id))
+      );
+      toast.success("Faculty deleted successfully", { icon: "\u2705" });
     } catch (error) {
       console.error(
         "Delete faculty failed:",
         error.response?.data || error.message
       );
-      alert(
-        error.response?.data?.message ||
-          "Failed to delete faculty"
+      toast.error(
+        `${error.response?.data?.message || "Failed to delete faculty"}`
       );
     }
   };
@@ -165,45 +267,58 @@ const Faculty = () => {
       const payload = buildPayload();
 
       if (editTarget?._id) {
-        await axios.put(
+        const res = await axios.put(
           `${apiBase}/admin/faculty/${editTarget._id}`,
           payload,
           { withCredentials: true }
         );
+        const updatedFaculty =
+          res.data?.faculty ||
+          res.data?.updatedFaculty ||
+          res.data?.data ||
+          null;
+        if (updatedFaculty?._id) {
+          dispatch(
+            setFaculty(
+              faculty.map((item) =>
+                item._id === updatedFaculty._id ? updatedFaculty : item
+              )
+            )
+          );
+        } else {
+          await syncFacultySilently();
+        }
+        toast.success("Faculty updated successfully", { icon: "\u2705" });
       } else {
-        await axios.post(
+        const res = await axios.post(
           `${apiBase}/admin/faculty`,
           payload,
           { withCredentials: true }
         );
+        const createdFaculty =
+          res.data?.faculty ||
+          res.data?.newFaculty ||
+          res.data?.data ||
+          null;
+        if (createdFaculty?._id) {
+          dispatch(setFaculty([createdFaculty, ...faculty]));
+        } else {
+          await syncFacultySilently();
+        }
+        toast.success("Faculty added successfully", { icon: "\u2705" });
       }
-
-      await fetchAll();
 
       setIsOpen(false);
       setEditTarget(null);
-      setFormData({
-        name: "",
-        email: "",
-        password: "",
-        aadharNumber: "",
-        phoneNumber: "",
-        DOB: "",
-        employeeId: "",
-        department: "",
-        designation: "",
-        qualification: "",
-        joiningDate: "",
-      });
+      resetForm();
     } catch (error) {
       console.error(
         "Add faculty failed:",
         error.response?.data || error.message
       );
-      alert(
-        error.response?.data?.message ||
-          "Failed to add faculty"
-      );
+      toast.error(error.response?.data?.message || "Failed to add faculty", {
+        icon: "\u274C",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -227,11 +342,22 @@ const Faculty = () => {
     });
   }, [faculty, search, department, status]);
 
+  const filterDepartments = useMemo(() => {
+    const map = new Map();
+    faculty.forEach((f) => {
+      const deptId = f.department?._id || f.department;
+      const deptName = f.department?.name || f.department;
+      if (!deptId || !deptName || map.has(String(deptId))) return;
+      map.set(String(deptId), { _id: String(deptId), name: deptName });
+    });
+    return Array.from(map.values());
+  }, [faculty]);
+
 
   const renderState = () => {
-    if (loading) {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="faculty-state pending">
+        <div className="faculty-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -246,7 +372,7 @@ const Faculty = () => {
         </div>
       );
     }
-    if (error) {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="faculty-state error">
           <img
@@ -265,14 +391,25 @@ const Faculty = () => {
         <div className="faculty-header">
           <div>
             <h1 className="faculty-title">Faculty Directory</h1>
-            <p className="faculty-subtitle">Manage all faculty members</p>
+            <p className="faculty-subtitle">
+              {filtered.length} Faculty Members in the organization
+            </p>
           </div>
+          <button
+            className="faculty-add-btn"
+            type="button"
+            onClick={openAddModal}
+          >
+            + Add Faculty
+          </button>
         </div>
 
         <div className="faculty-panel">
           <div className="faculty-filters">
             <div className="faculty-search">
-              <span className="faculty-search-icon">??</span>
+              <span className="faculty-search-icon" aria-hidden="true">
+                <FiSearch />
+              </span>
               <input
                 type="text"
                 placeholder="Search faculty..."
@@ -287,7 +424,7 @@ const Faculty = () => {
                 onChange={(e) => setDepartment(e.target.value)}
               >
                 <option value="All Departments">All Departments</option>
-                {departments.map((d) => (
+                {filterDepartments.map((d) => (
                   <option key={d._id} value={d._id}>
                     {d.name}
                   </option>
@@ -311,8 +448,17 @@ const Faculty = () => {
             </div>
           ) : (
             <div className="faculty-grid">
-              {filtered.map((f) => (
-                <div className="faculty-card" key={f._id || f.user?._id}>
+              {filtered.map((f, index) => (
+                <div
+                  className="faculty-card"
+                  key={f._id || f.user?._id}
+                  style={{
+                    "--faculty-card-gradient":
+                      cardGradients[index % cardGradients.length],
+                    "--faculty-avatar-gradient":
+                      avatarGradients[index % avatarGradients.length],
+                  }}
+                >
                   <div className="faculty-card-top">
                     <div className="faculty-avatar">
                       {(f.user?.name || f.name || "NA")
@@ -350,7 +496,7 @@ const Faculty = () => {
                   <div className="faculty-meta">
                     <span>{f.qualification || "Qualification N/A"}</span>
                     <span className="faculty-courses">
-                      {(f.courseIds?.length || 0)} Courses
+                      {getAssignedCourseCount(f)} Courses
                     </span>
                   </div>
 
@@ -505,13 +651,20 @@ const Faculty = () => {
               <div className="faculty-form-row">
                 <label>
                   Designation
-                  <input
-                    placeholder="Professor"
-                    type="text"
+                  <select
                     name="designation"
                     value={formData.designation}
                     onChange={handleChange}
-                  />
+                  >
+                    <option value="" disabled>
+                      Select Designation
+                    </option>
+                    {DESIGNATION_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label>
                   Qualification
@@ -565,3 +718,5 @@ const Faculty = () => {
 };
 
 export default Faculty;
+
+

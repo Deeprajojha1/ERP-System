@@ -7,11 +7,13 @@ import {
   getUser,
   logout,
 } from "../controllers/userController.js";
+import { renderPdfFromHtml } from "../controllers/pdfController.js";
 import { getStudentProfile } from "../controllers/profileController.js";
 import {
   getStudentAttendanceReport,
   getStudentOverallAttendance,
 } from "../controllers/attendanceController.js";
+import { exportTabularData } from "../controllers/exportController.js";
 import isAuth from "../middlewares/isAuth.js";
 const router = express.Router();
 
@@ -29,6 +31,8 @@ router.post("/reset-password", resetPassword);
 router.post("/logout", logout);
 // get user
 router.get("/me", isAuth, getUser);
+router.post("/pdf/render", isAuth, renderPdfFromHtml);
+router.post("/export/tabular", isAuth, exportTabularData);
 
 // get student profile by email & password
 router.post("/profile", getStudentProfile);

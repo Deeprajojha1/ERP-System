@@ -1,165 +1,396 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { IoMdEyeOff } from "react-icons/io";
 import { IoEyeOutline } from "react-icons/io5";
-import axios from "axios";
+import { FiKey, FiLock, FiMail } from "react-icons/fi";
+import axios from "../../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../../redux/userSlice";
 import collegeLogo from "../../assets/college_47233.jpg";
 import "./Login.css";
+import toast from "react-hot-toast";
 
 const Login = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
 
+  const [loginMode, setLoginMode] = useState("password");
+  const [showPassword, setShowPassword] = useState(false);
+
   const [formData, setFormData] = useState({
     email: "",
     password: "",
   });
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [otpStep, setOtpStep] = useState(1);
+  const [otpData, setOtpData] = useState({
+    email: "",
+    otp: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [time, setTime] = useState(5);
+  const [second, setSecond] = useState(0);
 
   const [loading, setLoading] = useState(false);
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
 
-  /* Handle Input */
+  useEffect(() => {
+    if (loginMode !== "otp" || otpStep !== 2) return;
+    if (time === 0 && second === 0) return;
+
+    const timer = setInterval(() => {
+      if (second > 0) {
+        setSecond((prev) => prev - 1);
+      } else if (time > 0) {
+        setTime((prev) => prev - 1);
+        setSecond(59);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [loginMode, otpStep, time, second]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  /* Submit Login */
-  const handleSubmit = async (e) => {
+  const handleOtpChange = (e) => {
+    const { name, value } = e.target;
+    setOtpData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePasswordLogin = async (e) => {
     e.preventDefault();
+
+    if (!apiBase) {
+      toast.error("Server configuration missing. Please refresh and try again.");
+      return;
+    }
 
     try {
       setLoading(true);
 
-      const res = await axios.post(
-        `${apiBase}/user/login`,
-        formData,
-        {
-          withCredentials: true, // for cookies
-        }
-      );
+      const res = await axios.post(`${apiBase}/user/login`, formData);
 
-      console.log("Login Success →", res.data);
+            // Store user data in Redux
       dispatch(setUserData(res.data));
-      alert(res.data.message || "Login Successful ✅");
+      toast.success(res.data.message || "Login successful");
+
       setFormData({
         email: "",
         password: "",
-      })
-      
-      /* Redirect based on user role */
-      if (res.data.user.role === 'faculty') {
-        navigate('/faculty/faculty-dashboard',{replace:true});
-      } else if (res.data.user.role === 'student') {
-        navigate('/dashboard',{replace:true});
-      } else if (res.data.user.role === 'admin') {
-        navigate('/admin/dashboard',{replace:true});
+      });
+
+      if (res.data.user.role === "faculty") {
+        navigate("/faculty/faculty-dashboard", { replace: true });
+      } else if (res.data.user.role === "student") {
+        navigate("/dashboard", { replace: true });
+      } else if (res.data.user.role === "admin") {
+        navigate("/admin/dashboard", { replace: true });
       }
-
     } catch (error) {
-      console.error(error);
-
-      alert(
-        error.response?.data?.message ||
-          "Login Failed ❌"
-      );
+      if (!error.response) {
+        toast.error(
+          error.message?.includes("Network")
+            ? "Unable to connect to server. Please check your network."
+            : `Request failed: ${error.message || "Unknown error"}`
+        );
+      } else {
+        toast.error(error.response?.data?.message || "Login failed");
+      }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSendOtp = async () => {
+    try {
+      if (!otpData.email) {
+        toast.error("Please enter email first");
+        return;
+      }
+
+      setOtpSending(true);
+      const res = await axios.post(`${apiBase}/user/send-otp`, { email: otpData.email });
+      toast.success(res.data?.message || "OTP sent successfully");
+
+      setTime(5);
+      setSecond(0);
+      setOtpStep(2);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to send OTP");
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    try {
+      if (!otpData.email || !otpData.otp) {
+        toast.error("Please fill email and OTP");
+        return;
+      }
+
+      setOtpVerifying(true);
+      const res = await axios.post(`${apiBase}/user/verify-otp`, {
+        email: otpData.email,
+        otp: otpData.otp,
+      });
+
+      toast.success(res.data?.message || "OTP verified");
+      setOtpStep(3);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "OTP verification failed");
+    } finally {
+      setOtpVerifying(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    try {
+      if (!otpData.newPassword || !otpData.confirmPassword) {
+        toast.error("Please fill both password fields");
+        return;
+      }
+
+      setResetLoading(true);
+      const res = await axios.post(`${apiBase}/user/reset-password`, {
+        email: otpData.email,
+        newPassword: otpData.newPassword,
+        confirmPassword: otpData.confirmPassword,
+      });
+
+      toast.success(res.data?.message || "Password reset successful");
+
+      setOtpData({ email: "", otp: "", newPassword: "", confirmPassword: "" });
+      setOtpStep(1);
+      setLoginMode("password");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Reset failed");
+    } finally {
+      setResetLoading(false);
     }
   };
 
   return (
     <div className="login-wrapper">
       <div className="login-card">
-
-        {/* Header */}
         <div className="login-header">
-          <img
-            src={collegeLogo}
-            alt="logo"
-            className="login-logo"
-          />
-          <h2>Welcome Back</h2>
-          <p>Login to your account</p>
+          <img src={collegeLogo} alt="logo" className="login-logo" />
+          <h2>Haridwar University</h2>
+          <p>ERP Portal - Sign in to your account</p>
         </div>
 
-        {/* Form */}
-        <form
-          onSubmit={handleSubmit}
-          className="login-form"
-        >
-          {/* Email */}
-          <div className="form-group">
-            <label>Email</label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              placeholder="Enter email"
-              required
-            />
-          </div>
-
-          {/* Password */}
-          <div className="form-group">
-            <label>Password</label>
-
-            <input
-              type={
-                showPassword
-                  ? "text"
-                  : "password"
-              }
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter password"
-              required
-            />
-
-            <span
-              className="eye-icon"
-              onClick={() =>
-                setShowPassword(
-                  (prev) => !prev
-                )
-              }
-            >
-              {showPassword ? (
-                <IoMdEyeOff />
-              ) : (
-                <IoEyeOutline />
-              )}
-            </span>
-          </div>
-
-          {/* Forgot */}
-          <div className="reset-link">
-            <Link to="/reset-password">
-              Forgot Password?
-            </Link>
-          </div>
-
-          {/* Button */}
+        <div className="login-mode-tabs" role="tablist" aria-label="Login mode">
           <button
-            type="submit"
-            className="login-btn"
-            disabled={loading}
+            type="button"
+            className={`login-mode-tab ${loginMode === "password" ? "active" : ""}`}
+            onClick={() => setLoginMode("password")}
           >
-            {loading
-              ? "Logging in..."
-              : "Login"}
+            <FiLock />
+            Password
           </button>
-        </form>
+          <button
+            type="button"
+            className={`login-mode-tab ${loginMode === "otp" ? "active" : ""}`}
+            onClick={() => setLoginMode("otp")}
+          >
+            <FiKey />
+            OTP
+          </button>
+        </div>
+
+        {loginMode === "password" ? (
+          <form onSubmit={handlePasswordLogin} className="login-form">
+            <div className="form-group">
+              <label>Email Address</label>
+              <span className="field-icon" aria-hidden="true">
+                <FiMail />
+              </span>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter email address"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Password</label>
+              <span className="field-icon" aria-hidden="true">
+                <FiLock />
+              </span>
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter password"
+                required
+              />
+
+              <span className="eye-icon" onClick={() => setShowPassword((prev) => !prev)}>
+                {showPassword ? <IoMdEyeOff /> : <IoEyeOutline />}
+              </span>
+            </div>
+
+            <button type="submit" className="login-btn" disabled={loading}>
+              {loading ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+        ) : (
+          <div className="login-form">
+            <div className="login-otp-steps">
+              <div className={`login-otp-dot ${otpStep === 1 ? "active" : ""}`}>1</div>
+              <div className="login-otp-line" />
+              <div className={`login-otp-dot ${otpStep === 2 ? "active" : ""}`}>2</div>
+              <div className="login-otp-line" />
+              <div className={`login-otp-dot ${otpStep === 3 ? "active" : ""}`}>3</div>
+            </div>
+
+            {otpStep === 1 && (
+              <>
+                <h4 className="otp-step-title">Step 1: Send OTP</h4>
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <span className="field-icon" aria-hidden="true">
+                    <FiMail />
+                  </span>
+                  <input
+                    type="email"
+                    name="email"
+                    value={otpData.email}
+                    onChange={handleOtpChange}
+                    placeholder="Enter email address"
+                    required
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className="login-btn"
+                  onClick={handleSendOtp}
+                  disabled={otpSending}
+                >
+                  {otpSending ? "Sending..." : "Send OTP"}
+                </button>
+              </>
+            )}
+
+            {otpStep === 2 && (
+              <>
+                <h4 className="otp-step-title">Step 2: Verify OTP</h4>
+                <div className="form-group">
+                  <label>OTP Code</label>
+                  <span className="field-icon" aria-hidden="true">
+                    <FiKey />
+                  </span>
+                  <input
+                    type="text"
+                    name="otp"
+                    value={otpData.otp}
+                    onChange={handleOtpChange}
+                    placeholder="Enter OTP"
+                    required
+                  />
+                </div>
+
+                {time > 0 || second > 0 ? (
+                  <p className="otp-timer">
+                    OTP expires in {time < 10 ? `0${time}` : time}:{second < 10 ? `0${second}` : second}
+                  </p>
+                ) : (
+                  <button className="otp-resend-btn" type="button" onClick={handleSendOtp}>
+                    Resend OTP
+                  </button>
+                )}
+
+                <div className="otp-btn-row">
+                  <button type="button" className="otp-secondary-btn" onClick={() => setOtpStep(1)}>
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="login-btn"
+                    onClick={handleVerifyOtp}
+                    disabled={otpVerifying}
+                  >
+                    {otpVerifying ? "Verifying..." : "Verify OTP"}
+                  </button>
+                </div>
+              </>
+            )}
+
+            {otpStep === 3 && (
+              <>
+                <h4 className="otp-step-title">Step 3: Reset Password</h4>
+                <div className="form-group">
+                  <label>New Password</label>
+                  <span className="field-icon" aria-hidden="true">
+                    <FiLock />
+                  </span>
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    name="newPassword"
+                    value={otpData.newPassword}
+                    onChange={handleOtpChange}
+                    placeholder="Enter new password"
+                    required
+                  />
+                  <span className="eye-icon" onClick={() => setShowNewPassword((prev) => !prev)}>
+                    {showNewPassword ? <IoMdEyeOff /> : <IoEyeOutline />}
+                  </span>
+                </div>
+
+                <div className="form-group">
+                  <label>Confirm Password</label>
+                  <span className="field-icon" aria-hidden="true">
+                    <FiLock />
+                  </span>
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    name="confirmPassword"
+                    value={otpData.confirmPassword}
+                    onChange={handleOtpChange}
+                    placeholder="Confirm password"
+                    required
+                  />
+                  <span className="eye-icon" onClick={() => setShowConfirmPassword((prev) => !prev)}>
+                    {showConfirmPassword ? <IoMdEyeOff /> : <IoEyeOutline />}
+                  </span>
+                </div>
+
+                <div className="otp-btn-row">
+                  <button type="button" className="otp-secondary-btn" onClick={() => setOtpStep(2)}>
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="login-btn"
+                    onClick={handleResetPassword}
+                    disabled={resetLoading}
+                  >
+                    {resetLoading ? "Resetting..." : "Reset Password"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        <div className="login-register-row">
+          <span>Don't have an account?</span>{" "}
+          <Link to="/register">Register here</Link>
+        </div>
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ const userSchema = new mongoose.Schema(
     passwordHash: String,
     role: {
       type: String,
-      enum: ["student", "faculty", "admin"],
+      enum: ["student", "faculty", "admin","librarian"],
       default: "student",
     },
     status: {
@@ -40,7 +40,12 @@ const userSchema = new mongoose.Schema(
     },
     DOB: {
         type: Date
-    }
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
   },
   { timestamps: true }
 );

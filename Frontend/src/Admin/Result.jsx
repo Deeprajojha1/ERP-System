@@ -1,13 +1,14 @@
 import React, { useMemo, useState } from "react";
-import { FiCheckCircle, FiXCircle } from "react-icons/fi";
-import "./Result.css";
+import { FiCheckCircle, FiSearch, FiXCircle } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
+import "./Result.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 
 const Result = () => {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
-  const [loadState, setLoadState] = useState("success");
+  const [loadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
 
   const results = [
     {
@@ -67,17 +68,15 @@ const Result = () => {
       const matchSearch =
         r.student.toLowerCase().includes(term) ||
         r.subject.toLowerCase().includes(term);
-      const matchStatus =
-        status === "All" || r.status === status;
+      const matchStatus = status === "All" || r.status === status;
       return matchSearch && matchStatus;
     });
-  }, [search, status]);
-
+  }, [results, search, status]);
 
   const renderState = () => {
-    if (loadState === "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="result-state pending">
+        <div className="result-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -92,7 +91,8 @@ const Result = () => {
         </div>
       );
     }
-    if (loadState === "failure") {
+
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="result-state error">
           <img src={emptyStateImg} alt="Failed" className="result-state-img" />
@@ -108,7 +108,9 @@ const Result = () => {
 
         <div className="result-toolbar">
           <div className="result-search">
-            <span className="result-search-icon">??</span>
+            <span className="result-search-icon" aria-hidden="true">
+              <FiSearch />
+            </span>
             <input
               type="text"
               placeholder="Search student or subject..."
@@ -134,6 +136,7 @@ const Result = () => {
           <table className="result-table">
             <thead>
               <tr>
+                <th className="result-cell-serial">S. No</th>
                 <th>STUDENT NAME</th>
                 <th>SUBJECT</th>
                 <th>MARKS</th>
@@ -142,23 +145,27 @@ const Result = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((r, i) => (
-                <tr key={`${r.student}-${i}`}>
-                  <td className="result-name">{r.student}</td>
-                  <td>{r.subject}</td>
-                  <td>{r.marks}</td>
-                  <td>{r.grade}</td>
-                  <td>
-                    <span className={`result-status ${r.status === "PASS" ? "pass" : "fail"}`}>
-                      {r.status === "PASS" ? <FiCheckCircle /> : <FiXCircle />}
-                      {r.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {filtered.map((r, i) => {
+                const numericId = r.marks || i + 1;
+                return (
+                  <tr key={`${r.student}-${i}`}>
+                    <td className="result-serial-cell">{i + 1}</td>
+                    <td className="result-name">{r.student}</td>
+                    <td>{r.subject}</td>
+                    <td>{r.marks}</td>
+                    <td>{r.grade}</td>
+                    <td>
+                      <span className={`result-status ${r.status === "PASS" ? "pass" : "fail"}`}>
+                        {r.status === "PASS" ? <FiCheckCircle /> : <FiXCircle />}
+                        {r.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="result-empty">
+                  <td colSpan={6} className="result-empty">
                     No results found.
                   </td>
                 </tr>
@@ -170,78 +177,9 @@ const Result = () => {
     );
   };
 
-  return (
-    <div className="result-page">
-      {renderState()}
-
-      <h1 className="result-title">Results & Grades</h1>
-
-      <div className="result-toolbar">
-        <div className="result-search">
-          <span className="result-search-icon">🔍</span>
-          <input
-            type="text"
-            placeholder="Search student or subject..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-
-        <select
-          className="result-select"
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          {["All", "PASS", "FAIL"].map((s) => (
-            <option key={s} value={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="result-table-wrap">
-        <table className="result-table">
-          <thead>
-            <tr>
-              <th>STUDENT NAME</th>
-              <th>SUBJECT</th>
-              <th>MARKS</th>
-              <th>GRADE</th>
-              <th>STATUS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((r, i) => (
-              <tr key={`${r.student}-${i}`}>
-                <td className="result-name">{r.student}</td>
-                <td>{r.subject}</td>
-                <td>{r.marks}</td>
-                <td>{r.grade}</td>
-                <td>
-                  <span
-                    className={`result-status ${
-                      r.status === "PASS" ? "pass" : "fail"
-                    }`}
-                  >
-                    {r.status === "PASS" ? <FiCheckCircle /> : <FiXCircle />}
-                    {r.status}
-                  </span>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} className="result-empty">
-                  No results found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
+  return <div className="result-page">{renderState()}</div>;
 };
 
 export default Result;
+
+

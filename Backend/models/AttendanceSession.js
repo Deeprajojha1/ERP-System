@@ -34,6 +34,11 @@ const attendanceSessionSchema = new mongoose.Schema(
     },
 
     records: { type: [attendanceRecordSchema], default: [], index : true },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
+    },
   },
   { timestamps: true }
 );

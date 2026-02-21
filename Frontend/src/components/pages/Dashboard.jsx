@@ -18,21 +18,16 @@
  * Note: React 18+ with new JSX transform - no need to import React
  */
 
-import { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
-import axios from 'axios';
+import axios from '../../utils/axiosInstance';
 import { clearUserData } from '../../redux/userSlice';
+import { useNavigate } from 'react-router-dom';
 
 // Import child components
-import StudentDetails from '../student/StudentDetails';
-import CoursesDetails from '../student/CoursesDetails';
-import AttendanceOverview from '../student/AttendanceOverview';
 import AttendanceCalendar from '../student/AttendanceCalendar';
-
-// Import styles
-import './Dashboard.css';
+import StudentDashboardShell from '../student/StudentDashboardShell';
 
 /**
  * Dashboard Component
@@ -44,8 +39,8 @@ import './Dashboard.css';
  */
 const Dashboard = () => {
   // Hook for programmatic navigation
-  const navigate = useNavigate();
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
   const user = userData?.user;
@@ -91,11 +86,7 @@ const Dashboard = () => {
    */
   const handleLogout = async () => {
     try {
-      await axios.post(
-        `${apiBase}/user/logout`,
-        {},
-        { withCredentials: true }
-      );
+      await axios.post(`${apiBase}/user/logout`, {});
     } catch (error) {
       console.error(
         'Logout failed:',
@@ -103,7 +94,9 @@ const Dashboard = () => {
       );
     } finally {
       dispatch(clearUserData());
-      navigate('/login', { replace: true });
+      sessionStorage.removeItem("lastFailedRoute");
+      sessionStorage.removeItem("lastNetworkRedirectAt");
+      navigate("/", { replace: true });
     }
   };
 
@@ -139,6 +132,31 @@ const Dashboard = () => {
   const attendanceData = userData?.attendanceData || [];
   const enrolledCourses = userData?.enrolledCourses || [];
 
+  useEffect(() => {
+    const shouldFetchStudentData =
+      apiBase &&
+      user?.role === 'student' &&
+      (!Array.isArray(enrolledCourses) || enrolledCourses.length === 0);
+
+    if (!shouldFetchStudentData) return;
+
+    const fetchStudentData = async () => {
+      try {
+        const res = await axios.get(`${apiBase}/user/me`, {
+          withCredentials: true,
+        });
+        dispatch(setUserData(res.data));
+      } catch (error) {
+        console.error(
+          'Failed to refresh student dashboard data:',
+          error.response?.data || error.message
+        );
+      }
+    };
+
+    fetchStudentData();
+  }, [apiBase, user?.role, enrolledCourses, dispatch]);
+
   const coursesData = useMemo(() => {
     return enrolledCourses.map((course) => {
       const attendance = attendanceData.find(
@@ -168,71 +186,44 @@ const Dashboard = () => {
     });
   }, [enrolledCourses, attendanceData, roleDetails]);
 
+  const totalSessions = attendanceData.reduce(
+    (total, item) => total + (item?.totalSessions || 0),
+    0
+  );
+  const lowAttendanceCount = coursesData.filter(
+    (course) => Number(course.attendancePercentage || 0) < 75
+  ).length;
+  const strongAttendanceCount = coursesData.filter(
+    (course) => Number(course.attendancePercentage || 0) >= 90
+  ).length;
+  const todayLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    []
+  );
+
   /**
    * RENDER: Dashboard UI
    */
   return (
-    <div className="dashboard">
-      {/* 
-        HEADER SECTION
-        Contains title, academic year, and welcome message
-      */}
-      <header className="dashboard-header">
-        <div className="header-content">
-          {/* Left side: Title and academic year */}
-          <div className="header-left">
-            <h1>Student Dashboard</h1>
-            <p>Academic Year {resolvedStudentData.academicInfo.academicYear}</p>
-          </div>
-          
-          {/* Right side: Welcome message */}
-          <div className="header-right">
-            <span className="welcome-text">
-              Welcome, {resolvedStudentData.personalInfo.name}
-            </span>
-            <button className="logout-button" onClick={handleLogout}>
-              Logout
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* 
-        MAIN CONTENT SECTION
-        Contains all dashboard components
-      */}
-      <main className="dashboard-main">
-        <div className="dashboard-container">
-          
-          {/* 
-            STUDENT DETAILS COMPONENT
-            Displays student personal info, father details, and academic info
-            Props: studentData object
-          */}
-          <StudentDetails studentData={resolvedStudentData} />
-
-          {/* 
-            ATTENDANCE OVERVIEW COMPONENT
-            Shows overall attendance percentage and download button
-            Props: coursesData array, studentData object
-          */}
-          <AttendanceOverview 
-            overallAttendance={userData?.overallAttendance}
-            attendanceData={attendanceData}
-            studentData={resolvedStudentData} 
-          />
-
-          {/* 
-            COURSES DETAILS COMPONENT
-            Displays all enrolled courses as clickable cards
-            Props: coursesData array, onCourseClick callback
-          */}
-          <CoursesDetails 
-            coursesData={coursesData} 
-            onCourseClick={handleCourseClick}
-          />
-        </div>
-      </main>
+    <div className="student-dashboard-page">
+      <StudentDashboardShell
+        resolvedStudentData={resolvedStudentData}
+        roleDetails={roleDetails}
+        totalSessions={totalSessions}
+        strongAttendanceCount={strongAttendanceCount}
+        lowAttendanceCount={lowAttendanceCount}
+        overallAttendance={userData?.overallAttendance}
+        attendanceData={attendanceData}
+        coursesData={coursesData}
+        onCourseClick={handleCourseClick}
+        onLogout={handleLogout}
+        todayLabel={todayLabel}
+      />
 
       {/* 
         ATTENDANCE CALENDAR MODAL

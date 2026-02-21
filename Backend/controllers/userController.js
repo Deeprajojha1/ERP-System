@@ -184,14 +184,27 @@ export const login = async (req, res) => {
           enrolledCourses = enrollments.map(enrollment => enrollment.course);
         }
 
+        // Final fallback: infer enrolled courses from marked attendance
+        if (enrolledCourses.length === 0) {
+          const attendanceCourseIds = await AttendanceSession.distinct("course", {
+            "records.student": studentDetails._id,
+          });
+
+          if (attendanceCourseIds.length > 0) {
+            enrolledCourses = await Course.find({ _id: { $in: attendanceCourseIds } })
+              .select("code courseName department semester branch credit")
+              .populate("department", "name code");
+          }
+        }
+
         /* Fetch attendance data for all enrolled courses */
         const attendanceData = await Promise.all(
           enrolledCourses.map(async (course) => {
             const courseId = course._id;
             
             const sessions = await AttendanceSession.find({
-              group: studentDetails.group?._id,
               course: courseId,
+              "records.student": studentDetails._id,
             }).sort({ date: -1 });
 
             let presentCount = 0;
@@ -443,11 +456,8 @@ export const sendOtp = async (req, res) => {
     }
 
     const otp = Math.floor(
-<<<<<<< HEAD
-      Math.random() * 90000 + 10000
-=======
+
       Math.random() * 900000 + 100000
->>>>>>> 1fc3e5c05f73a733e0a7ab14e5618e787f77d9e7
     ).toString();
 
     user.resetOtp = otp;
@@ -654,6 +664,69 @@ export const logout = async (req, res) => {
   }
 };
 
+/* ================= CHANGE PASSWORD (AUTHENTICATED USER) ================= */
+
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      return res.status(400).json({
+        message: "All password fields are required",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        message: "New password must be at least 6 characters",
+      });
+    }
+
+    if (newPassword !== confirmPassword) {
+      return res.status(400).json({
+        message: "Confirm password does not match",
+      });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({
+        message: "New password must be different from current password",
+      });
+    }
+
+    const user = await User.findById(req.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash || "");
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Current password is incorrect",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.passwordHash = hashedPassword;
+    user.resetOtp = null;
+    user.otpExpires = null;
+    user.isOtpVerifed = false;
+
+    await user.save({ validateBeforeSave: false });
+
+    return res.status(200).json({
+      message: "Password changed successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Server Error",
+    });
+  }
+};
+
 // get current user
 export const getUser = async (req, res) => {
     try {
@@ -723,13 +796,25 @@ export const getUser = async (req, res) => {
               enrolledCourses = enrollments.map((enrollment) => enrollment.course);
             }
 
+            if (enrolledCourses.length === 0) {
+              const attendanceCourseIds = await AttendanceSession.distinct("course", {
+                "records.student": studentDetails._id,
+              });
+
+              if (attendanceCourseIds.length > 0) {
+                enrolledCourses = await Course.find({ _id: { $in: attendanceCourseIds } })
+                  .select("code courseName department semester branch credit")
+                  .populate("department", "name code");
+              }
+            }
+
             const attendanceData = await Promise.all(
               enrolledCourses.map(async (course) => {
                 const courseId = course._id;
 
                 const sessions = await AttendanceSession.find({
-                  group: studentDetails.group?._id,
                   course: courseId,
+                  "records.student": studentDetails._id,
                 }).sort({ date: -1 });
 
                 let presentCount = 0;

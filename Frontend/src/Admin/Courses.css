@@ -93,7 +93,7 @@
 .courses-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 760px;
+  min-width: 880px;
 }
 
 .courses-table thead th {
@@ -106,10 +106,21 @@
   background: #f8fafc;
 }
 
+.courses-table th.courses-cell-serial {
+  width: 70px;
+  text-align: center;
+}
+
 .courses-table tbody td {
   padding: 16px 18px;
   border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
+}
+
+.courses-table td.courses-serial-cell {
+  text-align: center;
+  color: #475569;
+  letter-spacing: 0.4px;
 }
 
 .courses-code {
@@ -132,6 +143,29 @@
   text-align: center;
   padding: 20px;
   color: #64748b;
+}
+
+.courses-row-actions {
+  white-space: nowrap;
+}
+
+.courses-edit-btn {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-size: 16px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.courses-edit-btn:hover {
+  background: #dbeafe;
 }
 
 .courses-state {
@@ -170,8 +204,10 @@
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  padding: calc(var(--admin-nav-height, 74px) + 12px) 16px 16px;
 }
 
 .courses-modal-backdrop {
@@ -189,6 +225,9 @@
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
   padding: 0;
   overflow: hidden;
+  margin: auto 0;
+  max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 28px));
+  overflow-y: auto;
 }
 
 .courses-modal-head {
@@ -289,14 +328,11 @@
   }
 
   .courses-modal {
-    align-items: flex-start;
-    padding: 12px;
-    overflow-y: auto;
+    padding: calc(var(--admin-nav-height, 74px) + 8px) 12px 12px;
   }
 
   .courses-modal-card {
     width: 100%;
-    max-height: calc(100dvh - 24px);
-    overflow-y: auto;
+    max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 20px));
   }
 }

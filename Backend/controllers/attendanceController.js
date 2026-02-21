@@ -89,7 +89,16 @@ export const markGroupAttendance = async (req, res) => {
     const { groupId } = req.params;
     const { courseId, date, records } = req.body;
 
+    console.log("=== MARK GROUP ATTENDANCE ===");
+    console.log("groupId:", groupId);
+    console.log("courseId:", courseId);
+    console.log("date:", date);
+    console.log("records:", JSON.stringify(records, null, 2));
+    console.log("req.role:", req.role);
+    console.log("req.userId:", req.userId);
+
     if (!courseId || !records || !Array.isArray(records)) {
+      console.log("Validation failed: missing courseId or records");
       return res.status(400).json({ message: "courseId & records[] are required" });
     }
 
@@ -124,6 +133,10 @@ export const markGroupAttendance = async (req, res) => {
       { date: sessionDate, group: groupId, course: courseId, records },
       { new: true, upsert: true, runValidators: true }
     );
+
+    console.log("✅ Attendance saved successfully!");
+    console.log("Session ID:", session._id);
+    console.log("Total records saved:", session.records.length);
 
     res.status(201).json({
       message: "Attendance marked successfully",
@@ -307,10 +320,29 @@ export const getAttendanceByGroupAndCourse = async (req, res) => {
    ================================================================ */
 export const deleteAttendance = async (req, res) => {
   try {
-    const session = await AttendanceSession.findByIdAndDelete(req.params.sessionId);
+    const session = await AttendanceSession.findByIdAndUpdate(
+      req.params.sessionId,
+      { isDeleted: true },
+      { new: true }
+    );
     if (!session) return res.status(404).json({ message: "Session not found" });
 
     res.json({ message: "Attendance session deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================================================================
+   5b. HARD DELETE AN ATTENDANCE SESSION  (Admin only)
+   DELETE  /attendance/:sessionId
+   ================================================================ */
+export const hardDeleteAttendance = async (req, res) => {
+  try {
+    const session = await AttendanceSession.findByIdAndDelete(req.params.sessionId);
+    if (!session) return res.status(404).json({ message: "Session not found" });
+
+    res.json({ message: "Attendance session permanently deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -415,10 +447,14 @@ export const getStudentOverallAttendance = async (req, res) => {
     const courseMap = {};
 
     for (const session of sessions) {
-      const cId = session.course._id.toString();
+      // Guard against orphaned sessions whose course was deleted or missing.
+      const courseDoc = session.course;
+      const cId = courseDoc?._id ? courseDoc._id.toString() : null;
+      if (!cId) continue;
+
       if (!courseMap[cId]) {
         courseMap[cId] = {
-          course: session.course,
+          course: courseDoc,
           present: 0,
           absent: 0,
         };
@@ -495,5 +531,110 @@ export const getDailyAttendanceSummary = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================================================================
+   10. GROUP STUDENT ATTENDANCE BY DATE  (Admin)
+   GET /attendance/group/:groupId/date/:date
+   Returns all students in a group with their attendance entries
+   for the specified date (across all courses/sessions of that day).
+   ================================================================ */
+export const getGroupStudentAttendanceByDate = async (req, res) => {
+  try {
+    const { groupId, date } = req.params;
+
+    if (!groupId || !date) {
+      return res.status(400).json({ message: "groupId and date are required" });
+    }
+
+    const [yy, mm, dd] = String(date).split("-").map(Number);
+    if (!yy || !mm || !dd) {
+      return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+    // Parse as local date (not UTC string parsing) to align with how sessions are saved.
+    const dayStart = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
+    if (Number.isNaN(dayStart.getTime())) {
+      return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+    dayStart.setHours(0, 0, 0, 0);
+
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
+
+    const group = await Group.findById(groupId).select("name roomNo studentIds");
+    if (!group) return res.status(404).json({ message: "Group not found" });
+
+    let students = await Student.find({ _id: { $in: group.studentIds } })
+      .populate("user", "name")
+      .select("enrollmentNumber user");
+
+    // Fallback: some datasets only maintain Student.group, not Group.studentIds.
+    if (students.length === 0) {
+      students = await Student.find({ group: groupId })
+        .populate("user", "name")
+        .select("enrollmentNumber user");
+    }
+
+    const sessions = await AttendanceSession.find({
+      group: groupId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    })
+      .populate("course", "code courseName")
+      .sort({ date: 1, createdAt: 1 });
+
+    const responseStudents = students.map((student) => {
+      const attendanceEntries = sessions.map((session) => {
+        const studentObjectId = String(student._id);
+        const userObjectId = String(student.user?._id || "");
+        const record = session.records.find((r) => {
+          const recId = String(r.student);
+          return recId === studentObjectId || (userObjectId && recId === userObjectId);
+        });
+
+        return {
+          sessionId: session._id,
+          course: session.course
+            ? {
+                _id: session.course._id,
+                code: session.course.code,
+                courseName: session.course.courseName,
+              }
+            : null,
+          status: record ? record.status : "not-marked",
+        };
+      });
+
+      const presentCount = attendanceEntries.filter((e) => e.status === "present").length;
+      const absentCount = attendanceEntries.filter((e) => e.status === "absent").length;
+      const notMarkedCount = attendanceEntries.filter((e) => e.status === "not-marked").length;
+
+      return {
+        studentId: student._id,
+        name: student.user?.name || "Unknown",
+        enrollmentNumber: student.enrollmentNumber || "",
+        attendanceEntries,
+        summary: {
+          totalSessions: attendanceEntries.length,
+          presentCount,
+          absentCount,
+          notMarkedCount,
+        },
+      };
+    });
+
+    return res.json({
+      message: "Group student attendance fetched successfully",
+      date,
+      group: {
+        _id: group._id,
+        name: group.name,
+        roomNo: group.roomNo || null,
+      },
+      totalSessions: sessions.length,
+      students: responseStudents,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };

@@ -1,34 +1,107 @@
 import React, { useEffect, useMemo, useState } from "react";
-import axios from "axios";
-import { useSelector } from "react-redux";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import axios from "../utils/axiosInstance";
+import { useDispatch, useSelector } from "react-redux";
+import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Department.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import toast from "react-hot-toast";
+import {
+  setDepartments,
+  setDepartmentsError,
+  setDepartmentsLoading,
+} from "../redux/departmentSlice";
+
+const PROGRAM_CANONICAL_MAP = {
+  btech: "btech",
+  mtech: "mtech",
+  bca: "bca",
+  mca: "mca",
+  bba: "bba",
+  mba: "mba",
+  bsc: "bsc",
+  msc: "msc",
+  bcom: "bcom",
+  bpharma: "bpharma",
+  mpharma: "mpharma",
+  dpharma: "dpharma",
+  phd: "phd",
+  bpharm: "bpharma",
+  mpharm: "mpharma",
+  dpharm: "dpharma",
+};
+
+const canonicalizeProgram = (value) => {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+  return PROGRAM_CANONICAL_MAP[normalized] || "";
+};
+
+const getDepartmentLeadLabel = (departmentName = "") => {
+  const name = String(departmentName).trim().toLowerCase();
+  if (
+    name.includes("nursing") ||
+    name.includes("pharmacy") ||
+    name.includes("paramacy")
+  ) {
+    return "Principal";
+  }
+  if (name.includes("training")) return "Trainer";
+  return "HOD";
+};
 
 const Department = () => {
-  const [departments, setDepartments] = useState([]);
   const [faculty, setFaculty] = useState([]);
+  const dispatch = useDispatch();
+  const { departments } = useSelector((state) => state.department);
   const apiBase = useSelector((state) => state.config.apiBase);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
-  const [loadState, setLoadState] = useState("success");
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
   const [isOpen, setIsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [formData, setFormData] = useState({
     name: "",
     hod: "",
+    program: [],
   });
+  const [programInput, setProgramInput] = useState("");
   const [nameMode, setNameMode] = useState("new");
   const [selectedDeptId, setSelectedDeptId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const cardGradients = [
+    "linear-gradient(145deg, #dbeafe 0%, #f8fbff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #dcfce7 0%, #f2fff7 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fef3c7 0%, #fffbeb 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fee2e2 0%, #fff5f5 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #ede9fe 0%, #f7f5ff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #cffafe 0%, #f0fdff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #fce7f3 0%, #fff1f8 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #e0f2fe 0%, #f2faff 45%, #ffffff 100%)",
+    "linear-gradient(145deg, #e2e8f0 0%, #f8fafc 45%, #ffffff 100%)",
+  ];
+  const iconGradients = [
+    "linear-gradient(135deg, #2563eb, #1d4ed8)",
+    "linear-gradient(135deg, #059669, #047857)",
+    "linear-gradient(135deg, #d97706, #b45309)",
+    "linear-gradient(135deg, #ef4444, #b91c1c)",
+    "linear-gradient(135deg, #7c3aed, #5b21b6)",
+    "linear-gradient(135deg, #0891b2, #155e75)",
+    "linear-gradient(135deg, #db2777, #9d174d)",
+    "linear-gradient(135deg, #0284c7, #0c4a6e)",
+    "linear-gradient(135deg, #475569, #1e293b)",
+  ];
 
   const fetchAll = async () => {
     try {
       setLoading(true);
-      setLoadState("pending");
+      setLoadState(ADMIN_LOAD_STATES.PENDING);
       setError("");
+      dispatch(setDepartmentsLoading(true));
       const [deptRes, facRes] = await Promise.all([
         axios.get(`${apiBase}/admin/department`, {
           withCredentials: true,
@@ -37,20 +110,27 @@ const Department = () => {
           withCredentials: true,
         }),
       ]);
-      setDepartments(deptRes.data?.departments || []);
+      dispatch(setDepartments(deptRes.data?.departments || []));
       setFaculty(facRes.data?.faculty || []);
-      setLoadState("success");
+      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (err) {
       console.error(
         "Fetch departments failed:",
         err.response?.data || err.message
       );
+      toast.error(`${err.response?.data?.message || "Failed to load departments"}`);
       setError(
         err.response?.data?.message ||
           "Failed to load departments"
       );
-      setLoadState("failure");
+      dispatch(
+        setDepartmentsError(
+          err.response?.data?.message || "Failed to load departments"
+        )
+      );
+      setLoadState(ADMIN_LOAD_STATES.FAILURE);
     } finally {
+      dispatch(setDepartmentsLoading(false));
       setLoading(false);
     }
   };
@@ -58,6 +138,13 @@ const Department = () => {
   useEffect(() => {
     fetchAll();
   }, []);
+
+  const refreshDepartments = async () => {
+    const deptRes = await axios.get(`${apiBase}/admin/department`, {
+      withCredentials: true,
+    });
+    dispatch(setDepartments(deptRes.data?.departments || []));
+  };
 
   const filteredDepartments = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -97,7 +184,8 @@ const Department = () => {
 
   const openAddModal = () => {
     setEditTarget(null);
-    setFormData({ name: "", hod: "" });
+    setFormData({ name: "", hod: "", program: [] });
+    setProgramInput("");
     setNameMode("new");
     setSelectedDeptId("");
     setIsOpen(true);
@@ -108,7 +196,9 @@ const Department = () => {
     setFormData({
       name: dept.name || "",
       hod: dept.hod?._id || "",
+      program: Array.isArray(dept.program) ? dept.program : [],
     });
+    setProgramInput("");
     setNameMode("edit");
     setSelectedDeptId(dept._id || "");
     setIsOpen(true);
@@ -140,6 +230,44 @@ const Department = () => {
     }));
   };
 
+  const addProgramToken = () => {
+    const value = canonicalizeProgram(programInput);
+    if (!value) {
+      if (programInput.trim()) {
+        toast.error(
+          "Invalid program. Use btech, mtech, bca, mca, bba, mba, bsc, msc, bcom, bpharma, mpharma, dpharma, or phd."
+        );
+      }
+      return;
+    }
+    setFormData((prev) => {
+      if (prev.program.includes(value)) return prev;
+      return { ...prev, program: [...prev.program, value] };
+    });
+    setProgramInput("");
+  };
+
+  const removeProgramToken = (indexToRemove) => {
+    setFormData((prev) => ({
+      ...prev,
+      program: prev.program.filter((_, index) => index !== indexToRemove),
+    }));
+  };
+
+  const handleProgramKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addProgramToken();
+      return;
+    }
+
+    if (e.key === "Backspace" && !programInput.trim()) {
+      if (!formData.program.length) return;
+      e.preventDefault();
+      removeProgramToken(formData.program.length - 1);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -147,6 +275,7 @@ const Department = () => {
       const payload = {
         name: formData.name.trim(),
         hod: formData.hod || null,
+        program: formData.program,
       };
 
       if (editTarget?._id) {
@@ -155,28 +284,30 @@ const Department = () => {
           payload,
           { withCredentials: true }
         );
+        toast.success("Department updated successfully");
       } else {
         await axios.post(
           `${apiBase}/admin/department`,
           payload,
           { withCredentials: true }
         );
+        toast.success("Department added successfully");
       }
 
       setIsOpen(false);
       setEditTarget(null);
-      setFormData({ name: "", hod: "" });
+      setFormData({ name: "", hod: "", program: [] });
+      setProgramInput("");
       setNameMode("new");
       setSelectedDeptId("");
-      await fetchAll();
+      await refreshDepartments();
     } catch (err) {
       console.error(
         "Save department failed:",
         err.response?.data || err.message
       );
-      alert(
-        err.response?.data?.message ||
-          "Failed to save department"
+      toast.error(
+        `${err.response?.data?.message || "Failed to save department"}`
       );
     } finally {
       setSubmitting(false);
@@ -190,31 +321,35 @@ const Department = () => {
     );
     if (!confirmDelete) return;
     try {
-      await axios.delete(
-        `${apiBase}/admin/department/${dept._id}`,
+      await axios.patch(
+        `${apiBase}/admin/department/${dept._id}/delete`,
+        {},
         { withCredentials: true }
       );
-      await fetchAll();
+      toast.success("Department deleted successfully");
+      await refreshDepartments();
     } catch (err) {
       console.error(
         "Delete department failed:",
         err.response?.data || err.message
       );
-      alert(
-        err.response?.data?.message ||
-          "Failed to delete department"
+      toast.error(
+        `${err.response?.data?.message || "Failed to delete department"}`
       );
     }
   };
 
   const isExistingSelection =
     !editTarget && nameMode === "existing";
+  const currentLeadLabel = getDepartmentLeadLabel(
+    formData.name || editTarget?.name || ""
+  );
 
   const renderState = () => {
     switch (loadState) {
-      case "pending":
+      case ADMIN_LOAD_STATES.PENDING:
         return (
-          <div className="dept-state pending">
+          <div className="dept-state pending app-loader-state">
             <Oval
               height={64}
               width={64}
@@ -228,7 +363,7 @@ const Department = () => {
             <p>Loading departments...</p>
           </div>
         );
-      case "failure":
+      case ADMIN_LOAD_STATES.FAILURE:
         return (
           <div className="dept-state error">
             <img
@@ -261,10 +396,12 @@ const Department = () => {
 
             <div className="dept-toolbar">
               <div className="dept-search">
-                <span className="dept-search-icon">🔍</span>
+                <span className="dept-search-icon" aria-hidden="true">
+                  <FiSearch />
+                </span>
                 <input
                   type="text"
-                  placeholder="Search department or HOD"
+                  placeholder="Search department or HOD / Principal / Trainer"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                 />
@@ -279,14 +416,24 @@ const Department = () => {
 
             {filteredDepartments.length > 0 && (
               <div className="dept-grid">
-                {filteredDepartments.map((dept) => {
+                {filteredDepartments.map((dept, index) => {
                   const hodName =
                     dept.hod?.user?.name ||
                     dept.hod?.name ||
                     dept.hod?.employeeId ||
                     "Not Assigned";
+                  const leadLabel = getDepartmentLeadLabel(dept.name);
                   return (
-                    <div className="dept-card" key={dept._id}>
+                    <div
+                      className="dept-card"
+                      key={dept._id}
+                      style={{
+                        "--dept-card-gradient":
+                          cardGradients[index % cardGradients.length],
+                        "--dept-icon-gradient":
+                          iconGradients[index % iconGradients.length],
+                      }}
+                    >
                       <div className="dept-card-top">
                         <div className="dept-icon">
                           {getInitials(dept.name)}
@@ -297,7 +444,7 @@ const Department = () => {
                       <div className="dept-info">
                         <h2 className="dept-name">{dept.name}</h2>
                         <span className="dept-code">
-                          HOD: {hodName}
+                          {leadLabel}: {hodName}
                         </span>
                       </div>
 
@@ -368,72 +515,72 @@ const Department = () => {
               <h2>
                 {editTarget ? "Edit Department" : "Add Department"}
               </h2>
-              <p>Department details and HOD assignment</p>
+              <p>Department details and lead assignment</p>
             </div>
             <form className="dept-form" onSubmit={handleSubmit}>
               <div className="dept-form-row">
                 <label>
                   Department Name
-                  {editTarget ? (
-                    <input
-                      type="text"
-                      name="name"
-                      placeholder="Computer Science"
-                      value={formData.name}
-                      onChange={handleChange}
-                      required
-                    />
-                  ) : (
-                    <>
-                      <select
-                        name="departmentSelect"
-                        value={nameMode === "new" ? "new" : selectedDeptId}
-                        onChange={handleNameSelect}
-                      >
-                        <option value="new">
-                          Add New Department
-                        </option>
-                        {departments.map((dept) => (
-                          <option key={dept._id} value={dept._id}>
-                            {dept.name}
-                          </option>
-                        ))}
-                      </select>
-                      {nameMode === "new" && (
-                        <input
-                          type="text"
-                          name="name"
-                          placeholder="Computer Science"
-                          value={formData.name}
-                          onChange={handleChange}
-                          required
-                        />
-                      )}
-                      {nameMode === "existing" && (
-                        <span className="dept-help">
-                          This department already exists. Choose
-                          "Add New Department" to create a new one.
-                        </span>
-                      )}
-                    </>
-                  )}
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="Computer Science"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                  />
                 </label>
               </div>
               <div className="dept-form-row">
                 <label>
-                  Head of Department (HOD)
+                  {currentLeadLabel}
                   <select
                     name="hod"
                     value={formData.hod}
                     onChange={handleChange}
                   >
-                    <option value="">Not Assigned</option>
-                    {faculty.map((f) => (
-                      <option key={f._id} value={f._id}>
-                        {f.user?.name || f.name || f.employeeId}
+                    <option value="">Select {currentLeadLabel}</option>
+                    {faculty.map((member) => (
+                      <option key={member._id} value={member._id}>
+                        {member?.user?.name || member?.name || member?.employeeId || "N/A"}
                       </option>
                     ))}
                   </select>
+                </label>
+              </div>
+              <div className="dept-form-row">
+                <label>
+                  Programs
+                  <div className="dept-program-input-wrap">
+                    {formData.program.map((item, index) => (
+                      <span key={`${item}-${index}`} className="dept-program-chip">
+                        {item}
+                        <button
+                          type="button"
+                          className="dept-program-chip-remove"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            removeProgramToken(index);
+                          }}
+                          aria-label={`Remove ${item}`}
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                    <input
+                      type="text"
+                      placeholder="Type program and press Enter"
+                      value={programInput}
+                      onChange={(e) => setProgramInput(e.target.value)}
+                      onKeyDown={handleProgramKeyDown}
+                    />
+                  </div>
                 </label>
               </div>
               <div className="dept-modal-actions">
@@ -450,7 +597,8 @@ const Department = () => {
                   disabled={
                     submitting ||
                     isExistingSelection ||
-                    !formData.name.trim()
+                    !formData.name.trim() ||
+                    formData.program.length === 0
                   }
                 >
                   {submitting
@@ -469,3 +617,5 @@ const Department = () => {
 };
 
 export default Department;
+
+

@@ -2,12 +2,49 @@ import Course from "../models/Course.js";
 import Department from "../models/Department.js";
 import Faculty from "../models/Faculty.js";
 import Student from "../models/Student.js";
+import Group from "../models/Group.js";
+import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
+
+const clearTimetableCacheForCourseChange = async (courseId) => {
+  await redisClient.del("admin:timetable:groups");
+  await redisClient.del("admin:timetable:groups:v2");
+
+  if (!courseId) return;
+  const linkedGroups = await Group.find({
+    courseIds: courseId,
+    isDeleted: { $ne: true },
+  }).select("_id");
+
+    await Promise.all(
+      linkedGroups.map((group) =>
+        Promise.all([
+          redisClient.del(`admin:timetable:group:${group._id}`),
+          redisClient.del(`admin:timetable:group:v2:${group._id}`),
+        ])
+      )
+    );
+};
 
 /* ================= GET ALL COURSES ================= */
 
 export const getAllCourses = async (req, res) => {
   try {
-    const courses = await Course.find()
+    const noCache = req.query.noCache === "true";
+    const cacheKey = "admin:courses:all";
+
+    if (!noCache) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          const cachedData = JSON.parse(cached);
+          return res.json(cachedData);
+        }
+      } catch (err) {
+        console.error("[Redis] getAllCourses cache read failed:", err.message || err);
+      }
+    }
+
+    const courses = await Course.find({ isDeleted: { $ne: true } })
       .populate("department")
       .populate({
         path: "facultyIds",
@@ -44,19 +81,36 @@ export const getAllCourses = async (req, res) => {
       const coordinatorName = coordinator?.user?.name || null;
 
       return {
+        id: course._id,
         code: course.code,
         courseName: course.courseName,
         department: course.department?.name || null,
+        departmentId: course.department?._id || null,
+        credit: course.credit,
+        branch: course.branch || null,
         studentsInDepartment,
+        coordinatorId: coordinator?._id || null,
         coordinatorName,
       };
     });
-
-    res.json({
+    const responsePayload = {
       message: "Courses fetched successfully",
       count: simplifiedCourses.length,
       courses: simplifiedCourses,
-    });
+    };
+
+    if (!noCache) {
+      try {
+        // Cache using global TTL
+        await redisClient.set(cacheKey, JSON.stringify(responsePayload), {
+          EX: DEFAULT_CACHE_TTL,
+        });
+      } catch (err) {
+        console.error("[Redis] getAllCourses cache write failed:", err.message || err);
+      }
+    }
+
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -68,7 +122,7 @@ export const getCourseById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const course = await Course.findById(id)
+    const course = await Course.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate("department")
       .populate({
         path: "facultyIds",
@@ -117,10 +171,19 @@ export const addCourse = async (req, res) => {
         populate: { path: "user", select: "name email" },
       });
 
-    res.status(201).json({
+    const responsePayload = {
       message: "Course added successfully",
       course: populatedCourse,
-    });
+    };
+
+    try {
+      await redisClient.del("admin:courses:all");
+      await clearTimetableCacheForCourseChange();
+    } catch (err) {
+      console.error("[Redis] addCourse cache clear failed:", err.message || err);
+    }
+
+    res.status(201).json(responsePayload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -147,10 +210,19 @@ export const updateCourse = async (req, res) => {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    res.json({
+    const responsePayload = {
       message: "Course updated successfully",
       course,
-    });
+    };
+
+    try {
+      await redisClient.del("admin:courses:all");
+      await clearTimetableCacheForCourseChange(course._id);
+    } catch (err) {
+      console.error("[Redis] updateCourse cache clear failed:", err.message || err);
+    }
+
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -162,13 +234,49 @@ export const deleteCourse = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const course = await Course.findByIdAndUpdate(
+      id,
+      { isDeleted: true },
+      { new: true }
+    );
+
+    if (!course) {
+      return res.status(404).json({ message: "Course not found" });
+    }
+
+    try {
+      await redisClient.del("admin:courses:all");
+      await clearTimetableCacheForCourseChange(course._id);
+    } catch (err) {
+      console.error("[Redis] deleteCourse cache clear failed:", err.message || err);
+    }
+
+    res.json({ message: "Course deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================= HARD DELETE COURSE ================= */
+
+export const hardDeleteCourse = async (req, res) => {
+  try {
+    const { id } = req.params;
+
     const course = await Course.findByIdAndDelete(id);
 
     if (!course) {
       return res.status(404).json({ message: "Course not found" });
     }
 
-    res.json({ message: "Course deleted successfully" });
+    try {
+      await redisClient.del("admin:courses:all");
+      await clearTimetableCacheForCourseChange(course._id);
+    } catch (err) {
+      console.error("[Redis] hardDeleteCourse cache clear failed:", err.message || err);
+    }
+
+    res.json({ message: "Course permanently deleted" });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

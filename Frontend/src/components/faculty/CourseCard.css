@@ -102,6 +102,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   margin-top: auto;
   position: relative;
   z-index: 1;
@@ -110,10 +111,15 @@
 .pill {
   background: rgba(37, 99, 235, 0.12);
   color: #1d4ed8;
-  padding: 6px 12px;
+  padding: 0 14px;
+  min-height: 52px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
 }
 
 .cta {
@@ -123,8 +129,10 @@
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  padding: 9px 16px;
+  min-height: 52px;
+  padding: 0 18px;
   border-radius: 14px;
   background: linear-gradient(135deg, #2563eb, #1d4ed8);
   box-shadow: 0 10px 18px rgba(37, 99, 235, 0.28);
@@ -133,6 +141,7 @@
 
 .cta-icon {
   font-size: 12px;
+  flex-shrink: 0;
 }
 
 .course-card:hover .cta {

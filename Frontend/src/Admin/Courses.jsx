@@ -1,19 +1,37 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
-import axios from "axios";
+import axios from "../utils/axiosInstance";
 import "./Courses.css";
+import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { Oval } from "react-loader-spinner";
 import { FiSearch } from "react-icons/fi";
+import { FiEdit2 } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
+import toast from "react-hot-toast";
+import { selectTimetableRevision } from "../redux/timetableSlice";
 
 const Courses = () => {
   const [search, setSearch] = useState("");
   const [activeBranch, setActiveBranch] = useState("All Branches");
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState("pending");
+  const [modalMode, setModalMode] = useState("add");
+  const [editingCourseId, setEditingCourseId] = useState("");
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [courses, setCourses] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [facultyList, setFacultyList] = useState([]);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({
+    code: "",
+    courseName: "",
+    department: "",
+    semester: "",
+    credit: "",
+    facultyId: "",
+  });
 
   const apiBase = useSelector((state) => state.config.apiBase);
+  const timetableRevision = useSelector(selectTimetableRevision);
 
   const branches = [
     "All Branches",
@@ -37,25 +55,140 @@ const Courses = () => {
     return map[departmentName] || departmentName;
   };
 
+  const fetchAll = async () => {
+    try {
+      setLoadState(ADMIN_LOAD_STATES.PENDING);
+      const courseRes = await axios.get(`${apiBase}/admin/course`, {
+        withCredentials: true,
+      });
+      setCourses(courseRes.data?.courses || []);
+      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
+    } catch (error) {
+      console.error("Failed to load courses", error.response?.data || error.message);
+      setLoadState(ADMIN_LOAD_STATES.FAILURE);
+      toast.error(`${error.response?.data?.message || "Failed to load courses"}`);
+    }
+  };
+
   useEffect(() => {
-    const fetchCourses = async () => {
-      try {
-        setLoadState("pending");
-        const res = await axios.get(`${apiBase}/admin/course`, {
-          withCredentials: true,
-        });
-        setCourses(res.data?.courses || []);
-        setLoadState("success");
-      } catch (error) {
-        console.error("Failed to load courses", error.response?.data || error.message);
-        setLoadState("failure");
-      }
+    if (apiBase) {
+      fetchAll();
+    }
+  }, [apiBase, timetableRevision]);
+
+  const resetForm = () => {
+    setFormData({
+      code: "",
+      courseName: "",
+      department: "",
+      semester: "",
+      credit: "",
+      facultyId: "",
+    });
+  };
+
+  const closeModal = () => {
+    setIsOpen(false);
+    setModalMode("add");
+    setEditingCourseId("");
+    resetForm();
+  };
+
+  const handleFormChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const ensureModalDependencies = async () => {
+    const [deptRes, facultyRes] = await Promise.all([
+      axios.get(`${apiBase}/admin/department`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      }),
+      axios.get(`${apiBase}/admin/faculty`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      }),
+    ]);
+    setDepartments(deptRes.data?.departments || []);
+    setFacultyList(facultyRes.data?.faculty || []);
+  };
+
+  const handleSubmitCourse = async (e) => {
+    e.preventDefault();
+
+    if (!formData.code || !formData.courseName || !formData.department || !formData.semester || !formData.credit) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+
+    const selectedDepartment = departments.find((d) => d._id === formData.department);
+    const payload = {
+      code: formData.code.trim(),
+      courseName: formData.courseName.trim(),
+      department: formData.department,
+      semester: Number(formData.semester),
+      credit: Number(formData.credit),
+      branch: getBranchCode(selectedDepartment?.name || ""),
+      facultyIds: formData.facultyId ? [formData.facultyId] : [],
     };
 
-    if (apiBase) {
-      fetchCourses();
+    try {
+      setSubmitting(true);
+      if (modalMode === "edit" && editingCourseId) {
+        await axios.put(`${apiBase}/admin/course/${editingCourseId}`, payload, {
+          withCredentials: true,
+        });
+        toast.success("Course updated successfully");
+      } else {
+        await axios.post(`${apiBase}/admin/course`, payload, { withCredentials: true });
+        toast.success("Course added successfully");
+      }
+      closeModal();
+      await fetchAll();
+    } catch (error) {
+      console.error("Course submit failed", error.response?.data || error.message);
+      toast.error(
+        error.response?.data?.message ||
+          (modalMode === "edit" ? "Failed to update course" : "Failed to add course")
+      );
+    } finally {
+      setSubmitting(false);
     }
-  }, [apiBase]);
+  };
+
+  const openEditModal = async (course) => {
+    try {
+      await ensureModalDependencies();
+      setModalMode("edit");
+      setEditingCourseId(course.id || "");
+      setFormData({
+        code: course.code || "",
+        courseName: course.courseName || "",
+        department: course.departmentId || "",
+        semester: String(course.semester ?? ""),
+        credit: String(course.credit ?? ""),
+        facultyId: course.coordinatorId || "",
+      });
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Failed to load modal data", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
+  };
+
+  const openAddModal = async () => {
+    try {
+      await ensureModalDependencies();
+      setModalMode("add");
+      setEditingCourseId("");
+      resetForm();
+      setIsOpen(true);
+    } catch (error) {
+      console.error("Failed to load modal data", error.response?.data || error.message);
+      toast.error(error.response?.data?.message || "Failed to load form data");
+    }
+  };
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
@@ -77,9 +210,9 @@ const Courses = () => {
 
 
   const renderState = () => {
-    if (loadState == "pending") {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
-        <div className="courses-state pending">
+        <div className="courses-state pending app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -94,7 +227,7 @@ const Courses = () => {
         </div>
       );
     }
-    if (loadState == "failure") {
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="courses-state error">
           <img src={emptyStateImg} alt="Failed" className="courses-state-img" />
@@ -111,7 +244,7 @@ const Courses = () => {
           <button
             className="courses-add-btn"
             type="button"
-            onClick={() => setIsOpen(true)}
+            onClick={openAddModal}
           >
             + Add Course
           </button>
@@ -147,26 +280,43 @@ const Courses = () => {
           <table className="courses-table">
             <thead>
               <tr>
+                <th className="courses-cell-serial">S. No</th>
                 <th>COURSE CODE</th>
                 <th>COURSE NAME</th>
                 <th>DEPARTMENT</th>
                 <th>STUDENTS</th>
                 <th>INSTRUCTOR</th>
+                <th>ACTION</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
-                <tr key={c.code}>
-                  <td className="courses-code">{c.code}</td>
-                  <td>{c.courseName}</td>
-                  <td>{c.department}</td>
-                  <td>{c.studentsInDepartment}</td>
-                  <td>{c.coordinatorName || "-"}</td>
-                </tr>
-              ))}
+              {filtered.map((c, index) => {
+                const numericId = (c.code || "").replace(/\D/g, "") || `${index + 1}`;
+                return (
+                  <tr key={c.id || c.code || numericId}>
+                    <td className="courses-serial-cell">{index + 1}</td>
+                    <td className="courses-code">{c.code}</td>
+                    <td>{c.courseName}</td>
+                    <td>{c.department}</td>
+                    <td>{c.studentsInDepartment}</td>
+                    <td>{c.coordinatorName || "-"}</td>
+                    <td className="courses-row-actions">
+                      <button
+                        type="button"
+                        className="courses-edit-btn"
+                        onClick={() => openEditModal(c)}
+                        aria-label={`Edit ${c.code}`}
+                        title="Edit course"
+                      >
+                        <FiEdit2 />
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={5} className="courses-empty">
+                  <td colSpan={7} className="courses-empty">
                     No courses found
                   </td>
                 </tr>
@@ -181,66 +331,128 @@ const Courses = () => {
   return (
     <div className="courses-page">
       {renderState()}
-{isOpen && (
+      {isOpen && (
         <div className="courses-modal">
           <div
             className="courses-modal-backdrop"
-            onClick={() => setIsOpen(false)}
+            onClick={closeModal}
             role="button"
             tabIndex={0}
             aria-label="Close"
           />
           <div className="courses-modal-card">
             <div className="courses-modal-head">
-              <h2>Add New Course</h2>
-              <p>Create a new course entry</p>
+              <h2>{modalMode === "edit" ? "Edit Course" : "Add New Course"}</h2>
+              <p>
+                {modalMode === "edit"
+                  ? "Update selected course details"
+                  : "Create a new course entry"}
+              </p>
             </div>
-            <form className="courses-form">
+            <form className="courses-form" onSubmit={handleSubmitCourse}>
               <label>
                 Course Code
-                <input placeholder="e.g., CS101" />
+                <input
+                  placeholder="e.g., CS101"
+                  name="code"
+                  value={formData.code}
+                  onChange={handleFormChange}
+                  required
+                />
               </label>
               <label>
                 Course Name
-                <input placeholder="e.g., Data Structures" />
+                <input
+                  placeholder="e.g., Data Structures"
+                  name="courseName"
+                  value={formData.courseName}
+                  onChange={handleFormChange}
+                  required
+                />
               </label>
               <div className="courses-form-row">
                 <label>
                   Department
-                  <select>
-                    {branches
-                      .filter((b) => b !== "All Branches")
-                      .map((b) => (
-                        <option key={b} value={b}>
-                          {b}
-                        </option>
-                      ))}
+                  <select
+                    name="department"
+                    value={formData.department}
+                    onChange={handleFormChange}
+                    required
+                  >
+                    <option value="" disabled>
+                      Select Department
+                    </option>
+                    {departments.map((d) => (
+                      <option key={d._id} value={d._id}>
+                        {d.name}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>
+                  Semester
+                  <input
+                    placeholder="e.g., 3"
+                    type="number"
+                    min="1"
+                    max="12"
+                    name="semester"
+                    value={formData.semester}
+                    onChange={handleFormChange}
+                    required
+                  />
+                </label>
+              </div>
+              <div className="courses-form-row">
+                <label>
                   Credits
-                  <input placeholder="4" type="number" />
+                  <input
+                    placeholder="e.g., 4"
+                    type="number"
+                    min="0"
+                    max="12"
+                    name="credit"
+                    value={formData.credit}
+                    onChange={handleFormChange}
+                    required
+                  />
+                </label>
+                <label>
+                  Branch
+                  <input
+                    value={getBranchCode(
+                      departments.find((d) => d._id === formData.department)?.name || ""
+                    )}
+                    placeholder="Auto-filled from department"
+                    disabled
+                  />
                 </label>
               </div>
               <label>
                 Instructor
-                <select>
-                  <option>Select an instructor</option>
-                  <option>Faculty 1</option>
-                  <option>Faculty 2</option>
-                  <option>Faculty 3</option>
+                <select
+                  name="facultyId"
+                  value={formData.facultyId}
+                  onChange={handleFormChange}
+                >
+                  <option value="">Select an instructor</option>
+                  {facultyList.map((f) => (
+                    <option key={f._id} value={f._id}>
+                      {f.user?.name || f.name || "Faculty"}
+                    </option>
+                  ))}
                 </select>
               </label>
               <div className="courses-modal-actions">
                 <button
                   type="button"
                   className="btn-secondary"
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeModal}
                 >
                   Cancel
                 </button>
-                <button type="button" className="btn-primary">
-                  Save Course
+                <button type="submit" className="btn-primary" disabled={submitting}>
+                  {submitting ? "Saving..." : "Submit"}
                 </button>
               </div>
             </form>
@@ -252,3 +464,5 @@ const Courses = () => {
 };
 
 export default Courses;
+
+

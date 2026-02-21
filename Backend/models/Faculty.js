@@ -43,13 +43,13 @@ const facultySchema = new mongoose.Schema(
 
     designation: {
       type: String,
-      enum: ["professor", "assistant_prof", "hod"],
+      enum: ["professor", "assistant_prof", "hod", "training", "other"],
       required: true,
     },
 
     qualification: { type: String, trim: true },
 
-    joiningDate: { type: Date, required: true },
+    joiningDate: { type: Date, required: false },
 
     routine: {
       type: Map,
@@ -58,6 +58,11 @@ const facultySchema = new mongoose.Schema(
         of: lectureDetailSchema,
       },
       default: () => new Map(),
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
     },
   },
   { timestamps: true }

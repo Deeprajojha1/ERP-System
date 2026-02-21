@@ -7,14 +7,17 @@ import userRoutes from "./Routes/userRoutes.js";
 import adminRoutes from "./Routes/adminRoutes.js";
 import facultyRoutes from "./Routes/facultyRoutes.js";
 import studentRoutes from "./Routes/studentRoutes.js";
+import attendanceRoutes from "./Routes/attendanceRoutes.js";
 dotenv.config();
 
 const app = express();
 // CORS configuration
 // NOTE: Origin is only scheme + host (+ optional port), no path.
 const allowedOrigins = [
-  "http://localhost:5173", // Local development (Vite)
-  "https://hu-erp1.vercel.app", // Production Vercel
+  "https://hu-erp-git-development-subeshs-projects.vercel.app",
+  "https://hu-erp1.vercel.app",
+  "http://localhost:5173", // Vite default port
+  "http://localhost:5174", // Vite alternate port
   process.env.FRONTEND_URL, // Optional override via env on Render
 ].filter(Boolean);
 
@@ -56,6 +59,22 @@ app.use('/api/user/', userRoutes)
 app.use('/api/admin/', adminRoutes)
 app.use('/api/faculty/', facultyRoutes)
 app.use('/api/student/', studentRoutes)
+app.use('/api/attendance/', attendanceRoutes)
+
+// Handle malformed JSON payloads from clients.
+app.use((err, req, res, next) => {
+  if (
+    err instanceof SyntaxError &&
+    err.status === 400 &&
+    "body" in err
+  ) {
+    return res.status(400).json({
+      message: "Invalid JSON payload. Please send valid JSON in request body.",
+    });
+  }
+  return next(err);
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

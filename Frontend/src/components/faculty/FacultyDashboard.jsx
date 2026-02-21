@@ -1,19 +1,28 @@
-import { useEffect, useMemo, useState } from "react";
-import axios from "axios";
-import { useSelector } from "react-redux";
+import { useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import { FiFileText } from "react-icons/fi";
+import toast from "react-hot-toast";
 import CourseCard from "./CourseCard";
 import InfoRow from "./InfoRow";
+import {
+  createFacultyLeave,
+  selectFacultyLeaveCreating,
+} from "../../redux/leavesSlice";
 import "./FacultyDashboard.css";
 
 function FacultyDashboard() {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
   const userData = useSelector((state) => state.user.userData);
-  const apiBase = useSelector((state) => state.config.apiBase);
+  const requestSubmitting = useSelector(selectFacultyLeaveCreating);
+
   const user = userData?.user;
   const roleDetails = userData?.roleDetails;
-  const [departments, setDepartments] = useState([]);
+
   const [requestStatus, setRequestStatus] = useState(null);
-  const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [isRequestOpen, setIsRequestOpen] = useState(false);
+
   const [requestForm, setRequestForm] = useState({
     leaveType: "Sick Leave",
     fromDate: "",
@@ -27,30 +36,10 @@ function FacultyDashboard() {
   const email = user?.email || "N/A";
   const phone = user?.phoneNumber || "N/A";
   const employeeId = roleDetails?.employeeId || "N/A";
+
   const joiningDate = roleDetails?.joiningDate
     ? new Date(roleDetails.joiningDate).toLocaleDateString()
     : "N/A";
-
-  useEffect(() => {
-    const fetchDepartments = async () => {
-      try {
-        const response = await axios.get(
-          `${apiBase}/admin/department`,
-          { withCredentials: true }
-        );
-        setDepartments(response.data?.departments || []);
-      } catch (error) {
-        console.error(
-          "Fetch departments failed:",
-          error.response?.data || error.message
-        );
-      }
-    };
-
-    if (apiBase) {
-      fetchDepartments();
-    }
-  }, [apiBase]);
 
   const courses = useMemo(() => {
     const routine = roleDetails?.routine || {};
@@ -73,7 +62,9 @@ function FacultyDashboard() {
             groupId,
             code: course.code || "N/A",
             title: course.courseName || course.title || "Untitled Course",
-            term: course.semester ? `Semester ${course.semester}` : "Current Term",
+            term: course.semester
+              ? `Semester ${course.semester}`
+              : "Current Term",
             scheduleParts: [],
             room: group.roomNo || "N/A",
             enrolled: group.studentIds?.length ?? null,
@@ -82,10 +73,7 @@ function FacultyDashboard() {
         }
 
         const entry = map.get(key);
-        const dayLabel = day
-          ? `${day.charAt(0).toUpperCase()}${day.slice(1)}`
-          : "Day";
-        entry.scheduleParts.push(`${dayLabel} (${slot})`);
+        entry.scheduleParts.push(`${day} (${slot})`);
       });
     });
 
@@ -100,199 +88,126 @@ function FacultyDashboard() {
     0
   );
 
-  const handleRequestChange = (event) => {
-    const { name, value } = event.target;
-    setRequestForm((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
+  const leaveTypeMap = {
+    "Casual Leave": "casual",
+    "Sick Leave": "sick",
+    "Annual Leave": "annual",
+    "Special Leave": "special",
+    Other: "other",
   };
 
-  const handleRequestSubmit = async (event) => {
-    event.preventDefault();
+  const toDDMMYYYY = (isoDate) => {
+    if (!isoDate) return "";
+    const [y, m, d] = isoDate.split("-");
+    return `${d}.${m}.${y}`;
+  };
+
+  const handleRequestChange = (e) => {
+    const { name, value } = e.target;
+    setRequestForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleRequestSubmit = async (e) => {
+    e.preventDefault();
     setRequestStatus(null);
+
     try {
-      setRequestSubmitting(true);
-      await axios.post(
-        `${apiBase}/admin/faculty`,
-        requestForm,
-        { withCredentials: true }
-      );
-      setRequestStatus({
-        type: "success",
-        message: "Leave request submitted.",
-      });
-      setRequestForm((prev) => ({
-        ...prev,
-        leaveType: "Sick Leave",
-        fromDate: "",
-        toDate: "",
-        reason: "",
-      }));
+      const facultyId = roleDetails?._id;
+      const reason = requestForm.reason.trim();
+      const dateFrom = toDDMMYYYY(requestForm.fromDate);
+      const dateTo = toDDMMYYYY(requestForm.toDate);
+      const type = leaveTypeMap[requestForm.leaveType] || "other";
+
+      const res = await dispatch(
+        createFacultyLeave({
+          faculty: facultyId,
+          dateFrom,
+          dateTo,
+          type,
+          status: "pending",
+          reason,
+        })
+      ).unwrap();
+
+      toast.success(res?.message || "Leave applied successfully");
+      setIsRequestOpen(false);
     } catch (error) {
-      console.error(
-        "Faculty request failed:",
-        error.response?.data || error.message
-      );
-      setRequestStatus({
-        type: "error",
-        message:
-          error.response?.data?.message ||
-          "Unable to submit request.",
-      });
-    } finally {
-      setRequestSubmitting(false);
+      toast.error(error?.message || "Unable to submit request.");
     }
   };
 
   return (
-    <section className="grid faculty-split">
-      <article className="panel profile">
-        <div className="profile-header">
-          <div className="avatar">{name.charAt(0)}</div>
-          <div>
-            <h1>{name}</h1>
-            <p className="muted">
-              {designation} - {department}
-            </p>
-          </div>
+    <section className="dashboard">
+      {/* HEADER */}
+      <div className="dashboard-header">
+        <h1>Welcome back, {name}</h1>
+        <p className="muted">
+          Manage your courses and attendance from one place
+        </p>
+      </div>
+
+      {/* STATS */}
+      <div className="stats-grid">
+        <div className="stat-card">
+          <h3 className="courseCount">{courses.length}</h3>
+          <span>Active Courses</span>
         </div>
-        <div className="profile-details">
+
+        <div className="stat-card">
+          <h3 className="stuCount">{totalStudents}</h3>
+          <span>Total Students</span>
+        </div>
+      </div>
+
+      {/* MAIN AREA */}
+      <div className="dashboard-main">
+        {/* PROFILE */}
+        <div className="panel profile">
+          <div className="profile-header">
+            <div className="avatar">{name.charAt(0)}</div>
+            <div>
+              <h2>{name}</h2>
+              <p className="muted">
+                {designation} — {department}
+              </p>
+            </div>
+          </div>
+
           <InfoRow label="ID" value={employeeId} />
           <InfoRow label="Email" value={email} />
           <InfoRow label="Phone" value={phone} />
           <InfoRow label="Joining Date" value={joiningDate} />
         </div>
-        <div className="profile-footer">
-          <div>
-            <p className="metric">{courses.length}</p>
-            <p className="muted">Active Courses</p>
-          </div>
-          <div>
-            <p className="metric">{totalStudents}</p>
-            <p className="muted">Total Students</p>
-          </div>
-        </div>
-      </article>
 
-      <article className="panel courses">
-        <div className="panel-title">
-          <div>
+        {/* COURSES */}
+        <div className="panel courses">
+          <div className="courses-header">
             <h2>Your Courses</h2>
-            <p className="muted">Select a course to take attendance.</p>
-          </div>
-          <div className="course-actions">
-            <div className="chip accent">Attendance Ready</div>
-            <button
-              className="request-open-btn"
-              type="button"
-              onClick={() => setIsRequestOpen(true)}
-            >
+            <button onClick={() => setIsRequestOpen(true)}>
               + Add Request
             </button>
           </div>
-        </div>
-        <div className="course-list">
-          {courses.length === 0 ? (
-            <p className="muted">No courses assigned yet.</p>
-          ) : (
-            courses.map((course) => (
+
+          <div className="course-list">
+            {courses.map((course) => (
               <CourseCard
                 key={`${course.id}-${course.groupId}`}
                 course={course}
               />
-            ))
-          )}
-        </div>
-      </article>
-
-      <div
-        className={`faculty-request-modal ${
-          isRequestOpen ? "show" : ""
-        }`}
-      >
-        <div
-          className="faculty-request-backdrop"
-          onClick={() => setIsRequestOpen(false)}
-          role="button"
-          tabIndex={0}
-          aria-label="Close"
-        />
-        <div className="faculty-request-card">
-          <div className="faculty-request-head">
-            <h1>New Leave Request</h1>
-            <p>Create a new leave request</p>
+            ))}
           </div>
-          <form className="request-form" onSubmit={handleRequestSubmit}>
-            <label>
-              Leave Type
-              <select
-                name="leaveType"
-                value={requestForm.leaveType}
-                onChange={handleRequestChange}
-              >
-                <option>Casual Leave</option>
-                <option>Sick Leave</option>
-                <option>Annual Leave</option>
-                <option>Special Leave</option>
-              </select>
-            </label>
-            <div className="request-row">
-              <label>
-                From Date
-                <input
-                  type="date"
-                  name="fromDate"
-                  value={requestForm.fromDate}
-                  onChange={handleRequestChange}
-                />
-              </label>
-              <label>
-                To Date
-                <input
-                  type="date"
-                  name="toDate"
-                  value={requestForm.toDate}
-                  onChange={handleRequestChange}
-                />
-              </label>
-            </div>
-            <label>
-              Reason
-              <textarea
-                name="reason"
-                value={requestForm.reason}
-                onChange={handleRequestChange}
-                rows={5}
-                placeholder="Enter reason for leave..."
-              />
-            </label>
-            {requestStatus && (
-              <p className={`request-status ${requestStatus.type}`}>
-                {requestStatus.message}
-              </p>
-            )}
-            <div className="request-actions">
-              <button
-                type="button"
-                className="request-cancel"
-                onClick={() => setIsRequestOpen(false)}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="request-submit"
-                disabled={requestSubmitting}
-              >
-                {requestSubmitting ? "Submitting..." : "Submit Request"}
-              </button>
-            </div>
-          </form>
         </div>
       </div>
+
+      {/* FLOATING BUTTON */}
+      <button
+        className="leaves-btn"
+        onClick={() => navigate("/faculty/leaves")}
+      >
+        <FiFileText /> Leaves
+      </button>
     </section>
-  )
+  );
 }
 
-export default FacultyDashboard
+export default FacultyDashboard;

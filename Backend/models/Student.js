@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { normalizeProgramValue, PROGRAM_ENUM } from "../utils/programNormalization.js";
 
 const studentSchema = new mongoose.Schema(
   {
@@ -19,7 +20,8 @@ const studentSchema = new mongoose.Schema(
 
     program: {
       type: String,
-      enum: ["btech", "mtech", "mba"],
+      enum: PROGRAM_ENUM,
+      set: normalizeProgramValue,
       required: true,
     },
 
@@ -44,6 +46,11 @@ const studentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Group",
       default: null,
+    },
+    isDeleted: {
+      type: Boolean,
+      default: false,
+      select: false,
     },
   },
   { timestamps: true }

@@ -46,8 +46,13 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  border-bottom: 1px solid #e2e8f0;
-  background: #fbfdff;
+  border-bottom: 1px solid #dbeafe;
+  background: linear-gradient(
+    135deg,
+    #eff6ff 0%,
+    #f8fbff 45%,
+    #f0fdfa 100%
+  );
 }
 
 .student-search {
@@ -55,15 +60,40 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid #bfdbfe;
   border-radius: 10px;
   padding: 10px 12px;
-  background: #ffffff;
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #f0f9ff 60%,
+    #ecfeff 100%
+  );
+  transition: border-color 0.2s ease, box-shadow 0.2s ease,
+    transform 0.2s ease;
+}
+
+.student-search:focus-within {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+  transform: translateY(-1px);
 }
 
 .student-search-icon {
-  font-size: 16px;
-  color: #64748b;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #1d4ed8;
+  background: linear-gradient(
+    145deg,
+    #dbeafe 0%,
+    #eff6ff 100%
+  );
+  border: 1px solid #bfdbfe;
+  font-size: 15px;
 }
 
 .student-search input {
@@ -164,10 +194,26 @@
   background: #f8fafc;
 }
 
+.student-table th.student-cell-serial {
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.student-table th.student-cell-serial {
+  width: 70px;
+  text-align: center;
+}
+
 .student-table tbody td {
   padding: 16px 18px;
   border-bottom: 1px solid #e2e8f0;
   color: #0f172a;
+}
+
+.student-table td.student-serial-cell {
+  text-align: center;
+  color: #475569;
+  letter-spacing: 0.4px;
 }
 
 .student-roll {
@@ -241,8 +287,10 @@
   inset: 0;
   z-index: 50;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
+  overflow-y: auto;
+  padding: calc(var(--admin-nav-height, 74px) + 12px) 12px 12px;
 }
 
 .student-modal-backdrop {
@@ -259,6 +307,8 @@
   border-radius: 16px;
   box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
   padding: 20px;
+  max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 24px));
+  overflow-y: auto;
 }
 
 .student-modal-head h2 {
@@ -386,14 +436,11 @@
   }
 
   .student-modal {
-    align-items: flex-start;
-    padding: 12px;
-    overflow-y: auto;
+    padding: calc(var(--admin-nav-height, 74px) + 8px) 12px 12px;
   }
 
   .student-modal-card {
     width: 100%;
-    max-height: calc(100dvh - 24px);
-    overflow-y: auto;
+    max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 20px));
   }
 }
