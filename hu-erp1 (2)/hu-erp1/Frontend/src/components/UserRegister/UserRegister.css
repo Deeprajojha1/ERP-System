@@ -1,0 +1,236 @@
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap");
+
+.register-block-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #eaf1f9 0%, #f4f7fb 100%);
+  padding: 20px;
+  font-family: "Sora", "Segoe UI", sans-serif;
+}
+
+.register-block-card {
+  width: min(540px, 100%);
+  background: #ffffff;
+  border: 1px solid #dbe3ef;
+  border-radius: 22px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.1);
+  padding: 20px 18px;
+}
+
+.register-block-logo {
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+  display: block;
+  margin: 0 auto 16px;
+  object-fit: cover;
+}
+
+.register-block-title {
+  margin: 0;
+  text-align: center;
+  font-size: 40px;
+  line-height: 1;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.register-block-subtitle {
+  margin: 10px 0 18px;
+  text-align: center;
+  font-size: 16px;
+  color: #4b5563;
+}
+
+.register-block-panel {
+  border: 1px solid #dbe3ef;
+  border-radius: 18px;
+  padding: 16px;
+  background: #fdfefe;
+}
+
+.register-block-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #1488c3;
+}
+
+.register-block-head svg {
+  font-size: 30px;
+}
+
+.register-block-head h2 {
+  margin: 0;
+  font-size: 31px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.register-block-text {
+  margin: 12px 0 16px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #4b5563;
+}
+
+.register-block-note {
+  border: 1px solid #b6daf2;
+  background: #eff8ff;
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 18px;
+}
+
+.register-block-note-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  color: #1456a2;
+}
+
+.register-block-note-head svg {
+  font-size: 25px;
+}
+
+.register-block-note-head span {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.register-block-note p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #194f93;
+}
+
+.register-block-steps h3 {
+  margin: 0 0 12px;
+  color: #1f2937;
+  font-size: 17px;
+}
+
+.register-block-steps ol {
+  margin: 0 0 18px;
+  padding-left: 24px;
+  color: #4b5563;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.register-block-login-btn {
+  width: 100%;
+  height: 50px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #1488c3, #1aa0e1);
+  color: #ffffff;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.register-block-login-btn:hover {
+  background: linear-gradient(135deg, #0f79b0, #1488c3);
+}
+
+@media (max-width: 1024px) {
+  .register-block-card {
+    width: min(500px, 100%);
+  }
+}
+
+@media (max-width: 768px) {
+  .register-block-card {
+    width: min(460px, 100%);
+    padding: 16px 12px;
+    border-radius: 18px;
+  }
+
+  .register-block-title {
+    font-size: 32px;
+  }
+
+  .register-block-head h2 {
+    font-size: 25px;
+  }
+
+  .register-block-panel {
+    padding: 14px;
+  }
+
+  .register-block-text,
+  .register-block-note p {
+    font-size: 14px;
+  }
+
+  .register-block-steps ol {
+    font-size: 14px;
+    line-height: 1.65;
+  }
+}
+
+@media (max-width: 480px) {
+  .register-block-page {
+    padding: 10px;
+  }
+
+  .register-block-card {
+    padding: 14px 10px;
+    border-radius: 14px;
+  }
+
+  .register-block-logo {
+    width: 76px;
+    height: 76px;
+  }
+
+  .register-block-title {
+    font-size: 24px;
+  }
+
+  .register-block-subtitle {
+    font-size: 13px;
+  }
+
+  .register-block-panel {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  .register-block-head svg {
+    font-size: 24px;
+  }
+
+  .register-block-head h2 {
+    font-size: 18px;
+  }
+
+  .register-block-text,
+  .register-block-note p {
+    font-size: 14px;
+  }
+
+  .register-block-note-head span {
+    font-size: 16px;
+  }
+
+  .register-block-steps h3 {
+    font-size: 15px;
+  }
+
+  .register-block-steps ol {
+    font-size: 13px;
+    line-height: 1.55;
+    padding-left: 20px;
+  }
+
+  .register-block-login-btn {
+    height: 44px;
+    font-size: 16px;
+  }
+}

@@ -1,0 +1,160 @@
+.attendance-overview {
+  background: #ffffff;
+  border: 1px solid #d9e4ef;
+  border-radius: 18px;
+  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.08);
+  padding: 16px;
+}
+
+.overall-attendance {
+  text-align: center;
+}
+
+.attendance-overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.attendance-overview-header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.05rem;
+  font-weight: 800;
+  text-align: left;
+}
+
+.download-btn {
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #0ea5a6, #06b6d4);
+  padding: 9px 11px;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 8px 16px rgba(14, 165, 166, 0.28);
+  flex: 0 0 auto;
+}
+
+.download-icon {
+  display: block;
+  font-size: 16px;
+}
+
+.attendance-circle {
+  display: flex;
+  justify-content: center;
+  margin: 8px 0 14px;
+}
+
+.circle-progress {
+  width: 138px;
+  height: 138px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.circle-inner {
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  border: 1px solid #e3ebf4;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.percentage {
+  color: #0f172a;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.circle-label {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.attendance-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.stat {
+  border: 1px solid #e5edf6;
+  border-radius: 12px;
+  background: #fbfdff;
+  padding: 9px 8px;
+}
+
+.stat-value {
+  display: block;
+  color: #0f172a;
+  font-size: 1.3rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.stat-label {
+  display: block;
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.attendance-status-note {
+  margin: 12px 0 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  border: 1px solid transparent;
+}
+
+.attendance-status-note.ok {
+  color: #0f766e;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.attendance-status-note.risk {
+  color: #b91c1c;
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+@media (max-width: 560px) {
+  .attendance-overview {
+    padding: 14px;
+  }
+
+  .attendance-overview-header h3 {
+    font-size: 0.98rem;
+  }
+
+  .circle-progress {
+    width: 124px;
+    height: 124px;
+  }
+
+  .circle-inner {
+    width: 98px;
+    height: 98px;
+  }
+
+  .percentage {
+    font-size: 1.5rem;
+  }
+}
