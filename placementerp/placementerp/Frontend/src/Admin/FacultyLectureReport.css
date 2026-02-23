@@ -1,0 +1,512 @@
+.faculty-lecture-report-page {
+  padding: 8px 4px 24px;
+}
+
+.faculty-lecture-report-header {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.faculty-lecture-report-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.faculty-lecture-report-subtitle {
+  margin: 4px 0 0;
+  color: #475569;
+  font-size: 14px;
+}
+
+.faculty-lecture-report-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  min-height: 60vh;
+}
+
+.faculty-lecture-report-filters {
+  padding: 18px;
+  border-bottom: 1px solid #dbeafe;
+  background: linear-gradient(135deg, #eff6ff 0%, #f8fbff 45%, #f0fdfa 100%);
+}
+
+.filter-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.faculty-lecture-report-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 180px;
+}
+
+.faculty-lecture-report-filter-group label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.faculty-lecture-report-filter-group select,
+.faculty-lecture-report-filter-group input[type="date"] {
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  background: #ffffff;
+  color: #0f172a;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.faculty-lecture-report-filter-group select {
+  appearance: none;
+  background-image: linear-gradient(45deg, transparent 50%, #64748b 50%),
+    linear-gradient(135deg, #64748b 50%, transparent 50%),
+    linear-gradient(#ffffff, #ffffff);
+  background-position: calc(100% - 18px) 50%, calc(100% - 12px) 50%, 100% 0;
+  background-size: 6px 6px, 6px 6px, 2.5em 3em;
+  background-repeat: no-repeat;
+  padding-right: 42px;
+}
+
+.faculty-lecture-report-filter-group select:focus,
+.faculty-lecture-report-filter-group input[type="date"]:focus {
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  border-color: #2563eb;
+}
+
+.faculty-lecture-report-filter-group select:disabled,
+.faculty-lecture-report-filter-group input[type="date"]:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+.faculty-lecture-report-show-btn,
+.faculty-lecture-report-print-btn {
+  border: none;
+  padding: 10px 20px;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  transition: background 0.2s ease, transform 0.2s ease;
+  height: fit-content;
+  align-self: flex-end;
+}
+
+.faculty-lecture-report-show-btn {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.faculty-lecture-report-show-btn:hover:not(:disabled) {
+  background: #15803d;
+  transform: translateY(-1px);
+}
+
+.faculty-lecture-report-print-btn {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.faculty-lecture-report-print-btn:hover:not(:disabled) {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.faculty-lecture-report-show-btn:disabled,
+.faculty-lecture-report-print-btn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.faculty-lecture-report-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 60px 18px;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.faculty-lecture-report-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 18px 60px;
+  text-align: center;
+  background: #f8fafc;
+}
+
+.faculty-lecture-report-empty img {
+  width: min(380px, 85%);
+  height: auto;
+  display: block;
+}
+
+.faculty-lecture-report-empty h3 {
+  margin: 0;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.faculty-lecture-report-empty p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.print-header {
+  display: none;
+  text-align: center;
+  padding: 20px;
+  border-bottom: 2px solid #0f172a;
+  margin-bottom: 20px;
+}
+
+.print-header h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #0f172a;
+  text-transform: uppercase;
+}
+
+.print-header h3 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.print-header h4 {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.faculty-lecture-report-stats {
+  display: flex;
+  gap: 16px;
+  padding: 18px;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.stat-card {
+  flex: 1;
+  padding: 16px;
+  border-radius: 12px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+}
+
+.stat-card.stat-total {
+  background: linear-gradient(135deg, #dbeafe 0%, #eff6ff 100%);
+  border: 1px solid #bfdbfe;
+}
+
+.stat-card.stat-taken {
+  background: linear-gradient(135deg, #dcfce7 0%, #f0fdf4 100%);
+  border: 1px solid #bbf7d0;
+}
+
+.stat-card.stat-not-taken {
+  background: linear-gradient(135deg, #fee2e2 0%, #fef2f2 100%);
+  border: 1px solid #fecaca;
+}
+
+.stat-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #64748b;
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.faculty-lecture-report-table-wrapper {
+  padding: 18px;
+  background: #f8fafc;
+  overflow-x: auto;
+}
+
+.faculty-lecture-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.04);
+  font-size: 12px;
+}
+
+.faculty-lecture-report-table thead {
+  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  color: #ffffff;
+}
+
+.faculty-lecture-report-table th {
+  padding: 12px 8px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  color: #ffffff !important;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  border-right: 1px solid rgba(255, 255, 255, 0.2);
+  vertical-align: middle;
+}
+
+.faculty-lecture-report-table th:last-child {
+  border-right: none;
+}
+
+.faculty-lecture-report-table th.sr-col {
+  min-width: 60px;
+}
+
+.faculty-lecture-report-table th.faculty-col {
+  min-width: 150px;
+}
+
+.faculty-lecture-report-table th.lecture-col {
+  min-width: 120px;
+}
+
+.time-slot {
+  font-size: 9px;
+  font-weight: 500;
+  color: #ffffff !important;
+  opacity: 0.9;
+}
+
+.faculty-lecture-report-table tbody tr {
+  border-bottom: 1px solid #e2e8f0;
+  transition: background 0.2s ease;
+}
+
+.faculty-lecture-report-table tbody tr:hover {
+  background: #f1f5f9;
+}
+
+.faculty-lecture-report-table tbody tr:last-child {
+  border-bottom: none;
+}
+
+.faculty-lecture-report-table td {
+  padding: 10px 8px;
+  text-align: center;
+  color: #334155;
+  border-right: 1px solid #e2e8f0;
+  vertical-align: middle;
+}
+
+.faculty-lecture-report-table td:last-child {
+  border-right: none;
+}
+
+.sr-cell {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.faculty-cell {
+  text-align: left !important;
+  padding: 12px !important;
+}
+
+.faculty-name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
+
+.faculty-info {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.lecture-cell {
+  padding: 8px 6px !important;
+  min-height: 80px;
+}
+
+.lecture-cell.taken {
+  background: #dcfce7;
+  border: 1px solid #86efac;
+}
+
+.lecture-cell.not-taken {
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+}
+
+.lecture-cell.empty {
+  background: #f8fafc;
+  color: #94a3b8;
+}
+
+.lecture-course {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 11px;
+  margin-bottom: 4px;
+  line-height: 1.2;
+}
+
+.lecture-group {
+  font-size: 10px;
+  color: #475569;
+  margin-bottom: 2px;
+}
+
+.lecture-code {
+  font-size: 9px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.total-cell,
+.taken-cell,
+.not-taken-cell {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.total-cell {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.taken-cell {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.not-taken-cell {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-header {
+    display: block !important;
+  }
+
+  .faculty-lecture-report-page {
+    padding: 0;
+  }
+
+  .faculty-lecture-report-panel {
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .faculty-lecture-report-table-wrapper {
+    padding: 0;
+    background: #ffffff;
+  }
+
+  .faculty-lecture-report-table {
+    box-shadow: none;
+    border: 1px solid #000000;
+    font-size: 9px;
+  }
+
+  .faculty-lecture-report-table thead {
+    background: #ffffff !important;
+    color: #000000 !important;
+    border-bottom: 2px solid #000000;
+  }
+
+  .faculty-lecture-report-table th {
+    border-right: 1px solid #000000;
+    color: #000000;
+    padding: 4px;
+  }
+
+  .faculty-lecture-report-table td {
+    border-right: 1px solid #000000;
+    border-bottom: 1px solid #000000;
+    padding: 4px;
+  }
+
+  .lecture-cell.taken {
+    background: #ffffff !important;
+    border: 1px solid #000000 !important;
+  }
+
+  .lecture-cell.not-taken {
+    background: #ffffff !important;
+    border: 1px solid #000000 !important;
+  }
+
+  @page {
+    margin: 0.5cm;
+    size: landscape;
+  }
+}
+
+@media (max-width: 768px) {
+  .filter-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .faculty-lecture-report-filter-group {
+    min-width: 100%;
+  }
+
+  .faculty-lecture-report-show-btn,
+  .faculty-lecture-report-print-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .faculty-lecture-report-stats {
+    flex-direction: column;
+  }
+
+  .faculty-lecture-report-table-wrapper {
+    overflow-x: scroll;
+  }
+
+  .faculty-lecture-report-table {
+    min-width: 1400px;
+  }
+}

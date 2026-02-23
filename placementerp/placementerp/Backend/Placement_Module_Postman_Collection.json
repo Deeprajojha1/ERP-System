@@ -1,0 +1,1243 @@
+{
+    "info": {
+        "name": "ERP Placement Module API",
+        "description": "Complete API collection for ERP Placement Module with all endpoints",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000/api",
+            "type": "string"
+        },
+        {
+            "key": "authToken",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "companyId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "jobId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "driveId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "applicationId",
+            "value": "",
+            "type": "string"
+        },
+        {
+            "key": "studentId",
+            "value": "",
+            "type": "string"
+        }
+    ],
+    "item": [
+        {
+            "name": "1. Authentication",
+            "item": [
+                {
+                    "name": "Admin Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('authToken', response.token);",
+                                    "    console.log('Auth token saved:', response.token);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"admin123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/user/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "user",
+                                "login"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Student Login",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 200) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('authToken', response.token);",
+                                    "    if (response.student && response.student._id) {",
+                                    "        pm.collectionVariables.set('studentId', response.student._id);",
+                                    "    }",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"student@example.com\",\n  \"password\": \"student123\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/student/login",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "student",
+                                "login"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "2. Companies",
+            "item": [
+                {
+                    "name": "Get All Companies",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/companies",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "companies"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Company By ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/companies/{{companyId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "companies",
+                                "{{companyId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Add Company",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('companyId', response.company._id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"TechCorp Solutions\",\n  \"logo\": \"https://example.com/logo.png\",\n  \"website\": \"https://techcorp.com\",\n  \"industry\": \"Information Technology\",\n  \"description\": \"Leading IT solutions provider\",\n  \"location\": \"Bangalore, India\",\n  \"contactPerson\": {\n    \"name\": \"John Doe\",\n    \"email\": \"john@techcorp.com\",\n    \"phone\": \"9876543210\",\n    \"designation\": \"HR Manager\"\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/companies",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "companies"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Company",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"description\": \"Updated description for TechCorp\",\n  \"isActive\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/companies/{{companyId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "companies",
+                                "{{companyId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Company",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/companies/{{companyId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "companies",
+                                "{{companyId}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "3. Jobs",
+            "item": [
+                {
+                    "name": "Get All Jobs",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/jobs?status=open",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "jobs"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "open"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Eligible Jobs (Student)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/jobs/eligible/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "jobs",
+                                "eligible",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Job By ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/jobs/{{jobId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "jobs",
+                                "{{jobId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Add Job",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('jobId', response.job._id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"company\": \"{{companyId}}\",\n  \"title\": \"Software Developer\",\n  \"jobType\": \"full-time\",\n  \"description\": \"We are looking for a talented software developer to join our team.\",\n  \"eligibility\": {\n    \"programs\": [\"B.Tech\", \"M.Tech\"],\n    \"branches\": [\"CSE\", \"IT\"],\n    \"minCGPA\": 7.0,\n    \"minPercentage\": 65,\n    \"passingYear\": [2024, 2025],\n    \"maxBacklogs\": 0\n  },\n  \"skills\": [\"JavaScript\", \"React\", \"Node.js\", \"MongoDB\"],\n  \"location\": \"Bangalore\",\n  \"workMode\": \"hybrid\",\n  \"salary\": {\n    \"min\": 600000,\n    \"max\": 800000,\n    \"currency\": \"INR\"\n  },\n  \"applicationDeadline\": \"2026-03-31T23:59:59.000Z\",\n  \"status\": \"open\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/jobs",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "jobs"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Job",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"description\": \"Updated job description\",\n  \"status\": \"open\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/jobs/{{jobId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "jobs",
+                                "{{jobId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Job",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/jobs/{{jobId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "jobs",
+                                "{{jobId}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "4. Placement Drives",
+            "item": [
+                {
+                    "name": "Get All Drives",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/drives",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "drives"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Eligible Drives (Student)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/drives/eligible/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "drives",
+                                "eligible",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Drive By ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/drives/{{driveId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "drives",
+                                "{{driveId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Add Placement Drive",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('driveId', response.drive._id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"title\": \"TechCorp Campus Placement Drive 2026\",\n  \"company\": \"{{companyId}}\",\n  \"driveType\": \"on-campus\",\n  \"description\": \"Annual campus placement drive for final year students\",\n  \"eligibility\": {\n    \"programs\": [\"B.Tech\"],\n    \"branches\": [\"CSE\", \"IT\", \"ECE\"],\n    \"minCGPA\": 7.0,\n    \"passingYear\": [2026],\n    \"maxBacklogs\": 0\n  },\n  \"schedule\": {\n    \"registrationStart\": \"2026-02-25T00:00:00.000Z\",\n    \"registrationEnd\": \"2026-03-10T23:59:59.000Z\",\n    \"driveDate\": \"2026-03-15T09:00:00.000Z\",\n    \"venue\": \"University Auditorium\"\n  },\n  \"rounds\": [\n    {\n      \"name\": \"Aptitude Test\",\n      \"description\": \"Online aptitude and reasoning test\",\n      \"date\": \"2026-03-15T09:00:00.000Z\",\n      \"duration\": 60\n    },\n    {\n      \"name\": \"Technical Interview\",\n      \"description\": \"Technical round with coding questions\",\n      \"date\": \"2026-03-15T14:00:00.000Z\",\n      \"duration\": 45\n    },\n    {\n      \"name\": \"HR Interview\",\n      \"description\": \"Final HR round\",\n      \"date\": \"2026-03-15T16:00:00.000Z\",\n      \"duration\": 30\n    }\n  ],\n  \"status\": \"registration-open\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/drives",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "drives"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Placement Drive",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"ongoing\",\n  \"description\": \"Updated drive description\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/drives/{{driveId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "drives",
+                                "{{driveId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Placement Drive",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/drives/{{driveId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "drives",
+                                "{{driveId}}"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "5. Applications",
+            "item": [
+                {
+                    "name": "Get All Applications (Admin)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/applications?status=submitted",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "applications"
+                            ],
+                            "query": [
+                                {
+                                    "key": "status",
+                                    "value": "submitted"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get My Applications (Student)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/applications/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "applications",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Application By ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/applications/{{applicationId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "applications",
+                                "{{applicationId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Apply for Job",
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "exec": [
+                                    "if (pm.response.code === 201) {",
+                                    "    const response = pm.response.json();",
+                                    "    pm.collectionVariables.set('applicationId', response.application._id);",
+                                    "}"
+                                ]
+                            }
+                        }
+                    ],
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"job\": \"{{jobId}}\",\n  \"resume\": \"https://example.com/resumes/student-resume.pdf\",\n  \"coverLetter\": \"I am very interested in this position and believe my skills align well with the requirements.\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/applications/apply",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "applications",
+                                "apply"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Apply for Placement Drive",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"placementDrive\": \"{{driveId}}\",\n  \"resume\": \"https://example.com/resumes/student-resume.pdf\",\n  \"coverLetter\": \"Excited to participate in this placement drive.\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/applications/apply",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "applications",
+                                "apply"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Application Status (Admin)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"shortlisted\",\n  \"remarks\": \"Candidate profile matches requirements\",\n  \"interviewDetails\": {\n    \"date\": \"2026-03-20T10:00:00.000Z\",\n    \"time\": \"10:00 AM\",\n    \"venue\": \"Room 301, Admin Block\",\n    \"mode\": \"offline\",\n    \"instructions\": \"Please bring your resume and ID proof\"\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/applications/{{applicationId}}/status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "applications",
+                                "{{applicationId}}",
+                                "status"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Withdraw Application (Student)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/applications/{{applicationId}}/withdraw",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "applications",
+                                "{{applicationId}}",
+                                "withdraw"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "6. Student Profile",
+            "item": [
+                {
+                    "name": "Get My Profile (Student)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/profile/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "profile",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update My Profile (Student)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"cgpa\": 8.5,\n  \"percentage\": 85,\n  \"backlogs\": {\n    \"current\": 0,\n    \"cleared\": 0\n  },\n  \"skills\": [\"JavaScript\", \"React\", \"Node.js\", \"Python\", \"MongoDB\"],\n  \"certifications\": [\n    {\n      \"name\": \"AWS Certified Developer\",\n      \"issuedBy\": \"Amazon Web Services\",\n      \"issuedDate\": \"2025-12-15T00:00:00.000Z\",\n      \"certificateUrl\": \"https://example.com/cert.pdf\"\n    }\n  ],\n  \"projects\": [\n    {\n      \"title\": \"E-commerce Platform\",\n      \"description\": \"Full-stack e-commerce application\",\n      \"technologies\": [\"React\", \"Node.js\", \"MongoDB\"],\n      \"startDate\": \"2025-06-01T00:00:00.000Z\",\n      \"endDate\": \"2025-12-01T00:00:00.000Z\",\n      \"projectUrl\": \"https://github.com/user/ecommerce\"\n    }\n  ],\n  \"socialLinks\": {\n    \"linkedin\": \"https://linkedin.com/in/student\",\n    \"github\": \"https://github.com/student\",\n    \"portfolio\": \"https://student-portfolio.com\"\n  },\n  \"preferences\": {\n    \"jobTypes\": [\"full-time\", \"internship\"],\n    \"preferredLocations\": [\"Bangalore\", \"Hyderabad\", \"Pune\"],\n    \"expectedSalary\": 700000,\n    \"workMode\": [\"hybrid\", \"remote\"]\n  }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/profile/me",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "profile",
+                                "me"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Add Resume (Student)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"fileName\": \"Resume_2026.pdf\",\n  \"fileUrl\": \"https://example.com/resumes/resume_2026.pdf\",\n  \"isDefault\": true\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/profile/me/resume",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "profile",
+                                "me",
+                                "resume"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get All Student Profiles (Admin)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/profiles?placementStatus=seeking&minCGPA=7.0",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "profiles"
+                            ],
+                            "query": [
+                                {
+                                    "key": "placementStatus",
+                                    "value": "seeking"
+                                },
+                                {
+                                    "key": "minCGPA",
+                                    "value": "7.0"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Student Profile By ID (Admin)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/profiles/{{studentId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "profiles",
+                                "{{studentId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Placement Status (Admin)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{authToken}}"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"placementStatus\": \"placed\",\n  \"placedCompany\": \"TechCorp Solutions\",\n  \"placedPackage\": 750000\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/placement/profiles/{{studentId}}/placement-status",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "placement",
+                                "profiles",
+                                "{{studentId}}",
+                                "placement-status"
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}
+    
+{
+    "name": "7. External Jobs (NEW!)",
+    "item": [
+        {
+            "name": "Get External Jobs (All Sources)",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/placement/external-jobs?keywords=software&location=India",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "placement",
+                        "external-jobs"
+                    ],
+                    "query": [
+                        {
+                            "key": "keywords",
+                            "value": "software"
+                        },
+                        {
+                            "key": "location",
+                            "value": "India"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get External Jobs from The Muse",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/placement/external-jobs/source/themuse?keywords=developer",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "placement",
+                        "external-jobs",
+                        "source",
+                        "themuse"
+                    ],
+                    "query": [
+                        {
+                            "key": "keywords",
+                            "value": "developer"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get External Jobs from Remotive",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/placement/external-jobs/source/remotive?keywords=software",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "placement",
+                        "external-jobs",
+                        "source",
+                        "remotive"
+                    ],
+                    "query": [
+                        {
+                            "key": "keywords",
+                            "value": "software"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Personalized External Jobs (Student)",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/placement/external-jobs/personalized",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "placement",
+                        "external-jobs",
+                        "personalized"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Combined Jobs (Internal + External)",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/placement/jobs/combined?includeExternal=true",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "placement",
+                        "jobs",
+                        "combined"
+                    ],
+                    "query": [
+                        {
+                            "key": "includeExternal",
+                            "value": "true"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Combined Eligible Jobs (Student)",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/placement/jobs/combined/eligible?includeExternal=true",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "placement",
+                        "jobs",
+                        "combined",
+                        "eligible"
+                    ],
+                    "query": [
+                        {
+                            "key": "includeExternal",
+                            "value": "true"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Search Jobs (Internal + External)",
+            "request": {
+                "method": "GET",
+                "header": [
+                    {
+                        "key": "Authorization",
+                        "value": "Bearer {{authToken}}"
+                    }
+                ],
+                "url": {
+                    "raw": "{{baseUrl}}/placement/jobs/search?query=react&includeExternal=true",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "placement",
+                        "jobs",
+                        "search"
+                    ],
+                    "query": [
+                        {
+                            "key": "query",
+                            "value": "react"
+                        },
+                        {
+                            "key": "includeExternal",
+                            "value": "true"
+                        }
+                    ]
+                }
+            }
+        }
+    ]
+}
+]
+}
