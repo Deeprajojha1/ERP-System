@@ -24,6 +24,7 @@
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.13.0",
     "react-slick": "^0.31.0",
+    "react-spinners": "^0.17.0",
     "recharts": "^3.7.0",
     "redux-persist": "^6.0.0",
     "slick-carousel": "^1.8.1",

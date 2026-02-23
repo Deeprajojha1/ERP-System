@@ -1,87 +1,58 @@
 import Assignment from "../models/Assignment.js";
 import Submission from "../models/Submission.js";
-import Group from "../models/Group.js";
 
-export const getAssignmentsByGroup = async (req, res) => {
-  try {
-    const { departmentId, groupId, facultyId } = req.query;
+const buildAssignmentQuery = ({ departmentId, groupId, facultyId }) => {
+  const query = { isDeleted: { $ne: true } };
 
-    let filter = {};
+  if (departmentId) query.department = departmentId;
+  if (groupId) query.group = groupId;
+  if (facultyId) query.uploadedBy = facultyId;
 
-    if (departmentId) filter.department = departmentId;
-    if (groupId) filter.group = groupId;
-    if (facultyId) filter.uploadedBy = facultyId;
+  return query;
+};
 
-const assignments = await Assignment.find(filter)
-  .populate({
+const assignmentPopulate = [
+  {
     path: "uploadedBy",
     populate: {
       path: "user",
       select: "name email",
     },
-  })
-  .populate("group", "name")
-  .populate("department", "name")
-  .sort({ createdAt: -1 });
+  },
+  { path: "group", select: "name" },
+  { path: "department", select: "name" },
+];
 
+export const getAssignmentsByGroup = async (req, res) => {
+  try {
+    const query = buildAssignmentQuery(req.query || {});
 
-    res.json(assignments);
+    const assignments = await Assignment.find(query)
+      .populate(assignmentPopulate)
+      .sort({ createdAt: -1 });
 
+    return res.status(200).json({ assignments });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message || "Failed to fetch assignments" });
   }
 };
 
 export const getSingleAssignmentAdmin = async (req, res) => {
   try {
-    const assignment = await Assignment.findById(req.params.id)
-      .populate({
-        path: "uploadedBy",
-        populate: {
-          path: "user",
-          select: "name email",
-        },
-      })
-      .populate("group", "name")
-      .populate("department", "name");
+    const { id } = req.params;
+
+    const assignment = await Assignment.findOne({
+      _id: id,
+      isDeleted: { $ne: true },
+    }).populate(assignmentPopulate);
 
     if (!assignment) {
       return res.status(404).json({ message: "Assignment not found" });
     }
 
-    res.json(assignment);
+    return res.status(200).json({ assignment });
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-export const getAdminAssignments = async (req, res) => {
-  try {
-    const { departmentId, groupId, facultyId } = req.query;
-
-    let filter = {};
-
-    if (departmentId) filter.department = departmentId;
-    if (groupId) filter.group = groupId;
-    if (facultyId) filter.uploadedBy = facultyId;
-
-    const assignments = await Assignment.find(filter)
-      .populate({
-        path: "uploadedBy",
-        populate: {
-          path: "user",
-          select: "name email",
-        },
-      })
-      .populate("group", "name")
-      .populate("department", "name")
-      .sort({ createdAt: -1 });
-
-    res.json(assignments);
-
-  } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message || "Failed to fetch assignment" });
   }
 };
 
@@ -89,78 +60,57 @@ export const updateAssignment = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const assignment = await Assignment.findById(id);
+    const assignment = await Assignment.findOne({
+      _id: id,
+      isDeleted: { $ne: true },
+    });
 
     if (!assignment) {
       return res.status(404).json({ message: "Assignment not found" });
     }
 
-    const updatedAssignment = await Assignment.findByIdAndUpdate(
-      id,
-      req.body,
-      { new: true, runValidators: true }
-    )
-      .populate({
-        path: "uploadedBy",
-        populate: {
-          path: "user",
-          select: "name email",
-        },
-      })
-      .populate("group", "name")
-      .populate("department", "name");
+    const updatedAssignment = await Assignment.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    }).populate(assignmentPopulate);
 
-    res.json({
-      success: true,
+    return res.status(200).json({
       message: "Assignment updated successfully",
-      updatedAssignment,
+      assignment: updatedAssignment,
     });
-
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message || "Failed to update assignment" });
   }
 };
-
 
 export const deleteAssignment = async (req, res) => {
   try {
     const { id } = req.params;
 
     const assignment = await Assignment.findById(id);
-
     if (!assignment) {
       return res.status(404).json({ message: "Assignment not found" });
     }
 
     await Assignment.findByIdAndDelete(id);
+    await Submission.deleteMany({ assignment: id });
 
-    await Submission.deleteMany({
-      assignment: id,
-    });
-
-    res.json({
-      success: true,
-      message: "Assignment deleted successfully",
-    });
-
+    return res.status(200).json({ message: "Assignment deleted successfully" });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message || "Failed to delete assignment" });
   }
 };
-
 
 export const getAssignmentSubmissionsAdmin = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const submissions = await Submission.find({
-      assignment: id,
-    })
+    const submissions = await Submission.find({ assignment: id })
       .populate("student", "name email")
       .sort({ createdAt: -1 });
 
-    res.json(submissions);
+    return res.status(200).json({ submissions });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message || "Failed to fetch submissions" });
   }
 };

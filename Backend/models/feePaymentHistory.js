@@ -35,6 +35,10 @@ const PaymentSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  idempotencyKey: {
+    type: String,
+    trim: true
+  },
 
   gateway: {
     type: String,
@@ -78,5 +82,6 @@ const PaymentSchema = new mongoose.Schema({
 PaymentSchema.index({ studentId: 1, demandId: 1 });
 PaymentSchema.index({ transactionId: 1 }, { sparse: true });
 PaymentSchema.index({ receiptNo: 1 }, { sparse: true, unique: true });
+PaymentSchema.index({ idempotencyKey: 1 }, { sparse: true, unique: true });
 
 export default mongoose.model("FeePaymentHistory", PaymentSchema);

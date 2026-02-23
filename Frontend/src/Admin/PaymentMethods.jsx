@@ -1,101 +1,95 @@
-import React, { useMemo, useState } from "react";
-import { FiCheckCircle, FiAlertCircle } from "react-icons/fi";
-import ClipLoader from "./components/ClipLoader";
+import React, { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import {
+  createFeePayment,
+  fetchFeeDemands,
+  fetchFeePayments,
+  selectFeeActionLoading,
+  selectFeeDemands,
+  selectFeePayments,
+  updateFeePaymentStatus,
+} from "../redux/feeSlice";
 import "./PaymentMethods.css";
 
-const DEFAULT_METHODS = [
-  {
-    id: "upi",
-    name: "UPI",
-    provider: "Razorpay",
-    fees: "0.35%",
-    status: "Active",
-    settlement: "Same day",
-  },
-  {
-    id: "netbanking",
-    name: "Net Banking",
-    provider: "PayU",
-    fees: "0.75%",
-    status: "Active",
-    settlement: "T+1",
-  },
-  {
-    id: "cards",
-    name: "Credit / Debit Card",
-    provider: "Stripe",
-    fees: "1.5%",
-    status: "Maintenance",
-    settlement: "T+2",
-  },
+const PAYMENT_MODES = [
+  "UPI",
+  "NETBANKING",
+  "CARD",
+  "CASH",
+  "CHEQUE",
+  "DD",
+  "BANK_TRANSFER",
 ];
 
-const CASH_RULES = [
-  {
-    id: "limit",
-    title: "Per-transaction limit",
-    detail: "Allow cash payments up to ₹25,000 for compliance",
-  },
-  {
-    id: "window",
-    title: "Collection window",
-    detail: "Accept cash only during 10 AM – 2 PM at the bursar desk",
-  },
-  {
-    id: "recon",
-    title: "Reconciliation logic",
-    detail: "Deposit receipts must be uploaded within 24 hours",
-  },
-];
+const STATUS_OPTIONS = ["SUCCESS", "FAILED", "CANCELLED", "REFUNDED"];
 
 const PaymentMethods = () => {
-  const [methods, setMethods] = useState(DEFAULT_METHODS);
-  const [cashEnabled, setCashEnabled] = useState(true);
-  const [cashEntry, setCashEntry] = useState({
-    studentName: "",
-    enrollment: "",
+  const dispatch = useDispatch();
+  const demands = useSelector(selectFeeDemands);
+  const payments = useSelector(selectFeePayments);
+  const actionLoading = useSelector(selectFeeActionLoading);
+  const [paymentForm, setPaymentForm] = useState({
+    demandId: "",
     amount: "",
-    date: "",
-    receipt: "",
+    mode: "UPI",
+    transactionId: "",
+    gateway: "NONE",
+    receiptNo: "",
   });
-  const [cashEntries, setCashEntries] = useState([]);
-  const [savingCashEntry, setSavingCashEntry] = useState(false);
-  const activeCount = useMemo(
-    () => methods.filter((method) => method.status === "Active").length,
-    [methods]
+  const [statusForm, setStatusForm] = useState({});
+
+  useEffect(() => {
+    dispatch(fetchFeeDemands());
+    dispatch(fetchFeePayments());
+  }, [dispatch]);
+
+  const pendingDemands = useMemo(
+    () => demands.filter((demand) => Number(demand.dueAmount || 0) > 0),
+    [demands]
   );
 
-  const toggleStatus = (id) => {
-    setMethods((previous) =>
-      previous.map((method) => {
-        if (method.id !== id) return method;
-        const nextStatus = method.status === "Active" ? "Maintenance" : "Active";
-        return { ...method, status: nextStatus };
-      })
-    );
-  };
-
-  const handleCashEntryChange = (field, value) => {
-    setCashEntry((previous) => ({ ...previous, [field]: value }));
-  };
-
-  const handleCashEntrySubmit = async (event) => {
+  const submitPayment = async (event) => {
     event.preventDefault();
-    if (savingCashEntry) return;
-    if (!cashEntry.studentName || !cashEntry.enrollment || !cashEntry.amount) return;
-    setSavingCashEntry(true);
+    if (!paymentForm.demandId || !paymentForm.amount || !paymentForm.mode) {
+      toast.error("Demand, amount and mode are required");
+      return;
+    }
+
     try {
-      await new Promise((resolve) => window.setTimeout(resolve, 300));
-      setCashEntries((previous) => [
-        {
-          id: Date.now().toString(),
-          ...cashEntry,
-        },
-        ...previous,
-      ]);
-      setCashEntry({ studentName: "", enrollment: "", amount: "", date: "", receipt: "" });
-    } finally {
-      setSavingCashEntry(false);
+      await dispatch(
+        createFeePayment({
+          demandId: paymentForm.demandId,
+          amount: Number(paymentForm.amount),
+          mode: paymentForm.mode,
+          transactionId: paymentForm.transactionId || undefined,
+          gateway: paymentForm.gateway || "NONE",
+          receiptNo: paymentForm.receiptNo || undefined,
+          createdBy: "ACCOUNTS",
+        })
+      ).unwrap();
+      toast.success("Payment recorded");
+      setPaymentForm({
+        demandId: "",
+        amount: "",
+        mode: "UPI",
+        transactionId: "",
+        gateway: "NONE",
+        receiptNo: "",
+      });
+    } catch (error) {
+      toast.error(error || "Failed to record payment");
+    }
+  };
+
+  const updateStatus = async (paymentId) => {
+    const status = statusForm[paymentId];
+    if (!status) return;
+    try {
+      await dispatch(updateFeePaymentStatus({ paymentId, status })).unwrap();
+      toast.success("Payment status updated");
+    } catch (error) {
+      toast.error(error || "Failed to update status");
     }
   };
 
@@ -103,176 +97,150 @@ const PaymentMethods = () => {
     <div className="payment-methods-page">
       <header className="pm-hero">
         <div>
-          <p className="pm-eyebrow">Configuration · Fees</p>
-          <h1>Payment Methods</h1>
+          <p className="pm-eyebrow">Fees · Payment Processing</p>
+          <h1>Payment Methods & Status</h1>
           <p>
-            Enable or pause collection channels, review gateway fees, and share the recommended payment mix with parents.
+            Integrated endpoints: <code>/api/admin/fee/payment</code> and{" "}
+            <code>/api/admin/fee/payment/:paymentId/status</code>.
           </p>
-        </div>
-        <div className="pm-hero-stats">
-          <article>
-            <p>Active methods</p>
-            <strong>{activeCount}</strong>
-          </article>
-          <article>
-            <p>Total providers</p>
-            <strong>{methods.length}</strong>
-          </article>
         </div>
       </header>
 
-      <section className="pm-table-card">
-        <div className="pm-table-head">
-          <p>Method</p>
-          <p>Provider</p>
-          <p>Gateway Fees</p>
-          <p>Settlement</p>
-          <p>Status</p>
-          <p>Action</p>
-        </div>
-        <div className="pm-table-body">
-          {methods.map((method) => (
-            <article key={method.id} className="pm-row">
-              <div>
-                <p className="pm-method-name">{method.name}</p>
-                <small>{method.id.toUpperCase()}</small>
-              </div>
-              <p>{method.provider}</p>
-              <p>{method.fees}</p>
-              <p>{method.settlement}</p>
-              <div className="pm-status">
-                <span className={`pm-status-chip ${method.status === "Active" ? "is-success" : "is-warning"}`}>
-                  {method.status === "Active" ? <FiCheckCircle /> : <FiAlertCircle />}
-                  {method.status}
-                </span>
-              </div>
-              <div>
-                <button type="button" className="pm-toggle-btn" onClick={() => toggleStatus(method.id)}>
-                  {method.status === "Active" ? "Pause" : "Activate"}
-                </button>
-              </div>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="pm-cash-card">
-        <div className="pm-cash-head">
-          <div>
-            <h2>Cash Payment Logic</h2>
-            <p>Define how offline cash collections should behave for your campuses.</p>
-          </div>
-          <button
-            type="button"
-            className={`pm-cash-toggle ${cashEnabled ? "is-enabled" : ""}`}
-            onClick={() => setCashEnabled((previous) => !previous)}
-          >
-            {cashEnabled ? "Disable Cash" : "Enable Cash"}
-          </button>
-        </div>
-        <ul className="pm-cash-rules">
-          {CASH_RULES.map((rule) => (
-            <li key={rule.id}>
-              <p>{rule.title}</p>
-              <span>{rule.detail}</span>
-            </li>
-          ))}
-        </ul>
-        <div className={`pm-cash-status ${cashEnabled ? "success" : "muted"}`}>
-          {cashEnabled
-            ? "Cash counters are enabled with compliance checks."
-            : "Cash counters are currently disabled for this session."}
-        </div>
-      </section>
-
       <section className="pm-cash-form">
         <div>
-          <h3>Manual Cash Entry</h3>
-          <p>Capture over-the-counter payments with receipt details for reconciliation.</p>
+          <h3>Record New Payment</h3>
+          <p>Use this for cash/counter/manual settlement entries.</p>
         </div>
-        <form onSubmit={handleCashEntrySubmit} className="pm-cash-form-grid">
+        <form onSubmit={submitPayment} className="pm-cash-form-grid">
           <label>
-            <span>Student Name</span>
-            <input
-              type="text"
-              value={cashEntry.studentName}
-              onChange={(event) => handleCashEntryChange("studentName", event.target.value)}
-              placeholder="e.g. Riya Mehta"
+            <span>Demand</span>
+            <select
+              value={paymentForm.demandId}
+              onChange={(event) =>
+                setPaymentForm((prev) => ({ ...prev, demandId: event.target.value }))
+              }
               required
-            />
+            >
+              <option value="">Select demand</option>
+              {pendingDemands.map((demand) => (
+                <option key={demand._id} value={demand._id}>
+                  {demand.studentId} · {demand.academicYear} · Sem {demand.semesterNo} · Due{" "}
+                  {demand.dueAmount}
+                </option>
+              ))}
+            </select>
           </label>
           <label>
-            <span>Enrollment ID</span>
-            <input
-              type="text"
-              value={cashEntry.enrollment}
-              onChange={(event) => handleCashEntryChange("enrollment", event.target.value)}
-              placeholder="e.g. 2024CS045"
-              required
-            />
-          </label>
-          <label>
-            <span>Amount (₹)</span>
+            <span>Amount</span>
             <input
               type="number"
-              min="0"
+              min="1"
               step="0.01"
-              value={cashEntry.amount}
-              onChange={(event) => handleCashEntryChange("amount", event.target.value)}
-              placeholder="25000"
+              value={paymentForm.amount}
+              onChange={(event) =>
+                setPaymentForm((prev) => ({ ...prev, amount: event.target.value }))
+              }
               required
             />
           </label>
           <label>
-            <span>Deposit Date</span>
+            <span>Mode</span>
+            <select
+              value={paymentForm.mode}
+              onChange={(event) =>
+                setPaymentForm((prev) => ({ ...prev, mode: event.target.value }))
+              }
+            >
+              {PAYMENT_MODES.map((mode) => (
+                <option key={mode} value={mode}>
+                  {mode}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span>Gateway</span>
             <input
-              type="date"
-              value={cashEntry.date}
-              onChange={(event) => handleCashEntryChange("date", event.target.value)}
+              type="text"
+              value={paymentForm.gateway}
+              onChange={(event) =>
+                setPaymentForm((prev) => ({ ...prev, gateway: event.target.value }))
+              }
+              placeholder="NONE / RAZORPAY / PAYU..."
             />
           </label>
           <label>
-            <span>Receipt / Notes</span>
+            <span>Transaction Id</span>
             <input
               type="text"
-              value={cashEntry.receipt}
-              onChange={(event) => handleCashEntryChange("receipt", event.target.value)}
-              placeholder="Receipt # or remarks"
+              value={paymentForm.transactionId}
+              onChange={(event) =>
+                setPaymentForm((prev) => ({ ...prev, transactionId: event.target.value }))
+              }
             />
           </label>
-          <button type="submit" className="pm-cash-submit admin-btn-with-loader" disabled={savingCashEntry}>
-            {savingCashEntry ? (
-              <>
-                <ClipLoader size={15} />
-                <span>Saving...</span>
-              </>
-            ) : (
-              "Save Entry"
-            )}
+          <label>
+            <span>Receipt No</span>
+            <input
+              type="text"
+              value={paymentForm.receiptNo}
+              onChange={(event) =>
+                setPaymentForm((prev) => ({ ...prev, receiptNo: event.target.value }))
+              }
+            />
+          </label>
+          <button type="submit" className="pm-cash-submit" disabled={actionLoading}>
+            {actionLoading ? "Saving..." : "Record Payment"}
           </button>
         </form>
+      </section>
 
-        {cashEntries.length > 0 && (
-          <div className="pm-cash-entries">
-            <h4>Recent Cash Entries</h4>
-            <div className="pm-cash-entry-head">
-              <span>Student</span>
-              <span>Enrollment</span>
-              <span>Amount</span>
-              <span>Date</span>
-              <span>Receipt</span>
-            </div>
-            {cashEntries.map((entry) => (
-              <div key={entry.id} className="pm-cash-entry-row">
-                <span>{entry.studentName}</span>
-                <span>{entry.enrollment}</span>
-                <span>₹{Number(entry.amount).toLocaleString("en-IN")}</span>
-                <span>{entry.date || "—"}</span>
-                <span>{entry.receipt || "—"}</span>
+      <section className="pm-table-card">
+        <div className="pm-table-head">
+          <p>Student</p>
+          <p>Amount</p>
+          <p>Mode</p>
+          <p>Status</p>
+          <p>Update Status</p>
+          <p>Created</p>
+        </div>
+        <div className="pm-table-body">
+          {payments.map((payment) => (
+            <article key={payment._id} className="pm-row">
+              <div>
+                <p className="pm-method-name">{payment.studentId}</p>
+                <small>{payment.transactionId || payment.receiptNo || "No ref"}</small>
               </div>
-            ))}
-          </div>
-        )}
+              <p>{payment.amount}</p>
+              <p>{payment.mode}</p>
+              <p>{payment.status}</p>
+              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                <select
+                  value={statusForm[payment._id] || ""}
+                  onChange={(event) =>
+                    setStatusForm((prev) => ({ ...prev, [payment._id]: event.target.value }))
+                  }
+                >
+                  <option value="">Select</option>
+                  {STATUS_OPTIONS.map((status) => (
+                    <option key={status} value={status}>
+                      {status}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" className="pm-toggle-btn" onClick={() => updateStatus(payment._id)}>
+                  Update
+                </button>
+              </div>
+              <p>{new Date(payment.createdAt).toLocaleString()}</p>
+            </article>
+          ))}
+          {payments.length === 0 && (
+            <article className="pm-row">
+              <p>No payments found</p>
+            </article>
+          )}
+        </div>
       </section>
     </div>
   );

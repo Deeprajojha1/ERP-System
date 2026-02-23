@@ -231,6 +231,9 @@
   border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .exam-download-all-btn:disabled {
@@ -417,6 +420,15 @@
   color: #1d4ed8;
 }
 
+.exam-action-btn.delete {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.exam-action-btn.delete:hover:not(:disabled) {
+  background: #fecaca;
+}
+
 .exam-actions {
   display: flex;
   flex-direction: column;
@@ -593,40 +605,120 @@
 
 @media (max-width: 900px) {
   .exam-filters {
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr 1fr;
   }
 }
 
 @media (max-width: 640px) {
+  .exam-page {
+    height: calc(100dvh - var(--admin-nav-height, 74px));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
   .exam-section-cards {
     grid-template-columns: 1fr;
+    flex-shrink: 0;
+  }
+
+  .exam-cards-grid {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .exam-card {
     padding: 12px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .exam-card-head {
     flex-direction: column;
     align-items: stretch;
+    flex-shrink: 0;
+    gap: 10px;
+  }
+
+  .exam-card-head-right {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .exam-card-title-box {
+    margin: 0;
+    font-size: 14px;
+    padding: 6px 10px;
+  }
+
+  .exam-back-btn-floating {
+    position: static;
+    transform: none;
   }
 
   .exam-card-title {
-    font-size: 20px;
+    font-size: 18px;
   }
 
   .exam-header {
     flex-direction: column;
     align-items: stretch;
+    flex-shrink: 0;
   }
 
   .exam-header-actions {
     width: 100%;
+    display: flex;
+    gap: 8px;
   }
 
   .exam-add-btn,
   .exam-download-all-btn {
     flex: 1;
+    padding: 10px 12px;
+    font-size: 13px;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .exam-filters {
+    flex-shrink: 0;
+    grid-template-columns: 1fr;
+    gap: 10px;
+    padding: 12px;
+  }
+
+  .exam-search {
+    padding: 8px 10px;
+  }
+
+  .exam-search input {
+    font-size: 14px;
+  }
+
+  .exam-select,
+  .exam-date {
+    font-size: 12px;
+  }
+
+  .exam-select select,
+  .exam-date input {
+    padding: 8px 10px;
+    font-size: 13px;
+  }
+
+  .exam-table-wrap {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .exam-form-row {

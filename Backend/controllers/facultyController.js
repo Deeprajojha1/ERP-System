@@ -6,9 +6,79 @@ import Group from "../models/Group.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
-import Assignment from "../models/Assignment.js"
-import cloudinary from "../config/cloudinary.js";
-import Submission from "../models/Submission.js"
+
+const buildRoutineWithDetails = async (routineMap) => {
+  if (!routineMap || (routineMap instanceof Map && routineMap.size === 0)) return {};
+
+  const routineObj =
+    routineMap instanceof Map ? Object.fromEntries(routineMap.entries()) : routineMap;
+  const normalizeDaySlots = (daySlots) =>
+    daySlots instanceof Map ? Object.fromEntries(daySlots.entries()) : daySlots;
+
+  const courseIds = new Set();
+  const groupIds = new Set();
+
+  Object.values(routineObj || {}).forEach((daySlotsRaw) => {
+    const daySlots = normalizeDaySlots(daySlotsRaw);
+    if (!daySlots || typeof daySlots !== "object") return;
+    Object.values(daySlots).forEach((slot) => {
+      if (!slot) return;
+      const courseId = slot.course?._id || slot.course;
+      const groupId = slot.group?._id || slot.group;
+      if (courseId) courseIds.add(String(courseId));
+      if (groupId) groupIds.add(String(groupId));
+    });
+  });
+
+  const [courses, groups] = await Promise.all([
+    courseIds.size
+      ? Course.find({ _id: { $in: Array.from(courseIds) } }).select("code courseName")
+      : [],
+    groupIds.size
+      ? Group.find({ _id: { $in: Array.from(groupIds) } }).select("name roomNo")
+      : [],
+  ]);
+
+  const courseMap = new Map(courses.map((c) => [String(c._id), c]));
+  const groupMap = new Map(groups.map((g) => [String(g._id), g]));
+
+  const resolved = {};
+
+  Object.entries(routineObj || {}).forEach(([day, daySlotsRaw]) => {
+    const daySlots = normalizeDaySlots(daySlotsRaw);
+    resolved[day] = {};
+    if (!daySlots || typeof daySlots !== "object") return;
+
+    Object.entries(daySlots).forEach(([lectureNumber, slot]) => {
+      if (!slot) return;
+
+      const courseId = String(slot.course?._id || slot.course || "");
+      const groupId = String(slot.group?._id || slot.group || "");
+
+      const courseDoc = courseMap.get(courseId);
+      const groupDoc = groupMap.get(groupId);
+
+      resolved[day][lectureNumber] = {
+        course: courseDoc
+          ? {
+              _id: courseDoc._id,
+              code: courseDoc.code,
+              courseName: courseDoc.courseName,
+            }
+          : slot.course || null,
+        group: groupDoc
+          ? {
+              _id: groupDoc._id,
+              name: groupDoc.name,
+              roomNo: groupDoc.roomNo || null,
+            }
+          : slot.group || null,
+      };
+    });
+  });
+
+  return resolved;
+};
 
 const clearTimetableCacheForDepartments = async (departmentIds = []) => {
   const normalizedIds = [...new Set((departmentIds || []).filter(Boolean).map(String))];
@@ -24,7 +94,10 @@ const clearTimetableCacheForDepartments = async (departmentIds = []) => {
 
   await Promise.all(
     groups.map((group) =>
-      redisClient.del(`admin:timetable:group:${group._id}`)
+      Promise.all([
+        redisClient.del(`admin:timetable:group:${group._id}`),
+        redisClient.del(`admin:timetable:group:v2:${group._id}`),
+      ])
     )
   );
 };
@@ -34,9 +107,10 @@ const clearTimetableCacheForDepartments = async (departmentIds = []) => {
 export const getAllFaculty = async (req, res) => {
   try {
     const noCache = req.query.noCache === "true";
+    const minimal = req.query.minimal === "true";
     const cacheKey = "admin:faculty:all";
 
-    if (!noCache) {
+    if (!noCache && !minimal) {
       try {
         const cached = await redisClient.get(cacheKey);
         if (cached) {
@@ -48,14 +122,35 @@ export const getAllFaculty = async (req, res) => {
       }
     }
 
+    if (minimal) {
+      const faculty = await Faculty.find({ isDeleted: { $ne: true } })
+        .select("user employeeId department designation qualification joiningDate")
+        .populate("user", "name email status")
+        .populate("department", "name code");
+
+      return res.json({
+        message: "Faculty fetched successfully",
+        count: faculty.length,
+        faculty: faculty.map((item) => item.toObject()),
+      });
+    }
+
     const faculty = await Faculty.find({ isDeleted: { $ne: true } })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
+    const facultyWithRoutineDetails = [];
+
+    // Expand routine details sequentially to avoid DB saturation/timeouts on large datasets.
+    for (const f of faculty) {
+      const obj = f.toObject();
+      obj.routine = await buildRoutineWithDetails(f.routine);
+      facultyWithRoutineDetails.push(obj);
+    }
 
     const responsePayload = {
       message: "Faculty fetched successfully",
-      count: faculty.length,
-      faculty,
+      count: facultyWithRoutineDetails.length,
+      faculty: facultyWithRoutineDetails,
     };
 
     if (!noCache) {
@@ -92,9 +187,12 @@ export const getFacultyById = async (req, res) => {
       });
     }
 
+    const facultyObj = faculty.toObject();
+    facultyObj.routine = await buildRoutineWithDetails(faculty.routine);
+
     res.json({
       message: "Faculty fetched successfully",
-      faculty,
+      faculty: facultyObj,
     });
   } catch (error) {
     res.status(500).json({
@@ -367,122 +465,5 @@ export const addRoutineToFaculty = async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
-  }
-};
-
-/*============== creating new assingment================== */
-
-export const createAssignment = async (req, res) => {
-  try {
-    console.log("USER ID:", req.userId);
-
-    if (!req.userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const { title, description, group, department, dueDate } = req.body;
-
-    if (!req.file) {
-      return res.status(400).json({ message: "File is required" });
-    }
-
-    const faculty = await Faculty.findOne({ user: req.userId });
-
-    if (!faculty) {
-      return res.status(404).json({ message: "Faculty not found" });
-    }
-
-    const assignment = new Assignment({
-      title,
-      description,
-      group,
-      department,
-      dueDate,
-      fileUrl: req.file.path,
-      fileType: req.file.mimetype,
-      uploadedBy: faculty._id,
-    });
-
-    await assignment.save();
-
-    res.status(201).json({
-      message: "Assignment uploaded successfully",
-      assignment,
-    });
-
-  } catch (error) {
-    console.error("Assignment upload failed:", error);
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-
-/*=============== Get Teacher Assignments ====================*/
-
-export const getTeacherAssignments = async (req, res) => {
-  try {
-    if (!req.userId) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-
-    const faculty = await Faculty.findOne({ user: req.userId });
-
-    if (!faculty) {
-      return res.status(404).json({ message: "Faculty record not found" });
-    }
-
-    const assignments = await Assignment.find({
-      uploadedBy: faculty._id,
-    })
-      .populate("group", "name")
-      .populate("department", "name")
-      .sort({ createdAt: -1 });
-
-    res.json(assignments);
-
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-
-
-
-/*=================== Get Submissions of Assignment ====================*/
-
-export const getAssignmentSubmissions = async (req, res) => {
-  try {
-    const submissions = await Submission.find({
-      assignment: req.params.id,
-    })
-      .populate("student", "name email")
-      .sort({ createdAt: -1 });
-
-    res.json(submissions);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-/*================ Grade Submission ===================*/
-
-export const gradeSubmission = async (req, res) => {
-  try {
-    const { marks, feedback } = req.body;
-
-    const submission = await Submission.findByIdAndUpdate(
-      req.params.id,
-      { marks, feedback },
-      { new: true }
-    );
-
-    res.json({
-      success: true,
-      message: "Submission graded successfully",
-      submission,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
   }
 };

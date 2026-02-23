@@ -58,7 +58,28 @@ export const fetchGroupAttendanceByDate = createAsyncThunk(
         `${apiBase}/admin/attendance/group/${groupId}/date/${date}`,
         { withCredentials: true }
       );
-      const students = Array.isArray(res.data?.students) ? res.data.students : [];
+      let students = Array.isArray(res.data?.students) ? res.data.students : [];
+      if (!students.length) {
+        const fallback = await axios.get(
+          `${apiBase}/admin/attendance/group/${groupId}/students`,
+          { withCredentials: true }
+        );
+        const fallbackStudents = Array.isArray(fallback.data?.students)
+          ? fallback.data.students
+          : [];
+        students = fallbackStudents.map((student) => ({
+          studentId: String(student?._id || ""),
+          name: student?.user?.name || "Unknown",
+          enrollmentNumber: student?.enrollmentNumber || "",
+          attendanceEntries: [],
+          summary: {
+            totalSessions: 0,
+            presentCount: 0,
+            absentCount: 0,
+            notMarkedCount: 0,
+          },
+        }));
+      }
       return {
         groupId,
         date,

@@ -1,11 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  FiPlus,
-  FiSearch,
-  FiSettings,
-  FiUserPlus,
-  FiX,
-} from "react-icons/fi";
+import { FiPlus, FiSearch, FiSettings, FiUserPlus, FiX } from "react-icons/fi";
 import { HiOutlineTrash } from "react-icons/hi";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
@@ -14,106 +8,94 @@ import emptyStateImg from "../assets/empty-state.svg";
 import ClipLoader from "./components/ClipLoader";
 import "./Library.css";
 
+const defaultBookForm = {
+  title: "",
+  author: "",
+  isbn: "",
+  category: "",
+  publisher: "",
+  publishedYear: "",
+  totalCopies: "1",
+};
+
+const defaultIssueForm = {
+  bookId: "",
+  rollNumber: "",
+  dueDate: "",
+};
+
+const defaultLibrarianForm = {
+  firstName: "",
+  lastName: "",
+  email: "",
+  password: "",
+};
+
 const Library = () => {
+  const apiBase = useSelector((state) => state.config.apiBase);
   const [query, setQuery] = useState("");
+  const [stats, setStats] = useState(null);
+  const [books, setBooks] = useState([]);
+  const [issues, setIssues] = useState([]);
+  const [librarians, setLibrarians] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
   const [showAddLibrarianModal, setShowAddLibrarianModal] = useState(false);
   const [showAddBookModal, setShowAddBookModal] = useState(false);
   const [showIssueBookModal, setShowIssueBookModal] = useState(false);
   const [showReturnBookModal, setShowReturnBookModal] = useState(false);
-  const [loadingLibrarians, setLoadingLibrarians] = useState(false);
+  const [bookForm, setBookForm] = useState(defaultBookForm);
+  const [issueForm, setIssueForm] = useState(defaultIssueForm);
+  const [librarianForm, setLibrarianForm] = useState(defaultLibrarianForm);
   const [creatingLibrarian, setCreatingLibrarian] = useState(false);
   const [deletingLibrarianId, setDeletingLibrarianId] = useState("");
-  const [librarianError, setLibrarianError] = useState("");
-  const [librarians, setLibrarians] = useState([]);
-  const apiBase = useSelector((state) => state.config.apiBase);
-  const [librarianForm, setLibrarianForm] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-  });
-  const [bookForm, setBookForm] = useState({
-    title: "",
-    author: "",
-    isbn: "",
-    category: "",
-    publisher: "",
-    publishedYear: "",
-    totalCopies: "1",
-  });
-  const [issueBookForm, setIssueBookForm] = useState({
-    bookId: "",
-    studentRollNumber: "",
-    dueDate: "",
-  });
-  const books = [];
+  const [submittingBook, setSubmittingBook] = useState(false);
+  const [submittingIssue, setSubmittingIssue] = useState(false);
+  const [returningIssueId, setReturningIssueId] = useState("");
 
-  const fetchLibrarians = async () => {
+  const activeIssues = useMemo(
+    () => issues.filter((issue) => issue.status === "ISSUED" || issue.status === "OVERDUE"),
+    [issues]
+  );
+
+  const loadData = async () => {
     if (!apiBase) return;
     try {
-      setLoadingLibrarians(true);
-      const res = await axios.get(`${apiBase}/admin/librarian`, {
-        withCredentials: true,
-      });
-      setLibrarians(res.data?.librarians || []);
+      setLoading(true);
+      const [statRes, booksRes, issuesRes, librarianRes] = await Promise.all([
+        axios.get(`${apiBase}/admin/library/statistics`, { withCredentials: true }),
+        axios.get(`${apiBase}/admin/library/books`, {
+          withCredentials: true,
+          params: { search: query || undefined, limit: 100 },
+        }),
+        axios.get(`${apiBase}/admin/library/issues`, {
+          withCredentials: true,
+          params: { limit: 100 },
+        }),
+        axios.get(`${apiBase}/admin/librarian`, { withCredentials: true }),
+      ]);
+      setStats(statRes.data?.data || null);
+      setBooks(booksRes.data?.data?.books || []);
+      setIssues(issuesRes.data?.data?.issues || []);
+      setLibrarians(librarianRes.data?.librarians || []);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to load librarians");
+      toast.error(error.response?.data?.message || "Failed to load library data");
     } finally {
-      setLoadingLibrarians(false);
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (showManageModal) {
-      fetchLibrarians();
-    }
-  }, [showManageModal]);
+    loadData();
+  }, [apiBase, query]);
 
-  const filteredBooks = useMemo(() => {
-    const term = query.trim().toLowerCase();
-    if (!term) return books;
-    return books.filter((b) =>
-      `${b.title} ${b.author} ${b.isbn} ${b.status}`.toLowerCase().includes(term)
-    );
-  }, [query, books]);
-
-  const closeAddLibrarianModal = () => {
-    setShowAddLibrarianModal(false);
-    setLibrarianError("");
-    setLibrarianForm({
-      firstName: "",
-      lastName: "",
-      email: "",
-      password: "",
-    });
-  };
-
-  const handleLibrarianFormChange = (e) => {
-    const { name, value } = e.target;
-    if (librarianError) setLibrarianError("");
-    setLibrarianForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleCreateLibrarian = async (e) => {
-    e.preventDefault();
+  const handleCreateLibrarian = async (event) => {
+    event.preventDefault();
     const { firstName, lastName, email, password } = librarianForm;
-
     if (!firstName || !lastName || !email || !password) {
-      setLibrarianError("All fields are required.");
+      toast.error("All librarian fields are required");
       return;
     }
-
-    if (password.length < 8) {
-      setLibrarianError("Password must be at least 8 characters.");
-      return;
-    }
-
-    if (!apiBase) {
-      setLibrarianError("Server configuration missing. Please refresh and try again.");
-      return;
-    }
-
     try {
       setCreatingLibrarian(true);
       await axios.post(
@@ -121,83 +103,95 @@ const Library = () => {
         { firstName, lastName, email, password },
         { withCredentials: true }
       );
-      toast.success("Librarian created successfully");
-      closeAddLibrarianModal();
-      await fetchLibrarians();
+      toast.success("Librarian created");
+      setLibrarianForm(defaultLibrarianForm);
+      setShowAddLibrarianModal(false);
+      loadData();
     } catch (error) {
-      const message = error.response?.data?.message || "Failed to create librarian";
-      setLibrarianError(message);
-      toast.error(message);
+      toast.error(error.response?.data?.message || "Failed to create librarian");
     } finally {
       setCreatingLibrarian(false);
     }
   };
 
-  const closeAddBookModal = () => {
-    setShowAddBookModal(false);
-    setBookForm({
-      title: "",
-      author: "",
-      isbn: "",
-      category: "",
-      publisher: "",
-      publishedYear: "",
-      totalCopies: "1",
-    });
+  const deleteLibrarian = async (librarianId) => {
+    try {
+      setDeletingLibrarianId(librarianId);
+      await axios.patch(
+        `${apiBase}/admin/librarian/${librarianId}/delete`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success("Librarian deleted");
+      loadData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to delete librarian");
+    } finally {
+      setDeletingLibrarianId("");
+    }
   };
 
-  const handleBookFormChange = (e) => {
-    const { name, value } = e.target;
-    setBookForm((prev) => ({ ...prev, [name]: value }));
+  const addBook = async (event) => {
+    event.preventDefault();
+    try {
+      setSubmittingBook(true);
+      await axios.post(
+        `${apiBase}/admin/library/books`,
+        {
+          ...bookForm,
+          publishedYear: Number(bookForm.publishedYear || 0),
+          totalCopies: Number(bookForm.totalCopies || 1),
+        },
+        { withCredentials: true }
+      );
+      toast.success("Book added");
+      setBookForm(defaultBookForm);
+      setShowAddBookModal(false);
+      loadData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to add book");
+    } finally {
+      setSubmittingBook(false);
+    }
   };
 
-  const handleAddBook = (e) => {
-    e.preventDefault();
-    closeAddBookModal();
+  const issueBook = async (event) => {
+    event.preventDefault();
+    if (!issueForm.bookId || !issueForm.rollNumber || !issueForm.dueDate) {
+      toast.error("Book, roll number and due date are required");
+      return;
+    }
+    try {
+      setSubmittingIssue(true);
+      await axios.post(`${apiBase}/admin/library/issues`, issueForm, {
+        withCredentials: true,
+      });
+      toast.success("Book issued");
+      setIssueForm(defaultIssueForm);
+      setShowIssueBookModal(false);
+      loadData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to issue book");
+    } finally {
+      setSubmittingIssue(false);
+    }
   };
 
-  const closeIssueBookModal = () => {
-    setShowIssueBookModal(false);
-    setIssueBookForm({
-      bookId: "",
-      studentRollNumber: "",
-      dueDate: "",
-    });
-  };
-
-  const handleIssueBookFormChange = (e) => {
-    const { name, value } = e.target;
-    setIssueBookForm((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleIssueBook = (e) => {
-    e.preventDefault();
-    closeIssueBookModal();
-  };
-
-  const confirmDeleteLibrarian = (librarian) => {
-    const librarianName = librarian?.name || "Unknown";
-    const confirmed = window.confirm(
-      `Are you confirm to delete Librarian - ${librarianName}`
-    );
-    if (!confirmed) return;
-
-    (async () => {
-      try {
-        setDeletingLibrarianId(librarian._id);
-        await axios.patch(
-          `${apiBase}/admin/librarian/${librarian._id}/delete`,
-          {},
-          { withCredentials: true }
-        );
-        setLibrarians((prev) => prev.filter((item) => item._id !== librarian._id));
-        toast.success("Librarian deleted successfully");
-      } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to delete librarian");
-      } finally {
-        setDeletingLibrarianId("");
-      }
-    })();
+  const returnBook = async (issueId) => {
+    try {
+      setReturningIssueId(issueId);
+      await axios.patch(
+        `${apiBase}/admin/library/issues/${issueId}/return`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success("Book returned");
+      loadData();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to return book");
+    } finally {
+      setReturningIssueId("");
+    }
   };
 
   return (
@@ -238,21 +232,60 @@ const Library = () => {
         </div>
       </div>
 
+      {stats && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(5, minmax(0, 1fr))",
+            gap: "10px",
+            marginBottom: "12px",
+          }}
+        >
+          <div className="library-librarian-card">
+            <h3>Total Books</h3>
+            <p>{stats.totalBooks || 0}</p>
+          </div>
+          <div className="library-librarian-card">
+            <h3>Available</h3>
+            <p>{stats.availableBooks || 0}</p>
+          </div>
+          <div className="library-librarian-card">
+            <h3>Issued</h3>
+            <p>{stats.issuedBooks || 0}</p>
+          </div>
+          <div className="library-librarian-card">
+            <h3>Overdue</h3>
+            <p>{stats.overdueBooks || 0}</p>
+          </div>
+          <div className="library-librarian-card">
+            <h3>Issues</h3>
+            <p>{stats.totalIssues || 0}</p>
+          </div>
+        </div>
+      )}
+
       <div className="library-search">
         <FiSearch />
         <input
           type="text"
-          placeholder="Search..."
+          placeholder="Search by title / author / isbn..."
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(event) => setQuery(event.target.value)}
         />
       </div>
 
-      {filteredBooks.length === 0 ? (
+      {loading ? (
+        <div className="library-empty-only">
+          <div className="library-empty-state">
+            <img src={emptyStateImg} alt="Loading books" />
+            <h3>Loading books...</h3>
+          </div>
+        </div>
+      ) : books.length === 0 ? (
         <div className="library-empty-only">
           <div className="library-empty-state">
             <img src={emptyStateImg} alt="No books" />
-            <h3>Oops... no books found</h3>
+            <h3>No books found</h3>
             <p>Add your first book to start library management.</p>
           </div>
         </div>
@@ -264,15 +297,19 @@ const Library = () => {
                 <th>Book Title</th>
                 <th>Author</th>
                 <th>ISBN</th>
+                <th>Copies</th>
                 <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              {filteredBooks.map((book) => (
-                <tr key={book.id}>
+              {books.map((book) => (
+                <tr key={book._id}>
                   <td>{book.title}</td>
                   <td>{book.author}</td>
                   <td>{book.isbn}</td>
+                  <td>
+                    {book.availableCopies}/{book.totalCopies}
+                  </td>
                   <td>{book.status}</td>
                 </tr>
               ))}
@@ -287,7 +324,7 @@ const Library = () => {
             className="library-modal-backdrop"
             onClick={() => {
               setShowManageModal(false);
-              closeAddLibrarianModal();
+              setShowAddLibrarianModal(false);
             }}
             role="button"
             tabIndex={0}
@@ -301,7 +338,7 @@ const Library = () => {
                 className="library-icon-close"
                 onClick={() => {
                   setShowManageModal(false);
-                  closeAddLibrarianModal();
+                  setShowAddLibrarianModal(false);
                 }}
               >
                 <FiX />
@@ -317,14 +354,12 @@ const Library = () => {
               Add New Librarian
             </button>
 
-            {loadingLibrarians ? (
-              <div className="library-librarian-empty">Loading librarians...</div>
-            ) : librarians.length === 0 ? (
+            {librarians.length === 0 ? (
               <div className="library-librarian-empty">No librarians found</div>
             ) : (
               <div className="library-librarian-grid">
                 {librarians.map((librarian) => (
-                  <div className="library-librarian-card" key={librarian._id || librarian.email}>
+                  <div className="library-librarian-card" key={librarian._id}>
                     <h3>{librarian.name || "Unnamed Librarian"}</h3>
                     <p>
                       <span>Email:</span> {librarian.email || "N/A"}
@@ -335,10 +370,8 @@ const Library = () => {
                     <button
                       type="button"
                       className="library-librarian-delete-btn admin-btn-with-loader"
-                      aria-label={`Delete ${librarian.name || "librarian"}`}
-                      title="Delete librarian"
                       disabled={deletingLibrarianId === librarian._id}
-                      onClick={() => confirmDeleteLibrarian(librarian)}
+                      onClick={() => deleteLibrarian(librarian._id)}
                     >
                       {deletingLibrarianId === librarian._id ? (
                         <ClipLoader
@@ -362,7 +395,7 @@ const Library = () => {
         <div className="library-modal library-modal-top">
           <div
             className="library-modal-backdrop"
-            onClick={closeAddLibrarianModal}
+            onClick={() => setShowAddLibrarianModal(false)}
             role="button"
             tabIndex={0}
             aria-label="Close Add Librarian"
@@ -373,7 +406,7 @@ const Library = () => {
               <button
                 type="button"
                 className="library-icon-close"
-                onClick={closeAddLibrarianModal}
+                onClick={() => setShowAddLibrarianModal(false)}
               >
                 <FiX />
               </button>
@@ -384,9 +417,10 @@ const Library = () => {
                 First Name
                 <input
                   name="firstName"
-                  placeholder="John"
                   value={librarianForm.firstName}
-                  onChange={handleLibrarianFormChange}
+                  onChange={(event) =>
+                    setLibrarianForm((prev) => ({ ...prev, firstName: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -394,9 +428,10 @@ const Library = () => {
                 Last Name
                 <input
                   name="lastName"
-                  placeholder="Doe"
                   value={librarianForm.lastName}
-                  onChange={handleLibrarianFormChange}
+                  onChange={(event) =>
+                    setLibrarianForm((prev) => ({ ...prev, lastName: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -405,9 +440,10 @@ const Library = () => {
                 <input
                   type="email"
                   name="email"
-                  placeholder="librarian@huroorkee.ac.in"
                   value={librarianForm.email}
-                  onChange={handleLibrarianFormChange}
+                  onChange={(event) =>
+                    setLibrarianForm((prev) => ({ ...prev, email: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -416,44 +452,20 @@ const Library = () => {
                 <input
                   type="password"
                   name="password"
-                  placeholder="Minimum 8 characters"
                   value={librarianForm.password}
-                  onChange={handleLibrarianFormChange}
+                  onChange={(event) =>
+                    setLibrarianForm((prev) => ({ ...prev, password: event.target.value }))
+                  }
                   minLength={8}
                   required
                 />
               </label>
-
-              <div className="library-note">
-                The librarian will have access to library management features
-                only.
-              </div>
-              {librarianError && (
-                <div className="library-note">{librarianError}</div>
-              )}
-
               <div className="library-form-actions">
-                <button
-                  type="button"
-                  className="library-btn-cancel"
-                  onClick={closeAddLibrarianModal}
-                  disabled={creatingLibrarian}
-                >
+                <button type="button" className="library-btn-cancel" onClick={() => setShowAddLibrarianModal(false)}>
                   Cancel
                 </button>
-                <button
-                  type="submit"
-                  className="library-btn-create admin-btn-with-loader"
-                  disabled={creatingLibrarian}
-                >
-                  {creatingLibrarian ? (
-                    <>
-                      <ClipLoader size={15} />
-                      <span>Creating...</span>
-                    </>
-                  ) : (
-                    "Create Librarian"
-                  )}
+                <button type="submit" className="library-btn-create" disabled={creatingLibrarian}>
+                  {creatingLibrarian ? "Creating..." : "Create Librarian"}
                 </button>
               </div>
             </form>
@@ -465,7 +477,7 @@ const Library = () => {
         <div className="library-modal library-modal-top">
           <div
             className="library-modal-backdrop"
-            onClick={closeAddBookModal}
+            onClick={() => setShowAddBookModal(false)}
             role="button"
             tabIndex={0}
             aria-label="Close Add Book"
@@ -476,19 +488,21 @@ const Library = () => {
               <button
                 type="button"
                 className="library-icon-close"
-                onClick={closeAddBookModal}
+                onClick={() => setShowAddBookModal(false)}
               >
                 <FiX />
               </button>
             </div>
 
-            <form className="library-form" onSubmit={handleAddBook}>
+            <form className="library-form" onSubmit={addBook}>
               <label>
                 Title
                 <input
                   name="title"
                   value={bookForm.title}
-                  onChange={handleBookFormChange}
+                  onChange={(event) =>
+                    setBookForm((prev) => ({ ...prev, title: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -497,7 +511,9 @@ const Library = () => {
                 <input
                   name="author"
                   value={bookForm.author}
-                  onChange={handleBookFormChange}
+                  onChange={(event) =>
+                    setBookForm((prev) => ({ ...prev, author: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -506,7 +522,9 @@ const Library = () => {
                 <input
                   name="isbn"
                   value={bookForm.isbn}
-                  onChange={handleBookFormChange}
+                  onChange={(event) =>
+                    setBookForm((prev) => ({ ...prev, isbn: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -515,8 +533,9 @@ const Library = () => {
                 <input
                   name="category"
                   value={bookForm.category}
-                  onChange={handleBookFormChange}
-                  required
+                  onChange={(event) =>
+                    setBookForm((prev) => ({ ...prev, category: event.target.value }))
+                  }
                 />
               </label>
               <label>
@@ -524,8 +543,9 @@ const Library = () => {
                 <input
                   name="publisher"
                   value={bookForm.publisher}
-                  onChange={handleBookFormChange}
-                  required
+                  onChange={(event) =>
+                    setBookForm((prev) => ({ ...prev, publisher: event.target.value }))
+                  }
                 />
               </label>
               <label>
@@ -534,8 +554,9 @@ const Library = () => {
                   name="publishedYear"
                   type="number"
                   value={bookForm.publishedYear}
-                  onChange={handleBookFormChange}
-                  required
+                  onChange={(event) =>
+                    setBookForm((prev) => ({ ...prev, publishedYear: event.target.value }))
+                  }
                 />
               </label>
               <label>
@@ -545,21 +566,19 @@ const Library = () => {
                   type="number"
                   min="1"
                   value={bookForm.totalCopies}
-                  onChange={handleBookFormChange}
+                  onChange={(event) =>
+                    setBookForm((prev) => ({ ...prev, totalCopies: event.target.value }))
+                  }
                   required
                 />
               </label>
 
               <div className="library-form-actions">
-                <button
-                  type="button"
-                  className="library-btn-cancel"
-                  onClick={closeAddBookModal}
-                >
+                <button type="button" className="library-btn-cancel" onClick={() => setShowAddBookModal(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="library-btn-create">
-                  Add Book
+                <button type="submit" className="library-btn-create" disabled={submittingBook}>
+                  {submittingBook ? "Adding..." : "Add Book"}
                 </button>
               </div>
             </form>
@@ -571,7 +590,7 @@ const Library = () => {
         <div className="library-modal library-modal-top">
           <div
             className="library-modal-backdrop"
-            onClick={closeIssueBookModal}
+            onClick={() => setShowIssueBookModal(false)}
             role="button"
             tabIndex={0}
             aria-label="Close Issue Book"
@@ -582,25 +601,27 @@ const Library = () => {
               <button
                 type="button"
                 className="library-icon-close"
-                onClick={closeIssueBookModal}
+                onClick={() => setShowIssueBookModal(false)}
               >
                 <FiX />
               </button>
             </div>
 
-            <form className="library-form" onSubmit={handleIssueBook}>
+            <form className="library-form" onSubmit={issueBook}>
               <label>
                 Select Book
                 <select
                   name="bookId"
-                  value={issueBookForm.bookId}
-                  onChange={handleIssueBookFormChange}
+                  value={issueForm.bookId}
+                  onChange={(event) =>
+                    setIssueForm((prev) => ({ ...prev, bookId: event.target.value }))
+                  }
                   required
                 >
                   <option value="">Choose a book</option>
                   {books.map((book) => (
-                    <option key={book.id} value={book.id}>
-                      {book.title}
+                    <option key={book._id} value={book._id}>
+                      {book.title} ({book.availableCopies}/{book.totalCopies})
                     </option>
                   ))}
                 </select>
@@ -609,10 +630,11 @@ const Library = () => {
               <label>
                 Student Roll Number
                 <input
-                  name="studentRollNumber"
-                  placeholder="Enter roll number"
-                  value={issueBookForm.studentRollNumber}
-                  onChange={handleIssueBookFormChange}
+                  name="rollNumber"
+                  value={issueForm.rollNumber}
+                  onChange={(event) =>
+                    setIssueForm((prev) => ({ ...prev, rollNumber: event.target.value }))
+                  }
                   required
                 />
               </label>
@@ -622,22 +644,20 @@ const Library = () => {
                 <input
                   name="dueDate"
                   type="date"
-                  value={issueBookForm.dueDate}
-                  onChange={handleIssueBookFormChange}
+                  value={issueForm.dueDate}
+                  onChange={(event) =>
+                    setIssueForm((prev) => ({ ...prev, dueDate: event.target.value }))
+                  }
                   required
                 />
               </label>
 
               <div className="library-form-actions">
-                <button
-                  type="button"
-                  className="library-btn-cancel"
-                  onClick={closeIssueBookModal}
-                >
+                <button type="button" className="library-btn-cancel" onClick={() => setShowIssueBookModal(false)}>
                   Cancel
                 </button>
-                <button type="submit" className="library-btn-create">
-                  Issue Book
+                <button type="submit" className="library-btn-create" disabled={submittingIssue}>
+                  {submittingIssue ? "Issuing..." : "Issue Book"}
                 </button>
               </div>
             </form>
@@ -665,7 +685,35 @@ const Library = () => {
                 <FiX />
               </button>
             </div>
-            <div className="library-return-empty">No issued books</div>
+            {activeIssues.length === 0 ? (
+              <div className="library-return-empty">No issued books</div>
+            ) : (
+              <div className="library-librarian-grid">
+                {activeIssues.map((issue) => (
+                  <div className="library-librarian-card" key={issue._id}>
+                    <h3>{issue.book?.title || "Book"}</h3>
+                    <p>
+                      <span>Roll:</span> {issue.rollNumber}
+                    </p>
+                    <p>
+                      <span>Due:</span>{" "}
+                      {issue.dueDate ? new Date(issue.dueDate).toLocaleDateString() : "N/A"}
+                    </p>
+                    <p>
+                      <span>Status:</span> {issue.status}
+                    </p>
+                    <button
+                      type="button"
+                      className="library-btn library-btn-green"
+                      disabled={returningIssueId === issue._id}
+                      onClick={() => returnBook(issue._id)}
+                    >
+                      {returningIssueId === issue._id ? "Returning..." : "Mark Returned"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

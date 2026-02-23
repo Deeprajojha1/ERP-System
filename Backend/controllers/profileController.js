@@ -1,10 +1,9 @@
 import User from "../models/userModel.js";
 import Student from "../models/Student.js";
 import Faculty from "../models/Faculty.js";
-import Admin from "../models/adminModel.js";
 import bcrypt from "bcryptjs";
 import validator from "validator";
-import { getFileUrl, deleteFile } from "../config/multerConfig.js";
+import { uploadImageToCloudinary } from "../config/cloudinaryUpload.js";
 
 const { isEmail } = validator;
 
@@ -35,7 +34,7 @@ export const getStudentProfile = async (req, res) => {
     }
 
     const student = await Student.findOne({ user: user._id })
-      .populate("user", "name email aadharNumber phoneNumber DOB status profileImage")
+      .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department")
       .populate("group");
 
@@ -100,9 +99,9 @@ export const getAdminProfile = async (req, res) => {
         aadharNumber: user.aadharNumber,
         phoneNumber: user.phoneNumber,
         DOB: user.DOB,
+        profileImage: user.profileImage || "",
         role: user.role,
         status: user.status,
-        profileImage: user.profileImage ? getFileUrl(user.profileImage) : null,
       },
     });
   } catch (error) {
@@ -111,208 +110,63 @@ export const getAdminProfile = async (req, res) => {
   }
 };
 
-/* ================= UPLOAD PROFILE IMAGE ================= */
+/* ================= ADMIN PROFILE IMAGE ================= */
 
 export const uploadProfileImage = async (req, res) => {
   try {
-    console.log("[uploadProfileImage] ========== UPLOAD START ==========");
-    console.log("[uploadProfileImage] Request received", {
-      userId: req.userId,
-      file: req.file ? {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        filename: req.file.filename
-      } : null
-    });
-
-    if (!req.file) {
-      console.log("[uploadProfileImage] No file provided");
-      return res.status(400).json({ message: "No image file provided" });
-    }
-
-    const userId = req.userId; // From auth middleware
-    console.log("[uploadProfileImage] Finding user with ID:", userId);
-    const user = await User.findById(userId);
-
-    if (!user) {
-      // Delete uploaded file if user not found
-      deleteFile(req.file.filename);
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Delete old profile image if exists
-    if (user.profileImage) {
-      deleteFile(user.profileImage);
-    }
-
-    // Update user with new profile image filename
-    console.log("[uploadProfileImage] Updating user profile image");
-    user.profileImage = req.file.filename;
-    await user.save();
-
-    const imageUrl = getFileUrl(req.file.filename);
-    console.log("[uploadProfileImage] Profile image saved successfully", { imageUrl });
-
-    const url = getFileUrl(user.profileImage);
-    const absoluteUrl = url && url.startsWith("/")
-      ? `${req.protocol}://${req.get("host")}${url}`
-      : url;
-
-    res.json({
-      message: "Profile image uploaded successfully",
-      profileImage: user.profileImage,
-      profileImageUrl: absoluteUrl,
-    });
-  } catch (error) {
-    console.error("[uploadProfileImage] Error:", error);
-    
-    // Delete uploaded file if there's an error
-    if (req.file) {
-      console.log("[uploadProfileImage] Cleaning up uploaded file");
-      deleteFile(req.file.filename);
-    }
-    res.status(500).json({ message: error.message });
-  }
-};
-
-/* ================= DELETE PROFILE IMAGE ================= */
-
-export const deleteProfileImage = async (req, res) => {
-  try {
-    const userId = req.userId; // From auth middleware
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Delete old profile image if exists
-    if (user.profileImage) {
-      deleteFile(user.profileImage);
-      user.profileImage = null;
-      await user.save();
-    }
-
-    res.json({
-      message: "Profile image deleted successfully",
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-/* ================= STUDENT PROFILE IMAGE UPLOAD ================= */
-
-export const uploadStudentProfileImage = async (req, res) => {
-  try {
-    console.log("[uploadStudentProfileImage] ========== STUDENT UPLOAD START ==========");
-    console.log("[uploadStudentProfileImage] Request received", {
-      userId: req.userId,
-      file: req.file ? {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        filename: req.file.filename
-      } : null
-    });
-
-    if (!req.file) {
-      console.log("[uploadStudentProfileImage] No file provided");
-      return res.status(400).json({ message: "No image file provided" });
-    }
-
-    const userId = req.userId; // From auth middleware
-    console.log("[uploadStudentProfileImage] Finding user with ID:", userId);
-    
-    if (!userId) {
-      console.log("[uploadStudentProfileImage] No userId found in request");
+    if (!req.userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
 
-    const user = await User.findById(userId);
-    console.log("[uploadStudentProfileImage] User found:", user ? "YES" : "NO");
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ message: "profileImage file is required" });
+    }
 
+    const user = await User.findById(req.userId);
     if (!user) {
-      // Delete uploaded file if user not found
-      console.log("[uploadStudentProfileImage] User not found, cleaning up file");
-      deleteFile(req.file.filename);
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Verify user is a student
-    console.log("[uploadStudentProfileImage] User role:", user.role);
-    if (user.role !== "student") {
-      console.log("[uploadStudentProfileImage] User is not a student, cleaning up file");
-      deleteFile(req.file.filename);
-      return res.status(403).json({ message: "Access denied. Only students can upload profile images" });
-    }
+    const mime = String(req.file.mimetype || "image/jpeg");
+    const base64 = req.file.buffer.toString("base64");
+    const dataUri = `data:${mime};base64,${base64}`;
 
-    // Delete old profile image if exists
-    if (user.profileImage) {
-      console.log("[uploadStudentProfileImage] Deleting old profile image:", user.profileImage);
-      deleteFile(user.profileImage);
-    }
+    const imageUrl = await uploadImageToCloudinary({
+      file: dataUri,
+      folder: "hu-erp/profile-images",
+      publicId: `profile_${user._id}_${Date.now()}`,
+    });
 
-    // Update user with new profile image filename
-    console.log("[uploadStudentProfileImage] Updating student profile image");
-    user.profileImage = req.file.filename;
+    user.profileImage = imageUrl;
     await user.save();
-    console.log("[uploadStudentProfileImage] User saved successfully");
 
-    const imageUrl = getFileUrl(req.file.filename);
-    console.log("[uploadStudentProfileImage] Student profile image saved successfully", { imageUrl });
-
-    const url = getFileUrl(user.profileImage);
-    const absoluteUrl = url && url.startsWith("/")
-      ? `${req.protocol}://${req.get("host")}${url}`
-      : url;
-
-    res.json({
-      message: "Student profile image uploaded successfully",
-      profileImage: user.profileImage,
-      profileImageUrl: absoluteUrl,
+    return res.json({
+      message: "Profile image uploaded successfully",
+      profileImage: imageUrl,
     });
   } catch (error) {
-    console.error("[uploadStudentProfileImage] Error:", error);
-    console.error("[uploadStudentProfileImage] Error stack:", error.stack);
-    
-    // Delete uploaded file if there's an error
-    if (req.file) {
-      console.log("[uploadStudentProfileImage] Cleaning up uploaded file");
-      deleteFile(req.file.filename);
-    }
-    res.status(500).json({ message: error.message || "Internal server error" });
+    return res.status(500).json({ message: error.message });
   }
 };
 
-/* ================= STUDENT PROFILE IMAGE DELETE ================= */
-
-export const deleteStudentProfileImage = async (req, res) => {
+export const deleteProfileImage = async (req, res) => {
   try {
-    const userId = req.userId; // From auth middleware
-    const user = await User.findById(userId);
+    if (!req.userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
 
+    const user = await User.findById(req.userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    // Verify user is a student
-    if (user.role !== "student") {
-      return res.status(403).json({ message: "Access denied. Only students can delete profile images" });
-    }
+    user.profileImage = "";
+    await user.save();
 
-    // Delete old profile image if exists
-    if (user.profileImage) {
-      deleteFile(user.profileImage);
-      user.profileImage = null;
-      await user.save();
-    }
-
-    res.json({
-      message: "Student profile image deleted successfully",
+    return res.json({
+      message: "Profile image removed successfully",
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: error.message });
   }
 };

@@ -39,6 +39,22 @@
   box-shadow: 0 10px 20px rgba(11, 116, 198, 0.25);
 }
 
+.groups-add-btn:disabled,
+.groups-icon-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.groups-spin {
+  animation: groups-spin 0.9s linear infinite;
+}
+
+@keyframes groups-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .groups-toolbar {
   background: linear-gradient(
     135deg,

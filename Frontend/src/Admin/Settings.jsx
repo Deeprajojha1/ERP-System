@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { createPortal } from "react-dom";
 import axios from "axios";
@@ -81,22 +81,38 @@ const Settings = () => {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [currentProfileImage, setCurrentProfileImage] = useState(null);
 
-  const resolveImageUrl = (fileUrl, fileName) => {
-    const baseUrl = apiBase?.replace('/api', '') || '';
+  const resolveImageUrl = useCallback((fileUrl, fileName) => {
+    const baseUrl = String(apiBase || "").replace(/\/api\/?$/, "");
     if (fileUrl) {
-      if (fileUrl.startsWith('http')) return fileUrl;
+      if (fileUrl.startsWith('http') || fileUrl.startsWith('data:')) return fileUrl;
       return `${baseUrl}${fileUrl}`;
     }
     if (fileName) {
-      return `${baseUrl}/uploads/profile-images/${fileName}`;
+      // Handle Cloudinary URLs (http/https) or data URIs
+      if (fileName.startsWith('http') || fileName.startsWith('data:')) return fileName;
+      const normalizedFileName = String(fileName)
+        .split("/")
+        .filter(Boolean)
+        .map((segment) => encodeURIComponent(segment))
+        .join("/");
+      return `${baseUrl}/uploads/profile-images/${normalizedFileName}`;
     }
     return null;
-  };
+  }, [apiBase]);
 
   // Update current profile image when user data changes
   React.useEffect(() => {
     setCurrentProfileImage(resolveImageUrl(user?.profileImageUrl, user?.profileImage));
-  }, [user?.profileImage, user?.profileImageUrl, apiBase]);
+  }, [user?.profileImage, user?.profileImageUrl, resolveImageUrl]);
+
+  // Keep displayed profile fields in sync after async user fetch resolves.
+  React.useEffect(() => {
+    const parts = fullName.split(" ").filter(Boolean);
+    setForm({
+      firstName: parts[0] || "",
+      lastName: parts.slice(1).join(" ") || "",
+    });
+  }, [fullName]);
 
   const handleProfileImageChange = async (e) => {
     const file = e.target.files?.[0];
@@ -331,13 +347,13 @@ const Settings = () => {
       return;
     }
 
-    try {
-      setAdminSubmitting(true);
-      await new Promise((resolve) => setTimeout(resolve, 350));
-      closeAddAdminModal();
-    } finally {
+    setAdminSubmitting(true);
+    setTimeout(() => {
       setAdminSubmitting(false);
-    }
+      setAdminError(
+        "Admin creation API is not available in backend routes. Please use database/seed workflow."
+      );
+    }, 250);
   };
 
   const closeAddLibrarianModal = () => {

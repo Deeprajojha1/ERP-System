@@ -22,6 +22,7 @@ function FacultyDashboard() {
 
   const [requestStatus, setRequestStatus] = useState(null);
   const [isRequestOpen, setIsRequestOpen] = useState(false);
+  const [compactView, setCompactView] = useState(false);
 
   const [requestForm, setRequestForm] = useState({
     leaveType: "Sick Leave",
@@ -137,7 +138,17 @@ function FacultyDashboard() {
   };
 
   return (
-    <section className="dashboard">
+    <section className={"dashboard" + (compactView ? " compact" : "")}>
+      <div className="under-nav-toggle-container">
+        <button
+          className="under-nav-toggle"
+          onClick={() => setCompactView((v) => !v)}
+          aria-pressed={compactView}
+          aria-label="Toggle compact view"
+        >
+          {compactView ? "▣" : "▢"}
+        </button>
+      </div>
       {/* HEADER */}
       <div className="dashboard-header">
         <h1>Welcome back, {name}</h1>

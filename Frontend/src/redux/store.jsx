@@ -7,6 +7,9 @@ import configSlice from "./configSlice";
 import leavesSlice from "./leavesSlice";
 import timetableSlice from "./timetableSlice";
 import attendanceSlice from "./attendanceSlice";
+import resultSlice from "./resultSlice";
+import feeSlice from "./feeSlice";
+import alertSlice from "./alertSlice";
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -27,6 +30,9 @@ const rootReducer = combineReducers({
   leaves: leavesSlice,
   timetable: timetableSlice,
   attendance: attendanceSlice,
+  result: resultSlice,
+  fee: feeSlice,
+  alerts: alertSlice,
 });
 
 const persistedReducer = persistReducer(

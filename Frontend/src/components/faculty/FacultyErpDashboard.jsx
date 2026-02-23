@@ -1,100 +1,139 @@
-import { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
-import axios from "axios";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import Sidebar from "./Sidebar";
 import NavBar from "./NavBar";
+import { Menu } from "lucide-react";
 import DashboardSection from "./DashboardSection";
 import AttendanceSection from "./AttendanceSection";
 import CoursesSection from "./CoursesSection";
 import ProfileSection from "./ProfileSection";
-import SettingsSection from "./SettingsSection";
-import Toast from "./Toast";
+import FacultyLeavesSection from "./FacultyLeavesSection";
+import FacultyScheduleSection from "./FacultyScheduleSection";
+import FacultyExamsSection from "./FacultyExamsSection";
+import FacultyAdmitCardsSection from "./FacultyAdmitCardsSection";
+import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
+import {
+  fetchFacultyProfile,
+  selectFacultyProfile,
+  selectProfileLoadState,
+  selectActiveSection,
+  selectIsSidebarOpen,
+  setSidebarOpen,
+  toggleSidebar,
+} from "../../redux/facultyDashboardSlice";
 import "./FacultyDashboard.css";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
-
 export default function FacultyErpDashboard() {
-  const [activeSection, setActiveSection] = useState("dashboard");
-  const [toast, setToast] = useState({ show: false, text: "", type: "success" });
-  const [facultyData, setFacultyData] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Get user data from Redux store (for initial fast load)
+  const dispatch = useDispatch();
+  const apiBase = useSelector((state) => state.config.apiBase);
   const userData = useSelector((state) => state.user.userData);
+  
+  // Redux state
+  const facultyProfile = useSelector(selectFacultyProfile);
+  const profileLoadState = useSelector(selectProfileLoadState);
+  const activeSection = useSelector(selectActiveSection);
+  const isSidebarOpen = useSelector(selectIsSidebarOpen);
 
-  // Fetch fresh faculty data from backend
-  const fetchFacultyData = async () => {
-    try {
-      console.log("Fetching faculty data from:", `${API_BASE_URL}/faculty/me`);
-      
-      const response = await axios.get(`${API_BASE_URL}/faculty/me`, {
-        withCredentials: true,
-      });
+  // Use facultyProfile from Redux, fallback to userData
+  const facultyData = facultyProfile || userData;
+  const isLoading = profileLoadState === ADMIN_LOAD_STATES.PENDING;
+  const isInitialLoad = profileLoadState === ADMIN_LOAD_STATES.INITIAL && !facultyData;
 
-      console.log("Faculty data received:", response.data);
-      setFacultyData(response.data);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching faculty data:", error);
-      
-      // Fallback to Redux data if API fails
-      if (userData) {
-        console.log("Using Redux data as fallback");
-        setFacultyData(userData);
-      }
-      setLoading(false);
-    }
-  };
-
-  // Initial load: use Redux data immediately, then fetch fresh data
+  // Fetch faculty profile on mount
   useEffect(() => {
-    if (userData) {
-      // Set Redux data immediately for fast initial render
-      setFacultyData(userData);
-      setLoading(false);
+    if (apiBase && profileLoadState === ADMIN_LOAD_STATES.INITIAL) {
+      dispatch(fetchFacultyProfile({ apiBase }));
     }
-    
-    // Fetch fresh data from backend
-    fetchFacultyData();
-  }, []);
+  }, [apiBase, profileLoadState, dispatch]);
 
-  const showToast = (text, type = "success") => {
-    setToast({ show: true, text, type });
-    setTimeout(() => setToast({ show: false, text: "", type: "success" }), 3000);
-  };
+  // refresh handled elsewhere; no prop needed
 
-  if (loading && !facultyData) {
+  // Close sidebar handler (for overlay click)
+  const closeSidebar = () => dispatch(setSidebarOpen(false));
+
+  // Loading state
+  if (isInitialLoad) {
     return (
       <div className="faculty-layout">
-        <div className="faculty-content" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div className="admin-dots">
+        <div className="faculty-loading-container">
+          <div className="faculty-loading">
+            <div className="faculty-loading-spinner">
               <span></span>
               <span></span>
               <span></span>
             </div>
-            <p>Loading dashboard...</p>
+            <p className="faculty-loading-text">Loading dashboard...</p>
           </div>
         </div>
       </div>
     );
   }
 
+  // Render section based on active selection
+  const renderSection = () => {
+    switch (activeSection) {
+      case "dashboard":
+        return <DashboardSection facultyData={facultyData} />;
+      case "attendance":
+        return <AttendanceSection facultyData={facultyData} />;
+      case "courses":
+        return <CoursesSection facultyData={facultyData} />;
+      case "schedule":
+        return <FacultyScheduleSection facultyData={facultyData} />;
+      case "leaves":
+        return <FacultyLeavesSection facultyData={facultyData} />;
+      case "exams":
+        return <FacultyExamsSection facultyData={facultyData} />;
+      case "admitCards":
+        return <FacultyAdmitCardsSection facultyData={facultyData} />;
+      case "profile":
+        return <ProfileSection facultyData={facultyData} />;
+      case "settings":
+        // Settings removed — fallback to dashboard
+        return <DashboardSection facultyData={facultyData} />;
+      default:
+        return <DashboardSection facultyData={facultyData} />;
+    }
+  };
+
   return (
-    <div className="faculty-layout">
-      <div className="faculty-layout-bg"></div>
-      <Sidebar activeSection={activeSection} setActiveSection={setActiveSection} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, position: 'relative', zIndex: 1 }}>
-        <NavBar facultyData={facultyData} onRefresh={fetchFacultyData} />
-        <main className="faculty-content">
-          {activeSection === "dashboard" && <DashboardSection facultyData={facultyData} />}
-          {activeSection === "attendance" && <AttendanceSection facultyData={facultyData} showToast={showToast} />}
-          {activeSection === "courses" && <CoursesSection facultyData={facultyData} showToast={showToast} />}
-          {activeSection === "profile" && <ProfileSection facultyData={facultyData} />}
-          {activeSection === "settings" && <SettingsSection />}
+    <>
+      {/* Fixed Nav Bar */}
+      <NavBar facultyData={facultyData} />
+
+      {/* Floating menu button (under navbar) */}
+      {!isSidebarOpen && (
+        <button
+          type="button"
+          className="faculty-menu-btn faculty-menu-float"
+          onClick={() => dispatch(toggleSidebar())}
+          aria-label="Open sidebar"
+          aria-expanded={isSidebarOpen}
+        >
+          <Menu size={20} />
+        </button>
+      )}
+
+      <div className={`faculty-layout ${isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"}`}>
+        <div className="faculty-layout-bg" aria-hidden="true" />
+
+        {/* Overlay for mobile */}
+        <div
+          className={`faculty-overlay ${isSidebarOpen ? "show" : ""}`}
+          onClick={closeSidebar}
+          role="button"
+          tabIndex={0}
+          aria-label="Close sidebar"
+        />
+
+        {/* Sidebar */}
+        <Sidebar facultyData={facultyData} />
+
+        {/* Main Content */}
+        <main className={`faculty-content ${isLoading ? "loading" : ""}`}>
+          {renderSection()}
         </main>
       </div>
-      <Toast toast={toast} />
-    </div>
+    </>
   );
 }

@@ -1,12 +1,26 @@
 import { useState, useEffect } from "react";
-import axios from "axios";
+import { useDispatch, useSelector } from "react-redux";
 import { Oval } from "react-loader-spinner";
+import toast from "react-hot-toast";
+import { Trash2, ToggleLeft, ToggleRight } from "lucide-react";
 import emptyStateImg from "../assets/empty-state.svg";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import ClipLoader from "./components/ClipLoader";
+import {
+  createAdminAlert,
+  deleteAdminAlert,
+  fetchAdminAlerts,
+  selectAdminAlerts,
+  selectAdminAlertsError,
+  selectAdminAlertsLoading,
+  selectAdminAlertsNotImplemented,
+  selectAdminAlertsSubmitting,
+  selectAdminAlertsUpdatingById,
+  selectAdminAlertsDeletingById,
+  toggleAdminAlertStatus,
+} from "../redux/alertSlice";
 import "./Alert.css";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
 const TITLE_LIMIT = 120;
 const MESSAGE_LIMIT = 2000;
 const INITIAL_FORM_DATA = {
@@ -37,33 +51,27 @@ const PRIORITY_OPTIONS = [
 ];
 
 export default function Alerts() {
-  const [alerts, setAlerts] = useState([]);
+  const dispatch = useDispatch();
+  const alerts = useSelector(selectAdminAlerts);
+  const loading = useSelector(selectAdminAlertsLoading);
+  const isSubmitting = useSelector(selectAdminAlertsSubmitting);
+  const updatingById = useSelector(selectAdminAlertsUpdatingById);
+  const deletingById = useSelector(selectAdminAlertsDeletingById);
+  const loadError = useSelector(selectAdminAlertsError);
+  const notImplemented = useSelector(selectAdminAlertsNotImplemented);
+
   const [showModal, setShowModal] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
-  const [loadError, setLoadError] = useState("");
   const [audienceError, setAudienceError] = useState("");
   const [formData, setFormData] = useState(INITIAL_FORM_DATA);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
 
   useEffect(() => {
-    fetchAlerts();
-  }, []);
-
-  const fetchAlerts = async () => {
-    setLoadState(ADMIN_LOAD_STATES.PENDING);
-    setLoadError("");
-    try {
-      const response = await axios.get(`${API_BASE_URL}/admin/alerts`, {
-        withCredentials: true,
-      });
-      setAlerts(response.data?.alerts || []);
-      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
-    } catch (error) {
-      console.error("Error fetching alerts:", error);
-      setLoadState(ADMIN_LOAD_STATES.FAILURE);
-      setLoadError(error.response?.data?.message || "Failed to load alerts");
-    }
-  };
+    const load = async () => {
+      await dispatch(fetchAdminAlerts());
+      setHasFetchedOnce(true);
+    };
+    load();
+  }, [dispatch]);
 
   const closeModal = () => {
     setShowModal(false);
@@ -102,28 +110,31 @@ export default function Alerts() {
       message,
     };
 
-    setIsSubmitting(true);
     try {
-      await axios.post(`${API_BASE_URL}/admin/alerts`, payload, {
-        withCredentials: true,
-      });
+      await dispatch(createAdminAlert(payload)).unwrap();
+      toast.success("Alert created successfully");
       closeModal();
-      await fetchAlerts();
     } catch (error) {
-      console.error("Error creating alert:", error);
-    } finally {
-      setIsSubmitting(false);
+      toast.error(error?.message || error || "Failed to create alert");
     }
   };
 
   const toggleActive = async (id, isActive) => {
     try {
-      await axios.put(`${API_BASE_URL}/admin/alerts/${id}`, { isActive: !isActive }, {
-        withCredentials: true,
-      });
-      fetchAlerts();
+      await dispatch(toggleAdminAlertStatus({ id, isActive })).unwrap();
+      toast.success(`Alert ${isActive ? "deactivated" : "activated"} successfully`);
     } catch (error) {
-      console.error("Error updating alert:", error);
+      toast.error(error?.message || error || "Failed to update alert");
+    }
+  };
+
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this alert?")) return;
+    try {
+      await dispatch(deleteAdminAlert(id)).unwrap();
+      toast.success("Alert deleted successfully");
+    } catch (error) {
+      toast.error(error?.message || error || "Failed to delete alert");
     }
   };
 
@@ -143,11 +154,15 @@ export default function Alerts() {
   const getLoadStateText = (stateId) =>
     ADMIN_LOAD_STATE_OPTIONS.find((option) => option.id === stateId)?.text || "Unknown";
 
+  const loadState =
+    loading || !hasFetchedOnce
+      ? ADMIN_LOAD_STATES.PENDING
+      : notImplemented || loadError
+      ? ADMIN_LOAD_STATES.FAILURE
+      : ADMIN_LOAD_STATES.SUCCESS;
+
   const renderAlertsContent = () => {
-    if (
-      loadState === ADMIN_LOAD_STATES.INITIAL ||
-      loadState === ADMIN_LOAD_STATES.PENDING
-    ) {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="alerts-state pending app-loader-state">
           <Oval
@@ -166,12 +181,19 @@ export default function Alerts() {
     }
 
     if (loadState === ADMIN_LOAD_STATES.FAILURE) {
+      const message = notImplemented
+        ? "Alert backend routes are present but not implemented yet."
+        : loadError || "Failed to load alerts";
       return (
         <div className="alerts-state error">
           <img src={emptyStateImg} alt="Failed to load alerts" className="alerts-state-img" />
           <h3>Failed to load alerts</h3>
-          <p>{loadError || "Please try again in a moment."}</p>
-          <button type="button" className="alerts-retry-btn" onClick={fetchAlerts}>
+          <p>{message}</p>
+          <button
+            type="button"
+            className="alerts-retry-btn"
+            onClick={() => dispatch(fetchAdminAlerts())}
+          >
             Retry
           </button>
         </div>
@@ -218,8 +240,30 @@ export default function Alerts() {
             type="button"
             onClick={() => toggleActive(alert._id, alert.isActive)}
             className="alert-toggle-btn"
+            disabled={Boolean(updatingById[alert._id]) || Boolean(deletingById[alert._id])}
           >
-            {alert.isActive ? "Deactivate" : "Activate"}
+            {updatingById[alert._id] ? (
+              "Updating..."
+            ) : alert.isActive ? (
+              <>
+                <ToggleRight size={16} />
+                <span>Deactivate</span>
+              </>
+            ) : (
+              <>
+                <ToggleLeft size={16} />
+                <span>Activate</span>
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleDelete(alert._id)}
+            className="alert-delete-btn"
+            disabled={Boolean(updatingById[alert._id]) || Boolean(deletingById[alert._id])}
+          >
+            <Trash2 size={16} />
+            <span>{deletingById[alert._id] ? "Deleting..." : "Delete"}</span>
           </button>
         </div>
       </div>
@@ -381,7 +425,7 @@ export default function Alerts() {
                 >
                   {isSubmitting ? (
                     <>
-                      <ClipLoader size={15} />
+                      <ClipLoader size={15} color="#000000" />
                       <span>Creating...</span>
                     </>
                   ) : (

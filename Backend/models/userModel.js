@@ -25,7 +25,7 @@ const userSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["active", "inactive", "leave", "onleave"],
+      enum: ["active", "inactive", "leave"],
       default: "active",
     },
      resetOtp: {
@@ -42,8 +42,9 @@ const userSchema = new mongoose.Schema(
         type: Date
     },
     profileImage: {
-        type: String,
-        default: null,
+      type: String,
+      default: "",
+      trim: true,
     },
     isDeleted: {
       type: Boolean,

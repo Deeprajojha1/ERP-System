@@ -53,6 +53,23 @@ import {
   createGroupTimetable,
   updateGroupTimetable,
 } from "../controllers/groupController.js";
+import {
+  getAllExams,
+  getExamById,
+  addExam,
+  updateExam,
+  deleteExam,
+  hardDeleteExam,
+} from "../controllers/examController.js";
+import {
+  getAllResults,
+  getResultById,
+  addResult,
+  updateResult,
+  deleteResult,
+  hardDeleteResult,
+  getStudentResultSummary,
+} from "../controllers/resultController.js";
 
 import { 
   getAdminProfile, 
@@ -65,6 +82,7 @@ import {
   updateAttendance,
   getAttendanceById,
   getAttendanceByGroupAndCourse,
+  getGroupStudentAttendanceByDate,
   deleteAttendance,
   hardDeleteAttendance,
   getStudentsByGroup,
@@ -106,34 +124,42 @@ import {
   createAlert,
   getAllAlertsAdmin,
   updateAlertAdmin,
+  deleteAlertAdmin,
 } from "../controllers/alertController.js";
+
+import { addClassroom, getClassrooms } from "../controllers/classroomController.js";
 import {
-  getAllExams,
-  getExamById,
-  addExam,
-  updateExam,
-  deleteExam,
-  hardDeleteExam,
-} from "../controllers/examController.js";
+  createExamBlueprint,
+  getExamBlueprints,
+  getExamBlueprintById,
+  updateExamBlueprint,
+  publishExamBlueprint,
+  generateExamPaper,
+  getExamPaper,
+  reviewExamPaper,
+  getExamStudentScores,
+  closeExamBlueprint,
+  deleteExamBlueprint,
+} from "../controllers/aiExamController.js";
 import {
-  getAllResults,
-  getResultById,
-  addResult,
-  updateResult,
-  getStudentResultSummary,
-  deleteResult,
-  hardDeleteResult,
-} from "../controllers/resultController.js";
-import {
-  getAdminAccountOverview,
-  getAndAddBaseFees,
-  getOrUpdateBaseFeeByBranch,
-  getSubmitFeeStudents,
-  submitStudentFeeByAccounts,
-} from "../controllers/accountsController.js";
+  createFeeProgram,
+  getFeeProgrammes,
+  createFeeBatch,
+  createFeeBranch,
+  createStudentFeeDetails,
+  createFeeDemand,
+  getFeeDemands,
+  createPayment,
+  updatePaymentStatus,
+  getPaymentHistory,
+} from "../controllers/feeController.js";
+
+
+
 
 import isAdmin from "../middlewares/isAdmin.js";
 import upload from "../config/multerConfig.js";
+import feeRateLimit from "../middlewares/feeRateLimit.js";
 
 const router = express.Router();
 
@@ -234,6 +260,7 @@ router.post("/attendance", isAdmin, markAttendance);
 router.put("/attendance/:sessionId", isAdmin, updateAttendance);
 router.get("/attendance/daily", isAdmin, getDailyAttendanceSummary);
 router.get("/attendance/group/:groupId/students", isAdmin, getStudentsByGroup);
+router.get("/attendance/group/:groupId/date/:date", isAdmin, getGroupStudentAttendanceByDate);
 router.get(
   "/attendance/group/:groupId/course/:courseId",
   isAdmin,
@@ -299,9 +326,14 @@ router.get(
 router.post("/alerts", isAdmin, createAlert);
 router.get("/alerts", isAdmin, getAllAlertsAdmin);
 router.put("/alerts/:id", isAdmin, updateAlertAdmin);
+router.delete("/alerts/:id", isAdmin, deleteAlertAdmin);
+
+// Classrooms
+router.post("/classroom", isAdmin, addClassroom);
+router.get("/classrooms", isAdmin, getClassrooms);
 
 /* =========================
-   EXAMS (ADMIN)
+   EXAMS
 ========================= */
 router.get("/exam", isAdmin, getAllExams);
 router.get("/exam/:id", isAdmin, getExamById);
@@ -311,25 +343,43 @@ router.patch("/exam/:id/delete", isAdmin, deleteExam);
 router.delete("/exam/:id", isAdmin, hardDeleteExam);
 
 /* =========================
-   RESULTS (ADMIN)
+   RESULTS
 ========================= */
 router.get("/result", isAdmin, getAllResults);
 router.get("/result/:id", isAdmin, getResultById);
 router.post("/result", isAdmin, addResult);
 router.put("/result/:id", isAdmin, updateResult);
-router.get("/result/student/:studentId/summary", isAdmin, getStudentResultSummary);
 router.patch("/result/:id/delete", isAdmin, deleteResult);
 router.delete("/result/:id", isAdmin, hardDeleteResult);
+router.get("/result/student/:studentId/summary", isAdmin, getStudentResultSummary);
 
 /* =========================
-   ACCOUNTS (ADMIN)
+   AI EXAM (ADMIN)
 ========================= */
-router.get("/account", isAdmin, getAdminAccountOverview);
-router.get("/accounts/addBasefees", isAdmin, getAndAddBaseFees);
-router.post("/accounts/addBasefees", isAdmin, getAndAddBaseFees);
-router.get("/accounts/addbasefee/:branchid", isAdmin, getOrUpdateBaseFeeByBranch);
-router.put("/accounts/addbasefee/:branchid", isAdmin, getOrUpdateBaseFeeByBranch);
-router.get("/accounts/submitfee", isAdmin, getSubmitFeeStudents);
-router.post("/accounts/submitfee/students/:id", isAdmin, submitStudentFeeByAccounts);
+router.post("/exam-blueprint", isAdmin, createExamBlueprint);
+router.get("/exam-blueprint", isAdmin, getExamBlueprints);
+router.get("/exam-blueprint/:id", isAdmin, getExamBlueprintById);
+router.put("/exam-blueprint/:id", isAdmin, updateExamBlueprint);
+router.post("/exam-blueprint/:id/generate-paper", isAdmin, generateExamPaper);
+router.get("/exam-blueprint/:id/paper", isAdmin, getExamPaper);
+router.put("/exam-paper/:paperId/review", isAdmin, reviewExamPaper);
+router.get("/exam-blueprint/:id/scores", isAdmin, getExamStudentScores);
+router.patch("/exam-blueprint/:id/publish", isAdmin, publishExamBlueprint);
+router.patch("/exam-blueprint/:id/close", isAdmin, closeExamBlueprint);
+router.patch("/exam-blueprint/:id/delete", isAdmin, deleteExamBlueprint);
+
+/* =========================
+   FEES (ADMIN)
+========================= */
+router.post("/fee/program", isAdmin, feeRateLimit, createFeeProgram);
+router.get("/fee/program", isAdmin, feeRateLimit, getFeeProgrammes);
+router.post("/fee/batch", isAdmin, feeRateLimit, createFeeBatch);
+router.post("/fee/branch", isAdmin, feeRateLimit, createFeeBranch);
+router.post("/fee/student-details", isAdmin, feeRateLimit, createStudentFeeDetails);
+router.post("/fee/demand", isAdmin, feeRateLimit, createFeeDemand);
+router.get("/fee/demand", isAdmin, feeRateLimit, getFeeDemands);
+router.post("/fee/payment", isAdmin, feeRateLimit, createPayment);
+router.patch("/fee/payment/:paymentId/status", isAdmin, feeRateLimit, updatePaymentStatus);
+router.get("/fee/payment", isAdmin, feeRateLimit, getPaymentHistory);
 
 export default router;

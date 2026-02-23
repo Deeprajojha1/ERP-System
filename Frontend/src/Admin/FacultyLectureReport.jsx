@@ -232,12 +232,50 @@ const FacultyLectureReport = () => {
     `;
 
     try {
-      await downloadPdfFromHtml(apiBase, {
-        html,
-        fileName: `Faculty_Lecture_Report_${selectedDeptName || "Department"}_${selectedDate || "Date"}.pdf`,
-      });
+      // Open print dialog using hidden iframe
+      const printFrame = document.createElement("iframe");
+      printFrame.style.position = "fixed";
+      printFrame.style.right = "0";
+      printFrame.style.bottom = "0";
+      printFrame.style.width = "0";
+      printFrame.style.height = "0";
+      printFrame.style.border = "0";
+      printFrame.setAttribute("aria-hidden", "true");
+      document.body.appendChild(printFrame);
+
+      const frameWindow = printFrame.contentWindow;
+      if (!frameWindow) {
+        if (document.body.contains(printFrame)) document.body.removeChild(printFrame);
+        return;
+      }
+
+      let cleaned = false;
+      const cleanup = () => {
+        if (cleaned) return;
+        cleaned = true;
+        if (document.body.contains(printFrame)) {
+          document.body.removeChild(printFrame);
+        }
+      };
+
+      frameWindow.onafterprint = cleanup;
+      frameWindow.document.open();
+      frameWindow.document.write(html);
+      frameWindow.document.close();
+
+      setTimeout(cleanup, 1500);
+
+      setTimeout(() => {
+        try {
+          frameWindow.document.title = `Faculty_Lecture_Report_${selectedDeptName || "Department"}_${selectedDate || "Date"}`;
+          frameWindow.focus();
+          frameWindow.print();
+        } catch {
+          cleanup();
+        }
+      }, 120);
     } catch (error) {
-      toast.error(error?.message || "Failed to download report PDF");
+      toast.error(error?.message || "Failed to print report");
     }
   };
 

@@ -8,12 +8,15 @@ import UserRegister from "./components/UserRegister/UserRegister";
 import Layout from "./components/Layout/Layout";
 import Dashboard from "./components/pages/Dashboard";
 import FacultyErpDashboard from "./components/faculty/FacultyErpDashboard";
+import FacultyEditProfile from "./components/faculty/FacultyEditProfile";
 import AdminHome from "./Admin/AdminHome";
 import useGetCurrentUser from "./components/customHooks/getCurrentUser";
 import Department from "./Admin/Department";
 import AdminLayout from "./Admin/AdminLayout";
 import Faculty from "./Admin/Faculty";
 import Student from "./Admin/Student";
+import Hostel from "./Admin/Hostel";
+import HostelDetails from "./Admin/HostelDetails";
 import Courses from "./Admin/Courses";
 import Groups from "./Admin/Groups";
 import Timetable from "./Admin/Timetable";
@@ -44,6 +47,8 @@ import SubjectAttendance from "./Admin/Subjectattendance";
 import TeachingLoad from "./Admin/Teachingload";
 import Assignment from "./Admin/Assignment";
 import Alerts from "./Admin/Alert";
+import Classrooms from "./Admin/Classrooms";
+import ExamBlueprints from "./Admin/ExamBlueprints";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
@@ -217,6 +222,7 @@ function App() {
             userData?.user?.role === "faculty" ? (
               <Routes>
                 <Route path="faculty-dashboard" element={<FacultyErpDashboard />} />
+                <Route path="profile-edit" element={<FacultyEditProfile />} />
                 <Route path="*" element={<Navigate to="/page-not-found" replace />} />
               </Routes>
             ) : (
@@ -250,11 +256,15 @@ function App() {
           <Route path="department" element={<Department />} />
           <Route path="faculty" element={<Faculty />} />
           <Route path="student" element={<Student />} />
+          <Route path="hostel" element={<Hostel />} />
+          <Route path="hostel/:hostelId" element={<HostelDetails />} />
           <Route path="courses" element={<Courses />} />
           <Route path="groups" element={<Groups />} />
+          <Route path="classrooms" element={<Classrooms />} />
           <Route path="assignment" element={<Assignment />} />
           <Route path="timetable" element={<Timetable />} />
           <Route path="exam" element={<Exam />} />
+          <Route path="exam-blueprint" element={<ExamBlueprints />} />
           <Route path="result" element={<Result />} />
           <Route path="attendance" element={<Attendance />} />
           <Route path="leaves" element={<Leaves />} />

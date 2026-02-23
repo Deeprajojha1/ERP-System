@@ -1,29 +1,42 @@
-import { Calendar, Clock, Users, BookOpen, Bell } from "lucide-react";
-import { useState, useEffect } from "react";
-import axios from "axios";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+import { Calendar, Clock, Users, BookOpen, Bell, AlertCircle, Sparkles } from "lucide-react";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { ClipLoader } from "react-spinners";
+import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
+import {
+  fetchFacultyAlerts,
+  selectFacultyAlerts,
+  selectFacultyAlertsLoadState,
+} from "../../redux/facultyDashboardSlice";
 
 export default function DashboardSection({ facultyData }) {
-  const [alerts, setAlerts] = useState([]);
-  const todaySchedule = facultyData?.todaySchedule || [];
+  const dispatch = useDispatch();
+  const apiBase = useSelector((state) => state.config.apiBase);
+  const alerts = useSelector(selectFacultyAlerts);
+  const alertsLoadState = useSelector(selectFacultyAlertsLoadState);
+  
+  const todaySchedule = Array.isArray(facultyData?.todaySchedule)
+    ? facultyData.todaySchedule
+    : [];
   const facultyName = facultyData?.user?.name || "Faculty";
-  const departmentName = facultyData?.facultyDetails?.department?.name || "Department";
+  const departmentName = 
+    facultyData?.facultyDetails?.department?.name || 
+    facultyData?.roleDetails?.department?.name || 
+    "Department";
+  const designation = 
+    facultyData?.facultyDetails?.designation || 
+    facultyData?.roleDetails?.designation || 
+    "Faculty";
+  const employeeId = 
+    facultyData?.facultyDetails?.employeeId || 
+    facultyData?.roleDetails?.employeeId || 
+    "";
+  const alertsLoading = alertsLoadState === ADMIN_LOAD_STATES.PENDING;
 
   useEffect(() => {
-    fetchAlerts();
-  }, []);
-
-  const fetchAlerts = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/faculty/alerts`, {
-        withCredentials: true,
-      });
-      setAlerts(response.data.alerts || []);
-    } catch (error) {
-      console.error("Error fetching alerts:", error);
-    }
-  };
+    if (!apiBase || alertsLoadState !== ADMIN_LOAD_STATES.INITIAL) return;
+    dispatch(fetchFacultyAlerts({ apiBase }));
+  }, [apiBase, alertsLoadState, dispatch]);
 
   const getPriorityColor = (priority) => {
     switch (priority) {
@@ -61,11 +74,38 @@ export default function DashboardSection({ facultyData }) {
     return times[lectureNumber - 1] || ["--:--", "--:--"];
   };
 
-  return (
-    <section className="faculty-section">
+  const nextClass = !todaySchedule.length
+    ? null
+    : [...todaySchedule].sort(
+        (a, b) => Number(a.lectureNumber || 0) - Number(b.lectureNumber || 0)
+      )[0];
+
+  const classesByStatus = todaySchedule.reduce(
+    (acc, lecture) => {
+      const status = getCurrentStatus(lecture.lectureNumber).color;
+      if (status === "completed") acc.completed += 1;
+      if (status === "ongoing") acc.ongoing += 1;
+      if (status === "scheduled") acc.scheduled += 1;
+      return acc;
+    },
+    { completed: 0, ongoing: 0, scheduled: 0 }
+  );
+
+  const unreadHighPriority = alerts.filter((item) =>
+    ["urgent", "warning"].includes(item?.priority)
+  ).length;
+
+    return (
+      <section className="faculty-section">
       <div className="faculty-section-header">
-        <h2 className="faculty-section-title">Welcome back, {facultyName.split(" ").pop()}!</h2>
-        <p className="faculty-section-subtitle">Here is your academic overview for today</p>
+        <div>
+          <h2 className="faculty-section-title">Welcome back, {facultyName.split(" ").pop()}!</h2>
+          <p className="faculty-section-subtitle">Here is your academic overview for today</p>
+        </div>
+        <div className="faculty-dashboard-chip">
+          <Sparkles size={16} />
+          <span>{unreadHighPriority} priority alert(s)</span>
+        </div>
       </div>
 
       <div className="faculty-stats-grid">
@@ -101,9 +141,9 @@ export default function DashboardSection({ facultyData }) {
             </div>
           </div>
           <p className="faculty-stat-value" style={{ fontSize: "18px" }}>
-            {facultyData?.facultyDetails?.designation || "Faculty"}
+            {designation}
           </p>
-          <p className="faculty-stat-subtitle">{facultyData?.facultyDetails?.employeeId || ""}</p>
+          <p className="faculty-stat-subtitle">{employeeId}</p>
         </div>
 
         <div className="faculty-stat-card">
@@ -114,10 +154,10 @@ export default function DashboardSection({ facultyData }) {
             </div>
           </div>
           <p className="faculty-stat-value" style={{ fontSize: "20px" }}>
-            {todaySchedule.length > 0 ? getLectureTime(todaySchedule[0].lectureNumber)[0] : "No classes"}
+            {nextClass ? getLectureTime(nextClass.lectureNumber)[0] : "No classes"}
           </p>
           <p className="faculty-stat-subtitle">
-            {todaySchedule.length > 0 ? todaySchedule[0].course?.courseName?.substring(0, 20) : "Today"}
+            {nextClass ? nextClass.course?.courseName?.substring(0, 20) : "Today"}
           </p>
         </div>
       </div>
@@ -127,11 +167,22 @@ export default function DashboardSection({ facultyData }) {
           <h3 className="faculty-card-title">Today's Schedule</h3>
           {todaySchedule.length === 0 ? (
             <div className="faculty-empty-state">
-              <Calendar size={48} className="faculty-empty-icon" />
-              <p className="faculty-empty-text">No classes scheduled for today</p>
+              <Calendar size={48} color="#94a3b8" />
+              <p>No classes scheduled for today</p>
             </div>
           ) : (
             <div className="faculty-card-content">
+              <div className="faculty-schedule-summary-strip">
+                <span className="faculty-pill faculty-pill-ongoing">
+                  Ongoing: {classesByStatus.ongoing}
+                </span>
+                <span className="faculty-pill faculty-pill-scheduled">
+                  Scheduled: {classesByStatus.scheduled}
+                </span>
+                <span className="faculty-pill faculty-pill-completed">
+                  Completed: {classesByStatus.completed}
+                </span>
+              </div>
               {todaySchedule.map((lecture) => {
                 const [startTime, endTime] = getLectureTime(lecture.lectureNumber);
                 const status = getCurrentStatus(lecture.lectureNumber);
@@ -162,10 +213,15 @@ export default function DashboardSection({ facultyData }) {
             <Bell size={20} style={{ marginRight: "8px" }} />
             Notifications
           </h3>
-          {alerts.length === 0 ? (
+          {alertsLoading ? (
+            <div className="faculty-loading-inline">
+              <ClipLoader size={24} color="#0284c7" />
+              <span>Loading notifications...</span>
+            </div>
+          ) : alerts.length === 0 ? (
             <div className="faculty-empty-state">
-              <Bell size={48} className="faculty-empty-icon" />
-              <p className="faculty-empty-text">No notifications</p>
+              <AlertCircle size={48} color="#94a3b8" />
+              <p>No notifications</p>
             </div>
           ) : (
             <div className="faculty-alerts-content">

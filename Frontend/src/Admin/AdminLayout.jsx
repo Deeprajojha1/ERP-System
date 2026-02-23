@@ -16,6 +16,7 @@ import { LuBadgeIndianRupee } from "react-icons/lu";
 import {
   FiBell,
   FiBookOpen,
+  FiHome,
   FiSettings,
   FiChevronDown,
   FiLayers,
@@ -41,6 +42,7 @@ import {
   selectPendingAdminLeavesCount,
 } from "../redux/leavesSlice";
 import { clearTimetable } from "../redux/timetableSlice";
+import { clearFeeState } from "../redux/feeSlice";
 import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
@@ -133,6 +135,26 @@ const isFeePath = (pathname = "") =>
     )
   );
 
+const buildProfileImageUrl = (apiBase, fileUrl, fileName) => {
+  const backendBase = String(apiBase || "").replace(/\/api\/?$/, "");
+
+  if (fileUrl) {
+    if (fileUrl.startsWith("http") || fileUrl.startsWith("data:")) return fileUrl;
+    return `${backendBase}${fileUrl}`;
+  }
+
+  if (!fileName) return null;
+  if (fileName.startsWith("http") || fileName.startsWith("data:")) return fileName;
+
+  const normalizedFileName = String(fileName)
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  return `${backendBase}/uploads/profile-images/${normalizedFileName}`;
+};
+
 const AdminLayout = () => {
   const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -143,6 +165,7 @@ const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => window.innerWidth >= 769
   );
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isFeeMenuOpen, setIsFeeMenuOpen] = useState(() =>
     isFeePath(location.pathname)
   );
@@ -150,19 +173,11 @@ const AdminLayout = () => {
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const userName = userData?.user?.name || "Admin User";
   const userEmail = userData?.user?.email || "admin@university.edu";
-  const userImg = (() => {
-    const fileUrl = userData?.user?.profileImageUrl;
-    const fileName = userData?.user?.profileImage;
-    const base = apiBase?.replace('/api', '') || '';
-    if (fileUrl) {
-      if (fileUrl.startsWith('http')) return fileUrl;
-      return `${base}${fileUrl}`;
-    }
-    if (fileName) {
-      return `${base}/uploads/profile-images/${fileName}`;
-    }
-    return null;
-  })();
+  const userImg = buildProfileImageUrl(
+    apiBase,
+    userData?.user?.profileImageUrl,
+    userData?.user?.profileImage
+  );
   const userInitials = userName
     .split(" ")
     .filter(Boolean)
@@ -199,6 +214,10 @@ const AdminLayout = () => {
     }
   }, [isFeeRouteActive]);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [userImg]);
+
   const handleFeesButtonClick = () => {
     setIsFeeMenuOpen((prev) => !prev);
     if (!isFeeRouteActive) {
@@ -224,12 +243,15 @@ const AdminLayout = () => {
       );
       toast.error(`${error.response?.data?.message || "Logout failed"}`);
     } finally {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("token");
       dispatch(clearUserData());
       dispatch(clearStudents());
       dispatch(clearFaculty());
       dispatch(clearDepartments());
       dispatch(clearLeaves());
       dispatch(clearTimetable());
+      dispatch(clearFeeState());
       sessionStorage.removeItem("lastFailedRoute");
       sessionStorage.removeItem("lastNetworkRedirectAt");
       navigate("/", { replace: true });
@@ -326,7 +348,16 @@ const AdminLayout = () => {
           <div className="sidebar-profile">
             <div className="sidebar-profile-main">
               <div className="sidebar-avatar">
-                {userImg ? <img src={userImg} alt="User" className="avatarimg" /> : (userInitials || "AD")}
+                {userImg && !avatarLoadFailed ? (
+                  <img
+                    src={userImg}
+                    alt="User"
+                    className="avatarimg"
+                    onError={() => setAvatarLoadFailed(true)}
+                  />
+                ) : (
+                  userInitials || "AD"
+                )}
               </div>
               <div className="sidebar-profile-copy">
                 <h2>{userName}</h2>
@@ -363,6 +394,7 @@ const AdminLayout = () => {
             <div className="sidebar-section">
               <label className="sidebar-label">DASHBOARD</label>
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/dashboard") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/dashboard");
@@ -376,6 +408,7 @@ const AdminLayout = () => {
             <div className="sidebar-section">
               <label className="sidebar-label">MANAGEMENT</label>
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/department") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/department");
@@ -385,18 +418,29 @@ const AdminLayout = () => {
                 <span className="sidebar-text">Department</span>
               </button>
 
-              <button className={`sidebar-btn ${isActive("/admin/faculty") ? "active" : ""}`} onClick={() => {
+              <button type="button" className={`sidebar-btn ${isActive("/admin/faculty") ? "active" : ""}`} onClick={() => {
                   navigate("/admin/faculty");
                 }}>
                 <GiTeacher />
                 <span className="sidebar-text">Faculty</span>
               </button>
 
-              <button className={`sidebar-btn ${isActive("/admin/student") ? "active" : ""}`} onClick={() => {
+              <button type="button" className={`sidebar-btn ${isActive("/admin/student") ? "active" : ""}`} onClick={() => {
                   navigate("/admin/student");
                 }}>
                 <PiStudentFill />
                 <span className="sidebar-text">Students</span>
+              </button>
+
+              <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/hostel") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/hostel");
+                }}
+              >
+                <FiHome />
+                <span className="sidebar-text">Hostel</span>
               </button>
             </div>
 
@@ -404,6 +448,7 @@ const AdminLayout = () => {
               <label className="sidebar-label">ACADEMICS</label>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/courses") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/courses");
@@ -415,6 +460,7 @@ const AdminLayout = () => {
 
               <button
                 className={`sidebar-btn ${isActive("/admin/groups") ? "active" : ""}`}
+                type="button"
                 onClick={() => {
                   navigate("/admin/groups");
                 }}
@@ -424,6 +470,18 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/classrooms") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/classrooms");
+                }}
+              >
+                <FiLayers />
+                <span className="sidebar-text">Classrooms</span>
+              </button>
+
+              <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/assignment") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/assignment");
@@ -434,6 +492,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/timetable") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/timetable");
@@ -444,6 +503,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/exam") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/exam");
@@ -454,6 +514,18 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/exam-blueprint") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/exam-blueprint");
+                }}
+              >
+                <PiExamFill />
+                <span className="sidebar-text">Exam Blueprint</span>
+              </button>
+
+              <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/result") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/result");
@@ -468,6 +540,7 @@ const AdminLayout = () => {
               <label className="sidebar-label">OPERATIONS</label>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/attendance") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/attendance");
@@ -478,6 +551,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/leaves") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/leaves");
@@ -545,6 +619,7 @@ const AdminLayout = () => {
               <label className="sidebar-label">SYSTEM</label>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/alerts") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/alerts");
@@ -555,6 +630,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/general-support") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/general-support");
@@ -565,6 +641,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/faculty-lecture-report") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/faculty-lecture-report");
@@ -575,6 +652,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/subject-attendance") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/subject-attendance");
@@ -585,6 +663,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/teaching-load") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/teaching-load");
@@ -595,6 +674,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/library") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/library");
@@ -605,6 +685,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/settings") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/settings");

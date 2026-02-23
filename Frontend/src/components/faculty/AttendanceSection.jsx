@@ -1,133 +1,251 @@
-import { useState, useEffect } from "react";
-import axios from "axios";
-import { Users, CheckCircle, XCircle } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { Users, CheckCircle, XCircle, RefreshCw } from "lucide-react";
+import { ClipLoader } from "react-spinners";
+import toast from "react-hot-toast";
+import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
+import {
+  fetchStudentsByGroup,
+  fetchFacultyAttendancePage,
+  markAttendance as markAttendanceThunk,
+  updateFacultyAttendanceSession,
+  selectStudents,
+  selectStudentsLoadState,
+  selectMarkAttendanceState,
+  selectAttendancePageLoadState,
+  selectActiveAttendanceSessionId,
+  selectUpdateAttendanceState,
+  resetMarkAttendanceState,
+  resetUpdateAttendanceState,
+} from "../../redux/facultyDashboardSlice";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:3000/api";
+export default function AttendanceSection({ facultyData }) {
+  const dispatch = useDispatch();
+  const apiBase = useSelector((state) => state.config.apiBase);
+  const reduxStudents = useSelector(selectStudents);
+  const studentsLoadState = useSelector(selectStudentsLoadState);
+  const attendancePageLoadState = useSelector(selectAttendancePageLoadState);
+  const activeSessionId = useSelector(selectActiveAttendanceSessionId);
+  const markAttendanceState = useSelector(selectMarkAttendanceState);
+  const updateAttendanceState = useSelector(selectUpdateAttendanceState);
 
-export default function AttendanceSection({ facultyData, showToast }) {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
   const [attendanceDate, setAttendanceDate] = useState(new Date().toISOString().split("T")[0]);
-  const [students, setStudents] = useState([]);
   const [attendance, setAttendance] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [groups, setGroups] = useState([]);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const todaySchedule = facultyData?.todaySchedule || [];
+  const isStudentsLoading =
+    studentsLoadState === ADMIN_LOAD_STATES.PENDING ||
+    attendancePageLoadState === ADMIN_LOAD_STATES.PENDING;
+  const isSubmitting =
+    markAttendanceState === ADMIN_LOAD_STATES.PENDING ||
+    updateAttendanceState === ADMIN_LOAD_STATES.PENDING;
 
-  useEffect(() => {
-    // Extract unique groups from today's schedule
-    const uniqueGroups = todaySchedule.reduce((acc, lecture) => {
-      if (!acc.find((g) => g._id === lecture.group._id)) {
-        acc.push({
+  // If a session already exists for the selected date/course, lock further edits (one-time marking)
+  const isLocked = Boolean(activeSessionId);
+
+  // Extract groups from faculty routine
+  const groups = useMemo(() => {
+    const todaySchedule = facultyData?.todaySchedule || [];
+    const routine = facultyData?.roleDetails?.routine || facultyData?.facultyDetails?.routine || {};
+    
+    // Build groups from today's schedule or routine
+    const groupMap = new Map();
+    
+    // From today's schedule
+    todaySchedule.forEach((lecture) => {
+      if (lecture?.group?._id && !groupMap.has(lecture.group._id)) {
+        groupMap.set(lecture.group._id, {
           _id: lecture.group._id,
           name: lecture.group.name,
           roomNo: lecture.group.roomNo,
           courses: [],
         });
       }
-      const groupIndex = acc.findIndex((g) => g._id === lecture.group._id);
-      if (!acc[groupIndex].courses.find((c) => c._id === lecture.course._id)) {
-        acc[groupIndex].courses.push(lecture.course);
+      if (lecture?.group?._id && lecture?.course) {
+        const group = groupMap.get(lecture.group._id);
+        if (!group.courses.find((c) => c._id === lecture.course._id)) {
+          group.courses.push(lecture.course);
+        }
       }
-      return acc;
-    }, []);
-    
-    console.log("Extracted groups:", uniqueGroups);
-    setGroups(uniqueGroups);
+    });
 
-    if (uniqueGroups.length > 0 && !selectedGroup) {
-      console.log("Setting initial group:", uniqueGroups[0]._id);
-      setSelectedGroup(uniqueGroups[0]._id);
-      if (uniqueGroups[0].courses.length > 0) {
-        console.log("Setting initial course:", uniqueGroups[0].courses[0]._id);
-        setSelectedCourse(uniqueGroups[0].courses[0]._id);
-      }
-    }
-  }, [todaySchedule, selectedGroup]);
+    // From routine (all days)
+    Object.values(routine).forEach((daySlots) => {
+      Object.values(daySlots || {}).forEach((item) => {
+        if (item?.group?._id && !groupMap.has(item.group._id)) {
+          groupMap.set(item.group._id, {
+            _id: item.group._id,
+            name: item.group.name,
+            roomNo: item.group.roomNo,
+            courses: [],
+          });
+        }
+        if (item?.group?._id && item?.course) {
+          const group = groupMap.get(item.group._id);
+          if (group && !group.courses.find((c) => c._id === item.course._id)) {
+            group.courses.push(item.course);
+          }
+        }
+      });
+    });
 
+    return Array.from(groupMap.values());
+  }, [facultyData]);
+
+  // Set initial selection
   useEffect(() => {
-    if (selectedGroup) {
-      fetchStudents();
+    if (groups.length > 0 && !selectedGroup) {
+      setSelectedGroup(groups[0]._id);
+      if (groups[0].courses.length > 0) {
+        setSelectedCourse(groups[0].courses[0]._id);
+      }
     }
-  }, [selectedGroup]);
+  }, [groups, selectedGroup]);
 
-  const fetchStudents = async () => {
-    try {
-      setLoading(true);
-      const response = await axios.get(`${API_BASE_URL}/faculty/attendance/group/${selectedGroup}/students`, {
-        withCredentials: true,
-      });
-      setStudents(response.data.students || []);
-      // Initialize attendance state
-      const initialAttendance = {};
-      (response.data.students || []).forEach((student) => {
-        initialAttendance[student._id] = "present";
-      });
-      setAttendance(initialAttendance);
-    } catch (error) {
-      console.error("Error fetching students:", error);
-      showToast("Failed to fetch students", "error");
-    } finally {
-      setLoading(false);
+  // Fetch students/attendance session when group-course-date changes
+  useEffect(() => {
+    if (!apiBase || !selectedGroup) return;
+    if (!selectedCourse) {
+      dispatch(fetchStudentsByGroup({ apiBase, groupId: selectedGroup }));
+      return;
     }
-  };
+    dispatch(
+      fetchFacultyAttendancePage({
+        apiBase,
+        groupId: selectedGroup,
+        courseId: selectedCourse,
+        date: attendanceDate,
+      })
+    );
+  }, [apiBase, selectedGroup, selectedCourse, attendanceDate, dispatch]);
 
-  const markAttendance = (studentId, status) => {
+  // Initialize attendance when students change
+  useEffect(() => {
+    const initialAttendance = {};
+    reduxStudents.forEach((student) => {
+      const studentId = student._id || student.studentId;
+      if (!studentId) return;
+      initialAttendance[studentId] = student.status || "present";
+    });
+    setAttendance(initialAttendance);
+  }, [reduxStudents]);
+
+  // Handle mark attendance success/failure
+  useEffect(() => {
+    if (markAttendanceState === ADMIN_LOAD_STATES.SUCCESS) {
+      toast.success("Attendance submitted successfully");
+      dispatch(resetMarkAttendanceState());
+    } else if (updateAttendanceState === ADMIN_LOAD_STATES.SUCCESS) {
+      toast.success("Attendance updated successfully");
+      dispatch(resetUpdateAttendanceState());
+    } else if (markAttendanceState === ADMIN_LOAD_STATES.FAILURE) {
+      toast.error("Failed to submit attendance");
+      dispatch(resetMarkAttendanceState());
+    } else if (updateAttendanceState === ADMIN_LOAD_STATES.FAILURE) {
+      toast.error("Failed to update attendance");
+      dispatch(resetUpdateAttendanceState());
+    }
+  }, [markAttendanceState, updateAttendanceState, dispatch]);
+
+  const handleMarkAttendance = (studentId, status) => {
     setAttendance((prev) => ({ ...prev, [studentId]: status }));
   };
 
   const markAll = (status) => {
     const newAttendance = {};
-    students.forEach((student) => {
-      newAttendance[student._id] = status;
+    reduxStudents.forEach((student) => {
+      const studentId = student._id || student.studentId;
+      if (!studentId) return;
+      newAttendance[studentId] = status;
     });
     setAttendance(newAttendance);
   };
 
   const resetAttendance = () => {
     const initialAttendance = {};
-    students.forEach((student) => {
-      initialAttendance[student._id] = "present";
+    reduxStudents.forEach((student) => {
+      const studentId = student._id || student.studentId;
+      if (!studentId) return;
+      initialAttendance[studentId] = "present";
     });
     setAttendance(initialAttendance);
   };
 
+  const handleRefresh = async () => {
+    if (apiBase && selectedGroup && !refreshing) {
+      setRefreshing(true);
+      try {
+        if (selectedCourse) {
+          await dispatch(
+            fetchFacultyAttendancePage({
+              apiBase,
+              groupId: selectedGroup,
+              courseId: selectedCourse,
+              date: attendanceDate,
+            })
+          ).unwrap();
+        } else {
+          await dispatch(fetchStudentsByGroup({ apiBase, groupId: selectedGroup })).unwrap();
+        }
+        toast.success("Students refreshed");
+      } catch {
+        toast.error("Failed to refresh students");
+      } finally {
+        setRefreshing(false);
+      }
+    }
+  };
+
   const handleSubmit = async () => {
-    console.log("Submit clicked - selectedGroup:", selectedGroup, "selectedCourse:", selectedCourse);
-    
+    if (isLocked) {
+      toast.error("Attendance already submitted for this date. Edits are disabled.");
+      return;
+    }
     if (!selectedGroup || !selectedCourse) {
-      showToast("Please select group and course", "error");
+      toast.error("Please select group and course");
       return;
     }
 
-    try {
-      setLoading(true);
-      const records = students.map((student) => ({
-        student: student._id,
-        status: attendance[student._id] || "present",
-      }));
+    if (reduxStudents.length === 0) {
+      toast.error("No students to mark attendance for");
+      return;
+    }
 
-      console.log("Submitting attendance to:", `${API_BASE_URL}/faculty/attendance/${selectedGroup}`);
-      console.log("Attendance data:", { courseId: selectedCourse, date: attendanceDate, records });
+    const records = reduxStudents
+      .map((student) => {
+        const studentId = student._id || student.studentId;
+        if (!studentId) return null;
+        return {
+          student: studentId,
+          status: attendance[studentId] || "present",
+        };
+      })
+      .filter(Boolean);
 
-      await axios.post(
-        `${API_BASE_URL}/faculty/attendance/${selectedGroup}`,
-        {
+    if (activeSessionId) {
+      dispatch(
+        updateFacultyAttendanceSession({
+          apiBase,
+          sessionId: activeSessionId,
+          payload: { records },
+        })
+      );
+      return;
+    }
+
+    dispatch(
+      markAttendanceThunk({
+        apiBase,
+        groupId: selectedGroup,
+        payload: {
           courseId: selectedCourse,
           date: attendanceDate,
           records,
         },
-        { withCredentials: true }
-      );
-
-      showToast("Attendance submitted successfully", "success");
-    } catch (error) {
-      console.error("Error submitting attendance:", error);
-      showToast(error.response?.data?.message || "Failed to submit attendance", "error");
-    } finally {
-      setLoading(false);
-    }
+      })
+    );
   };
 
   const counts = {
@@ -139,10 +257,25 @@ export default function AttendanceSection({ facultyData, showToast }) {
   const availableCourses = selectedGroupData?.courses || [];
 
   return (
-    <section className="attendance-section">
-      <div className="attendance-header">
-        <Users size={28} className="attendance-header-icon" />
-        <h2 className="faculty-section-title">Take Attendance</h2>
+    <section className="faculty-section attendance-section">
+      <div className="faculty-section-header">
+        <div>
+          <h2 className="faculty-section-title">Take Attendance</h2>
+          <p className="faculty-section-subtitle">Mark attendance for your classes</p>
+        </div>
+        <button
+          type="button"
+          className="faculty-secondary-btn"
+          onClick={handleRefresh}
+          disabled={refreshing || isStudentsLoading || !selectedGroup}
+        >
+          {refreshing ? (
+            <ClipLoader size={16} color="#0284c7" />
+          ) : (
+            <RefreshCw size={18} />
+          )}
+          <span>Refresh</span>
+        </button>
       </div>
 
       <div className="attendance-filters">
@@ -151,15 +284,13 @@ export default function AttendanceSection({ facultyData, showToast }) {
           <select
             value={selectedGroup}
             onChange={(e) => {
-              console.log("Group changed to:", e.target.value);
               setSelectedGroup(e.target.value);
               const group = groups.find((g) => g._id === e.target.value);
               if (group && group.courses.length > 0) {
-                console.log("Setting course to:", group.courses[0]._id);
                 setSelectedCourse(group.courses[0]._id);
               }
             }}
-            className="attendance-filter-select"
+            className="faculty-form-select"
             disabled={groups.length === 0}
           >
             {groups.length === 0 ? (
@@ -177,11 +308,8 @@ export default function AttendanceSection({ facultyData, showToast }) {
           <label className="attendance-filter-label">Select Course</label>
           <select
             value={selectedCourse}
-            onChange={(e) => {
-              console.log("Course changed to:", e.target.value);
-              setSelectedCourse(e.target.value);
-            }}
-            className="attendance-filter-select"
+            onChange={(e) => setSelectedCourse(e.target.value)}
+            className="faculty-form-select"
             disabled={availableCourses.length === 0}
           >
             {availableCourses.length === 0 ? (
@@ -201,21 +329,36 @@ export default function AttendanceSection({ facultyData, showToast }) {
             type="date"
             value={attendanceDate}
             onChange={(e) => setAttendanceDate(e.target.value)}
-            className="attendance-filter-input"
+            className="faculty-form-input"
           />
         </div>
       </div>
 
       <div className="attendance-actions">
-        <button onClick={() => markAll("present")} className="attendance-btn attendance-btn-present">
+        <button
+          type="button"
+          onClick={() => markAll("present")}
+          className="attendance-btn attendance-btn-present"
+          disabled={isStudentsLoading || reduxStudents.length === 0 || isLocked}
+        >
           <CheckCircle size={18} />
           Mark All Present
         </button>
-        <button onClick={() => markAll("absent")} className="attendance-btn attendance-btn-absent">
+        <button
+          type="button"
+          onClick={() => markAll("absent")}
+          className="attendance-btn attendance-btn-absent"
+          disabled={isStudentsLoading || reduxStudents.length === 0 || isLocked}
+        >
           <XCircle size={18} />
           Mark All Absent
         </button>
-        <button onClick={resetAttendance} className="attendance-btn attendance-btn-reset">
+        <button
+          type="button"
+          onClick={resetAttendance}
+          className="attendance-btn attendance-btn-reset"
+          disabled={isStudentsLoading || reduxStudents.length === 0 || isLocked}
+        >
           Reset
         </button>
       </div>
@@ -223,45 +366,80 @@ export default function AttendanceSection({ facultyData, showToast }) {
       <div className="attendance-summary">
         <span className="attendance-summary-item attendance-summary-present">Present: {counts.present}</span>
         <span className="attendance-summary-item attendance-summary-absent">Absent: {counts.absent}</span>
-        <span className="attendance-summary-item attendance-summary-total">Total: {students.length}</span>
+        <span className="attendance-summary-item attendance-summary-total">Total: {reduxStudents.length}</span>
+        {activeSessionId ? (
+          <span className="attendance-summary-item attendance-summary-marked">
+            Attendance already submitted for selected date — edits disabled
+          </span>
+        ) : null}
       </div>
 
-      {loading ? (
-        <div className="faculty-empty-state">Loading students...</div>
-      ) : students.length === 0 ? (
-        <div className="faculty-empty-state">No students found for this group</div>
+      {isStudentsLoading ? (
+        <div className="faculty-loading-inline">
+          <ClipLoader size={24} color="#0284c7" />
+          <span>Loading students...</span>
+        </div>
+      ) : reduxStudents.length === 0 ? (
+        <div className="faculty-empty-state">
+          <Users size={48} color="#94a3b8" />
+          <p>No students found for this group</p>
+        </div>
       ) : (
         <div className="attendance-list">
-          {students.map((student) => (
-            <div key={student._id} className="attendance-student-row">
-              <div className="attendance-student-roll">{student.rollNumber || student.enrollmentNumber}</div>
-              <div className="attendance-student-name">{student.user?.name || "Student"}</div>
-              <div className="attendance-student-email">{student.user?.email?.substring(0, 25) || ""}</div>
-              <div className="attendance-student-actions">
-                <button
-                  onClick={() => markAttendance(student._id, "present")}
-                  className={`attendance-status-btn ${attendance[student._id] === "present" ? "active-present" : ""}`}
-                >
-                  Present
-                </button>
-                <button
-                  onClick={() => markAttendance(student._id, "absent")}
-                  className={`attendance-status-btn ${attendance[student._id] === "absent" ? "active-absent" : ""}`}
-                >
-                  Absent
-                </button>
+          {reduxStudents.map((student) => {
+            const studentId = student._id || student.studentId;
+            const studentName =
+              student.user?.name ||
+              student.name ||
+              student.studentName ||
+              "Student";
+            const studentEmail = student.user?.email || student.email || "";
+            const studentRoll =
+              student.rollNumber || student.enrollmentNumber || student.rollNo || "-";
+
+            return (
+              <div key={studentId} className="attendance-student-row">
+                <div className="attendance-student-roll">{studentRoll}</div>
+                <div className="attendance-student-name">{studentName}</div>
+                <div className="attendance-student-email">{studentEmail.substring(0, 25)}</div>
+                <div className="attendance-student-actions">
+                  <button
+                    type="button"
+                    onClick={() => handleMarkAttendance(studentId, "present")}
+                    className={`attendance-status-btn ${attendance[studentId] === "present" ? "active-present" : ""}`}
+                    disabled={isLocked}
+                  >
+                    Present
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleMarkAttendance(studentId, "absent")}
+                    className={`attendance-status-btn ${attendance[studentId] === "absent" ? "active-absent" : ""}`}
+                    disabled={isLocked}
+                  >
+                    Absent
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
       <button
+        type="button"
         onClick={handleSubmit}
-        disabled={loading || students.length === 0}
-        className="attendance-submit-btn"
+        disabled={isSubmitting || reduxStudents.length === 0 || isLocked}
+        className="faculty-primary-btn attendance-submit-btn"
       >
-        {loading ? "Submitting..." : "Submit Attendance"}
+        {isSubmitting ? (
+          <>
+            <ClipLoader size={16} color="#fff" />
+            <span>{activeSessionId ? "Updating..." : "Submitting..."}</span>
+          </>
+        ) : (
+          <span>{activeSessionId ? "Attendance Locked" : "Submit Attendance"}</span>
+        )}
       </button>
     </section>
   );

@@ -5,6 +5,12 @@ const LAST_REDIRECT_AT_KEY = "lastNetworkRedirectAt";
 const REDIRECT_COOLDOWN_MS = 2500;
 const OFFLINE_REDIRECT_DELAY_MS = 1500;
 let pendingOfflineRedirect = null;
+const getStoredAuthToken = () => {
+  if (typeof window === "undefined") return "";
+  const token =
+    localStorage.getItem("authToken") || localStorage.getItem("token") || "";
+  return String(token).trim();
+};
 const isPublicAuthRoute = (url = "") =>
   url.includes("/user/login") ||
   url.includes("/user/send-otp") ||
@@ -64,8 +70,14 @@ const axiosInstance = axios.create({
 // ---- request interceptor: attach Bearer token ----
 axiosInstance.interceptors.request.use(
   (config) => {
-    // keep sending cookies for every request so the server can
-    // set/read the auth cookie (login, me, logout, etc.).
+    // Keep sending cookies and also attach bearer token fallback.
+    const token = getStoredAuthToken();
+    if (token) {
+      config.headers = config.headers || {};
+      if (!config.headers.Authorization && !config.headers.authorization) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -74,6 +86,7 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
+    const skipNetworkRedirect = Boolean(error.config?.skipNetworkRedirect);
     const isNetworkFailure =
       !error.response &&
       (error.code === "ERR_NETWORK" ||
@@ -85,6 +98,7 @@ axiosInstance.interceptors.response.use(
     const isAuthRoute = isPublicAuthRoute(requestUrl);
 
     if (
+      !skipNetworkRedirect &&
       isNetworkFailure &&
       !isAuthRoute &&
       (isOffline() || isHardConnectionRefused || error.code === "ERR_NETWORK")

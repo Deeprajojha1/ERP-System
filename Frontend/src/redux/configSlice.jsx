@@ -4,15 +4,16 @@ const resolveApiBase = () => {
   const fromEnv = String(import.meta.env.VITE_API_BASE_URL || "").trim();
   if (fromEnv) return fromEnv.replace(/\/+$/, "");
 
+  // In DEV mode, use relative URL so Vite proxy can intercept the requests
   if (import.meta.env.DEV) {
-    return "http://localhost:3000/api";
+    return "/api";
   }
 
   if (typeof window !== "undefined" && window.location?.origin) {
     return `${window.location.origin}/api`;
   }
 
-  return "http://localhost:3000/api";
+  return "/api";
 };
 
 const configSlice = createSlice({

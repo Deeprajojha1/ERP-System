@@ -19,58 +19,71 @@ export default function UploadModal({ open, uploadType, onClose, onSubmit }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-      <form onSubmit={handleSubmit} className="bg-navy-800 rounded-xl w-full max-w-lg p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-xl font-bold">
-            {uploadType === "material" ? "Upload Course Material" : uploadType === "assignment" ? "Create Assignment" : "Create Quiz"}
+    <div className="faculty-modal-overlay" onClick={onClose}>
+      <form
+        onSubmit={handleSubmit}
+        className="faculty-modal"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="faculty-modal-header">
+          <h3>
+            {uploadType === "material"
+              ? "Upload Course Material"
+              : uploadType === "assignment"
+                ? "Create Assignment"
+                : "Create Quiz"}
           </h3>
-          <button type="button" onClick={onClose} className="p-2 hover:bg-navy-700 rounded-lg transition-colors">
+          <button
+            type="button"
+            onClick={onClose}
+            className="faculty-modal-close"
+            aria-label="Close upload modal"
+          >
             <X size={20} />
           </button>
         </div>
 
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Title</label>
+        <div className="faculty-modal-body faculty-modal-form">
+          <div className="faculty-form-group">
+            <label>Title</label>
             <input
               name="title"
               required
               placeholder="Enter title"
-              className="w-full bg-navy-700 border border-navy-600 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+              className="faculty-form-input"
             />
           </div>
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">File</label>
+          <div className="faculty-form-group">
+            <label>File</label>
             <input
               name="file"
               type="file"
               required
               accept={acceptByType[uploadType] || "*"}
-              className="w-full bg-navy-700 border border-navy-600 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+              className="faculty-form-input"
             />
-            <p className="text-xs text-gray-500 mt-1">Accepted formats: {acceptByType[uploadType]}</p>
+            <p className="faculty-upload-hint">Accepted formats: {acceptByType[uploadType]}</p>
           </div>
 
-          <div>
-            <label className="block text-sm text-gray-400 mb-1">Description (Optional)</label>
+          <div className="faculty-form-group">
+            <label>Description (Optional)</label>
             <textarea
               name="desc"
               rows="3"
               placeholder="Enter description"
-              className="w-full bg-navy-700 border border-navy-600 rounded-lg px-3 py-2 focus:outline-none focus:border-blue-500"
+              className="faculty-form-textarea"
             />
           </div>
         </div>
 
-        <div className="flex gap-2 mt-6">
-          <button type="button" onClick={onClose} className="flex-1 px-4 py-2 bg-navy-700 hover:bg-navy-600 rounded-lg transition-colors">
+        <div className="faculty-modal-actions">
+          <button type="button" onClick={onClose} className="faculty-secondary-btn">
             Cancel
           </button>
-          <button type="submit" className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors flex items-center justify-center gap-2">
+          <button type="submit" className="faculty-primary-btn faculty-upload-submit-btn">
             <Upload size={18} />
-            Upload
+            <span>Upload</span>
           </button>
         </div>
       </form>

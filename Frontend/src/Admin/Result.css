@@ -41,6 +41,9 @@
   border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .result-toolbar {
@@ -447,4 +450,3 @@
   .result-form-row {
     grid-template-columns: 1fr;
   }
-}

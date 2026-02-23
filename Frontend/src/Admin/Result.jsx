@@ -1,13 +1,23 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { FiCheckCircle, FiDownload, FiEdit2, FiSearch, FiXCircle } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Result.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
-import axios from "../utils/axiosInstance";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import ClipLoader from "./components/ClipLoader";
+import {
+  fetchResults,
+  createResult,
+  updateResult,
+  selectResults,
+  selectResultStudents,
+  selectResultCourses,
+  selectResultListLoadState,
+  selectResultSubmitLoadState,
+} from "../redux/resultSlice";
 
 const round2 = (value) => {
   const num = Number(value || 0);
@@ -50,19 +60,25 @@ const toExamTypeLabel = (value = "MIDTERM") => {
 };
 
 const Result = () => {
+  const dispatch = useDispatch();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("All");
   const [department, setDepartment] = useState("All");
   const [group, setGroup] = useState("All");
   const [semesterFilter, setSemesterFilter] = useState("All");
-  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
-  const [results, setResults] = useState([]);
 
-  const [students, setStudents] = useState([]);
-  const [courses, setCourses] = useState([]);
+  // Redux state
+  const results = useSelector(selectResults);
+  const students = useSelector(selectResultStudents);
+  const courses = useSelector(selectResultCourses);
+  const loadState = useSelector(selectResultListLoadState);
+  const submitLoadState = useSelector(selectResultSubmitLoadState);
+  const submitting = submitLoadState === ADMIN_LOAD_STATES.PENDING;
+
   const [isOpen, setIsOpen] = useState(false);
   const [editingResultId, setEditingResultId] = useState(null);
-  const [submitting, setSubmitting] = useState(false);
+  const [downloadingReport, setDownloadingReport] = useState(false);
+  const [downloadingResultId, setDownloadingResultId] = useState(null);
   const [formData, setFormData] = useState({
     student: "",
     academicYear: "",
@@ -74,32 +90,15 @@ const Result = () => {
 
   const apiBase = useSelector((state) => state.config.apiBase);
 
-  const fetchAll = async () => {
-    try {
-      setLoadState(ADMIN_LOAD_STATES.PENDING);
-      const [resultRes, studentRes, courseRes] = await Promise.all([
-        axios.get(`${apiBase}/admin/result`, { withCredentials: true }),
-        axios.get(`${apiBase}/admin/student`, {
-          withCredentials: true,
-          params: { full: "true", noCache: "true" },
-        }),
-        axios.get(`${apiBase}/admin/course`, { withCredentials: true, params: { noCache: "true" } }),
-      ]);
-
-      setResults(resultRes.data?.results || []);
-      setStudents(studentRes.data?.students || []);
-      setCourses(courseRes.data?.courses || []);
-      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
-    } catch (error) {
-      setLoadState(ADMIN_LOAD_STATES.FAILURE);
-      toast.error(error.response?.data?.message || "Failed to load results");
-    }
-  };
+  const loadResults = useCallback(() => {
+    if (!apiBase) return;
+    dispatch(fetchResults({ apiBase }));
+  }, [apiBase, dispatch]);
 
   useEffect(() => {
     if (!apiBase) return;
-    fetchAll();
-  }, [apiBase]);
+    loadResults();
+  }, [apiBase, loadResults]);
 
   const normalized = useMemo(
     () =>
@@ -322,23 +321,19 @@ const Result = () => {
     };
 
     try {
-      setSubmitting(true);
       if (editingResultId) {
-        await axios.put(`${apiBase}/admin/result/${editingResultId}`, payload, { withCredentials: true });
+        await dispatch(updateResult({ apiBase, id: editingResultId, payload })).unwrap();
         toast.success("Result updated successfully");
       } else {
-        await axios.post(`${apiBase}/admin/result`, payload, { withCredentials: true });
+        await dispatch(createResult({ apiBase, payload })).unwrap();
         toast.success("Result created successfully");
       }
       closeModal();
-      await fetchAll();
     } catch (error) {
       toast.error(
-        error.response?.data?.message ||
+        error ||
           (editingResultId ? "Failed to update result" : "Failed to create result")
       );
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -536,41 +531,48 @@ const Result = () => {
     </html>
   `;
 
-  const handleDownloadResult = (resultDoc) => {
+  const handleDownloadResult = async (resultDoc) => {
     if (!resultDoc?._id) {
       toast.error("Invalid result selected");
       return;
     }
 
-    const html = getResultPdfHtmlDocument({ sheetsHtml: getResultSheetHtml(resultDoc) });
+    setDownloadingResultId(resultDoc._id);
+    try {
+      const html = getResultPdfHtmlDocument({ sheetsHtml: getResultSheetHtml(resultDoc) });
 
-    const studentKey = String(resultDoc?.student?.enrollmentNumber || resultDoc?._id || "result")
-      .replace(/\s+/g, "_");
+      const studentKey = String(resultDoc?.student?.enrollmentNumber || resultDoc?._id || "result")
+        .replace(/\s+/g, "_");
 
-    downloadPdfFromHtml(apiBase, {
-      html,
-      fileName: `${studentKey}_result.pdf`,
-    }).catch((error) => {
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: `${studentKey}_result.pdf`,
+      });
+    } catch (error) {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    });
+    } finally {
+      setDownloadingResultId(null);
+    }
   };
 
-  const handleDownloadOverallReport = () => {
+  const handleDownloadOverallReport = async () => {
     if (!filteredResultDocs.length) {
       toast.error("No results available to download");
       return;
     }
 
-    const selectedDepartmentLabel =
-      department === "All"
-        ? "All Departments"
-        : departmentOptions.find((item) => item.value === department)?.label || "All Departments";
-    const selectedGroupLabel =
-      group === "All"
-        ? "All Groups"
-        : groupOptions.find((item) => item.value === group)?.label || "All Groups";
-    const selectedSemesterLabel =
-      semesterFilter === "All" ? "All Semesters" : `Sem ${semesterFilter}`;
+    setDownloadingReport(true);
+    try {
+      const selectedDepartmentLabel =
+        department === "All"
+          ? "All Departments"
+          : departmentOptions.find((item) => item.value === department)?.label || "All Departments";
+      const selectedGroupLabel =
+        group === "All"
+          ? "All Groups"
+          : groupOptions.find((item) => item.value === group)?.label || "All Groups";
+      const selectedSemesterLabel =
+        semesterFilter === "All" ? "All Semesters" : `Sem ${semesterFilter}`;
 
     const rows = filteredResultDocs
       .map((resultDoc, index) => {
@@ -673,16 +675,19 @@ const Result = () => {
         </body>
       </html>
     `;
-    downloadPdfFromHtml(apiBase, {
-      html,
-      fileName: "Overall_Results_Report.pdf",
-    }).catch((error) => {
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: "Overall_Results_Report.pdf",
+      });
+    } catch (error) {
       toast.error(error.response?.data?.message || "Failed to download PDF");
-    });
+    } finally {
+      setDownloadingReport(false);
+    }
   };
 
   const renderState = () => {
-    if (loadState === ADMIN_LOAD_STATES.PENDING) {
+    if (loadState === ADMIN_LOAD_STATES.PENDING || loadState === ADMIN_LOAD_STATES.INITIAL) {
       return (
         <div className="result-state pending app-loader-state">
           <Oval
@@ -706,6 +711,13 @@ const Result = () => {
           <img src={emptyStateImg} alt="Failed" className="result-state-img" />
           <h3>Failed to load results</h3>
           <p>Please try again in a moment.</p>
+          <button
+            type="button"
+            className="result-add-btn"
+            onClick={loadResults}
+          >
+            Retry
+          </button>
         </div>
       );
     }
@@ -715,8 +727,18 @@ const Result = () => {
         <div className="result-header">
           <h1 className="result-title">Results & Grades</h1>
           <div className="result-header-actions">
-            <button className="result-download-all-btn" type="button" onClick={handleDownloadOverallReport}>
-              Download Overall Report
+            <button className="result-download-all-btn admin-btn-with-loader" type="button" onClick={handleDownloadOverallReport} disabled={downloadingReport}>
+              {downloadingReport ? (
+                <>
+                  <ClipLoader size={15} color="#000000" />
+                  <span>Downloading...</span>
+                </>
+              ) : (
+                <>
+                  <FiDownload />
+                  <span>Download Overall Report</span>
+                </>
+              )}
             </button>
             <button className="result-add-btn" type="button" onClick={openCreateModal}>
               + Add Result
@@ -823,12 +845,22 @@ const Result = () => {
                         Edit
                       </button>
                       <button
-                        className="result-action-btn export"
+                        className="result-action-btn export admin-btn-with-loader"
                         type="button"
                         onClick={() => handleDownloadResult(resultsById.get(String(item?._id || "")) || {})}
+                        disabled={downloadingResultId === item._id}
                       >
-                        <FiDownload />
-                        Download
+                        {downloadingResultId === item._id ? (
+                          <>
+                            <ClipLoader size={13} color="#000000" />
+                            <span>...</span>
+                          </>
+                        ) : (
+                          <>
+                            <FiDownload />
+                            Download
+                          </>
+                        )}
                       </button>
                     </div>
                   </td>
@@ -1057,11 +1089,18 @@ const Result = () => {
               </div>
 
               <div className="result-modal-actions">
-                <button type="button" className="btn-secondary" onClick={closeModal}>
+                <button type="button" className="btn-secondary" onClick={closeModal} disabled={submitting}>
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? "Saving..." : editingResultId ? "Update Result" : "Create Result"}
+                <button type="submit" className="btn-primary admin-btn-with-loader" disabled={submitting}>
+                  {submitting ? (
+                    <>
+                      <ClipLoader size={15} color="#000000" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    editingResultId ? "Update Result" : "Create Result"
+                  )}
                 </button>
               </div>
             </form>

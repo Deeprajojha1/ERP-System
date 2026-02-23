@@ -27,12 +27,15 @@ const userSlice = createSlice({
 export const { setUserData, clearUserData, setLoading, setError } = userSlice.actions;
 
 // Async action to get user data
-export const getUser = () => async (dispatch) => {
+export const getUser = () => async (dispatch, getState) => {
   try {
     dispatch(setLoading(true));
     dispatch(setError(null));
-    
-    const response = await axios.get('/user/me');
+
+    const apiBase = getState().config.apiBase;
+    const response = await axios.get(`${apiBase}/user/me`, {
+      withCredentials: true,
+    });
     
     if (response.data && response.data.user) {
       dispatch(setUserData(response.data));

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
+import { FiDownload } from "react-icons/fi";
 import "./GeneralSupport.css";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -855,7 +856,8 @@ const GeneralSupport = () => {
             </div>
 
             <button className="gs-generate" type="button" onClick={handleGenerate}>
-              Generate & Download Report
+              <FiDownload />
+              <span>Generate & Download Report</span>
             </button>
           </div>
         </div>

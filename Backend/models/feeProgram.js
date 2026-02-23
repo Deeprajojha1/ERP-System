@@ -32,11 +32,10 @@ const ProgramSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Validate durationYears & totalSemesters relationship
-ProgramSchema.pre("validate", function (next) {
+ProgramSchema.pre("validate", function () {
   if (this.totalSemesters !== this.durationYears * 2) {
-    return next(new Error("totalSemesters must be durationYears * 2"));
+    throw new Error("totalSemesters must be durationYears * 2");
   }
-  next();
 });
 
 export default mongoose.model("Program", ProgramSchema);

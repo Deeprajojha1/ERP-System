@@ -45,3 +45,25 @@ body {
     line-height: 0;
     flex-shrink: 0;
 }
+
+@keyframes hu-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* =========================
+   GLOBAL PRINT STYLES
+========================= */
+@media print {
+    html, body, #root {
+        height: auto !important;
+        min-height: auto !important;
+        overflow: visible !important;
+        background: #ffffff !important;
+    }
+    
+    .no-print {
+        display: none !important;
+    }
+}

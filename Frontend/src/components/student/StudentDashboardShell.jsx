@@ -6,6 +6,7 @@ import {
   FiUser,
   FiActivity,
   FiBookOpen,
+  FiClipboard,
   FiChevronLeft,
   FiChevronRight,
   FiDollarSign,
@@ -17,14 +18,13 @@ import AlertNotifications from "../common/AlertNotifications";
 import StudentDetails from "./StudentDetails";
 import AttendanceOverview from "./AttendanceOverview";
 import CoursesDetails from "./CoursesDetails";
+import StudentExamCenter from "./StudentExamCenter";
 import "./StudentDashboardShell.css";
 
 const StudentDashboardShell = ({
   resolvedStudentData,
   roleDetails,
   totalSessions,
-  strongAttendanceCount,
-  lowAttendanceCount,
   overallAttendance,
   attendanceData,
   coursesData,
@@ -47,10 +47,11 @@ const StudentDashboardShell = ({
     const fileName = userData?.user?.profileImage;
     const base = apiBase?.replace("/api", "") || "";
     if (fileUrl) {
-      if (fileUrl.startsWith("http")) return fileUrl;
+      if (fileUrl.startsWith("http") || fileUrl.startsWith("data:")) return fileUrl;
       return `${base}${fileUrl}`;
     }
     if (fileName) {
+      if (fileName.startsWith("data:")) return fileName;
       return `${base}/uploads/profile-images/${fileName}`;
     }
     return null;
@@ -81,6 +82,7 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/profile")) return "profile";
     if (path.includes("/dashboard/attendance")) return "attendance";
     if (path.includes("/dashboard/courses")) return "courses";
+    if (path.includes("/dashboard/exams")) return "exams";
     if (path.includes("/dashboard/fees")) return "fees";
     return "home";
   }, [location.pathname]);
@@ -90,6 +92,7 @@ const StudentDashboardShell = ({
     { id: "profile", label: "Profile", path: "/dashboard/profile", icon: FiUser },
     { id: "attendance", label: "Attendance", path: "/dashboard/attendance", icon: FiActivity },
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
+    { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
   ];
 
@@ -253,6 +256,9 @@ const StudentDashboardShell = ({
     if (currentSection === "courses") {
       return <CoursesDetails coursesData={coursesData} onCourseClick={onCourseClick} />;
     }
+    if (currentSection === "exams") {
+      return <StudentExamCenter />;
+    }
     if (currentSection === "fees") {
       return renderFees();
     }
@@ -263,8 +269,14 @@ const StudentDashboardShell = ({
     <>
       <header className="student-admin-nav">
         <div className="student-admin-nav-inner">
-          <div className="student-admin-brand">
-            <PiStudentBold className="icons" />
+          <div className="student-admin-nav-left">
+            <div className="student-admin-brand">
+              <PiStudentBold className="icons circle" />
+              <div className="student-admin-brand-copy">
+                <h1>Student Desk</h1>
+                <p>HU ERP Portal</p>
+              </div>
+            </div>
           </div>
 
           <div className="student-admin-nav-right">
@@ -280,7 +292,6 @@ const StudentDashboardShell = ({
           </div>
         </div>
       </header>
-
       <div
         className={`student-admin-layout ${
           isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"
@@ -297,7 +308,10 @@ const StudentDashboardShell = ({
           </button>
         )}
 
-        <aside className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}>
+        <aside
+          id="student-dashboard-sidebar"
+          className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}
+        >
           <div className="student-admin-sidebar-profile">
             <div className="student-admin-sidebar-profile-main">
               {profileImage ? (
@@ -386,6 +400,8 @@ const StudentDashboardShell = ({
                 </article>
               </section>
             </>
+          ) : currentSection === "exams" ? (
+            <>{renderContent()}</>
           ) : (
             <>
               <section id="overview" className="student-admin-stats">
@@ -408,3 +424,5 @@ const StudentDashboardShell = ({
 };
 
 export default StudentDashboardShell;
+
+

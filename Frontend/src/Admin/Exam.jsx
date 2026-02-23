@@ -8,16 +8,32 @@ import {
   FiFileText,
   FiPrinter,
   FiSearch,
+  FiTrash2,
 } from "react-icons/fi";
-import { Oval } from "react-loader-spinner";
+import { Oval, TailSpin } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import "./Exam.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 import ClipLoader from "./components/ClipLoader";
+import {
+  fetchExams,
+  fetchExamSupportData,
+  createExam,
+  updateExam,
+  deleteExam,
+  selectExams,
+  selectExamCourses,
+  selectExamGroups,
+  selectExamFaculty,
+  selectExamLoading,
+  selectCreateLoading,
+  selectUpdateLoading,
+  selectDeleteLoading,
+} from "../redux/examSlice";
 
 const pad2 = (value) => String(value).padStart(2, "0");
 const escapeHtml = (value = "") =>
@@ -62,6 +78,7 @@ const toStrengthValue = (value) => {
 };
 
 const Exam = () => {
+  const dispatch = useDispatch();
   const [search, setSearch] = useState("");
   const [subject, setSubject] = useState("All Subjects");
   const [fromDate, setFromDate] = useState("");
@@ -73,17 +90,26 @@ const Exam = () => {
   const [editingExamId, setEditingExamId] = useState(null);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
 
-  const [exams, setExams] = useState([]);
-  const [courses, setCourses] = useState([]);
-  const [groups, setGroups] = useState([]);
-  const [faculty, setFaculty] = useState([]);
-  const [submitting, setSubmitting] = useState(false);
+  // Redux state (with safe fallbacks for initial render)
+  const exams = useSelector(selectExams) || [];
+  const courses = useSelector(selectExamCourses) || [];
+  const groups = useSelector(selectExamGroups) || [];
+  const faculty = useSelector(selectExamFaculty) || [];
+  const reduxLoading = useSelector(selectExamLoading);
+  const createLoading = useSelector(selectCreateLoading);
+  const updateLoading = useSelector(selectUpdateLoading);
+  const reduxDeleteLoading = useSelector(selectDeleteLoading);
+
+  // Derived loading state for form submission
+  const submitting = createLoading || updateLoading;
+
   const [bulkDownloadLoading, setBulkDownloadLoading] = useState(false);
   const [masterReportDownloadLoading, setMasterReportDownloadLoading] = useState(false);
   const [examActionLoading, setExamActionLoading] = useState({
     id: "",
     action: "",
   });
+  const [deletingId, setDeletingId] = useState(null);
 
   const [formData, setFormData] = useState({
     examName: "",
@@ -111,23 +137,16 @@ const Exam = () => {
     if (!apiBase) return;
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
-      const [examRes, courseRes, groupRes, facultyRes] = await Promise.all([
-        axios.get(`${apiBase}/admin/exam`, { withCredentials: true }),
-        axios.get(`${apiBase}/admin/course`, { withCredentials: true, params: { noCache: "true" } }),
-        axios.get(`${apiBase}/admin/group`, { withCredentials: true, params: { noCache: "true" } }),
-        axios.get(`${apiBase}/admin/faculty`, { withCredentials: true, params: { noCache: "true" } }),
+      await Promise.all([
+        dispatch(fetchExams({ apiBase })).unwrap(),
+        dispatch(fetchExamSupportData({ apiBase })).unwrap(),
       ]);
-
-      setExams(examRes.data?.exams || []);
-      setCourses(courseRes.data?.courses || []);
-      setGroups(groupRes.data?.groups || []);
-      setFaculty(facultyRes.data?.faculty || []);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
-      toast.error(error.response?.data?.message || "Failed to load exams");
+      toast.error(error || "Failed to load exams");
     }
-  }, [apiBase]);
+  }, [apiBase, dispatch]);
 
   useEffect(() => {
     fetchAll();
@@ -450,23 +469,36 @@ const Exam = () => {
     };
 
     try {
-      setSubmitting(true);
       if (editingExamId) {
-        await axios.put(`${apiBase}/admin/exam/${editingExamId}`, payload, { withCredentials: true });
+        await dispatch(updateExam({ apiBase, id: editingExamId, payload })).unwrap();
         toast.success("Exam updated successfully");
       } else {
-        await axios.post(`${apiBase}/admin/exam`, payload, { withCredentials: true });
+        await dispatch(createExam({ apiBase, payload })).unwrap();
         toast.success("Exam created successfully");
       }
       closeModal();
-      await fetchAll();
     } catch (error) {
       toast.error(
-        error.response?.data?.message ||
-          (editingExamId ? "Failed to update exam" : "Failed to create exam")
+        error || (editingExamId ? "Failed to update exam" : "Failed to create exam")
       );
+    }
+  };
+
+  /* ================= DELETE EXAM ================= */
+  const handleDeleteExam = async (exam) => {
+    if (!window.confirm(`Delete exam "${exam?.name || exam?.examName}"?`)) return;
+
+    const id = exam?._id;
+    if (!id) return;
+
+    setDeletingId(id);
+    try {
+      await dispatch(deleteExam({ apiBase, id, hardDelete: true })).unwrap();
+      toast.success("Exam deleted successfully");
+    } catch (error) {
+      toast.error(error || "Failed to delete exam");
     } finally {
-      setSubmitting(false);
+      setDeletingId(null);
     }
   };
 
@@ -897,7 +929,10 @@ const Exam = () => {
                         <span>Downloading...</span>
                       </>
                     ) : (
-                      "Download All"
+                      <>
+                        <FiDownload />
+                        <span>Download All</span>
+                      </>
                     )}
                   </button>
                   <button className="exam-add-btn" type="button" onClick={openModal}>
@@ -1037,6 +1072,29 @@ const Exam = () => {
                                 </>
                               )}
                             </button>
+                            <button
+                              className="exam-action-btn delete admin-btn-with-loader"
+                              type="button"
+                              onClick={() => handleDeleteExam(item)}
+                              disabled={deletingId === item._id}
+                            >
+                              {deletingId === item._id ? (
+                                <>
+                                  <TailSpin
+                                    height="14"
+                                    width="14"
+                                    color="#dc2626"
+                                    ariaLabel="deleting"
+                                  />
+                                  <span>Deleting...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <FiTrash2 />
+                                  <span>Delete</span>
+                                </>
+                              )}
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -1076,7 +1134,10 @@ const Exam = () => {
                         <span>Downloading...</span>
                       </>
                     ) : (
-                      "Download Master Report"
+                      <>
+                        <FiDownload />
+                        <span>Download Master Report</span>
+                      </>
                     )}
                   </button>
                 </div>

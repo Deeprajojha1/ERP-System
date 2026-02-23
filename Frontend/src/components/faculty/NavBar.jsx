@@ -1,65 +1,73 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { clearUserData } from "../../redux/userSlice";
-import { LogOut, RefreshCw } from "lucide-react";
+import { clearFacultyDashboard, selectIsSidebarOpen } from "../../redux/facultyDashboardSlice";
+import { BookOpen } from "lucide-react";
+import { ClipLoader } from "react-spinners";
 import AlertNotifications from "../common/AlertNotifications";
+import NetworkSpeedBadge from "../common/NetworkSpeedBadge";
 
-export default function NavBar({ facultyData, onRefresh }) {
+export default function NavBar({ facultyData }) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const [refreshing, setRefreshing] = useState(false);
-
-  const handleLogout = () => {
-    dispatch(clearUserData());
-    localStorage.removeItem("token");
-    navigate("/login");
-  };
-
-  const handleRefresh = async () => {
-    if (onRefresh && !refreshing) {
-      setRefreshing(true);
-      await onRefresh();
-      setTimeout(() => setRefreshing(false), 500);
-    }
-  };
-
-  const getInitials = (name) => {
-    if (!name) return "FA";
-    const parts = name.split(" ");
-    if (parts.length >= 2) {
-      return (parts[0][0] + parts[1][0]).toUpperCase();
-    }
-    return name.substring(0, 2).toUpperCase();
-  };
-
+  const [loggingOut, setLoggingOut] = useState(false);
   const facultyName = facultyData?.user?.name || "Faculty";
-  const departmentName = facultyData?.facultyDetails?.department?.name || "Department";
+  const isSidebarOpen = useSelector(selectIsSidebarOpen);
+
+  const handleLogout = async () => {
+    setLoggingOut(true);
+    try {
+      dispatch(clearUserData());
+      dispatch(clearFacultyDashboard());
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("token");
+      navigate("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  
 
   return (
-    <nav className="faculty-navbar">
-      <div className="faculty-navbar-left">
-        <h2 className="faculty-navbar-name">{facultyName}</h2>
-        <p className="faculty-navbar-dept">{departmentName}</p>
+    <nav className="faculty-nav">
+      <div className="faculty-nav-left">
+        <div className="faculty-nav-brand">
+          <div className="faculty-brand-icon">
+            <BookOpen size={24} />
+          </div>
+          <div className="faculty-brand-copy">
+            <h1>Faculty ERP</h1>
+            <p>{facultyName}</p>
+          </div>
+        </div>
       </div>
-      <div className="faculty-navbar-right">
-        {onRefresh && (
-          <button 
-            onClick={handleRefresh} 
-            className="faculty-navbar-btn"
-            title="Refresh data"
-            disabled={refreshing}
-          >
-            <RefreshCw size={20} className={refreshing ? "spinning" : ""} />
-          </button>
-        )}
-        <AlertNotifications />
-        <button onClick={handleLogout} className="faculty-logout-btn">
-          <LogOut size={18} />
-          <span>Logout</span>
+
+      <div className="faculty-nav-right">
+        <NetworkSpeedBadge />
+
+        {/* Refresh button removed */}
+
+        {/* Logout Button */}
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="faculty-logout-btn"
+          disabled={loggingOut}
+        >
+          {loggingOut ? (
+            <ClipLoader size={16} color="#1e293b" />
+          ) : (
+            <>Logout</>
+          )}
         </button>
-        <div className="faculty-avatar">
-          {getInitials(facultyName)}
+
+        {/* Notifications */}
+        <div className="faculty-nav-notifications">
+          <AlertNotifications />
         </div>
       </div>
     </nav>

@@ -3,13 +3,17 @@ import dotenv from "dotenv";
 import connectDB from "./config/connectionDB.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import multer from "multer";
 import path from "path";
 import userRoutes from "./Routes/userRoutes.js";
 import adminRoutes from "./Routes/adminRoutes.js";
 import facultyRoutes from "./Routes/facultyRoutes.js";
 import studentRoutes from "./Routes/studentRoutes.js";
 import attendanceRoutes from "./Routes/attendanceRoutes.js";
+import sectionRoutes from "./Routes/sectionRoutes.js"
+import sectionCourseRoutes from "./Routes/sectionCourseRoutes.js"
+import timeTableRoutes from "./Routes/timeTableRoutes.js"
+
+
 dotenv.config();
 
 const app = express();
@@ -82,6 +86,9 @@ app.use('/api/admin/', adminRoutes)
 app.use('/api/faculty/', facultyRoutes)
 app.use('/api/student/', studentRoutes)
 app.use('/api/attendance/', attendanceRoutes)
+app.use("/api/sections/", sectionRoutes);
+app.use("/api/section-courses/", sectionCourseRoutes);
+app.use("/api/timetable/", timeTableRoutes);
 
 // Handle malformed JSON payloads from clients.
 app.use((err, req, res, next) => {

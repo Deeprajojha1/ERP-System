@@ -32,13 +32,6 @@ const useGetCurrentUser = () => {
                 isMounted = false;
             };
         }
-        if (typeof window !== "undefined" && !localStorage.getItem("authToken")) {
-            markResolved();
-            return () => {
-                isMounted = false;
-            };
-        }
-
         const fetchUser = async () => {
             try {
                 const res = await axios.get(`${apiBase}/user/me`, {
@@ -70,6 +63,10 @@ const useGetCurrentUser = () => {
                 }
                 // Clear cached data only when auth is invalid/expired.
                 if (status === 401 || status === 403) {
+                    if (typeof window !== "undefined") {
+                        localStorage.removeItem("authToken");
+                        localStorage.removeItem("token");
+                    }
                     dispatch(clearUserData());
                     dispatch(clearStudents());
                     dispatch(clearFaculty());
