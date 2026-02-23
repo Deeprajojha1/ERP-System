@@ -1,0 +1,7 @@
+.env*
+node_modules*
+rceadmin_rceerp.sql
+!Backend/.env.example
+!Frontend/.env.example
+tmpclaude-*
+uploads.zip
