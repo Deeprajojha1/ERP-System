@@ -1,16 +1,14 @@
 import express from "express";
-import isAuth from "../middlewares/isAuth.js";
-import isAdmin from "../middlewares/isAdmin.js";
-import {
-  generateSectionTimetable,
-  getSectionTimetable,
-  getFacultyTimetable,
-} from "../controllers/timeTableController.js";
+import { generateSectionTimetable,getSectionTimetable,getClassroomTimetable,getFacultyTimetable, approveTimetable } from "../controllers/timeTableController.js";
 
 const router = express.Router();
 
-router.post("/section/:sectionId/generate", isAuth, isAdmin, generateSectionTimetable);
-router.get("/section/:sectionId", isAuth, getSectionTimetable);
-router.get("/faculty/:facultyId", isAuth, getFacultyTimetable);
+router.post("/generate/:sectionId", generateSectionTimetable);
+router.post("/approve/:sectionId",approveTimetable);
 
+router.get("/section/:sectionId", getSectionTimetable);
+
+
+router.get("/faculty/:facultyId", getFacultyTimetable);
+router.get("/classroom/:classroomId", getClassroomTimetable);
 export default router;

@@ -46,6 +46,12 @@ body {
     flex-shrink: 0;
 }
 
+@keyframes hu-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 /* =========================
    GLOBAL PRINT STYLES
 ========================= */

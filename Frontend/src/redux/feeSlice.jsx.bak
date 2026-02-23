@@ -377,12 +377,12 @@ const feeSlice = createSlice({
 
 export const { clearFeeError, clearFeeState } = feeSlice.actions;
 
-export const selectFeePrograms = (state) => state.fee.programs;
-export const selectFeeDemands = (state) => state.fee.demands;
-export const selectFeePayments = (state) => state.fee.payments;
-export const selectFeeLoading = (state) => state.fee.loading;
-export const selectFeeActionLoading = (state) => state.fee.actionLoading;
-export const selectFeeError = (state) => state.fee.error;
-export const selectFeeActionError = (state) => state.fee.actionError;
+export const selectFeePrograms = (state) => state?.fee?.programs || [];
+export const selectFeeDemands = (state) => state?.fee?.demands || [];
+export const selectFeePayments = (state) => state?.fee?.payments || [];
+export const selectFeeLoading = (state) => Boolean(state?.fee?.loading);
+export const selectFeeActionLoading = (state) => Boolean(state?.fee?.actionLoading);
+export const selectFeeError = (state) => state?.fee?.error || null;
+export const selectFeeActionError = (state) => state?.fee?.actionError || null;
 
 export default feeSlice.reducer;

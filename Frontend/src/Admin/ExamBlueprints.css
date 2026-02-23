@@ -112,27 +112,9 @@
 
 .exam-blueprint-grid {
   display: grid;
-  grid-template-columns: 1.25fr 1.15fr;
+  grid-template-columns: 1.1fr 1.3fr;
   gap: 14px;
   align-items: start;
-}
-
-.exam-blueprint-records-column {
-  display: grid;
-  gap: 14px;
-  align-items: start;
-}
-
-.exam-blueprint-records-column .exam-blueprint-filter-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-}
-
-.exam-blueprint-records-column .exam-blueprint-filter-grid label:first-child {
-  grid-column: 1 / -1;
-}
-
-.exam-blueprint-records-column .exam-blueprint-filter-grid .exam-blueprint-btn {
-  grid-column: 1 / -1;
 }
 
 .exam-blueprint-card {

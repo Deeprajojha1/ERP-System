@@ -1,7 +1,7 @@
 import SectionCourse from "../models/SectionCourse.js";
 
 
-
+// ✅ Create SectionCourse mapping
 export const createSectionCourse = async (req, res) => {
   try {
     const sectionCourse = await SectionCourse.create(req.body);
@@ -19,7 +19,7 @@ export const createSectionCourse = async (req, res) => {
 };
 
 
-
+// ✅ Get All Mappings
 export const getAllSectionCourses = async (req, res) => {
   try {
     const data = await SectionCourse.find()
@@ -41,7 +41,7 @@ export const getAllSectionCourses = async (req, res) => {
 };
 
 
-
+// ✅ Get By ID
 export const getSectionCourseById = async (req, res) => {
   try {
     const data = await SectionCourse.findById(req.params.id)
@@ -69,7 +69,7 @@ export const getSectionCourseById = async (req, res) => {
 };
 
 
-
+// ✅ Update Mapping
 export const updateSectionCourse = async (req, res) => {
   try {
     const data = await SectionCourse.findByIdAndUpdate(
@@ -98,7 +98,7 @@ export const updateSectionCourse = async (req, res) => {
 };
 
 
-
+// ✅ Delete Mapping
 export const deleteSectionCourse = async (req, res) => {
   try {
     const data = await SectionCourse.findByIdAndDelete(req.params.id);

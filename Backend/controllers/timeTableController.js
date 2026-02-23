@@ -28,7 +28,7 @@ export const generateSectionTimetable = async (req, res) => {
       });
     }
 
-
+    // ✅ 1️⃣ Check Section Exists
     const section = await Section.findById(sectionId);
 
     if (!section) {
@@ -38,7 +38,7 @@ export const generateSectionTimetable = async (req, res) => {
       });
     }
 
-
+    // ✅ 2️⃣ Check Lock
     if (section.isTimetableLocked) {
       return res.status(403).json({
         success: false,
@@ -46,10 +46,10 @@ export const generateSectionTimetable = async (req, res) => {
       });
     }
 
-
+    // ✅ 3️⃣ Delete old timetable
     await Timetable.deleteMany({ section: sectionId });
 
-
+    // ✅ 4️⃣ Get Section Courses
     const sectionCourses = await SectionCourse.find({
       section: sectionId,
       isActive: true,
@@ -62,7 +62,7 @@ export const generateSectionTimetable = async (req, res) => {
       });
     }
 
-
+    // ✅ 5️⃣ Get Classrooms
     const classrooms = await Classroom.find({ available: true });
 
     if (!classrooms.length) {
@@ -114,7 +114,7 @@ export const generateSectionTimetable = async (req, res) => {
 
     const createdEntries = [];
 
-
+    // ✅ 6️⃣ Scheduling Logic
     for (const lecture of lectures) {
       let placed = false;
 
@@ -220,7 +220,7 @@ export const getSectionTimetable = async (req, res) => {
           select: "name"
         }
       })
-      .populate("classroom", "name") 
+      .populate("classroom", "name")   // ✅ FIXED HERE
       .lean();
 
     if (!lectures.length) {
@@ -251,7 +251,7 @@ export const getSectionTimetable = async (req, res) => {
       slot: l.slotNumber,
       course: l.course?.code || null,
       faculty: l.faculty?.user?.name || null,
-      classroom: l.classroom?.name || null  
+      classroom: l.classroom?.name || null   // ✅ FIXED HERE
     }));
 
     return res.status(200).json({

@@ -245,28 +245,13 @@ const ExamBlueprints = () => {
     try {
       const response = await axios.get(`${apiBase}/admin/faculty`, {
         withCredentials: true,
-        params: {
-          minimal: "true",
-          noCache: "true",
-        },
       });
       const rows = parseFaculty(response.data);
       const normalized = rows
         .map((item) => {
-          const userRef = item?.user;
-          const userId =
-            (userRef && typeof userRef === "object" ? userRef._id || userRef.id : userRef) ||
-            item?.userId ||
-            item?._id ||
-            "";
-          const name =
-            (userRef && typeof userRef === "object" ? userRef.name : "") ||
-            item?.name ||
-            "";
-          const email =
-            (userRef && typeof userRef === "object" ? userRef.email : "") ||
-            item?.email ||
-            "";
+          const userId = item?.user?._id || item?.user?.id || item?._id || "";
+          const name = item?.user?.name || item?.name || "";
+          const email = item?.user?.email || item?.email || "";
           const departmentName =
             item?.department?.name || item?.departmentName || "";
           return {
@@ -626,6 +611,81 @@ const ExamBlueprints = () => {
         </article>
       </div>
 
+      <section className="exam-blueprint-filter-card">
+        <div className="exam-blueprint-filter-header">
+          <FiFilter className="exam-blueprint-filter-icon" />
+          <span>Filters</span>
+        </div>
+        <div className="exam-blueprint-filter-grid">
+          <label>
+            Search
+            <div className="exam-blueprint-search-wrap">
+              <FiSearch className="exam-blueprint-search-icon" />
+              <input
+                type="text"
+                placeholder="Search by title or subject"
+                value={filters.search}
+                onChange={(event) => handleFilterChange("search", event.target.value)}
+                className="exam-blueprint-search-input"
+              />
+            </div>
+          </label>
+
+          <label>
+            Status
+            <select
+              value={filters.status}
+              onChange={(event) => handleFilterChange("status", event.target.value)}
+            >
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {status === "ALL" ? "All Statuses" : formatExamType(status)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Exam Type
+            <select
+              value={filters.examType}
+              onChange={(event) => handleFilterChange("examType", event.target.value)}
+            >
+              <option value="ALL">All Exam Types</option>
+              {EXAM_TYPES.map((examType) => (
+                <option key={examType} value={examType}>
+                  {formatExamType(examType)}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Teacher
+            <select
+              value={filters.teacherId}
+              onChange={(event) => handleFilterChange("teacherId", event.target.value)}
+            >
+              <option value="ALL">All Teachers</option>
+              {facultyOptions.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            className="exam-blueprint-btn exam-blueprint-btn-ghost"
+            onClick={clearFilters}
+          >
+            <FiX className="exam-blueprint-btn-icon" />
+            Clear Filters
+          </button>
+        </div>
+      </section>
+
       <div className="exam-blueprint-grid">
         <section ref={formCardRef} className="exam-blueprint-card">
           <header className="exam-blueprint-card-head">
@@ -873,83 +933,7 @@ const ExamBlueprints = () => {
           </form>
         </section>
 
-        <div className="exam-blueprint-records-column">
-          <section className="exam-blueprint-filter-card">
-            <div className="exam-blueprint-filter-header">
-              <FiFilter className="exam-blueprint-filter-icon" />
-              <span>Filters</span>
-            </div>
-            <div className="exam-blueprint-filter-grid">
-              <label>
-                Search
-                <div className="exam-blueprint-search-wrap">
-                  <FiSearch className="exam-blueprint-search-icon" />
-                  <input
-                    type="text"
-                    placeholder="Search by title or subject"
-                    value={filters.search}
-                    onChange={(event) => handleFilterChange("search", event.target.value)}
-                    className="exam-blueprint-search-input"
-                  />
-                </div>
-              </label>
-
-              <label>
-                Status
-                <select
-                  value={filters.status}
-                  onChange={(event) => handleFilterChange("status", event.target.value)}
-                >
-                  {STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {status === "ALL" ? "All Statuses" : formatExamType(status)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Exam Type
-                <select
-                  value={filters.examType}
-                  onChange={(event) => handleFilterChange("examType", event.target.value)}
-                >
-                  <option value="ALL">All Exam Types</option>
-                  {EXAM_TYPES.map((examType) => (
-                    <option key={examType} value={examType}>
-                      {formatExamType(examType)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label>
-                Teacher
-                <select
-                  value={filters.teacherId}
-                  onChange={(event) => handleFilterChange("teacherId", event.target.value)}
-                >
-                  <option value="ALL">All Teachers</option>
-                  {facultyOptions.map((teacher) => (
-                    <option key={teacher.id} value={teacher.id}>
-                      {teacher.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <button
-                type="button"
-                className="exam-blueprint-btn exam-blueprint-btn-ghost"
-                onClick={clearFilters}
-              >
-                <FiX className="exam-blueprint-btn-icon" />
-                Clear Filters
-              </button>
-            </div>
-          </section>
-
-          <section className="exam-blueprint-card">
+        <section className="exam-blueprint-card">
           <header className="exam-blueprint-card-head">
             <h3>Blueprint Records</h3>
             <div className="exam-blueprint-records-meta">
@@ -1169,8 +1153,7 @@ const ExamBlueprints = () => {
               </table>
             </div>
           )}
-          </section>
-        </div>
+        </section>
       </div>
 
       {scoresModalBlueprint && (

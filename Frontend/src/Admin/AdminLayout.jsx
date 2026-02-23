@@ -17,7 +17,6 @@ import {
   FiBell,
   FiBookOpen,
   FiHome,
-  FiHome,
   FiSettings,
   FiChevronDown,
   FiLayers,
@@ -562,15 +561,58 @@ const AdminLayout = () => {
                 <span className="sidebar-text">Leaves</span>
               </button>
 
-              <button
-                className={`sidebar-btn ${isActive("/admin/fees") ? "active" : ""}`}
-                onClick={() => {
-                  navigate("/admin/fees");
-                }}
+              <div
+                className={`sidebar-dropdown ${
+                  isFeeRouteActive ? "open" : ""
+                }`}
               >
-                <LuBadgeIndianRupee />
-                <span className="sidebar-text">Fees</span>
-              </button>
+                <button
+                  type="button"
+                  className={`sidebar-btn sidebar-dropdown-toggle ${
+                    isFeesButtonActive ? "active" : ""
+                  }`}
+                  onClick={handleFeesButtonClick}
+                  aria-expanded={isFeeMenuOpen}
+                >
+                  <LuBadgeIndianRupee />
+                  <span className="sidebar-text">Fees</span>
+                  <FiChevronDown className="sidebar-dropdown-caret" />
+                </button>
+
+                <div
+                  className={`sidebar-submenu ${isFeeMenuOpen ? "show" : ""}`}
+                >
+                  {FEE_MENU_SECTIONS.map((section) => (
+                    <div
+                      className="sidebar-submenu-section"
+                      key={section.label}
+                    >
+                      <span className="sidebar-subtitle">{section.label}</span>
+                      {section.items.map((item) => {
+                        const allowChildren = item.matchChildren !== false;
+                        const active = item.paths.some((path) =>
+                          pathMatches(path, allowChildren)
+                        );
+                        const Icon = item.Icon;
+                        return (
+                          <button
+                            key={item.label}
+                            type="button"
+                            className={`sidebar-subitem ${
+                              active ? "active" : ""
+                            }`}
+                            onClick={() => navigate(item.paths[0])}
+                            data-muted={section.label === "DASHBOARD"}
+                          >
+                            <Icon />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="sidebar-section">

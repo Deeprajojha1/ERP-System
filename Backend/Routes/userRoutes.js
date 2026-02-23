@@ -1,120 +1,47 @@
 import express from "express";
-import isAuth from "../middlewares/isAuth.js";
 import {
   login,
   sendOtp,
   verifyOtp,
   resetPassword,
-  logout,
   getUser,
-  changePassword,
+  logout,
   updateProfileImage,
 } from "../controllers/userController.js";
 import { renderPdfFromHtml } from "../controllers/pdfController.js";
+import { getStudentProfile, deleteProfileImage } from "../controllers/profileController.js";
+import {
+  getStudentAttendanceReport,
+  getStudentOverallAttendance,
+} from "../controllers/attendanceController.js";
 import { exportTabularData } from "../controllers/exportController.js";
-import User from "../models/userModel.js";
-import upload from "../config/multerConfig.js";
-import { uploadImageToCloudinary } from "../config/cloudinaryUpload.js";
-
+import isAuth from "../middlewares/isAuth.js";
 const router = express.Router();
 
 router.post("/login", login);
+// router.post("/register", register); // Removed - Only admin can create users via /api/admin/student or /api/admin/faculty
+// Send OTP
 router.post("/send-otp", sendOtp);
+
+// Verify OTP
 router.post("/verify-otp", verifyOtp);
+
+// Reset Password
 router.post("/reset-password", resetPassword);
-router.post("/logout", isAuth, logout);
-
+// Logout
+router.post("/logout", logout);
+// get user
 router.get("/me", isAuth, getUser);
-router.post("/change-password", isAuth, changePassword);
 router.put("/profile-image", isAuth, updateProfileImage);
-router.delete("/profile-image", isAuth, async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      { profileImage: "" },
-      { new: true }
-    ).select("-passwordHash -resetOtp -otpExpires");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    return res.status(200).json({
-      message: "Profile image removed successfully",
-      user,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: error.message || "Server Error",
-    });
-  }
-});
-router.post("/student/upload-image", isAuth, (req, res, next) => {
-  upload.single("profileImage")(req, res, (err) => {
-    if (err) {
-      return res.status(400).json({ message: err.message || "File upload failed" });
-    }
-    return next();
-  });
-}, async (req, res) => {
-  try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ message: "profileImage file is required" });
-    }
-
-    const mimeType = req.file.mimetype || "image/png";
-    const base64File = `data:${mimeType};base64,${req.file.buffer.toString("base64")}`;
-    const profileImageUrl = await uploadImageToCloudinary({
-      file: base64File,
-      publicId: `user_${req.userId}_${Date.now()}`,
-    });
-
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      { profileImage: profileImageUrl },
-      { new: true, runValidators: true }
-    ).select("-passwordHash -resetOtp -otpExpires");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    return res.status(200).json({
-      message: "Profile image updated successfully",
-      profileImageUrl,
-      profileImage: profileImageUrl,
-      user,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: error.message || "Server Error",
-    });
-  }
-});
-router.delete("/student/delete-image", isAuth, async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.userId,
-      { profileImage: "" },
-      { new: true }
-    ).select("-passwordHash -resetOtp -otpExpires");
-
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    return res.status(200).json({
-      message: "Profile image removed successfully",
-      user,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      message: error.message || "Server Error",
-    });
-  }
-});
-
+router.delete("/profile-image", isAuth, deleteProfileImage);
 router.post("/pdf/render", isAuth, renderPdfFromHtml);
 router.post("/export/tabular", isAuth, exportTabularData);
+
+// get student profile by email & password
+router.post("/profile", getStudentProfile);
+
+/* Student Attendance (self-view) */
+router.get("/attendance/:studentId", isAuth, getStudentOverallAttendance);
+router.get("/attendance/:studentId/course/:courseId", isAuth, getStudentAttendanceReport);
 
 export default router;

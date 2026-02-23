@@ -174,13 +174,13 @@ const alertSlice = createSlice({
 
 export const { clearAlertError } = alertSlice.actions;
 
-export const selectAdminAlerts = (state) => state.alerts.alerts;
-export const selectAdminAlertsLoading = (state) => state.alerts.loading;
-export const selectAdminAlertsSubmitting = (state) => state.alerts.submitting;
-export const selectAdminAlertsUpdatingById = (state) => state.alerts.updatingById;
-export const selectAdminAlertsDeletingById = (state) => state.alerts.deletingById;
-export const selectAdminAlertsError = (state) => state.alerts.error;
+export const selectAdminAlerts = (state) => state?.alerts?.alerts || [];
+export const selectAdminAlertsLoading = (state) => Boolean(state?.alerts?.loading);
+export const selectAdminAlertsSubmitting = (state) => Boolean(state?.alerts?.submitting);
+export const selectAdminAlertsUpdatingById = (state) => state?.alerts?.updatingById || {};
+export const selectAdminAlertsDeletingById = (state) => state?.alerts?.deletingById || {};
+export const selectAdminAlertsError = (state) => state?.alerts?.error || null;
 export const selectAdminAlertsNotImplemented = (state) =>
-  state.alerts.notImplemented;
+  Boolean(state?.alerts?.notImplemented);
 
 export default alertSlice.reducer;

@@ -1,7 +1,7 @@
 import Section from "../models/Section.js";
 
 
-
+// ✅ Create Section
 export const createSection = async (req, res) => {
   try {
     const section = await Section.create(req.body);
@@ -18,7 +18,7 @@ export const createSection = async (req, res) => {
 };
 
 
-
+// ✅ Get All Sections
 export const getAllSections = async (req, res) => {
   try {
     const sections = await Section.find()
@@ -38,7 +38,7 @@ export const getAllSections = async (req, res) => {
 };
 
 
-
+// ✅ Get Single Section
 export const getSectionById = async (req, res) => {
   try {
     const section = await Section.findById(req.params.id)
@@ -62,6 +62,9 @@ export const getSectionById = async (req, res) => {
     });
   }
 };
+
+
+// ✅ Update Section
 export const updateSection = async (req, res) => {
   try {
     const section = await Section.findByIdAndUpdate(
@@ -90,7 +93,7 @@ export const updateSection = async (req, res) => {
 };
 
 
-
+// ✅ Delete Section
 export const deleteSection = async (req, res) => {
   try {
     const section = await Section.findByIdAndDelete(req.params.id);

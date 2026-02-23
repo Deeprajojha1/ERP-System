@@ -23,11 +23,14 @@ const PROGRAM_CANONICAL_MAP = {
   mba: "mba",
   bsc: "bsc",
   msc: "msc",
+  bcom: "bcom",
   bpharma: "bpharma",
   mpharma: "mpharma",
+  dpharma: "dpharma",
   phd: "phd",
   bpharm: "bpharma",
   mpharm: "mpharma",
+  dpharm: "dpharma",
 };
 
 const canonicalizeProgram = (value) => {
@@ -224,7 +227,7 @@ const Department = () => {
     if (!value) {
       if (programInput.trim()) {
         toast.error(
-          "Invalid program. Use btech, mtech, bca, mca, bba, mba, bsc, msc, bpharma, mpharma, or phd."
+          "Invalid program. Use btech, mtech, bca, mca, bba, mba, bsc, msc, bcom, bpharma, mpharma, dpharma, or phd."
         );
       }
       return;

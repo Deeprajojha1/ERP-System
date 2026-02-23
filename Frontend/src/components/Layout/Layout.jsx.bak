@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { FiArrowRight, FiAward, FiBookOpen, FiCheckCircle, FiUsers } from "react-icons/fi";
 import { HiOutlineAcademicCap } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";

@@ -1,12 +1,9 @@
 import { createSlice } from "@reduxjs/toolkit";
-import axios from "../utils/axiosInstance";
 
 const userSlice = createSlice({
   name: "user",
   initialState: {
     userData: null,
-    loading: false,
-    error: null,
   },
   reducers: {
     setUserData: (state, action) => {
@@ -14,12 +11,6 @@ const userSlice = createSlice({
     },
     clearUserData: (state) => {
       state.userData = null;
-    },
-    setLoading: (state, action) => {
-      state.loading = action.payload;
-    },
-    setError: (state, action) => {
-      state.error = action.payload;
     },
   },
 });

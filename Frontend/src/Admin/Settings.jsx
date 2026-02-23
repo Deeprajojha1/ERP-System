@@ -1,8 +1,10 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import { createPortal } from "react-dom";
-import axios from "../utils/axiosInstance";
+import axios from "axios";
+import axiosInstance from "../utils/axiosInstance";
 import toast from "react-hot-toast";
+import { setUserData } from "../redux/userSlice";
 import {
   FiBookOpen,
   FiCamera,
@@ -15,14 +17,14 @@ import {
   FiUserPlus,
   FiX,
 } from "react-icons/fi";
-import { setUserData } from "../redux/userSlice";
+import ClipLoader from "./components/ClipLoader";
 import "./Settings.css";
 
 const Settings = () => {
-  const dispatch = useDispatch();
   const userData = useSelector((state) => state.user.userData);
   const user = userData?.user || {};
   const apiBase = useSelector((state) => state.config.apiBase);
+  const dispatch = useDispatch();
 
   const [activeTab, setActiveTab] = useState("profile");
   const fileInputRef = useRef(null);
@@ -58,35 +60,6 @@ const Settings = () => {
   const fullName = user?.name || "System Administrator";
   const email = user?.email || "admin@huroorkee.ac.in";
   const role = (user?.role || "admin").toUpperCase();
-  const phoneNumber = user?.phoneNumber || "";
-  const formatDateYmd = (value) => {
-    if (!value) return "";
-
-    if (typeof value === "string") {
-      const isoLikeMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
-      if (isoLikeMatch) {
-        return `${isoLikeMatch[1]}/${isoLikeMatch[2]}/${isoLikeMatch[3]}`;
-      }
-
-      const slashLikeMatch = value.match(/^(\d{4})\/(\d{2})\/(\d{2})/);
-      if (slashLikeMatch) {
-        return `${slashLikeMatch[1]}/${slashLikeMatch[2]}/${slashLikeMatch[3]}`;
-      }
-    }
-
-    const parsed = new Date(value);
-    if (Number.isNaN(parsed.getTime())) return "";
-
-    return `${parsed.getFullYear()}/${String(parsed.getMonth() + 1).padStart(2, "0")}/${String(
-      parsed.getDate()
-    ).padStart(2, "0")}`;
-  };
-  const dobValue = formatDateYmd(user?.DOB || user?.dateOfBirth);
-  const aadhaarNumber = user?.aadhaarNumber || user?.aadharNumber || "";
-  const accountStatus = user?.status
-    ? `${user.status.charAt(0).toUpperCase()}${user.status.slice(1)}`
-    : "";
-  const userId = user?.id || user?._id || "";
 
   const initials = useMemo(() => {
     return fullName
@@ -141,52 +114,134 @@ const Settings = () => {
     });
   }, [fullName]);
 
-  const handleProfileImageChange = (e) => {
+  const handleProfileImageChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
+    console.log("[Frontend] File selected:", {
+      name: file.name,
+      type: file.type,
+      size: file.size
+    });
+    
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+    
+    if (file.size > 5 * 1024 * 1024) { // 5MB
+      toast.error('Image size should be less than 5MB');
+      return;
+    }
+
     if (!apiBase) {
-      toast.error("Server configuration missing");
+      toast.error("Server configuration missing. Please refresh and try again.");
       return;
     }
 
-    if (!file.type.startsWith("image/")) {
-      toast.error("Please upload a valid image file");
-      return;
-    }
+    // Skip API test for now to isolate the issue
 
+    // Show preview
     const reader = new FileReader();
-    reader.onloadend = async () => {
-      const imageData = typeof reader.result === "string" ? reader.result : "";
-      if (!imageData) {
-        toast.error("Failed to process image");
-        return;
-      }
-
-      try {
-        const response = await axios.put(
-          `${apiBase}/user/profile-image`,
-          { profileImage: imageData },
-          { withCredentials: true }
-        );
-
-        setProfileImage(imageData);
-        if (response.data?.user && userData) {
-          dispatch(
-            setUserData({
-              ...userData,
-              user: {
-                ...userData.user,
-                profileImage: response.data.user.profileImage || imageData,
-              },
-            })
-          );
-        }
-        toast.success("Profile image updated successfully");
-      } catch (error) {
-        toast.error(error.response?.data?.message || "Failed to update profile image");
-      }
+    reader.onloadend = () => {
+      setProfileImage(typeof reader.result === "string" ? reader.result : "");
     };
     reader.readAsDataURL(file);
+
+    // Upload to server
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append('profileImage', file);
+      
+      const uploadUrl = `${apiBase || '/api'}/admin/profile/upload-image`;
+      console.log("[Frontend] API Base:", apiBase);
+      console.log("[Frontend] Uploading to:", uploadUrl);
+      console.log("[Frontend] FormData contents:");
+      for (let [key, value] of formData.entries()) {
+        console.log(`  ${key}:`, value);
+      }
+      
+      // First try a simple request to check authentication
+      console.log("[Frontend] Checking authentication...");
+      const authCheck = await axiosInstance.get(`${apiBase || '/api'}/user/me`, { withCredentials: true });
+      console.log("[Frontend] Auth check successful:", authCheck.data.user?.id);
+      
+      // Now try the upload using axiosInstance for consistent auth
+      const response = await axiosInstance.post(
+        uploadUrl,
+        formData,
+        {
+          headers: {
+            // Don't set Content-Type manually for FormData - let browser set it with boundary
+          },
+        }
+      );
+      
+      // Update current profile image with the new URL
+      const imageUrl = resolveImageUrl(response.data.profileImageUrl, response.data.profileImage);
+      setCurrentProfileImage(imageUrl);
+      
+      // Update user data in Redux to reflect the change
+      dispatch(setUserData({
+        ...userData,
+        user: {
+          ...userData.user,
+          profileImage: response.data.profileImage,
+          profileImageUrl: imageUrl
+        }
+      }));
+      
+      toast.success('Profile image updated successfully');
+      
+    } catch (error) {
+      console.error('Profile image upload error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to upload profile image';
+      toast.error(errorMessage);
+      
+      // Reset preview on error
+      setProfileImage(currentProfileImage || "");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleDeleteProfileImage = async () => {
+    if (!apiBase) {
+      toast.error("Server configuration missing. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      setUploadingImage(true);
+      await axios.delete(
+        `${apiBase}/admin/profile/delete-image`,
+        { withCredentials: true }
+      );
+      
+      setCurrentProfileImage(null);
+      setProfileImage("");
+      
+      // Update user data in Redux to reflect the change
+      dispatch(setUserData({
+        ...userData,
+        user: {
+          ...userData.user,
+          profileImage: null
+        }
+      }));
+      
+      toast.success('Profile image removed successfully');
+      
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to remove profile image');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const tabs = [
@@ -388,29 +443,57 @@ const Settings = () => {
 
           <div className="settings-user-row">
             <div className="settings-avatar-wrap">
-              {profileImage ? (
+              {(profileImage || currentProfileImage) ? (
                 <img
-                  src={profileImage}
+                  src={profileImage || currentProfileImage}
                   alt="Profile preview"
                   className="settings-avatar-image"
                 />
               ) : (
                 <div className="settings-avatar">{initials || "AD"}</div>
               )}
-              <button
-                type="button"
-                className="settings-avatar-camera"
-                aria-label="Change profile picture"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <FiCamera />
-              </button>
+              <div className="settings-avatar-actions">
+                <button
+                  type="button"
+                  className="settings-avatar-camera admin-btn-with-loader"
+                  aria-label="Change profile picture"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingImage}
+                >
+                  {uploadingImage ? (
+                    <ClipLoader size={16} color="#ffffff" />
+                  ) : (
+                    <FiCamera />
+                  )}
+                </button>
+                {currentProfileImage && (
+                  <button
+                    type="button"
+                    className="settings-avatar-delete admin-btn-with-loader"
+                    aria-label="Remove profile picture"
+                    onClick={handleDeleteProfileImage}
+                    disabled={uploadingImage}
+                    title="Remove profile picture"
+                  >
+                    {uploadingImage ? (
+                      <ClipLoader
+                        size={14}
+                        color="#ef4444"
+                        trackColor="rgba(239, 68, 68, 0.2)"
+                      />
+                    ) : (
+                      <FiX />
+                    )}
+                  </button>
+                )}
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
                 className="settings-avatar-file-input"
                 onChange={handleProfileImageChange}
+                disabled={uploadingImage}
               />
             </div>
             <div className="settings-user-info">
@@ -441,51 +524,6 @@ const Settings = () => {
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, lastName: e.target.value }))
                 }
-              />
-            </label>
-            <label>
-              Phone Number
-              <input
-                value={phoneNumber || "N/A"}
-                readOnly
-                disabled
-                className="settings-readonly-input"
-              />
-            </label>
-            <label>
-              Date of Birth
-              <input
-                value={dobValue || "N/A"}
-                readOnly
-                disabled
-                className="settings-readonly-input"
-              />
-            </label>
-            <label>
-              Aadhaar Number
-              <input
-                value={aadhaarNumber || "N/A"}
-                readOnly
-                disabled
-                className="settings-readonly-input"
-              />
-            </label>
-            <label>
-              Account Status
-              <input
-                value={accountStatus || "N/A"}
-                readOnly
-                disabled
-                className="settings-readonly-input"
-              />
-            </label>
-            <label>
-              User ID
-              <input
-                value={userId || "N/A"}
-                readOnly
-                disabled
-                className="settings-readonly-input"
               />
             </label>
           </div>

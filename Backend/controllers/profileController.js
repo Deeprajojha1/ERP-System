@@ -35,7 +35,6 @@ export const getStudentProfile = async (req, res) => {
 
     const student = await Student.findOne({ user: user._id })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
-      .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department")
       .populate("group");
 
@@ -100,7 +99,6 @@ export const getAdminProfile = async (req, res) => {
         aadharNumber: user.aadharNumber,
         phoneNumber: user.phoneNumber,
         DOB: user.DOB,
-        profileImage: user.profileImage || "",
         profileImage: user.profileImage || "",
         role: user.role,
         status: user.status,
