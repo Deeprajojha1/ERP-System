@@ -1,4 +1,4 @@
-import axiosInstance from "../../utils/axiosinstance";
+import axiosInstance from "../../utils/axiosInstance";
 
 export const getHostelSummaryApi = async () => {
   const response = await axiosInstance.get(

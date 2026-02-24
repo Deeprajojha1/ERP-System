@@ -1,4 +1,4 @@
-import axiosInstance from "../../utils/axiosinstance";
+import axiosInstance from "../../utils/axiosInstance";
 
 export const allocateStudentApi = async (data) => {
   const response = await axiosInstance.post(
