@@ -49,6 +49,8 @@ import Assignment from "./Admin/Assignment";
 import Alerts from "./Admin/Alert";
 import Classrooms from "./Admin/Classrooms";
 import ExamBlueprints from "./Admin/ExamBlueprints";
+import ExternalJobs from "./Admin/ExternalJobs";
+import ExternalJobApplications from "./Admin/ExternalJobApplications";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
 
@@ -292,6 +294,8 @@ function App() {
           <Route path="subject-attendance" element={<SubjectAttendance />} />
           <Route path="teaching-load" element={<TeachingLoad />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="external-jobs" element={<ExternalJobs />} />
+          <Route path="external-job-applications" element={<ExternalJobApplications />} />
           <Route path="*" element={<Navigate to="/page-not-found" replace />} />
         </Route>
 
@@ -305,3 +309,4 @@ function App() {
 }
 
 export default App;
+

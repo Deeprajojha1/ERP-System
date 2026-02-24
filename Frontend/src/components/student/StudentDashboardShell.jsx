@@ -10,6 +10,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiDollarSign,
+  FiBriefcase,
 } from "react-icons/fi";
 import { useLocation, useNavigate } from "react-router-dom";
 import heroImage from "../../assets/college_47233.jpg";
@@ -19,6 +20,7 @@ import StudentDetails from "./StudentDetails";
 import AttendanceOverview from "./AttendanceOverview";
 import CoursesDetails from "./CoursesDetails";
 import StudentExamCenter from "./StudentExamCenter";
+import StudentExternalJobs from "./StudentExternalJobs";
 import "./StudentDashboardShell.css";
 
 const StudentDashboardShell = ({
@@ -84,6 +86,7 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/courses")) return "courses";
     if (path.includes("/dashboard/exams")) return "exams";
     if (path.includes("/dashboard/fees")) return "fees";
+    if (path.includes("/dashboard/jobs")) return "jobs";
     return "home";
   }, [location.pathname]);
 
@@ -93,6 +96,7 @@ const StudentDashboardShell = ({
     { id: "attendance", label: "Attendance", path: "/dashboard/attendance", icon: FiActivity },
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
     { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
+    { id: "jobs", label: "Jobs", path: "/dashboard/jobs", icon: FiBriefcase },
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
   ];
 
@@ -258,6 +262,9 @@ const StudentDashboardShell = ({
     }
     if (currentSection === "exams") {
       return <StudentExamCenter />;
+    }
+    if (currentSection === "jobs") {
+      return <StudentExternalJobs />;
     }
     if (currentSection === "fees") {
       return renderFees();

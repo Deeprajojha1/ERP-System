@@ -26,6 +26,7 @@ import {
   FiTrendingUp,
   FiCreditCard,
   FiCalendar,
+  FiBriefcase,
 } from "react-icons/fi";
 import { useDispatch } from "react-redux";
 import axios from "../utils/axiosInstance";
@@ -559,6 +560,28 @@ const AdminLayout = () => {
               >
                 <GiKoholintEgg />
                 <span className="sidebar-text">Leaves</span>
+              </button>
+
+              <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/external-jobs") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/external-jobs");
+                }}
+              >
+                <FiBriefcase />
+                <span className="sidebar-text">External Jobs</span>
+              </button>
+
+              <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/external-job-applications") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/external-job-applications");
+                }}
+              >
+                <FiBriefcase />
+                <span className="sidebar-text">Job Applications</span>
               </button>
 
               <div

@@ -49,7 +49,7 @@ const timetableSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-
+// ?? Conflict Prevention Indexes
 
 // Faculty conflict prevention
 timetableSchema.index({ faculty: 1, day: 1, slotNumber: 1 }, { unique: true });

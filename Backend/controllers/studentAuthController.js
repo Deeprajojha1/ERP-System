@@ -4,6 +4,8 @@ import Enrollment from "../models/Enrollment.js";
 import AttendanceSession from "../models/AttendanceSession.js";
 import Course from "../models/Course.js";
 import Group from "../models/Group.js";
+import Section from "../models/Section.js";
+import SectionCourse from "../models/SectionCourse.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import validator from "validator";
@@ -481,6 +483,7 @@ export const getStudentCourses = async (req, res) => {
         status: "active"
       }).populate({
         path: "course",
+        select: "code courseName department semester branch credit",
         populate: {
           path: "department",
           select: "name code"
@@ -489,9 +492,93 @@ export const getStudentCourses = async (req, res) => {
       courses = enrollments.map(enrollment => enrollment.course);
     }
 
+    // Final fallback: infer courses from attendance history
+    if (courses.length === 0) {
+      const attendanceCourseIds = await AttendanceSession.distinct("course", {
+        "records.student": studentDetails._id,
+      });
+
+      if (attendanceCourseIds.length > 0) {
+        courses = await Course.find({ _id: { $in: attendanceCourseIds } })
+          .select("code courseName department semester branch credit")
+          .populate("department", "name code");
+      }
+    }
+
+    // Fallback: section-course mappings by department + semester (+ optional section name match)
+    if (courses.length === 0) {
+      const sectionQuery = {
+        department: studentDetails.department,
+        semester: studentDetails.semester,
+        isActive: true,
+      };
+
+      let sections = [];
+      if (studentDetails.group?.name) {
+        const sectionByName = await Section.findOne({
+          ...sectionQuery,
+          name: studentDetails.group.name,
+        }).select("_id name");
+        if (sectionByName) sections = [sectionByName];
+      }
+
+      if (sections.length === 0) {
+        sections = await Section.find(sectionQuery).select("_id name");
+      }
+
+      if (sections.length > 0) {
+        const sectionIds = sections.map((section) => section._id);
+        const sectionCourseRows = await SectionCourse.find({
+          section: { $in: sectionIds },
+          isActive: true,
+        }).populate({
+          path: "course",
+          select: "code courseName department semester branch credit",
+          populate: { path: "department", select: "name code" },
+        });
+
+        const uniqueCourseMap = new Map();
+        sectionCourseRows.forEach((row) => {
+          const courseDoc = row?.course;
+          if (!courseDoc?._id) return;
+          uniqueCourseMap.set(String(courseDoc._id), courseDoc);
+        });
+        courses = Array.from(uniqueCourseMap.values());
+      }
+    }
+
+    // Final fallback: all courses of student's department + semester
+    if (courses.length === 0) {
+      const deptSemesterCourses = await Course.find({
+        department: studentDetails.department,
+        semester: studentDetails.semester,
+        isDeleted: { $ne: true },
+      })
+        .select("code courseName department semester branch credit")
+        .populate("department", "name code");
+
+      if (studentDetails.program) {
+        const programLower = String(studentDetails.program).toLowerCase();
+        const branchMatched = deptSemesterCourses.filter((courseDoc) => {
+          if (!courseDoc?.branch) return true;
+          const branchLower = String(courseDoc.branch).toLowerCase();
+          return (
+            branchLower.includes(programLower) || programLower.includes(branchLower)
+          );
+        });
+        courses = branchMatched.length > 0 ? branchMatched : deptSemesterCourses;
+      } else {
+        courses = deptSemesterCourses;
+      }
+    }
+
     res.json({
       message: "Courses fetched successfully",
       count: courses.length,
+      academic: {
+        semester: studentDetails.semester || null,
+        academicYear: studentDetails.academicYear || null,
+      },
       courses,
     });
   } catch (error) {

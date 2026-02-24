@@ -12,7 +12,13 @@ import attendanceRoutes from "./Routes/attendanceRoutes.js";
 import sectionRoutes from "./Routes/sectionRoutes.js"
 import sectionCourseRoutes from "./Routes/sectionCourseRoutes.js"
 import timeTableRoutes from "./Routes/timeTableRoutes.js"
-
+import placementRoutes from "./Routes/placementRoutes.js"
+import externalJobRoutes from "./Routes/externalJobRoutes.js"
+import dns from "node:dns/promises"
+dns.setServers(["1.1.1.1","8.8.8.8"])
+import hostelRoutes from "./Routes/hostelRoutes.js";
+import roomRoutes from "./Routes/roomRoutes.js";
+import hostelAllocationRoutes from "./Routes/hostelAllocationRoutes.js";
 
 dotenv.config();
 
@@ -89,7 +95,13 @@ app.use('/api/attendance/', attendanceRoutes)
 app.use("/api/sections/", sectionRoutes);
 app.use("/api/section-courses/", sectionCourseRoutes);
 app.use("/api/timetable/", timeTableRoutes);
+app.use("/api/placement/", placementRoutes);
+app.use("/api/external-jobs", externalJobRoutes);
 
+
+app.use("/api/hostels", hostelRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/hostel-allocation", hostelAllocationRoutes);
 // Handle malformed JSON payloads from clients.
 app.use((err, req, res, next) => {
   console.error("[Server Error Handler]", err);

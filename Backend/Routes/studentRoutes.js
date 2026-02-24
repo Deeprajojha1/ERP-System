@@ -17,6 +17,8 @@ import {
 } from "../controllers/studentAdmitCardController.js";
 import {
   getPublishedExamsForStudent,
+  verifyStudentFace,
+  checkAttemptFaceActivity,
   startExamAttempt,
   saveExamAnswer,
   submitExamAttempt,
@@ -55,7 +57,9 @@ router.get("/admit-card/:id", isAuth, isStudent, getMyAdmitCardById);
 
 /* AI Exam (Student) */
 router.get("/exam", isAuth, isStudent, getPublishedExamsForStudent);
+router.post("/exam/face-verify", isAuth, isStudent, verifyStudentFace);
 router.post("/exam/:id/start", isAuth, isStudent, startExamAttempt);
+router.post("/attempt/:attemptId/face-check", isAuth, isStudent, checkAttemptFaceActivity);
 router.patch("/attempt/:attemptId/answer", isAuth, isStudent, saveExamAnswer);
 router.post("/attempt/:attemptId/submit", isAuth, isStudent, submitExamAttempt);
 router.get("/attempt/:attemptId/result", isAuth, isStudent, getMyExamResult);

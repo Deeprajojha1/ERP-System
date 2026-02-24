@@ -18,13 +18,6 @@ const tokenize = (text = "") =>
     .split(/\s+/)
     .filter((token) => token.length > 2 && !STOP_WORDS.has(token));
 
-const optionTheme = (value = "") => {
-  const text = String(value || "");
-  const dashIndex = text.lastIndexOf(" - ");
-  if (dashIndex === -1) return normalizeLoose(text);
-  return normalizeLoose(text.slice(0, dashIndex));
-};
-
 const titleCase = (value = "") =>
   String(value)
     .trim()
@@ -241,7 +234,6 @@ JSON schema:
 };
 
 const evaluateTextLocal = ({ question, answer }) => {
-  const maxMarks = Number(question?.marks || 0);
   const studentAnswer = String(answer || "").trim();
   const expected = String(question?.correctAnswer || "").trim();
   const rubricPoints = Array.isArray(question?.rubric?.keyPoints)
@@ -281,24 +273,18 @@ const evaluateTextLocal = ({ question, answer }) => {
   const lengthScore = Math.min(1, tokenize(studentAnswer).length / lengthTarget);
 
   const ratio = Math.min(1, Math.max(0, tokenCoverage * 0.45 + rubricCoverage * 0.4 + lengthScore * 0.15));
-  const awardedMarks = Math.max(0, Math.min(maxMarks, Number((maxMarks * ratio).toFixed(2))));
+  const isCorrect = ratio >= 0.7;
 
   return {
-    awardedMarks,
-    isCorrect: ratio >= 0.7,
-    feedback:
-      ratio >= 0.7
-        ? "Good conceptual coverage with relevant points."
-        : ratio >= 0.4
-          ? "Partially correct. Add more key concepts and examples."
-          : "Answer is too limited. Cover core concepts, structure, and examples.",
+    awardedMarks: isCorrect ? 1 : 0,
+    isCorrect,
+    feedback: isCorrect ? "Correct answer." : "Incorrect answer.",
     expectedAnswer: expected,
   };
 };
 
 export const evaluateQuestion = async ({ question, answer }) => {
   const sectionType = String(question?.sectionType || "").toUpperCase();
-  const maxMarks = Number(question?.marks || 0);
 
   if (sectionType === "MCQ") {
     const expected = String(question?.correctAnswer || "").trim();
@@ -306,17 +292,12 @@ export const evaluateQuestion = async ({ question, answer }) => {
     const expectedNorm = normalizeLoose(expected);
     const selectedNorm = normalizeLoose(selected);
     const isExact = expectedNorm && expectedNorm === selectedNorm;
-    const sameTheme = optionTheme(expected) && optionTheme(expected) === optionTheme(selected);
-    const awardedMarks = isExact ? maxMarks : sameTheme ? Number((maxMarks * 0.5).toFixed(2)) : 0;
+    const awardedMarks = isExact ? 1 : 0;
     const isCorrect = isExact;
     return {
       awardedMarks,
       isCorrect,
-      feedback: isExact
-        ? "Correct option selected."
-        : sameTheme
-          ? "Partially correct concept, but selected the wrong option statement."
-          : "Incorrect option selected.",
+      feedback: isExact ? "Correct option selected." : "Incorrect option selected.",
       expectedAnswer: expected,
       studentAnswer: selected,
     };
@@ -337,33 +318,29 @@ export const evaluateQuestion = async ({ question, answer }) => {
 Evaluate a student's ${sectionType} answer and return strict JSON.
 
 Question: ${String(question?.questionText || "")}
-Max marks: ${maxMarks}
 Expected answer: ${String(question?.correctAnswer || "")}
 Rubric: ${JSON.stringify(question?.rubric || {})}
 Student answer: ${String(answer?.answerText || "")}
 
 Scoring rules:
-- awardedMarks must be between 0 and max marks.
-- isCorrect should be true for high quality answers only.
-- feedback must be concise and specific.
+- Return ONLY binary judgement.
+- isCorrect should be true for fully correct/high quality answers only.
 - expectedAnswer should be short model answer.
 
 JSON schema:
 {
-  "awardedMarks": 0,
   "isCorrect": false,
-  "feedback": "string",
   "expectedAnswer": "string"
 }
 `;
 
   const aiResponse = await callGeminiJson(prompt);
-  if (aiResponse && Number.isFinite(Number(aiResponse.awardedMarks))) {
-    const awardedMarks = Math.max(0, Math.min(maxMarks, Number(aiResponse.awardedMarks)));
+  if (aiResponse && typeof aiResponse === "object") {
+    const isCorrect = Boolean(aiResponse.isCorrect);
     return {
-      awardedMarks: Number(awardedMarks.toFixed(2)),
-      isCorrect: Boolean(aiResponse.isCorrect),
-      feedback: String(aiResponse.feedback || ""),
+      awardedMarks: isCorrect ? 1 : 0,
+      isCorrect,
+      feedback: isCorrect ? "Correct answer." : "Incorrect answer.",
       expectedAnswer: String(aiResponse.expectedAnswer || question?.correctAnswer || ""),
       studentAnswer: String(answer?.answerText || "").trim(),
     };

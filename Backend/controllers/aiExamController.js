@@ -7,6 +7,7 @@ import Student from "../models/Student.js";
 import User from "../models/userModel.js";
 import Faculty from "../models/Faculty.js";
 import { evaluateQuestion, generatePaperDraft } from "../services/examAiService.js";
+import { verifyFaceWithPython } from "../services/faceVerifyService.js";
 
 const toObjectId = (value) => {
   if (!value) return null;
@@ -78,6 +79,7 @@ const hasAttemptTimedOut = ({ startedAt, durationMinutes, now }) => {
   const endTime = new Date(new Date(startedAt).getTime() + Number(durationMinutes || 0) * 60000);
   return now > endTime;
 };
+const MAX_EXAM_ATTEMPTS = 10;
 
 const buildAnswerMap = (answers = []) => {
   const map = new Map();
@@ -87,6 +89,136 @@ const buildAnswerMap = (answers = []) => {
     }
   });
   return map;
+};
+
+const normalizeFaceVerification = (result) => {
+  const facesDetected = Number(result?.facesDetected || 0);
+  const eyesDetected = Number(result?.eyesDetected || 0);
+  const gazeVerified =
+    typeof result?.gazeVerified === "boolean"
+      ? result.gazeVerified
+      : eyesDetected >= 1;
+  const verified = Boolean(result?.verified) && facesDetected === 1 && gazeVerified;
+  const reason = verified
+    ? "VERIFIED"
+    : facesDetected === 0
+    ? "NO_FACE"
+    : facesDetected > 1
+    ? "MULTIPLE_FACES"
+    : !gazeVerified || String(result?.reason || "") === "EYES_NOT_VISIBLE"
+    ? "EYES_NOT_VISIBLE"
+    : String(result?.reason || "UNKNOWN");
+  return { verified, facesDetected, eyesDetected, gazeVerified, reason };
+};
+
+const runFaceVerification = async (imageData) => {
+  const result = await verifyFaceWithPython({ imageData });
+  if (!result?.ok) {
+    return {
+      ok: false,
+      message: result?.message || "Face verification service unavailable.",
+      error: result?.error || "FACE_VERIFY_FAILED",
+      details: result?.stderr || "",
+    };
+  }
+  return {
+    ok: true,
+    ...normalizeFaceVerification(result),
+  };
+};
+
+export const verifyStudentFace = async (req, res) => {
+  try {
+    const { imageData } = req.body || {};
+    if (!String(imageData || "").trim()) {
+      return res.status(400).json({ message: "imageData is required" });
+    }
+
+    const student = await getCurrentStudent(req.userId);
+    if (!student) {
+      return res.status(404).json({ message: "Student profile not found" });
+    }
+
+    const verification = await runFaceVerification(imageData);
+    if (!verification.ok) {
+      return res.status(503).json({
+        message: verification.message,
+        error: verification.error,
+        details: verification.details,
+      });
+    }
+
+    return res.json({
+      message: verification.verified
+        ? "Face verified successfully"
+        : "Face verification failed",
+      verified: verification.verified,
+      facesDetected: verification.facesDetected,
+      eyesDetected: verification.eyesDetected,
+      gazeVerified: verification.gazeVerified,
+      reason: verification.reason,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+export const checkAttemptFaceActivity = async (req, res) => {
+  try {
+    const { attemptId } = req.params;
+    const { imageData } = req.body || {};
+    if (!String(imageData || "").trim()) {
+      return res.status(400).json({ message: "imageData is required" });
+    }
+
+    const student = await getCurrentStudent(req.userId);
+    if (!student) {
+      return res.status(404).json({ message: "Student profile not found" });
+    }
+
+    const attempt = await ExamAttempt.findOne({
+      _id: attemptId,
+      student: student._id,
+    });
+    if (!attempt) {
+      return res.status(404).json({ message: "Exam attempt not found" });
+    }
+    if (attempt.status !== "IN_PROGRESS") {
+      return res.status(400).json({ message: "Exam attempt is not in progress" });
+    }
+
+    const blueprint = await ExamBlueprint.findById(attempt.blueprintId);
+    if (!blueprint) {
+      return res.status(404).json({ message: "Exam blueprint not found" });
+    }
+
+    const now = new Date();
+    if (!isWithinSchedule({ start: blueprint.scheduleStart, end: blueprint.scheduleEnd, now })) {
+      return res.status(400).json({ message: "Exam schedule window is closed" });
+    }
+    if (hasAttemptTimedOut({ startedAt: attempt.startedAt, durationMinutes: blueprint.durationMinutes, now })) {
+      return res.status(400).json({ message: "Exam duration is over. Please submit attempt." });
+    }
+
+    const verification = await runFaceVerification(imageData);
+    if (!verification.ok) {
+      return res.status(503).json({
+        message: verification.message,
+        error: verification.error,
+        details: verification.details,
+      });
+    }
+
+    return res.json({
+      verified: verification.verified,
+      facesDetected: verification.facesDetected,
+      eyesDetected: verification.eyesDetected,
+      gazeVerified: verification.gazeVerified,
+      reason: verification.reason,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
 };
 
 /* ================= STUDENT - LIST AVAILABLE EXAMS ================= */
@@ -118,6 +250,16 @@ export const getPublishedExamsForStudent = async (req, res) => {
       blueprintId: { $in: blueprintIds },
     }).sort({ createdAt: -1, attemptNumber: -1 });
 
+    const attemptIds = attempts.map((item) => item._id);
+    const evaluations = attemptIds.length
+      ? await ExamEvaluation.find({ attemptId: { $in: attemptIds } }).select(
+          "attemptId totalAwarded totalMax"
+        )
+      : [];
+    const evaluationByAttempt = new Map(
+      evaluations.map((item) => [String(item.attemptId), item])
+    );
+
     const attemptsByBlueprint = attempts.reduce((acc, item) => {
       const key = String(item.blueprintId);
       if (!acc[key]) acc[key] = [];
@@ -133,6 +275,21 @@ export const getPublishedExamsForStudent = async (req, res) => {
       const latestAttempt = rows[0] || null;
       const latestEvaluatedAttempt =
         rows.find((item) => item.status === "EVALUATED") || null;
+      const evaluatedAttempts = rows
+        .filter((item) => item.status === "EVALUATED")
+        .sort((a, b) => Number(b.attemptNumber || 0) - Number(a.attemptNumber || 0))
+        .map((item) => {
+          const evalRow = evaluationByAttempt.get(String(item._id));
+          const totalAwarded = Number(evalRow?.totalAwarded || 0);
+          const totalMax = Number(evalRow?.totalMax || 0);
+          return {
+            attemptId: item._id,
+            attemptNumber: Number(item?.attemptNumber || 1),
+            totalAwarded,
+            totalMax,
+            submittedAt: item?.submittedAt || null,
+          };
+        });
 
       const withinSchedule = isWithinSchedule({
         start: blueprint.scheduleStart,
@@ -141,7 +298,7 @@ export const getPublishedExamsForStudent = async (req, res) => {
       });
 
       const attemptsUsed = rows.length;
-      const maxAttempts = 2;
+      const maxAttempts = MAX_EXAM_ATTEMPTS;
       const canAttempt = Boolean(activeAttempt) || (withinSchedule && attemptsUsed < maxAttempts);
 
       return {
@@ -166,6 +323,7 @@ export const getPublishedExamsForStudent = async (req, res) => {
         activeAttemptId: activeAttempt?._id || null,
         latestAttemptId: latestAttempt?._id || null,
         latestEvaluatedAttemptId: latestEvaluatedAttempt?._id || null,
+        evaluatedAttempts,
         canAttempt,
       };
     });
@@ -621,7 +779,7 @@ export const getExamStudentScores = async (req, res) => {
 export const startExamAttempt = async (req, res) => {
   try {
     const { id } = req.params;
-    const maxAttempts = 2;
+    const maxAttempts = MAX_EXAM_ATTEMPTS;
     const student = await getCurrentStudent(req.userId);
     if (!student) {
       return res.status(404).json({ message: "Student profile not found" });
@@ -670,7 +828,9 @@ export const startExamAttempt = async (req, res) => {
       });
     }
     if (attempts.length >= maxAttempts) {
-      return res.status(400).json({ message: "Maximum 2 attempts allowed for this exam" });
+      return res
+        .status(400)
+        .json({ message: `Maximum ${MAX_EXAM_ATTEMPTS} attempts allowed for this exam` });
     }
     const attemptNumber = attempts.length + 1;
 
@@ -719,9 +879,16 @@ export const saveExamAnswer = async (req, res) => {
   try {
     const { attemptId } = req.params;
     const { questionIndex, answerText = "", selectedOption = "" } = req.body || {};
+    const normalizedAnswerText = String(answerText || "").trim();
+    const normalizedSelectedOption = String(selectedOption || "").trim();
 
     if (!Number.isFinite(Number(questionIndex)) || Number(questionIndex) < 0) {
       return res.status(400).json({ message: "Valid questionIndex is required" });
+    }
+    if (!normalizedAnswerText && !normalizedSelectedOption) {
+      return res.status(400).json({
+        message: "Answer is required to save this question. Use Skip for unanswered questions.",
+      });
     }
 
     const student = await getCurrentStudent(req.userId);
@@ -754,10 +921,19 @@ export const saveExamAnswer = async (req, res) => {
     }
 
     const answerMap = buildAnswerMap(attempt.answers);
+    const existingAnswer = answerMap.get(Number(questionIndex)) || {};
+    const alreadyLocked =
+      String(existingAnswer?.answerText || "").trim().length > 0 ||
+      String(existingAnswer?.selectedOption || "").trim().length > 0;
+    if (alreadyLocked) {
+      return res.status(400).json({
+        message: "This question is already answered and cannot be changed.",
+      });
+    }
     answerMap.set(Number(questionIndex), {
       questionIndex: Number(questionIndex),
-      answerText: String(answerText || ""),
-      selectedOption: String(selectedOption || ""),
+      answerText: normalizedAnswerText,
+      selectedOption: normalizedSelectedOption,
     });
 
     const answers = Array.from(answerMap.values()).sort(
@@ -789,7 +965,7 @@ const evaluateAttempt = async ({ paper, answers }) => {
     const question = paper.questions[index];
     const answer = answerMap.get(index) || {};
     const evaluated = await evaluateQuestion({ question, answer });
-    const maxMarks = Number(question?.marks || 0);
+    const maxMarks = 1;
     totalAwarded += Number(evaluated.awardedMarks || 0);
     totalMax += maxMarks;
     perQuestion.push({
