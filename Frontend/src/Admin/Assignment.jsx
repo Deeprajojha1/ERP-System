@@ -14,7 +14,7 @@ import {
   selectAssignmentError,
 } from "../redux/assignmentSlice";
 import toast from "react-hot-toast";
-import "./Assignment.css";
+import "./assignment.css";
 
 const Assignment = () => {
   const dispatch = useDispatch();
@@ -314,3 +314,4 @@ const Assignment = () => {
 };
 
 export default Assignment;
+

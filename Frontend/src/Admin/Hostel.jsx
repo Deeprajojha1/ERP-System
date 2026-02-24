@@ -14,7 +14,7 @@ import {
   allocateStudentApi,
   vacateStudentApi,
 } from "./constants/allocationApi";
-import "./hostel.css";
+import "./Hostel.css";
 
 const Hostel = () => {
   // ================= STATE =================
