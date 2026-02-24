@@ -206,7 +206,10 @@ const FeesDiscounts = () => {
           <p>Configure automatic discount rules based on merit, rank, GPA, and other criteria.</p>
         </div>
         <button type="button" className="fee-discounts-add-btn" onClick={openCreateModal}>
-          <FiPlus /> Add Discount Rule
+          <span className="fee-discounts-add-btn-icon" aria-hidden="true">
+            <FiPlus />
+          </span>
+          <span>Add Discount Rule</span>
         </button>
       </header>
 

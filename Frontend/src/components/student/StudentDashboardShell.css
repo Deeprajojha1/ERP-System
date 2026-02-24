@@ -18,6 +18,16 @@
   width: 100% !important;
 }
 
+.student-admin-layout.exam-focus-mode {
+  padding-top: 0 !important;
+}
+
+.student-admin-layout.exam-focus-mode .student-admin-content {
+  margin-left: 0 !important;
+  padding: 0 !important;
+  min-height: 100vh !important;
+}
+
 .student-admin-sidebar {
   width: 292px !important;
   min-width: 292px !important;

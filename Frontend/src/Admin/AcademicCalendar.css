@@ -1,7 +1,7 @@
 .academic-calendar-page {
   min-height: 100vh;
   padding: 32px;
-  background: #f6f7fb;
+  background: linear-gradient(180deg, #f5f7fb 0%, #eff3fb 100%);
   color: #0f172a;
   display: flex;
   flex-direction: column;
@@ -38,13 +38,121 @@
   border-radius: 999px;
   background: linear-gradient(135deg, #22d3ee, #6366f1);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 12px 22px;
   cursor: pointer;
   box-shadow: 0 18px 32px rgba(99, 102, 241, 0.35);
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.ac-primary-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 38px rgba(99, 102, 241, 0.4);
+}
+
+.ac-form-card {
+  background: #ffffff;
+  border: 1px solid #dbe5f1;
+  border-radius: 22px;
+  padding: 22px;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.ac-form-head h3 {
+  margin: 0;
+  font-size: 1.25rem;
+  color: #0f172a;
+}
+
+.ac-form-head p {
+  margin: 6px 0 0;
+  color: #64748b;
+}
+
+.ac-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.ac-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ac-form-field span {
+  font-size: 13px;
+  font-weight: 700;
+  color: #334155;
+}
+
+.ac-form-field input,
+.ac-form-field select,
+.ac-form-field textarea {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.ac-form-field textarea {
+  resize: vertical;
+}
+
+.ac-form-field input:focus,
+.ac-form-field select:focus,
+.ac-form-field textarea:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+}
+
+.ac-form-field--full {
+  grid-column: 1 / -1;
+}
+
+.ac-form-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #b91c1c;
+  background: #fff1f2;
+  border: 1px solid #fecaca;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ac-form-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.ac-secondary-btn {
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.ac-primary-btn--form {
+  border-radius: 12px;
+  padding: 10px 16px;
+  box-shadow: 0 12px 24px rgba(99, 102, 241, 0.32);
 }
 
 .ac-timeline {
@@ -109,6 +217,11 @@
   color: #2563eb;
 }
 
+.ac-event-tag.tag-general {
+  background: rgba(148, 163, 184, 0.22);
+  color: #334155;
+}
+
 @media (max-width: 768px) {
   .academic-calendar-page {
     padding: 24px 16px 72px;
@@ -120,5 +233,19 @@
 
   .ac-event-card {
     grid-template-columns: 1fr;
+  }
+
+  .ac-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ac-form-actions {
+    justify-content: stretch;
+  }
+
+  .ac-secondary-btn,
+  .ac-primary-btn--form {
+    width: 100%;
+    justify-content: center;
   }
 }

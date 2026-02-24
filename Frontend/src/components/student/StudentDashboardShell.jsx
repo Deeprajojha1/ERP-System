@@ -10,7 +10,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiDollarSign,
-  FiBriefcase,
+  FiTrendingUp,
 } from "react-icons/fi";
 import { useLocation, useNavigate } from "react-router-dom";
 import heroImage from "../../assets/college_47233.jpg";
@@ -20,7 +20,7 @@ import StudentDetails from "./StudentDetails";
 import AttendanceOverview from "./AttendanceOverview";
 import CoursesDetails from "./CoursesDetails";
 import StudentExamCenter from "./StudentExamCenter";
-import StudentExternalJobs from "./StudentExternalJobs";
+import LinkedinAnalyzer from "./linkedin/LinkedinAnalyzer";
 import "./StudentDashboardShell.css";
 
 const StudentDashboardShell = ({
@@ -42,6 +42,7 @@ const StudentDashboardShell = ({
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true)
   );
+  const [isExamFocusMode, setIsExamFocusMode] = useState(false);
 
   // Keep existing profile image resolution behavior.
   const profileImage = (() => {
@@ -86,7 +87,7 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/courses")) return "courses";
     if (path.includes("/dashboard/exams")) return "exams";
     if (path.includes("/dashboard/fees")) return "fees";
-    if (path.includes("/dashboard/jobs")) return "jobs";
+    if (path.includes("/dashboard/linkedin-analyzer")) return "linkedin";
     return "home";
   }, [location.pathname]);
 
@@ -96,8 +97,13 @@ const StudentDashboardShell = ({
     { id: "attendance", label: "Attendance", path: "/dashboard/attendance", icon: FiActivity },
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
     { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
-    { id: "jobs", label: "Jobs", path: "/dashboard/jobs", icon: FiBriefcase },
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
+    {
+      id: "linkedin",
+      label: "LinkedIn AI",
+      path: "/dashboard/linkedin-analyzer",
+      icon: FiTrendingUp,
+    },
   ];
 
   const userInitials = (studentName || "Student")
@@ -258,53 +264,61 @@ const StudentDashboardShell = ({
       return renderDateWiseAttendance();
     }
     if (currentSection === "courses") {
-      return <CoursesDetails coursesData={coursesData} onCourseClick={onCourseClick} />;
+      return (
+        <CoursesDetails
+          coursesData={coursesData}
+          roleDetails={roleDetails}
+          onCourseClick={onCourseClick}
+        />
+      );
     }
     if (currentSection === "exams") {
-      return <StudentExamCenter />;
-    }
-    if (currentSection === "jobs") {
-      return <StudentExternalJobs />;
+      return <StudentExamCenter onExamFocusModeChange={setIsExamFocusMode} />;
     }
     if (currentSection === "fees") {
       return renderFees();
+    }
+    if (currentSection === "linkedin") {
+      return <LinkedinAnalyzer />;
     }
     return renderHome();
   };
 
   return (
     <>
-      <header className="student-admin-nav">
-        <div className="student-admin-nav-inner">
-          <div className="student-admin-nav-left">
-            <div className="student-admin-brand">
-              <PiStudentBold className="icons circle" />
-              <div className="student-admin-brand-copy">
-                <h1>Student Desk</h1>
-                <p>HU ERP Portal</p>
+      {!isExamFocusMode && (
+        <header className="student-admin-nav">
+          <div className="student-admin-nav-inner">
+            <div className="student-admin-nav-left">
+              <div className="student-admin-brand">
+                <PiStudentBold className="icons circle" />
+                <div className="student-admin-brand-copy">
+                  <h1>Student Desk</h1>
+                  <p>HU ERP Portal</p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="student-admin-nav-right">
-            <div className="student-admin-welcome">
-              <span>Welcome, {studentName}</span>
-              <small>{todayLabel}</small>
+            <div className="student-admin-nav-right">
+              <div className="student-admin-welcome">
+                <span>Welcome, {studentName}</span>
+                <small>{todayLabel}</small>
+              </div>
+              <NetworkSpeedBadge />
+              <AlertNotifications />
+              <button className="student-admin-logout" type="button" onClick={onLogout}>
+                Logout
+              </button>
             </div>
-            <NetworkSpeedBadge />
-            <AlertNotifications />
-            <button className="student-admin-logout" type="button" onClick={onLogout}>
-              Logout
-            </button>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
       <div
         className={`student-admin-layout ${
-          isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"
+          isExamFocusMode ? "exam-focus-mode" : isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"
         }`}
       >
-        {!isSidebarOpen && (
+        {!isExamFocusMode && !isSidebarOpen && (
           <button
             type="button"
             className="student-admin-sidebar-reopen"
@@ -315,82 +329,84 @@ const StudentDashboardShell = ({
           </button>
         )}
 
-        <aside
-          id="student-dashboard-sidebar"
-          className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}
-        >
-          <div className="student-admin-sidebar-profile">
-            <div className="student-admin-sidebar-profile-main">
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt="Profile"
-                  className="student-admin-sidebar-avatar-img"
-                />
-              ) : (
-                <div className="student-admin-sidebar-avatar">{userInitials || "ST"}</div>
-              )}
-              <div className="student-admin-sidebar-profile-copy">
-                <h2>{studentName}</h2>
-                <p>{studentEmail}</p>
+        {!isExamFocusMode && (
+          <aside
+            id="student-dashboard-sidebar"
+            className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}
+          >
+            <div className="student-admin-sidebar-profile">
+              <div className="student-admin-sidebar-profile-main">
+                {profileImage ? (
+                  <img
+                    src={profileImage}
+                    alt="Profile"
+                    className="student-admin-sidebar-avatar-img"
+                  />
+                ) : (
+                  <div className="student-admin-sidebar-avatar">{userInitials || "ST"}</div>
+                )}
+                <div className="student-admin-sidebar-profile-copy">
+                  <h2>{studentName}</h2>
+                  <p>{studentEmail}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="student-admin-sidebar-toggle"
+                onClick={() => setIsSidebarOpen((prev) => !prev)}
+                aria-label="Toggle sidebar"
+              >
+                {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
+              </button>
+            </div>
+
+            <div className="student-admin-sidebar-menu-scroll">
+              <div className="student-admin-sidebar-header">
+                <span className="student-admin-sidebar-title">Menu</span>
+              </div>
+
+              <div className="student-admin-sidebar-section">
+                <label className="student-admin-sidebar-label">DASHBOARD</label>
+                {menuItems.slice(0, 2).map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`student-admin-sidebar-btn ${
+                        currentSection === item.id ? "active" : ""
+                      }`}
+                      onClick={() => handleMenuClick(item)}
+                    >
+                      <Icon />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="student-admin-sidebar-section">
+                <label className="student-admin-sidebar-label">ACADEMICS</label>
+                {menuItems.slice(2).map((item) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`student-admin-sidebar-btn ${
+                        currentSection === item.id ? "active" : ""
+                      }`}
+                      onClick={() => handleMenuClick(item)}
+                    >
+                      <Icon />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
-            <button
-              type="button"
-              className="student-admin-sidebar-toggle"
-              onClick={() => setIsSidebarOpen((prev) => !prev)}
-              aria-label="Toggle sidebar"
-            >
-              {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
-            </button>
-          </div>
-
-          <div className="student-admin-sidebar-menu-scroll">
-            <div className="student-admin-sidebar-header">
-              <span className="student-admin-sidebar-title">Menu</span>
-            </div>
-
-            <div className="student-admin-sidebar-section">
-              <label className="student-admin-sidebar-label">DASHBOARD</label>
-              {menuItems.slice(0, 2).map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`student-admin-sidebar-btn ${
-                      currentSection === item.id ? "active" : ""
-                    }`}
-                    onClick={() => handleMenuClick(item)}
-                  >
-                    <Icon />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="student-admin-sidebar-section">
-              <label className="student-admin-sidebar-label">ACADEMICS</label>
-              {menuItems.slice(2).map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`student-admin-sidebar-btn ${
-                      currentSection === item.id ? "active" : ""
-                    }`}
-                    onClick={() => handleMenuClick(item)}
-                  >
-                    <Icon />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </aside>
+          </aside>
+        )}
 
         <main className="student-admin-content">
           {currentSection === "home" ? (

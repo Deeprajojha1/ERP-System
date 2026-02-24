@@ -5,6 +5,72 @@
   gap: 24px;
 }
 
+.fees-title {
+  margin: 0;
+  font-size: clamp(24px, 3vw, 32px);
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.fees-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.fees-card {
+  background: linear-gradient(145deg, #ffffff, #f8fbff);
+  border: 1px solid #dbe6f3;
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
+}
+
+.fees-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+
+.fees-card-label {
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.fees-card-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #e0edff;
+  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.fees-card-value {
+  margin: 0;
+  font-size: 30px;
+  line-height: 1.1;
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.fees-card-note {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .fee-dashboard-headline {
   display: flex;
   justify-content: space-between;
@@ -334,6 +400,121 @@
   text-align: center;
 }
 
+/* =========================
+   Mobile responsive tweaks
+   ======================== */
+@media (max-width: 768px) {
+  .fee-structure-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .fee-dashboard-headline {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .fee-setup-form {
+    grid-template-columns: 1fr !important;
+    gap: 10px;
+  }
+
+  .fee-setup-form .fee-setup-input,
+  .fee-setup-form select,
+  .fee-setup-form .fee-setup-input--readonly {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .fee-setup-submit-btn {
+    width: 100%;
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+
+  .fee-setup-help {
+    font-size: 13px;
+  }
+
+  /* Tables: allow horizontal scroll on small screens */
+  .fees-table-wrap {
+    overflow-x: auto;
+  }
+
+  .fees-table {
+    min-width: 100%;
+    width: 100%;
+  }
+
+  /* Reduce paddings inside table for small screens */
+  .fees-table thead th,
+  .fees-table tbody td {
+    padding: 10px 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .fee-table-section {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .fee-dashboard-title {
+    font-size: 20px;
+  }
+}
+
+/* Further refinements for small devices */
+@media (max-width: 600px) {
+  .fees-page {
+    padding: 8px 6px 24px;
+  }
+
+  .fee-table-section {
+    padding: 14px;
+  }
+
+  /* Reduce large min-width forcing overflow */
+  .fees-table {
+    min-width: auto !important;
+    font-size: 13px;
+  }
+
+  .fees-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Make multi-select less tall on phones */
+  .fee-setup-input--multi {
+    min-height: 88px;
+  }
+
+  /* Reduce button padding and font size for narrow screens */
+  .fee-setup-submit-btn {
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  /* Ensure select and special inputs don't overflow */
+  .fee-year-select {
+    min-width: 0;
+    width: auto;
+  }
+
+  /* Prevent long help text from wrapping badly */
+  .fee-setup-help {
+    font-size: 12px;
+  }
+
+  /* Tighter table cell paddings */
+  .fees-table thead th,
+  .fees-table tbody td {
+    padding: 8px 10px;
+  }
+}
+
 .fees-state.pending {
   display: flex;
   flex-direction: column;
@@ -375,6 +556,86 @@
 .fee-structure-header p {
   margin: 6px 0 0;
   color: #475569;
+}
+
+.fee-setup-form {
+  display: grid;
+  gap: 12px;
+  align-items: center;
+}
+
+.fee-setup-form--program {
+  grid-template-columns: minmax(220px, 2fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) auto;
+}
+
+.fee-setup-form--branch {
+  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1.2fr) minmax(240px, 1.7fr) auto;
+}
+
+.fee-setup-form--batch {
+  grid-template-columns: minmax(120px, 0.8fr) minmax(190px, 1.1fr) minmax(250px, 1.7fr) auto;
+}
+
+.fee-setup-input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: #0f172a;
+  background: #ffffff;
+  outline: none;
+}
+
+.fee-setup-input::placeholder {
+  color: #64748b;
+}
+
+.fee-setup-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.fee-setup-input--readonly {
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 600;
+}
+
+.fee-setup-input--multi {
+  min-height: 116px;
+  padding: 8px 10px;
+}
+
+.fee-setup-submit-btn {
+  border: none;
+  min-height: 46px;
+  border-radius: 12px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, #1d4ed8, #2563eb);
+  color: #ffffff;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.25);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, opacity 0.16s ease;
+}
+
+.fee-setup-submit-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 28px rgba(37, 99, 235, 0.32);
+}
+
+.fee-setup-submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.fee-setup-help {
+  margin: 2px 2px 0;
+  color: #64748b;
+  font-size: 12px;
 }
 
 .fee-structure-add-btn {
@@ -707,6 +968,16 @@
   }
 
   .fee-structure-select-group {
+    width: 100%;
+  }
+
+  .fee-setup-form--program,
+  .fee-setup-form--branch,
+  .fee-setup-form--batch {
+    grid-template-columns: 1fr;
+  }
+
+  .fee-setup-submit-btn {
     width: 100%;
   }
 }

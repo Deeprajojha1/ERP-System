@@ -157,9 +157,10 @@ const FeesAcademic = () => {
         </div>
         <form
           onSubmit={submitProgram}
-          style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: "10px", marginBottom: "12px" }}
+          className="fee-setup-form fee-setup-form--program"
         >
           <input
+            className="fee-setup-input"
             type="text"
             placeholder="Program name (e.g. B.Tech)"
             value={programForm.programName}
@@ -169,6 +170,7 @@ const FeesAcademic = () => {
             required
           />
           <input
+            className="fee-setup-input"
             type="number"
             min="1"
             placeholder="Duration years"
@@ -178,8 +180,8 @@ const FeesAcademic = () => {
             }
             required
           />
-          <input type="number" value={totalSemesters} readOnly />
-          <button type="submit" disabled={actionLoading}>
+          <input className="fee-setup-input fee-setup-input--readonly" type="number" value={totalSemesters} readOnly />
+          <button className="fee-setup-submit-btn" type="submit" disabled={actionLoading}>
             {actionLoading ? "Saving..." : "Create Program"}
           </button>
         </form>
@@ -191,9 +193,10 @@ const FeesAcademic = () => {
         </div>
         <form
           onSubmit={submitBranch}
-          style={{ display: "grid", gridTemplateColumns: "1.5fr 1.5fr 2fr auto", gap: "10px", marginBottom: "12px" }}
+          className="fee-setup-form fee-setup-form--branch"
         >
           <select
+            className="fee-setup-input"
             value={branchForm.programId}
             onChange={(event) =>
               setBranchForm((prev) => ({ ...prev, programId: event.target.value }))
@@ -208,6 +211,7 @@ const FeesAcademic = () => {
             ))}
           </select>
           <input
+            className="fee-setup-input"
             type="text"
             placeholder="Branch name"
             value={branchForm.branchName}
@@ -217,6 +221,7 @@ const FeesAcademic = () => {
             required
           />
           <input
+            className="fee-setup-input"
             type="text"
             placeholder="Semester fees (e.g. 1:50000,2:50000)"
             value={branchForm.semesterBaseFees}
@@ -225,7 +230,7 @@ const FeesAcademic = () => {
             }
             required
           />
-          <button type="submit" disabled={actionLoading}>
+          <button className="fee-setup-submit-btn" type="submit" disabled={actionLoading}>
             {actionLoading ? "Saving..." : "Create Branch"}
           </button>
         </form>
@@ -237,9 +242,10 @@ const FeesAcademic = () => {
         </div>
         <form
           onSubmit={submitBatch}
-          style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 2fr auto", gap: "10px", marginBottom: "12px" }}
+          className="fee-setup-form fee-setup-form--batch"
         >
           <input
+            className="fee-setup-input"
             type="number"
             min="2000"
             max="2100"
@@ -250,6 +256,7 @@ const FeesAcademic = () => {
             required
           />
           <select
+            className="fee-setup-input"
             value={batchForm.departmentId}
             onChange={(event) =>
               setBatchForm((prev) => ({ ...prev, departmentId: event.target.value }))
@@ -264,6 +271,7 @@ const FeesAcademic = () => {
             ))}
           </select>
           <select
+            className="fee-setup-input fee-setup-input--multi"
             multiple
             value={batchForm.programIds}
             onChange={(event) => {
@@ -278,10 +286,11 @@ const FeesAcademic = () => {
               </option>
             ))}
           </select>
-          <button type="submit" disabled={actionLoading}>
+          <button className="fee-setup-submit-btn" type="submit" disabled={actionLoading}>
             {actionLoading ? "Saving..." : "Create Batch"}
           </button>
         </form>
+        <p className="fee-setup-help">For multiple programs, hold Ctrl/Cmd and select options.</p>
       </section>
 
       <section className="fee-table-section">

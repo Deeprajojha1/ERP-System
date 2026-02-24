@@ -20,186 +20,25 @@ import {
 
 import "./CoursesDetails.css";
 
-const STATIC_COURSES = [
-  {
-    id: "static-cs301",
-    courseCode: "CS301",
-    courseName: "Data Structures & Algorithms",
-    semester: "Sem 3",
-    credits: "4 Credits",
-    courseType: "Theory",
-    faculty: "Dr. Rahul Sharma",
-    schedule: "Mon, Wed 10:00 AM",
-    room: "Lab-204",
-    assignments: 4,
-    status: "Active",
-  },
-  {
-    id: "static-cs302",
-    courseCode: "CS302",
-    courseName: "Database Management Systems",
-    semester: "Sem 3",
-    credits: "3 Credits",
-    courseType: "Theory",
-    faculty: "Prof. Neha Verma",
-    schedule: "Tue, Thu 11:00 AM",
-    room: "B-105",
-    assignments: 3,
-    status: "Active",
-  },
-  {
-    id: "static-cs303",
-    courseCode: "CS303",
-    courseName: "Operating Systems",
-    semester: "Sem 3",
-    credits: "4 Credits",
-    courseType: "Theory",
-    faculty: "Dr. Ajay Singh",
-    schedule: "Fri 09:00 AM",
-    room: "A-201",
-    assignments: 2,
-    status: "Active",
-  },
-];
-
-const ASSIGNMENTS_STATIC = [
-  {
-    id: "as-01",
-    courseCode: "CS301",
-    courseName: "Data Structures & Algorithms",
-    title: "Quiz 1: Linked Lists & Pointers",
-    category: "Quiz",
-    status: "pending",
-    posted: "Oct 12, 2023",
-    due: "Tomorrow - 10:00 AM",
-    duration: "45 Minutes",
-    message: "Complete this quiz before due time.",
-    cta: "View Quiz",
-  },
-  {
-    id: "as-02",
-    courseCode: "CS301",
-    courseName: "Data Structures & Algorithms",
-    title: "Homework 1: Big O Notation & Time Complexity",
-    category: "Homework",
-    status: "pending",
-    posted: "Oct 10, 2023",
-    due: "Oct 15, 2023 - 11:59 PM",
-    duration: "Take Home",
-    message: "Submit your solution in PDF format.",
-    cta: "View Assignment",
-  },
-  {
-    id: "as-03",
-    courseCode: "CS302",
-    courseName: "Database Management Systems",
-    title: "Programming Project: AVL Tree Implementation",
-    category: "Project",
-    status: "submitted",
-    posted: "Oct 14, 2023",
-    due: "Oct 22, 2023 - 11:59 PM",
-    message: "Your assignment has been submitted.",
-  },
-  {
-    id: "as-04",
-    courseCode: "CS303",
-    courseName: "Operating Systems",
-    title: "Homework 2: Stack & Queue Implementation",
-    category: "Homework",
-    status: "graded",
-    posted: "Oct 05, 2023",
-    due: "Oct 09, 2023 - 11:59 PM",
-    grade: "8/10",
-    message: "Your assignment has been graded.",
-  },
-  {
-    id: "as-05",
-    courseCode: "CS303",
-    courseName: "Operating Systems",
-    title: "Lab 3: Process Scheduling",
-    category: "Lab",
-    status: "pending",
-    posted: "Oct 16, 2023",
-    due: "Oct 20, 2023 - 05:00 PM",
-    duration: "In Lab",
-    message: "Bring practical record with your output.",
-    cta: "View Assignment",
-  },
-];
-
 const STATUS_TABS = [
   { id: "pending", label: "Pending" },
   { id: "submitted", label: "Submitted" },
   { id: "graded", label: "Graded" },
 ];
-
-const COURSE_DETAILS_STATIC = {
-  CS301: {
-    badge: "CS301 - CORE",
-    title: "Data Structures & Algorithms",
-    meta: "4 Credits - Semester 3",
-    overview:
-      "This course covers arrays, linked lists, stacks, queues, trees and graph basics. Students solve practical coding problems and complexity-focused assignments.",
-    resources: [
-      { id: "r1", name: "Lecture 1: Intro to Algorithm", date: "24 Feb 2026, 10:00 AM" },
-      { id: "r2", name: "Assignment Guidelines.docx", date: "22 Feb 2026, 02:30 PM" },
-    ],
-    instructor: "Dr. Rahul Sharma",
-    instructorRole: "Lead Faculty - AI Research",
-    room: "Room 402, Block C",
-    schedule: "Mon, Wed - 10:00",
-    progress: 75,
-    progressNote: "Alex, you are ahead of schedule.",
-    tasks: [
-      { id: "t1", title: "Neural Networks Lab", subtitle: "Due: Oct 25 - 1:15 PM", points: "50 pts" },
-      { id: "t2", title: "Mid-Term Assessment", subtitle: "Completed: Oct 20", points: "A+" },
-    ],
-  },
-  CS302: {
-    badge: "CS302 - CORE",
-    title: "Database Management Systems",
-    meta: "3 Credits - Semester 3",
-    overview:
-      "The course introduces relational models, SQL, normalization, transactions and indexing with real-world schema design exercises.",
-    resources: [
-      { id: "r3", name: "ER Modeling Notes.pdf", date: "18 Feb 2026, 11:00 AM" },
-      { id: "r4", name: "Mini Project Dataset.csv", date: "16 Feb 2026, 09:45 AM" },
-    ],
-    instructor: "Prof. Neha Verma",
-    instructorRole: "Course Coordinator",
-    room: "Room B-105",
-    schedule: "Tue, Thu - 11:00",
-    progress: 68,
-    progressNote: "You are on track. Keep consistency in lab submissions.",
-    tasks: [
-      { id: "t3", title: "SQL Joins Worksheet", subtitle: "Due: Oct 27 - 08:00 PM", points: "30 pts" },
-      { id: "t4", title: "Normalization Quiz", subtitle: "Opens: Oct 29", points: "20 pts" },
-    ],
-  },
-  CS303: {
-    badge: "CS303 - CORE",
-    title: "Operating Systems",
-    meta: "4 Credits - Semester 3",
-    overview:
-      "Topics include process scheduling, memory management, synchronization, deadlocks and file systems with systems programming assignments.",
-    resources: [
-      { id: "r5", name: "Process Scheduling Handout.pdf", date: "20 Feb 2026, 01:20 PM" },
-      { id: "r6", name: "Lab Manual - OS.pdf", date: "19 Feb 2026, 04:00 PM" },
-    ],
-    instructor: "Dr. Ajay Singh",
-    instructorRole: "Systems Lab Mentor",
-    room: "Room A-201",
-    schedule: "Fri - 09:00",
-    progress: 81,
-    progressNote: "Great momentum. Continue practical revisions.",
-    tasks: [
-      { id: "t5", title: "Deadlock Simulation", subtitle: "Due: Nov 01 - 11:59 PM", points: "40 pts" },
-      { id: "t6", title: "Memory Allocation Quiz", subtitle: "Completed: Oct 18", points: "9/10" },
-    ],
-  },
+const formatDateTime = (value) => {
+  if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
-const CoursesDetails = ({ coursesData }) => {
+const CoursesDetails = ({ coursesData, roleDetails }) => {
   const [searchValue, setSearchValue] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("pending");
   const [sortOrder, setSortOrder] = useState("asc");
@@ -221,23 +60,11 @@ const CoursesDetails = ({ coursesData }) => {
 
     setActiveAssignmentDetail({
       ...item,
-      totalScore: 100,
-      grade: "A",
-      attachments: [
-        {
-          id: "a1",
-          name: "hw1_big_o_final.pdf",
-          size: "1.2 MB",
-          timestamp: "Oct 14, 2023, 8:42 PM",
-        },
-      ],
-      submission: {
-        name: "hw1_big_o_final.pdf",
-        size: "1.2 MB",
-        timestamp: "Oct 14, 2023, 8:42 PM",
-      },
-      instructions:
-        "Solve questions focused on time complexity. Upload PDF or images with explanations.",
+      totalScore: item?.totalScore ?? null,
+      grade: item?.grade ?? null,
+      attachments: Array.isArray(item?.attachments) ? item.attachments : [],
+      submission: item?.submission || null,
+      instructions: item?.instructions || "No instructions available from API.",
     });
   };
 
@@ -247,19 +74,36 @@ const CoursesDetails = ({ coursesData }) => {
         id: course.id,
         courseCode: course.courseCode || "N/A",
         courseName: course.courseName || "Course",
-        semester: "Sem 3",
-        credits: `${course.credits ?? "N/A"} Credits`,
-        courseType: "Theory",
-        faculty: course.instructor || "Faculty Not Assigned",
+        semester: course.semester ? `Sem ${course.semester}` : "N/A",
+        credits: course.credits !== undefined ? `${course.credits} Credits` : "N/A",
+        courseType: course.courseType || "N/A",
+        faculty: course.instructor || "N/A",
         schedule: course.schedule || "Schedule Not Available",
         room: course.room || "Room N/A",
-        assignments: 2,
-        status: "Active",
+        assignments:
+          Number(course.assignmentsCount) ||
+          (Array.isArray(course.assignments) ? course.assignments.length : 0),
+        status: course.status || "N/A",
+        assignmentItems: Array.isArray(course.assignments) ? course.assignments : [],
         raw: course,
       }));
     }
-    return STATIC_COURSES;
+    return [];
   }, [coursesData]);
+
+  const academicInfoLabel = useMemo(() => {
+    const academicYear =
+      roleDetails?.academicYear ||
+      coursesData?.[0]?.academicYear ||
+      coursesData?.[0]?.year ||
+      null;
+    const semesterValue = roleDetails?.semester ?? coursesData?.[0]?.semester ?? null;
+    const semester = semesterValue ? `Semester ${semesterValue}` : null;
+    if (academicYear && semester) return `Academic Year: ${academicYear} - ${semester}`;
+    if (academicYear) return `Academic Year: ${academicYear}`;
+    if (semester) return semester;
+    return "Academic details unavailable";
+  }, [coursesData, roleDetails]);
 
   const filteredCourses = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
@@ -274,15 +118,36 @@ const CoursesDetails = ({ coursesData }) => {
   }, [resolvedCourses, searchValue]);
 
   const assignmentsToShow = useMemo(() => {
-    const source = ASSIGNMENTS_STATIC.filter((item) => {
-      const statusMatch = item.status === selectedStatus;
-      if (!activeAssignmentCourse) return statusMatch;
-      return (
-        statusMatch &&
-        (item.courseCode === activeAssignmentCourse.courseCode ||
-          item.courseName === activeAssignmentCourse.courseName)
-      );
-    });
+    const source = (activeAssignmentCourse?.assignmentItems || [])
+      .map((item, index) => {
+        const normalizedStatus = String(item?.status || "pending").toLowerCase();
+        const safeStatus = STATUS_TABS.some((tab) => tab.id === normalizedStatus)
+          ? normalizedStatus
+          : "pending";
+        return {
+          id: item?._id || item?.id || `assignment-${index + 1}`,
+          courseCode: activeAssignmentCourse?.courseCode || "N/A",
+          courseName: activeAssignmentCourse?.courseName || "Course",
+          title: item?.title || item?.name || "Untitled assignment",
+          category: item?.category || item?.type || "Assignment",
+          status: safeStatus,
+          posted: formatDateTime(item?.postedAt || item?.createdAt),
+          due: formatDateTime(item?.dueDate || item?.dueAt),
+          duration: item?.duration || null,
+          message: item?.message || "",
+          cta: item?.cta || (safeStatus === "pending" ? "View Assignment" : null),
+          grade: item?.grade || null,
+        };
+      })
+      .filter((item) => {
+        const statusMatch = item.status === selectedStatus;
+        if (!activeAssignmentCourse) return statusMatch;
+        return (
+          statusMatch &&
+          (item.courseCode === activeAssignmentCourse.courseCode ||
+            item.courseName === activeAssignmentCourse.courseName)
+        );
+      });
 
     return [...source].sort((a, b) => {
       const aTitle = a.title.toLowerCase();
@@ -293,24 +158,33 @@ const CoursesDetails = ({ coursesData }) => {
   }, [activeAssignmentCourse, selectedStatus, sortOrder]);
 
   const activeCourseName =
-    activeAssignmentCourse?.courseName || "Data Structure & Algorithms";
+    activeAssignmentCourse?.courseName || "Course Assignments";
 
-  const detailData = activeCourseDetail
-    ? COURSE_DETAILS_STATIC[activeCourseDetail.courseCode] || {
-        badge: `${activeCourseDetail.courseCode} - CORE`,
-        title: activeCourseDetail.courseName,
-        meta: `${activeCourseDetail.credits} - ${activeCourseDetail.semester}`,
-        overview: "Course overview not available right now.",
-        resources: [],
-        instructor: activeCourseDetail.faculty,
-        instructorRole: "Faculty",
-        room: activeCourseDetail.room,
-        schedule: activeCourseDetail.schedule,
-        progress: 70,
-        progressNote: "Keep working on weekly modules.",
-        tasks: [],
-      }
-    : null;
+  const detailData = useMemo(() => {
+    if (!activeCourseDetail) return null;
+    const raw = activeCourseDetail.raw || {};
+    const resourceItems = Array.isArray(raw.resources) ? raw.resources : [];
+    const taskItems = Array.isArray(raw.tasks) ? raw.tasks : [];
+    const progressValue =
+      typeof raw.progress === "number"
+        ? Math.min(100, Math.max(0, raw.progress))
+        : null;
+
+    return {
+      badge: `${activeCourseDetail.courseCode} - ${activeCourseDetail.courseType || "COURSE"}`,
+      title: activeCourseDetail.courseName,
+      meta: `${activeCourseDetail.credits} - ${activeCourseDetail.semester}`,
+      overview: raw.overview || "Course overview is not available from API.",
+      resources: resourceItems,
+      instructor: activeCourseDetail.faculty || "N/A",
+      instructorRole: raw.instructorRole || "Faculty",
+      room: activeCourseDetail.room,
+      schedule: activeCourseDetail.schedule,
+      progress: progressValue,
+      progressNote: raw.progressNote || "Progress insight not available from API.",
+      tasks: taskItems,
+    };
+  }, [activeCourseDetail]);
 
   if (activeQuizDetail) {
     return <DetailsQuiz onClose={() => setActiveQuizDetail(false)} />;
@@ -347,18 +221,25 @@ const CoursesDetails = ({ coursesData }) => {
         <section className="course-detail-card course-detail-card-resources">
           <h4><FiFolder /> Course Resources</h4>
           <div className="course-resource-list">
-            {detailData.resources.map((resource) => (
-              <article key={resource.id} className="course-resource-item">
-                <div>
-                  <strong>{resource.name}</strong>
-                  <small>{resource.date}</small>
-                </div>
-                <div className="course-resource-actions">
-                  <button type="button"><FiEye /></button>
-                  <button type="button"><FiDownload /></button>
-                </div>
-              </article>
-            ))}
+            {detailData.resources.length === 0 ? (
+              <p className="no-courses">No resources available from API.</p>
+            ) : (
+              detailData.resources.map((resource, index) => (
+                <article
+                  key={resource.id || resource._id || `resource-${index + 1}`}
+                  className="course-resource-item"
+                >
+                  <div>
+                    <strong>{resource.name || resource.title || "Resource"}</strong>
+                    <small>{formatDateTime(resource.date || resource.createdAt)}</small>
+                  </div>
+                  <div className="course-resource-actions">
+                    <button type="button"><FiEye /></button>
+                    <button type="button"><FiDownload /></button>
+                  </div>
+                </article>
+              ))
+            )}
           </div>
         </section>
 
@@ -379,7 +260,7 @@ const CoursesDetails = ({ coursesData }) => {
           <h4>Course Information</h4>
           <div className="course-teacher-box">
             <div className="course-teacher-avatar">
-              {detailData.instructor[0] || "T"}
+              {(detailData.instructor || "T")[0]}
             </div>
             <div>
               <strong>{detailData.instructor}</strong>
@@ -447,22 +328,29 @@ const CoursesDetails = ({ coursesData }) => {
               <h4>My Course Progress</h4>
               <p>{detailData.progressNote}</p>
             </div>
-            <strong>{detailData.progress}%</strong>
+            <strong>{detailData.progress === null ? "N/A" : `${detailData.progress}%`}</strong>
           </div>
           <div className="course-progress-track">
-            <span style={{ width: `${detailData.progress}%` }} />
+            <span style={{ width: `${detailData.progress === null ? 0 : detailData.progress}%` }} />
           </div>
           <label className="course-task-label">Upcoming Tasks</label>
           <div className="course-task-list">
-            {detailData.tasks.map((task) => (
-              <article key={task.id} className="course-task-item">
-                <div>
-                  <strong>{task.title}</strong>
-                  <small>{task.subtitle}</small>
-                </div>
-                <span>{task.points}</span>
-              </article>
-            ))}
+            {detailData.tasks.length === 0 ? (
+              <p className="no-courses">No upcoming tasks from API.</p>
+            ) : (
+              detailData.tasks.map((task, index) => (
+                <article
+                  key={task.id || task._id || `task-${index + 1}`}
+                  className="course-task-item"
+                >
+                  <div>
+                    <strong>{task.title || task.name || "Task"}</strong>
+                    <small>{task.subtitle || task.description || "No details available."}</small>
+                  </div>
+                  <span>{task.points || task.score || "-"}</span>
+                </article>
+              ))
+            )}
           </div>
         </section>
       </section>
@@ -545,9 +433,7 @@ const CoursesDetails = ({ coursesData }) => {
                 <div className="assignment-card-top">
                   <span className="assignment-course-chip">{item.courseCode}</span>
                   <span className="assignment-due-chip">
-                    {item.status === "pending"
-                      ? "DUE IN 2 DAYS"
-                      : item.status.toUpperCase()}
+                    {item.status === "pending" ? item.due : item.status.toUpperCase()}
                   </span>
                 </div>
 
@@ -588,7 +474,7 @@ const CoursesDetails = ({ coursesData }) => {
 
                 <p className="assignment-message">{item.message}</p>
 
-                {item.status === "pending" && (
+                {item.status === "pending" && item.cta && (
                   <button
                     type="button"
                     className="assignment-open-btn"
@@ -610,7 +496,7 @@ const CoursesDetails = ({ coursesData }) => {
       <div className="student-courses-top">
         <div className="courses-header">
           <h3>My Courses</h3>
-          <p>Academic Year: 2025-26 - Semester 3</p>
+          <p>{academicInfoLabel}</p>
         </div>
         <div className="student-courses-controls">
           <label className="student-courses-search">

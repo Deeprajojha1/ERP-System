@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { FiSearch } from "react-icons/fi";
 import {
   createFeeDemand,
   fetchFeeDemands,
@@ -128,6 +129,9 @@ const StudentRecords = () => {
 
       <section className="sr-controls">
         <div className="sr-search">
+          <span className="sr-search-icon" aria-hidden="true">
+            <FiSearch />
+          </span>
           <input
             type="search"
             placeholder="Search by student id..."
@@ -147,20 +151,13 @@ const StudentRecords = () => {
         </select>
       </section>
 
-      <section className="sr-table-card" style={{ marginBottom: "12px" }}>
-        <div className="sr-table-head">
+      <section className="sr-table-card sr-demand-card">
+        <div className="sr-demand-head">
           <p>Create Fee Demand</p>
         </div>
-        <form
-          onSubmit={submitDemand}
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-            gap: "10px",
-            padding: "10px",
-          }}
-        >
+        <form onSubmit={submitDemand} className="sr-demand-form">
           <input
+            className="sr-demand-input"
             type="text"
             placeholder="studentMongoId"
             value={demandForm.studentMongoId}
@@ -170,6 +167,7 @@ const StudentRecords = () => {
             required
           />
           <input
+            className="sr-demand-input"
             type="text"
             placeholder="studentId (enrollment)"
             value={demandForm.studentId}
@@ -179,6 +177,7 @@ const StudentRecords = () => {
             required
           />
           <input
+            className="sr-demand-input"
             type="text"
             placeholder="academicYear (e.g. 2025-26)"
             value={demandForm.academicYear}
@@ -188,6 +187,7 @@ const StudentRecords = () => {
             required
           />
           <input
+            className="sr-demand-input"
             type="number"
             min="1"
             placeholder="semesterNo"
@@ -198,6 +198,7 @@ const StudentRecords = () => {
             required
           />
           <input
+            className="sr-demand-input"
             type="date"
             value={demandForm.dueDate}
             onChange={(event) =>
@@ -206,6 +207,7 @@ const StudentRecords = () => {
             required
           />
           <input
+            className="sr-demand-input"
             type="text"
             placeholder="breakdown (TUITION:50000,HOSTEL:10000)"
             value={demandForm.breakdown}
@@ -214,9 +216,11 @@ const StudentRecords = () => {
             }
             required
           />
-          <button type="submit" className="sr-primary-btn" disabled={actionLoading}>
-            {actionLoading ? "Creating..." : "Create Demand"}
-          </button>
+          <div className="sr-demand-actions">
+            <button type="submit" className="sr-primary-btn" disabled={actionLoading}>
+              {actionLoading ? "Creating..." : "Create Demand"}
+            </button>
+          </div>
         </form>
       </section>
 
@@ -231,11 +235,11 @@ const StudentRecords = () => {
         </div>
         <div className="sr-table-body">
           {loading ? (
-            <article className="sr-table-row">
+            <article className="sr-table-row sr-table-row-empty">
               <p>Loading records...</p>
             </article>
           ) : filteredDemands.length === 0 ? (
-            <article className="sr-table-row">
+            <article className="sr-table-row sr-table-row-empty">
               <p>No demand records found</p>
             </article>
           ) : (

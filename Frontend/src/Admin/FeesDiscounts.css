@@ -23,15 +23,48 @@
 .fee-discounts-add-btn {
   border: none;
   border-radius: 999px;
-  padding: 10px 16px;
-  background: linear-gradient(135deg, #7c3aed, #4338ca);
+  min-height: 52px;
+  padding: 8px 20px 8px 10px;
+  background: linear-gradient(135deg, #4f46e5 0%, #4338ca 45%, #3730a3 100%);
   color: #fff;
-  font-weight: 600;
+  font-weight: 700;
+  letter-spacing: 0.01em;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   cursor: pointer;
-  box-shadow: 0 16px 32px rgba(67, 56, 202, 0.35);
+  box-shadow: 0 14px 30px rgba(67, 56, 202, 0.34);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, filter 0.16s ease;
+}
+
+.fee-discounts-add-btn-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 17px;
+}
+
+.fee-discounts-add-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 34px rgba(67, 56, 202, 0.42);
+  filter: saturate(1.08);
+}
+
+.fee-discounts-add-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 10px 22px rgba(67, 56, 202, 0.3);
+}
+
+.fee-discounts-add-btn:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(129, 140, 248, 0.35),
+    0 16px 30px rgba(67, 56, 202, 0.38);
 }
 
 .fee-discounts-stats {

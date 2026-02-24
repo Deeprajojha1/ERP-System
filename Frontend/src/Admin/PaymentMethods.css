@@ -1,7 +1,7 @@
 .payment-methods-page {
   min-height: 100vh;
   padding: 32px;
-  background: #f6f7fb;
+  background: linear-gradient(180deg, #f5f7fb 0%, #eef2ff 100%);
   color: #0f172a;
   display: flex;
   flex-direction: column;
@@ -36,10 +36,12 @@
 .pm-hero-stats {
   display: flex;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .pm-hero-stats article {
-  background: #fff;
+  background: #ffffff;
+  border: 1px solid #dbe5f4;
   border-radius: 16px;
   padding: 16px 20px;
   box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
@@ -60,6 +62,9 @@
   font-size: 1.35rem;
   margin: 0;
   color: #101828;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .pm-cash-form p {
@@ -86,12 +91,27 @@
   color: #1d2939;
 }
 
-.pm-cash-form-grid input {
+.pm-field-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pm-cash-form-grid input,
+.pm-cash-form-grid select {
   border: 1px solid #e4e7ec;
   border-radius: 12px;
   padding: 0.85rem 1rem;
   font-size: 1rem;
   color: #101828;
+  background: #ffffff;
+}
+
+.pm-cash-form-grid input:focus,
+.pm-cash-form-grid select:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.14);
 }
 
 .pm-cash-submit {
@@ -119,6 +139,13 @@
   background-position: right center;
   transform: translateY(-3px);
   box-shadow: 0 25px 40px rgba(67, 50, 255, 0.3);
+}
+
+.pm-cash-submit:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 12px 18px rgba(67, 50, 255, 0.22);
 }
 
 .pm-cash-submit:active {
@@ -196,6 +223,12 @@
   background: #f9fafb;
 }
 
+.pm-head-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .pm-table-body {
   display: flex;
   flex-direction: column;
@@ -206,11 +239,26 @@
   border-top: 1px solid #f1f5f9;
 }
 
+.pm-row p {
+  margin: 0;
+}
+
 .pm-row:hover {
   background: #fdfcff;
 }
 
 .pm-method-name {
+  font-weight: 600;
+}
+
+.pm-row small {
+  color: #64748b;
+}
+
+.pm-amount-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-weight: 600;
 }
 
@@ -238,6 +286,21 @@
   color: #92400e;
 }
 
+.pm-status-chip.is-failed {
+  background: rgba(239, 68, 68, 0.16);
+  color: #b91c1c;
+}
+
+.pm-status-chip.is-cancelled {
+  background: rgba(148, 163, 184, 0.2);
+  color: #475569;
+}
+
+.pm-status-chip.is-refunded {
+  background: rgba(14, 165, 233, 0.18);
+  color: #0369a1;
+}
+
 .pm-toggle-btn {
   border: none;
   border-radius: 999px;
@@ -246,6 +309,38 @@
   color: #4338ca;
   font-weight: 600;
   cursor: pointer;
+}
+
+.pm-status-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.pm-status-actions select {
+  border: 1px solid #d1d5db;
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: #ffffff;
+  min-width: 96px;
+}
+
+.pm-status-actions select:focus {
+  outline: none;
+  border-color: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.16);
+}
+
+.pm-empty-row p {
+  grid-column: 1 / -1;
+  color: #475569;
+  font-weight: 600;
+  text-align: center;
+}
+
+.pm-empty-row {
+  grid-template-columns: 1fr;
+  justify-items: center;
 }
 
 .pm-cash-card {

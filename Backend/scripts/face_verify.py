@@ -9,6 +9,20 @@ def output(payload):
     sys.stdout.flush()
 
 
+def rect_overlap_ratio(a, b):
+    ax, ay, aw, ah = [int(x) for x in a]
+    bx, by, bw, bh = [int(x) for x in b]
+    inter_x1 = max(ax, bx)
+    inter_y1 = max(ay, by)
+    inter_x2 = min(ax + aw, bx + bw)
+    inter_y2 = min(ay + ah, by + bh)
+    if inter_x2 <= inter_x1 or inter_y2 <= inter_y1:
+        return 0.0
+    inter_area = float((inter_x2 - inter_x1) * (inter_y2 - inter_y1))
+    base_area = float(aw * ah) if aw > 0 and ah > 0 else 1.0
+    return inter_area / base_area
+
+
 def decode_image(image_data):
     if not image_data:
         raise ValueError("imageData is required")
@@ -63,6 +77,7 @@ def main():
                 "facesDetected": 1,
                 "eyesDetected": 2,
                 "gazeVerified": True,
+                "objectsDetected": 0,
                 "reason": "PYTHON_LENIENT_FALLBACK",
             }
         )
@@ -88,6 +103,12 @@ def main():
         eye_detector = cv2.CascadeClassifier(eye_cascade_path)
         if eye_detector.empty():
             eye_detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
+        upper_body_detector = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_upperbody.xml"
+        )
+        full_body_detector = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_fullbody.xml"
+        )
         faces = detector.detectMultiScale(
             gray,
             scaleFactor=1.1,
@@ -98,6 +119,7 @@ def main():
         faces_detected = int(len(faces)) if faces is not None else 0
         eyes_detected = 0
         gaze_verified = False
+        objects_detected = 0
 
         if faces_detected == 1:
             x, y, w, h = faces[0]
@@ -120,15 +142,49 @@ def main():
             eyes_detected = len(valid_eyes)
             gaze_verified = eyes_detected >= 1
 
-        verified = faces_detected == 1 and gaze_verified
+        body_candidates = []
+        if not upper_body_detector.empty():
+            upper_bodies = upper_body_detector.detectMultiScale(
+                gray,
+                scaleFactor=1.08,
+                minNeighbors=4,
+                minSize=(60, 60),
+            )
+            body_candidates.extend([tuple(map(int, rect)) for rect in upper_bodies] if upper_bodies is not None else [])
+
+        if not full_body_detector.empty():
+            full_bodies = full_body_detector.detectMultiScale(
+                gray,
+                scaleFactor=1.08,
+                minNeighbors=3,
+                minSize=(60, 120),
+            )
+            body_candidates.extend([tuple(map(int, rect)) for rect in full_bodies] if full_bodies is not None else [])
+
+        if body_candidates:
+            if faces_detected == 1:
+                primary_face = tuple(map(int, faces[0]))
+                filtered = [
+                    rect
+                    for rect in body_candidates
+                    if rect_overlap_ratio(primary_face, rect) < 0.12
+                ]
+                objects_detected = int(len(filtered))
+            else:
+                # When no clear single face exists, any body-like detection is suspicious.
+                objects_detected = int(len(body_candidates))
+
+        verified = faces_detected == 1 and objects_detected == 0
         if verified:
-            reason = "VERIFIED"
+            reason = "VERIFIED" if gaze_verified else "VERIFIED_EYE_LOW_CONFIDENCE"
         elif faces_detected == 0:
             reason = "NO_FACE"
         elif faces_detected > 1:
             reason = "MULTIPLE_FACES"
+        elif objects_detected > 0:
+            reason = "OBJECT_DETECTED"
         else:
-            reason = "EYES_NOT_VISIBLE"
+            reason = "UNKNOWN"
 
         output(
             {
@@ -137,6 +193,7 @@ def main():
                 "facesDetected": faces_detected,
                 "eyesDetected": int(eyes_detected),
                 "gazeVerified": bool(gaze_verified),
+                "objectsDetected": int(objects_detected),
                 "reason": reason,
             }
         )

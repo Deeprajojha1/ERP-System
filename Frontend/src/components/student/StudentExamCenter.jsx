@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FiAlertCircle,
   FiArrowLeft,
@@ -10,12 +11,13 @@ import {
   FiChevronRight,
   FiClock,
   FiPlayCircle,
-  FiRefreshCcw,
   FiSend,
   FiShield,
+  FiSkipForward,
   FiTarget,
   FiUserCheck,
 } from "react-icons/fi";
+import { BeatLoader } from "react-spinners";
 import ClipLoader from "../../Admin/components/ClipLoader";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
 import {
@@ -28,14 +30,19 @@ import {
   startStudentExamAttempt,
   submitStudentExamAttempt,
 } from "../../redux/studentExamSlice";
+import axios from "../../utils/axiosInstance";
 import "./StudentExamCenter.css";
 
+const PROCTOR_FACE_CHECK_INTERVAL_MS = 7000;
+const EXTENSION_PANEL_WIDTH_THRESHOLD = 120;
+
 const EXAM_INSTRUCTIONS = [
-  "Exam start hone ke baad tab switch, browser minimize, ya window focus lose karne par attempt auto-submit ho jayega.",
-  "Face verification complete hone ke baad hi MCQ questions open honge.",
-  "Har question ke answer ko Save karte rahen. Unsaved answer submit ke time miss ho sakte hain.",
-  "Exam duration complete hote hi attempt automatically submit ho jayega.",
-  "Stable internet and charged device ensure karein before starting the exam.",
+  "After starting the exam, tab switch/minimize/focus loss or face-check failures trigger one warning. A second violation auto-submits your attempt.",
+  "External activity like fullscreen exit, extension side panel usage, copy/cut/paste, or screenshot attempts trigger warning on first violation and auto-submit on second.",
+  "Questions will open only after face verification is complete.",
+  "Keep saving answers for each question. Unsaved answers may be missed during submission.",
+  "Your attempt will be automatically submitted when the exam duration ends.",
+  "Ensure you have a stable internet connection and a charged device before starting the exam.",
 ];
 
 const formatDateTime = (value) => {
@@ -75,8 +82,19 @@ const formatTimer = (ms = 0) => {
   )}`;
 };
 
-const StudentExamCenter = () => {
+const hashText = (value = "") => {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+
+const StudentExamCenter = ({ onExamFocusModeChange }) => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const location = useLocation();
   const apiBase = useSelector((state) => state.config.apiBase);
   const {
     exams,
@@ -110,16 +128,62 @@ const StudentExamCenter = () => {
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [faceError, setFaceError] = useState("");
   const [autoSubmitReason, setAutoSubmitReason] = useState("");
+  const [lockedQuestionMap, setLockedQuestionMap] = useState({});
+  const [hasOpenExtensionPanel, setHasOpenExtensionPanel] = useState(false);
 
   const videoRef = useRef(null);
+  const proctorVideoRef = useRef(null);
   const faceStreamRef = useRef(null);
-  const faceDetectionIntervalRef = useRef(null);
+  const proctorCheckIntervalRef = useRef(null);
   const submitLockRef = useRef(false);
+  const integrityViolationCountRef = useRef(0);
+  const lastIntegrityViolationAtRef = useRef(0);
+  const missingFaceFrameCountRef = useRef(0);
+  const isFaceMonitoringUnavailableRef = useRef(false);
+  const examViewportBaselineRef = useRef(0);
+
+  const getFullscreenElement = useCallback(
+    () =>
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.msFullscreenElement ||
+      null,
+    []
+  );
+
+  const enterExamFullscreen = useCallback(async () => {
+    try {
+      const docEl = document.documentElement;
+      const requestFullscreen =
+        docEl?.requestFullscreen ||
+        docEl?.webkitRequestFullscreen ||
+        docEl?.msRequestFullscreen;
+      if (!requestFullscreen) return false;
+      if (getFullscreenElement()) return true;
+      await requestFullscreen.call(docEl);
+      return Boolean(getFullscreenElement());
+    } catch {
+      return false;
+    }
+  }, [getFullscreenElement]);
+
+  const exitExamFullscreen = useCallback(async () => {
+    try {
+      const exitFullscreen =
+        document.exitFullscreen ||
+        document.webkitExitFullscreen ||
+        document.msExitFullscreen;
+      if (!exitFullscreen || !getFullscreenElement()) return;
+      await exitFullscreen.call(document);
+    } catch {
+      // Ignore fullscreen exit errors.
+    }
+  }, [getFullscreenElement]);
 
   const stopFaceStream = useCallback(() => {
-    if (faceDetectionIntervalRef.current) {
-      window.clearInterval(faceDetectionIntervalRef.current);
-      faceDetectionIntervalRef.current = null;
+    if (proctorCheckIntervalRef.current) {
+      window.clearInterval(proctorCheckIntervalRef.current);
+      proctorCheckIntervalRef.current = null;
     }
 
     if (faceStreamRef.current) {
@@ -130,7 +194,113 @@ const StudentExamCenter = () => {
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    if (proctorVideoRef.current) {
+      proctorVideoRef.current.srcObject = null;
+    }
     setIsCameraReady(false);
+  }, []);
+
+  const captureFrameDataUrl = useCallback((videoEl) => {
+    if (!videoEl || videoEl.readyState < 2) return "";
+    const width = videoEl.videoWidth || 640;
+    const height = videoEl.videoHeight || 360;
+    if (!width || !height) return "";
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext("2d");
+    if (!context) return "";
+    context.drawImage(videoEl, 0, 0, width, height);
+    return canvas.toDataURL("image/jpeg", 0.85);
+  }, []);
+
+  const hasLikelyOpenExtensionPanel = useCallback(() => {
+    const viewportWidth = window.visualViewport?.width || window.innerWidth || 0;
+    const outerWidth = window.outerWidth || 0;
+    if (!viewportWidth || !outerWidth) return false;
+    const occupiedWidth = outerWidth - viewportWidth;
+    return occupiedWidth >= EXTENSION_PANEL_WIDTH_THRESHOLD;
+  }, []);
+
+  const verifyFaceWithBackend = useCallback(
+    async ({ imageData, attemptId = "" }) => {
+      if (!apiBase || !imageData) {
+        return {
+          ok: false,
+          error: "FACE_FRAME_MISSING",
+          message: "Face frame is not available.",
+        };
+      }
+      const endpoint = attemptId
+        ? `${apiBase}/student/attempt/${attemptId}/face-check`
+        : `${apiBase}/student/exam/face-verify`;
+      try {
+        const response = await axios.post(
+          endpoint,
+          { imageData },
+          { withCredentials: true }
+        );
+        return {
+          ok: true,
+          verified: Boolean(response.data?.verified),
+          reason: String(response.data?.reason || ""),
+          facesDetected: Number(response.data?.facesDetected || 0),
+          eyesDetected: Number(response.data?.eyesDetected || 0),
+          gazeVerified: Boolean(response.data?.gazeVerified),
+        };
+      } catch (error) {
+        return {
+          ok: false,
+          error: String(error?.response?.data?.error || "FACE_VERIFY_REQUEST_FAILED"),
+          message:
+            error?.response?.data?.message || "Face verification request failed.",
+        };
+      }
+    },
+    [apiBase]
+  );
+
+  const verifyFaceWithBrowserDetector = useCallback(async (videoEl) => {
+    const FaceDetectorCtor =
+      typeof window !== "undefined" ? window.FaceDetector : undefined;
+    if (typeof FaceDetectorCtor !== "function") {
+      return {
+        ok: false,
+        error: "BROWSER_FACE_DETECTOR_UNAVAILABLE",
+        message:
+          "Face verification service unavailable and this browser does not support FaceDetector.",
+      };
+    }
+    if (!videoEl || videoEl.readyState < 2) {
+      return {
+        ok: false,
+        error: "BROWSER_FACE_FRAME_MISSING",
+        message: "Camera frame not ready for browser face detection.",
+      };
+    }
+    try {
+      const detector = new FaceDetectorCtor({
+        maxDetectedFaces: 2,
+        fastMode: true,
+      });
+      const faces = await detector.detect(videoEl);
+      const facesDetected = Array.isArray(faces) ? faces.length : 0;
+      const verified = facesDetected === 1;
+      return {
+        ok: true,
+        verified,
+        facesDetected,
+        eyesDetected: 0,
+        gazeVerified: verified,
+        reason: verified ? "VERIFIED" : facesDetected === 0 ? "NO_FACE" : "MULTIPLE_FACES",
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        error: "BROWSER_FACE_DETECTOR_FAILED",
+        message: error?.message || "Browser face detection failed.",
+      };
+    }
   }, []);
 
   const submitAttemptKeepAlive = useCallback(
@@ -183,12 +353,17 @@ const StudentExamCenter = () => {
         // Errors are already managed in slice state.
       } finally {
         submitLockRef.current = false;
+        integrityViolationCountRef.current = 0;
+        lastIntegrityViolationAtRef.current = 0;
+        missingFaceFrameCountRef.current = 0;
+        isFaceMonitoringUnavailableRef.current = false;
+        await exitExamFullscreen();
         stopFaceStream();
         setWorkspaceBlueprintId("");
         setWorkspaceStep("instructions");
       }
     },
-    [apiBase, activeAttempt?._id, dispatch, stopFaceStream]
+    [apiBase, activeAttempt?._id, dispatch, exitExamFullscreen, stopFaceStream]
   );
 
   useEffect(() => {
@@ -197,17 +372,15 @@ const StudentExamCenter = () => {
   }, [dispatch, apiBase]);
 
   useEffect(() => {
-    if (!activeAttempt?._id || activeAttempt?.status !== "IN_PROGRESS") return undefined;
     const timer = window.setInterval(() => {
       setClockNow(Date.now());
     }, 1000);
     return () => window.clearInterval(timer);
-  }, [activeAttempt?._id, activeAttempt?.status]);
+  }, []);
 
   useEffect(() => {
     if (workspaceStep !== "face" || !workspaceBlueprintId) return undefined;
     let cancelled = false;
-    let autoFallbackTimer = null;
 
     const startFaceCamera = async () => {
       stopFaceStream();
@@ -237,58 +410,9 @@ const StudentExamCenter = () => {
           videoRef.current.srcObject = stream;
           await videoRef.current.play().catch(() => {});
         }
-
-        const FaceDetectorCtor =
-          typeof window !== "undefined" ? window.FaceDetector : undefined;
-
-        if (typeof FaceDetectorCtor === "function") {
-          setIsFaceChecking(true);
-          autoFallbackTimer = window.setTimeout(() => {
-            if (cancelled) return;
-            setIsFaceChecking(false);
-            setFaceError(
-              "Auto face detect slow hai. Camera visible rakhein aur 'Verify Face' button press karein."
-            );
-          }, 7000);
-          const detector = new FaceDetectorCtor({
-            maxDetectedFaces: 1,
-            fastMode: true,
-          });
-
-          faceDetectionIntervalRef.current = window.setInterval(async () => {
-            if (cancelled || !videoRef.current) return;
-            if (videoRef.current.readyState < 2) return;
-
-            try {
-              const faces = await detector.detect(videoRef.current);
-              if (Array.isArray(faces) && faces.length > 0) {
-                setIsFaceVerified(true);
-                setIsFaceChecking(false);
-                setFaceError("");
-                if (autoFallbackTimer) {
-                  window.clearTimeout(autoFallbackTimer);
-                  autoFallbackTimer = null;
-                }
-                if (faceDetectionIntervalRef.current) {
-                  window.clearInterval(faceDetectionIntervalRef.current);
-                  faceDetectionIntervalRef.current = null;
-                }
-              }
-            } catch {
-              setIsFaceChecking(false);
-              setFaceError(
-                "Automatic detection failed. Keep camera on and use manual verification."
-              );
-              if (faceDetectionIntervalRef.current) {
-                window.clearInterval(faceDetectionIntervalRef.current);
-                faceDetectionIntervalRef.current = null;
-              }
-            }
-          }, 900);
-        } else {
-          setFaceError(
-            "Automatic face detection is not supported on this browser. Manual camera verification enabled."
-          );
+        if (proctorVideoRef.current) {
+          proctorVideoRef.current.srcObject = stream;
+          await proctorVideoRef.current.play().catch(() => {});
         }
       } catch (error) {
         setFaceError(
@@ -302,18 +426,15 @@ const StudentExamCenter = () => {
 
     return () => {
       cancelled = true;
-      if (autoFallbackTimer) {
-        window.clearTimeout(autoFallbackTimer);
-      }
-      stopFaceStream();
     };
   }, [workspaceStep, workspaceBlueprintId, stopFaceStream]);
 
   useEffect(() => {
     return () => {
       stopFaceStream();
+      exitExamFullscreen();
     };
-  }, [stopFaceStream]);
+  }, [stopFaceStream, exitExamFullscreen]);
 
   const activeExam = useMemo(() => {
     const lookup = String(activeBlueprintId || activeAttempt?.blueprintId || "");
@@ -325,6 +446,23 @@ const StudentExamCenter = () => {
     if (!lookup) return activeExam;
     return exams.find((item) => String(item?._id) === lookup) || activeExam;
   }, [exams, workspaceBlueprintId, activeExam]);
+
+  const workspaceScheduleInfo = useMemo(() => {
+    const startMs = new Date(workspaceExam?.scheduleStart || "").getTime();
+    const endMs = new Date(workspaceExam?.scheduleEnd || "").getTime();
+    const hasValidWindow = Number.isFinite(startMs) && Number.isFinite(endMs);
+    const isBeforeStart = hasValidWindow && clockNow < startMs;
+    const isExpired = hasValidWindow && clockNow >= endMs;
+    const startCountdownMs = hasValidWindow ? Math.max(startMs - clockNow, 0) : 0;
+    const endCountdownMs = hasValidWindow ? Math.max(endMs - clockNow, 0) : 0;
+    return {
+      hasValidWindow,
+      isBeforeStart,
+      isExpired,
+      startCountdownMs,
+      endCountdownMs,
+    };
+  }, [workspaceExam?.scheduleStart, workspaceExam?.scheduleEnd, clockNow]);
 
   const rawPaperQuestions = useMemo(
     () => (Array.isArray(activePaper?.questions) ? activePaper.questions : []),
@@ -338,11 +476,13 @@ const StudentExamCenter = () => {
         ? Number(question.questionIndex)
         : idx,
     }));
-    const mcqOnly = normalized.filter(
-      (question) => String(question?.sectionType || "").toUpperCase() === "MCQ"
-    );
-    return mcqOnly.length > 0 ? mcqOnly : normalized;
-  }, [rawPaperQuestions]);
+    const seed = String(activeAttempt?._id || workspaceBlueprintId || activeBlueprintId || "exam");
+    return [...normalized].sort((a, b) => {
+      const aRank = hashText(`${seed}:${a.questionIndex}:${a.questionText || ""}`);
+      const bRank = hashText(`${seed}:${b.questionIndex}:${b.questionText || ""}`);
+      return aRank - bRank;
+    });
+  }, [rawPaperQuestions, activeAttempt?._id, workspaceBlueprintId, activeBlueprintId]);
 
   const totalQuestions = questions.length;
 
@@ -361,6 +501,12 @@ const StudentExamCenter = () => {
   };
   const isCurrentMcq =
     String(currentQuestion?.sectionType || "").toUpperCase() === "MCQ";
+  const isCurrentQuestionLocked = Boolean(
+    lockedQuestionMap[String(currentQuestionIndexKey)]
+  );
+  const hasCurrentAnswer =
+    String(currentDraft?.selectedOption || "").trim().length > 0 ||
+    String(currentDraft?.answerText || "").trim().length > 0;
 
   const answeredCount = useMemo(() => {
     return questions.reduce((count, question) => {
@@ -386,6 +532,161 @@ const StudentExamCenter = () => {
   const isAttemptInProgress =
     Boolean(activeAttempt?._id) && activeAttempt?.status === "IN_PROGRESS";
   const showWorkspace = Boolean(workspaceBlueprintId);
+  const isExamFocusMode = isAttemptInProgress && workspaceStep === "attempt";
+  const resultRouteMatch = useMemo(() => {
+    const match = String(location.pathname || "").match(
+      /\/dashboard\/exams\/results\/([^/]+)/i
+    );
+    return match?.[1] ? decodeURIComponent(match[1]) : "";
+  }, [location.pathname]);
+  const isAttemptResultsPage = Boolean(resultRouteMatch) && !showWorkspace;
+  const selectedResultExam = useMemo(() => {
+    if (!resultRouteMatch) return null;
+    return (
+      exams.find((item) => String(item?._id) === String(resultRouteMatch)) || null
+    );
+  }, [exams, resultRouteMatch]);
+
+  useEffect(() => {
+    if (!showWorkspace || isAttemptInProgress) return undefined;
+
+    const evaluatePanelState = () => {
+      setHasOpenExtensionPanel(hasLikelyOpenExtensionPanel());
+    };
+
+    evaluatePanelState();
+    const timer = window.setInterval(evaluatePanelState, 800);
+    window.addEventListener("resize", evaluatePanelState);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", evaluatePanelState);
+    }
+
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("resize", evaluatePanelState);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", evaluatePanelState);
+      }
+      setHasOpenExtensionPanel(false);
+    };
+  }, [hasLikelyOpenExtensionPanel, isAttemptInProgress, showWorkspace]);
+
+  useEffect(() => {
+    if (typeof onExamFocusModeChange === "function") {
+      onExamFocusModeChange(isExamFocusMode);
+    }
+    return () => {
+      if (typeof onExamFocusModeChange === "function") {
+        onExamFocusModeChange(false);
+      }
+    };
+  }, [isExamFocusMode, onExamFocusModeChange]);
+
+  useEffect(() => {
+    if (!isAttemptInProgress) {
+      setLockedQuestionMap({});
+      return;
+    }
+    const nextLocked = {};
+    (activeAttempt?.answers || []).forEach((item) => {
+      const key = String(item?.questionIndex);
+      const hasMcq = String(item?.selectedOption || "").trim().length > 0;
+      const hasText = String(item?.answerText || "").trim().length > 0;
+      if (hasMcq || hasText) {
+        nextLocked[key] = true;
+      }
+    });
+    setLockedQuestionMap(nextLocked);
+  }, [isAttemptInProgress, activeAttempt?.answers]);
+
+  const isQuestionLocked = useCallback(
+    (question) => Boolean(lockedQuestionMap[String(question?.questionIndex)]),
+    [lockedQuestionMap]
+  );
+
+  const getNavigableIndex = useCallback(
+    (fromIndex, direction = 1, wrap = false) => {
+      if (totalQuestions <= 0) return -1;
+      if (direction > 0) {
+        for (let i = fromIndex + 1; i < totalQuestions; i += 1) {
+          if (!isQuestionLocked(questions[i])) return i;
+        }
+        if (wrap) {
+          for (let i = 0; i < fromIndex; i += 1) {
+            if (!isQuestionLocked(questions[i])) return i;
+          }
+        }
+        return -1;
+      }
+      for (let i = fromIndex - 1; i >= 0; i -= 1) {
+        if (!isQuestionLocked(questions[i])) return i;
+      }
+      if (wrap) {
+        for (let i = totalQuestions - 1; i > fromIndex; i -= 1) {
+          if (!isQuestionLocked(questions[i])) return i;
+        }
+      }
+      return -1;
+    },
+    [totalQuestions, isQuestionLocked, questions]
+  );
+
+  const previousQuestionIndex = useMemo(
+    () => getNavigableIndex(boundedQuestionIndex, -1, false),
+    [getNavigableIndex, boundedQuestionIndex]
+  );
+  const nextQuestionIndex = useMemo(
+    () => getNavigableIndex(boundedQuestionIndex, 1, false),
+    [getNavigableIndex, boundedQuestionIndex]
+  );
+  const skipQuestionIndex = useMemo(
+    () => getNavigableIndex(boundedQuestionIndex, 1, true),
+    [getNavigableIndex, boundedQuestionIndex]
+  );
+
+  useEffect(() => {
+    if (!currentQuestion || !isCurrentQuestionLocked) return;
+    const nextOpen = getNavigableIndex(boundedQuestionIndex, 1, true);
+    if (nextOpen >= 0) {
+      dispatch(setStudentExamQuestionIndex(nextOpen));
+    }
+  }, [
+    boundedQuestionIndex,
+    currentQuestion,
+    dispatch,
+    getNavigableIndex,
+    isCurrentQuestionLocked,
+  ]);
+
+  const handleIntegrityViolation = useCallback((warningText, submitText) => {
+    if (!isAttemptInProgress || submitLockRef.current) return;
+
+    const now = Date.now();
+    if (now - lastIntegrityViolationAtRef.current < 1000) return;
+    lastIntegrityViolationAtRef.current = now;
+    integrityViolationCountRef.current += 1;
+
+    if (integrityViolationCountRef.current === 1) {
+      setAutoSubmitReason(
+        warningText ||
+          "Warning 1/2: Policy violation detected. On the next violation, your exam will be auto-submitted."
+      );
+      return;
+    }
+
+    handleAutoOrManualSubmit(
+      submitText ||
+        "Second policy violation detected. Attempt auto-submitted and exam closed."
+    );
+  }, [handleAutoOrManualSubmit, isAttemptInProgress]);
+
+  useEffect(() => {
+    if (isAttemptInProgress) return;
+    integrityViolationCountRef.current = 0;
+    lastIntegrityViolationAtRef.current = 0;
+    missingFaceFrameCountRef.current = 0;
+    isFaceMonitoringUnavailableRef.current = false;
+  }, [isAttemptInProgress, activeAttempt?._id]);
 
   useEffect(() => {
     if (!isAttemptInProgress || !isTimeExpired) return;
@@ -399,8 +700,9 @@ const StudentExamCenter = () => {
 
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        handleAutoOrManualSubmit(
-          "Tab change detected. As per exam policy, your attempt was auto-submitted."
+        handleIntegrityViolation(
+          "Warning 1/2: Tab switch or minimize detected. Next violation will auto-submit your exam.",
+          "Second policy violation detected. Attempt auto-submitted and exam closed."
         );
       }
     };
@@ -408,8 +710,9 @@ const StudentExamCenter = () => {
     const handleWindowBlur = () => {
       window.setTimeout(() => {
         if (document.hidden || document.visibilityState !== "visible" || !document.hasFocus()) {
-          handleAutoOrManualSubmit(
-            "Focus lost outside exam screen. Attempt auto-submitted for exam integrity."
+          handleIntegrityViolation(
+            "Warning 1/2: Tab switch or minimize detected. Next violation will auto-submit your exam.",
+            "Second policy violation detected. Attempt auto-submitted and exam closed."
           );
         }
       }, 80);
@@ -437,24 +740,333 @@ const StudentExamCenter = () => {
   }, [
     activeAttempt?._id,
     isAttemptInProgress,
-    handleAutoOrManualSubmit,
+    handleIntegrityViolation,
     submitAttemptKeepAlive,
   ]);
+
+  useEffect(() => {
+    if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
+
+    const handleFullscreenExit = () => {
+      if (submitLockRef.current) return;
+      if (!getFullscreenElement()) {
+        handleIntegrityViolation(
+          "Warning 1/2: Fullscreen exited during exam. Next violation will auto-submit your exam.",
+          "Second policy violation detected. Attempt auto-submitted and exam closed."
+        );
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenExit);
+    document.addEventListener("webkitfullscreenchange", handleFullscreenExit);
+    document.addEventListener("MSFullscreenChange", handleFullscreenExit);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenExit);
+      document.removeEventListener("webkitfullscreenchange", handleFullscreenExit);
+      document.removeEventListener("MSFullscreenChange", handleFullscreenExit);
+    };
+  }, [
+    activeAttempt?._id,
+    getFullscreenElement,
+    handleIntegrityViolation,
+    isAttemptInProgress,
+  ]);
+
+  useEffect(() => {
+    if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
+
+    if (!examViewportBaselineRef.current) {
+      examViewportBaselineRef.current =
+        window.visualViewport?.width || window.innerWidth || 0;
+    }
+
+    const handleViewportResize = () => {
+      if (submitLockRef.current) return;
+      if (document.hidden || document.visibilityState !== "visible" || !document.hasFocus()) {
+        return;
+      }
+      const currentWidth = window.visualViewport?.width || window.innerWidth || 0;
+      if (!currentWidth) return;
+
+      if (!examViewportBaselineRef.current || currentWidth > examViewportBaselineRef.current) {
+        examViewportBaselineRef.current = currentWidth;
+        return;
+      }
+
+      const widthDrop = examViewportBaselineRef.current - currentWidth;
+      if (widthDrop >= 180) {
+        handleIntegrityViolation(
+          "Warning 1/2: Browser side panel or external activity detected. Next violation will auto-submit your exam.",
+          "Second policy violation detected. Attempt auto-submitted and exam closed."
+        );
+      }
+    };
+
+    window.addEventListener("resize", handleViewportResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", handleViewportResize);
+    }
+
+    return () => {
+      window.removeEventListener("resize", handleViewportResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", handleViewportResize);
+      }
+      examViewportBaselineRef.current = 0;
+    };
+  }, [activeAttempt?._id, handleIntegrityViolation, isAttemptInProgress]);
+
+  useEffect(() => {
+    if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
+    let cancelled = false;
+    let inFlight = false;
+
+    const checkFaceActivity = async () => {
+      if (cancelled || inFlight || submitLockRef.current) return;
+      const sourceVideo = proctorVideoRef.current || videoRef.current;
+      const imageData = captureFrameDataUrl(sourceVideo);
+      if (!imageData) {
+        missingFaceFrameCountRef.current += 1;
+        if (missingFaceFrameCountRef.current >= 2) {
+          handleIntegrityViolation(
+            "Warning 1/2: Camera feed unavailable during exam. Keep camera active.",
+            "Second camera feed failure detected. Attempt auto-submitted."
+          );
+        }
+        return;
+      }
+      missingFaceFrameCountRef.current = 0;
+      inFlight = true;
+      const result = await verifyFaceWithBackend({
+        imageData,
+        attemptId: activeAttempt._id,
+      });
+      let effectiveResult = result;
+      if (!result.ok && result.error === "OPENCV_NOT_AVAILABLE") {
+        const fallback = await verifyFaceWithBrowserDetector(sourceVideo);
+        effectiveResult = fallback.ok
+          ? fallback
+          : {
+              ...fallback,
+              message:
+                fallback.message ||
+                "Face check failed. Keep camera active and use supported browser.",
+            };
+      }
+      inFlight = false;
+      if (cancelled) return;
+
+      if (!effectiveResult.ok) {
+        if (
+          effectiveResult.error === "BROWSER_FACE_DETECTOR_UNAVAILABLE" ||
+          effectiveResult.error === "BROWSER_FACE_DETECTOR_FAILED"
+        ) {
+          if (!isFaceMonitoringUnavailableRef.current) {
+            setAutoSubmitReason(
+              "Automatic face monitoring is unavailable on this browser. Tab and focus integrity checks remain active."
+            );
+            isFaceMonitoringUnavailableRef.current = true;
+          }
+          if (proctorCheckIntervalRef.current) {
+            window.clearInterval(proctorCheckIntervalRef.current);
+            proctorCheckIntervalRef.current = null;
+          }
+          return;
+        }
+        setAutoSubmitReason(effectiveResult.message || "Face check failed. Keep camera active.");
+        return;
+      }
+      if (!effectiveResult.verified) {
+        if (effectiveResult.reason === "EYES_NOT_VISIBLE") {
+          handleAutoOrManualSubmit(
+            "Eyes not visible on screen during exam monitoring. Attempt auto-submitted."
+          );
+          return;
+        }
+        handleIntegrityViolation(
+          "Warning 1/2: Face not detected clearly. Keep only your face visible in camera.",
+          "Second face verification failure detected. Attempt auto-submitted."
+        );
+      }
+    };
+
+    checkFaceActivity();
+    proctorCheckIntervalRef.current = window.setInterval(
+      checkFaceActivity,
+      PROCTOR_FACE_CHECK_INTERVAL_MS
+    );
+
+    return () => {
+      cancelled = true;
+      if (proctorCheckIntervalRef.current) {
+        window.clearInterval(proctorCheckIntervalRef.current);
+        proctorCheckIntervalRef.current = null;
+      }
+    };
+  }, [
+    activeAttempt?._id,
+    captureFrameDataUrl,
+    handleAutoOrManualSubmit,
+    handleIntegrityViolation,
+    isAttemptInProgress,
+    verifyFaceWithBrowserDetector,
+    verifyFaceWithBackend,
+  ]);
+
+  useEffect(() => {
+    if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
+
+    const blockAndWarnForAction = (event, warningText, submitText) => {
+      if (event?.preventDefault) event.preventDefault();
+      if (event?.stopPropagation) event.stopPropagation();
+      if (submitLockRef.current) return false;
+      handleIntegrityViolation(
+        warningText,
+        submitText || "Second policy violation detected. Attempt auto-submitted and exam closed."
+      );
+      return false;
+    };
+
+    const onCopy = (event) =>
+      blockAndWarnForAction(
+        event,
+        "Warning 1/2: Copy action detected during exam. Next violation will auto-submit your exam."
+      );
+
+    const onCut = (event) =>
+      blockAndWarnForAction(
+        event,
+        "Warning 1/2: Cut action detected during exam. Next violation will auto-submit your exam."
+      );
+
+    const onPaste = (event) =>
+      blockAndWarnForAction(
+        event,
+        "Warning 1/2: Paste action detected during exam. Next violation will auto-submit your exam."
+      );
+
+    const onKeyDown = (event) => {
+      const key = String(event?.key || "").toLowerCase();
+      const isModifierCopyCutPaste =
+        (event.ctrlKey || event.metaKey) && ["c", "v", "x"].includes(key);
+      if (isModifierCopyCutPaste) {
+        return blockAndWarnForAction(
+          event,
+          "Warning 1/2: Copy/Paste shortcut detected during exam. Next violation will auto-submit your exam."
+        );
+      }
+
+      const isPrintScreenKey = key === "printscreen" || key === "snapshot";
+      const isMacScreenshotShortcut =
+        event.metaKey && event.shiftKey && ["3", "4", "5"].includes(key);
+      const isCtrlShiftScreenshot =
+        event.ctrlKey && event.shiftKey && key === "s";
+
+      if (isPrintScreenKey || isMacScreenshotShortcut || isCtrlShiftScreenshot) {
+        return blockAndWarnForAction(
+          event,
+          "Warning 1/2: Screenshot shortcut detected during exam. Next violation will auto-submit your exam."
+        );
+      }
+      return undefined;
+    };
+
+    const onKeyUp = (event) => {
+      const key = String(event?.key || "").toLowerCase();
+      if (key === "printscreen" || key === "snapshot") {
+        return blockAndWarnForAction(
+          event,
+          "Warning 1/2: Screenshot key detected during exam. Next violation will auto-submit your exam."
+        );
+      }
+      return undefined;
+    };
+
+    document.addEventListener("copy", onCopy, true);
+    document.addEventListener("cut", onCut, true);
+    document.addEventListener("paste", onPaste, true);
+    document.addEventListener("keydown", onKeyDown, true);
+    document.addEventListener("keyup", onKeyUp, true);
+
+    return () => {
+      document.removeEventListener("copy", onCopy, true);
+      document.removeEventListener("cut", onCut, true);
+      document.removeEventListener("paste", onPaste, true);
+      document.removeEventListener("keydown", onKeyDown, true);
+      document.removeEventListener("keyup", onKeyUp, true);
+    };
+  }, [activeAttempt?._id, handleIntegrityViolation, isAttemptInProgress]);
 
   const resultSummary = useMemo(() => {
     const evaluation = result?.evaluation;
     if (!evaluation) return null;
-    const totalAwarded = Number(evaluation.totalAwarded || 0);
-    const totalMax = Number(evaluation.totalMax || 0);
+    const perQuestion = Array.isArray(evaluation?.perQuestion) ? evaluation.perQuestion : [];
+    const totalAwarded = perQuestion.length
+      ? perQuestion.reduce(
+          (sum, item) => sum + (item?.isCorrect ? 1 : 0),
+          0
+        )
+      : Number(evaluation.totalAwarded || 0);
+    const totalMax = perQuestion.length || Number(evaluation.totalMax || 0);
     const percentage =
       totalMax > 0 ? Number(((totalAwarded / totalMax) * 100).toFixed(1)) : 0;
     return { totalAwarded, totalMax, percentage };
   }, [result]);
 
-  const handleRefreshExams = () => {
-    if (!apiBase) return;
-    dispatch(fetchStudentExamList({ apiBase }));
-  };
+  const resultInsights = useMemo(() => {
+    const perQuestion = Array.isArray(result?.evaluation?.perQuestion)
+      ? result.evaluation.perQuestion
+      : [];
+    if (!perQuestion.length || !resultSummary) return null;
+
+    const correctCount = perQuestion.reduce(
+      (sum, item) => sum + (item?.isCorrect ? 1 : 0),
+      0
+    );
+    const incorrectCount = perQuestion.length - correctCount;
+    const accuracy = Number(
+      ((correctCount / Math.max(perQuestion.length, 1)) * 100).toFixed(1)
+    );
+
+    const chartWidth = 560;
+    const chartHeight = 180;
+    const paddingX = 30;
+    const paddingY = 16;
+    const usableWidth = chartWidth - paddingX * 2;
+    const usableHeight = chartHeight - paddingY * 2;
+    const points = perQuestion.map((item, index) => {
+      const ratio =
+        perQuestion.length <= 1 ? 0.5 : index / (perQuestion.length - 1);
+      const x = paddingX + ratio * usableWidth;
+      const y = paddingY + (item?.isCorrect ? 0 : usableHeight);
+      return { x, y, label: `Q${index + 1}`, value: item?.isCorrect ? 100 : 0 };
+    });
+    const polylinePoints = points.map((pt) => `${pt.x},${pt.y}`).join(" ");
+
+    let remarkTitle = "Keep Practicing";
+    let remarkText = "Revise core topics and attempt more practice sets.";
+    if (resultSummary.percentage >= 85) {
+      remarkTitle = "Good Work!";
+      remarkText = "You have a strong grasp of this exam.";
+    } else if (resultSummary.percentage >= 60) {
+      remarkTitle = "Nice Progress";
+      remarkText = "You are doing well. Improve weak questions for a better score.";
+    }
+
+    return {
+      perQuestion,
+      correctCount,
+      incorrectCount,
+      accuracy,
+      points,
+      polylinePoints,
+      chartWidth,
+      chartHeight,
+      remarkTitle,
+      remarkText,
+    };
+  }, [result?.evaluation?.perQuestion, resultSummary]);
 
   const openExamWorkspace = (blueprintId) => {
     if (!blueprintId) return;
@@ -470,6 +1082,33 @@ const StudentExamCenter = () => {
 
   const handleLaunchAttempt = async () => {
     if (!apiBase || !workspaceBlueprintId || !isFaceVerified) return;
+    if (hasLikelyOpenExtensionPanel()) {
+      setFaceError(
+        "Please close your browser extension/side panel before starting the exam."
+      );
+      return;
+    }
+    if (workspaceScheduleInfo.isBeforeStart) {
+      setFaceError(
+        `Exam not started yet. It will start at ${formatDateTime(
+          workspaceExam?.scheduleStart
+        )}.`
+      );
+      return;
+    }
+    if (workspaceScheduleInfo.isExpired) {
+      setFaceError("Your exam has expired.");
+      return;
+    }
+    const fullscreenReady = await enterExamFullscreen();
+    if (!fullscreenReady) {
+      setFaceError(
+        "Fullscreen permission is required to start exam. Please allow fullscreen and try again."
+      );
+      return;
+    }
+    examViewportBaselineRef.current =
+      window.visualViewport?.width || window.innerWidth || 0;
     setPendingBlueprintId(String(workspaceBlueprintId));
     try {
       await dispatch(
@@ -482,14 +1121,16 @@ const StudentExamCenter = () => {
       await dispatch(fetchStudentExamList({ apiBase })).unwrap();
     } catch {
       // Error already handled in slice state.
+      await exitExamFullscreen();
+      stopFaceStream();
     } finally {
       setPendingBlueprintId("");
-      stopFaceStream();
     }
   };
 
   const closeWorkspace = () => {
     if (isAttemptInProgress) return;
+    exitExamFullscreen();
     setWorkspaceBlueprintId("");
     setWorkspaceStep("instructions");
     setFaceError("");
@@ -508,17 +1149,41 @@ const StudentExamCenter = () => {
     );
   };
 
-  const handleSaveCurrentAnswer = () => {
+  const openAttemptResultsPage = (blueprintId) => {
+    if (!blueprintId) return;
+    dispatch(clearStudentExamResult());
+    navigate(`/dashboard/exams/results/${blueprintId}`);
+  };
+
+  const closeAttemptResultsPage = () => {
+    dispatch(clearStudentExamResult());
+    navigate("/dashboard/exams");
+  };
+
+  const handleSaveCurrentAnswer = async () => {
     if (!apiBase || !activeAttempt?._id || !currentQuestion) return;
-    dispatch(
-      saveStudentExamAnswer({
-        apiBase,
-        attemptId: activeAttempt._id,
-        questionIndex: currentQuestionIndexKey,
-        answerText: isCurrentMcq ? "" : currentDraft.answerText,
-        selectedOption: isCurrentMcq ? currentDraft.selectedOption : "",
-      })
-    );
+    if (!hasCurrentAnswer || isCurrentQuestionLocked) return;
+    try {
+      await dispatch(
+        saveStudentExamAnswer({
+          apiBase,
+          attemptId: activeAttempt._id,
+          questionIndex: currentQuestionIndexKey,
+          answerText: isCurrentMcq ? "" : currentDraft.answerText,
+          selectedOption: isCurrentMcq ? currentDraft.selectedOption : "",
+        })
+      ).unwrap();
+      setLockedQuestionMap((prev) => ({
+        ...prev,
+        [String(currentQuestionIndexKey)]: true,
+      }));
+      const nextOpen = getNavigableIndex(boundedQuestionIndex, 1, true);
+      if (nextOpen >= 0) {
+        dispatch(setStudentExamQuestionIndex(nextOpen));
+      }
+    } catch {
+      // Save error is already handled by slice state.
+    }
   };
 
   const handleSubmitAttempt = async () => {
@@ -537,19 +1202,6 @@ const StudentExamCenter = () => {
           <h3>Exam Center</h3>
           <p>Start attempts, save answers, submit exam, and view evaluated results.</p>
         </div>
-        <button
-          type="button"
-          className="student-exam-refresh-btn"
-          onClick={handleRefreshExams}
-          disabled={examsLoadState === ADMIN_LOAD_STATES.PENDING}
-        >
-          {examsLoadState === ADMIN_LOAD_STATES.PENDING ? (
-            <ClipLoader size={14} color="#ffffff" trackColor="rgba(255,255,255,0.28)" />
-          ) : (
-            <FiRefreshCcw />
-          )}
-          <span>Refresh</span>
-        </button>
       </header>
 
       {(examsError || startError || saveError || submitError || resultError) && (
@@ -599,6 +1251,14 @@ const StudentExamCenter = () => {
               </span>
             </button>
           </header>
+          <video
+            ref={proctorVideoRef}
+            muted
+            playsInline
+            autoPlay
+            aria-hidden="true"
+            style={{ display: "none" }}
+          />
 
           {workspaceStep === "instructions" && (
             <div className="student-exam-preflight-card">
@@ -625,6 +1285,16 @@ const StudentExamCenter = () => {
                 ))}
               </ul>
 
+              {workspaceScheduleInfo.isBeforeStart && (
+                <p className="student-exam-face-subtext">
+                  Exam starts at {formatDateTime(workspaceExam?.scheduleStart)} (starts in{" "}
+                  {formatTimer(workspaceScheduleInfo.startCountdownMs)}).
+                </p>
+              )}
+              {workspaceScheduleInfo.isExpired && (
+                <p className="student-exam-face-error">Your exam has expired.</p>
+              )}
+
               <div className="student-exam-preflight-actions">
                 <button
                   type="button"
@@ -637,11 +1307,29 @@ const StudentExamCenter = () => {
                   type="button"
                   className="student-exam-action primary"
                   onClick={() => setWorkspaceStep("face")}
+                  disabled={
+                    workspaceScheduleInfo.isBeforeStart ||
+                    workspaceScheduleInfo.isExpired ||
+                    hasOpenExtensionPanel
+                  }
                 >
                   <FiCamera />
-                  <span>Proceed to Face Verification</span>
+                  <span>
+                    {workspaceScheduleInfo.isExpired
+                      ? "Exam Expired"
+                      : hasOpenExtensionPanel
+                      ? "Close Extension Panel First"
+                      : workspaceScheduleInfo.isBeforeStart
+                      ? "Exam Not Started"
+                      : "Proceed to Face Verification"}
+                  </span>
                 </button>
               </div>
+              {hasOpenExtensionPanel && (
+                <p className="student-exam-face-error">
+                  Please close your browser extension/side panel before starting the exam.
+                </p>
+              )}
             </div>
           )}
 
@@ -653,7 +1341,7 @@ const StudentExamCenter = () => {
               </div>
 
               <p className="student-exam-face-subtext">
-                Camera access allow karein. Face verify hone ke baad hi MCQ exam start hoga.
+                Allow camera access. The exam will start only after your face is verified.
               </p>
 
               <div className="student-exam-face-preview">
@@ -667,28 +1355,85 @@ const StudentExamCenter = () => {
                 {isFaceChecking && !isFaceVerified && (
                   <span className="student-exam-face-checking">
                     <ClipLoader size={13} color="#0f766e" trackColor="rgba(15,118,110,0.2)" />
-                    <span>Detecting face...</span>
+                    <span>Verifying face...</span>
                   </span>
                 )}
               </div>
 
               {faceError && <p className="student-exam-face-error">{faceError}</p>}
+              {hasOpenExtensionPanel && (
+                <p className="student-exam-face-error">
+                  Please close your browser extension/side panel before starting the exam.
+                </p>
+              )}
 
               <div className="student-exam-preflight-actions">
                 {!isFaceVerified && (
                   <button
                     type="button"
                     className="student-exam-action secondary"
-                    onClick={() => {
+                    onClick={async () => {
                       if (!faceStreamRef.current) return;
-                      setIsFaceChecking(false);
+                      const imageData = captureFrameDataUrl(videoRef.current);
+                      if (!imageData) {
+                        setFaceError("Unable to capture camera frame. Keep camera on and retry.");
+                        return;
+                      }
+                      setIsFaceChecking(true);
                       setFaceError("");
+                      const result = await verifyFaceWithBackend({ imageData });
+                      let effectiveResult = result;
+                      if (!result.ok && result.error === "OPENCV_NOT_AVAILABLE") {
+                        const fallback = await verifyFaceWithBrowserDetector(videoRef.current);
+                        effectiveResult = fallback.ok
+                          ? fallback
+                          : {
+                              ...fallback,
+                              message:
+                                fallback.message ||
+                                "Face verification failed. Keep your face visible and retry.",
+                            };
+                      }
+                      setIsFaceChecking(false);
+                      if (!effectiveResult.ok) {
+                        const canUseManualFallback =
+                          effectiveResult.error === "BROWSER_FACE_DETECTOR_UNAVAILABLE" ||
+                          effectiveResult.error === "BROWSER_FACE_DETECTOR_FAILED";
+                        if (canUseManualFallback) {
+                          const confirmed = window.confirm(
+                            "Automatic face verification is unavailable on this device/browser. Continue with manual verification?"
+                          );
+                          if (confirmed) {
+                            setIsFaceVerified(true);
+                            setFaceError(
+                              "Automatic face verification is unavailable. Manual verification enabled."
+                            );
+                            return;
+                          }
+                        }
+                        setIsFaceVerified(false);
+                        setFaceError(effectiveResult.message || "Face verification failed.");
+                        return;
+                      }
+                      if (!effectiveResult.verified) {
+                        setIsFaceVerified(false);
+                        setFaceError(
+                          effectiveResult.reason === "EYES_NOT_VISIBLE"
+                            ? "Eyes are not clearly visible. Look at the screen and keep your eyes visible."
+                            : 
+                          effectiveResult.reason === "MULTIPLE_FACES"
+                            ? "Multiple faces detected. Keep only your face in frame."
+                            : "Face not detected. Keep your face visible and retry."
+                        );
+                        return;
+                      }
                       setIsFaceVerified(true);
+                      setFaceError("");
                     }}
-                    disabled={!isCameraReady}
+                    disabled={!isCameraReady || isFaceChecking}
                   >
                     <FiUserCheck />
-                    <span>Verify Face</span>
+                    <span>{isFaceChecking ? "Verifying..." : "Verify Face"}</span>
                   </button>
                 )}
                 <button
@@ -696,6 +1441,9 @@ const StudentExamCenter = () => {
                   className="student-exam-action primary"
                   onClick={handleLaunchAttempt}
                   disabled={
+                    workspaceScheduleInfo.isBeforeStart ||
+                    workspaceScheduleInfo.isExpired ||
+                    hasOpenExtensionPanel ||
                     !isFaceVerified ||
                     (startLoadState === ADMIN_LOAD_STATES.PENDING &&
                       String(pendingBlueprintId) === String(workspaceBlueprintId))
@@ -707,7 +1455,7 @@ const StudentExamCenter = () => {
                   ) : (
                     <FiPlayCircle />
                   )}
-                  <span>Start MCQ Exam</span>
+                  <span>Start Exam</span>
                 </button>
               </div>
             </div>
@@ -734,8 +1482,9 @@ const StudentExamCenter = () => {
                   <div className="student-exam-integrity-note">
                     <FiShield />
                     <span>
-                      Proctoring active: tab switch / window blur / page close detected hone par
-                      attempt auto-submit ho jayega.
+                      Proctoring is active: tab/minimize, face-check failures, fullscreen exit,
+                      extension side-panel activity, copy/cut/paste, and screenshot attempts
+                      trigger one warning; the second violation auto-submits your exam.
                     </span>
                   </div>
 
@@ -745,6 +1494,7 @@ const StudentExamCenter = () => {
                         const isCurrent = index === boundedQuestionIndex;
                         const questionKey = String(item?.questionIndex ?? index);
                         const draft = answerDrafts[questionKey] || {};
+                        const locked = isQuestionLocked(item);
                         const answered =
                           String(draft.selectedOption || "").trim().length > 0 ||
                           String(draft.answerText || "").trim().length > 0;
@@ -755,7 +1505,11 @@ const StudentExamCenter = () => {
                             className={`student-question-nav-btn ${isCurrent ? "current" : ""} ${
                               answered ? "answered" : ""
                             }`}
-                            onClick={() => dispatch(setStudentExamQuestionIndex(index))}
+                            onClick={() => {
+                              if (locked) return;
+                              dispatch(setStudentExamQuestionIndex(index));
+                            }}
+                            disabled={locked}
                           >
                             Q{index + 1}
                           </button>
@@ -788,6 +1542,7 @@ const StudentExamCenter = () => {
                                   type="radio"
                                   name={`question-${currentQuestionIndexKey}`}
                                   checked={selected}
+                                  disabled={isCurrentQuestionLocked}
                                   onChange={() =>
                                     dispatch(
                                       setStudentExamAnswerDraft({
@@ -821,6 +1576,7 @@ const StudentExamCenter = () => {
                               })
                             )
                           }
+                          disabled={isCurrentQuestionLocked}
                           rows={currentQuestion?.sectionType === "LONG" ? 8 : 5}
                         />
                       )}
@@ -829,14 +1585,11 @@ const StudentExamCenter = () => {
                         <button
                           type="button"
                           className="student-question-btn muted"
-                          onClick={() =>
-                            dispatch(
-                              setStudentExamQuestionIndex(
-                                Math.max(boundedQuestionIndex - 1, 0)
-                              )
-                            )
-                          }
-                          disabled={boundedQuestionIndex <= 0}
+                          onClick={() => {
+                            if (previousQuestionIndex < 0) return;
+                            dispatch(setStudentExamQuestionIndex(previousQuestionIndex));
+                          }}
+                          disabled={previousQuestionIndex < 0}
                         >
                           <FiChevronLeft />
                           <span>Previous</span>
@@ -847,6 +1600,8 @@ const StudentExamCenter = () => {
                           className="student-question-btn save"
                           onClick={handleSaveCurrentAnswer}
                           disabled={
+                            !hasCurrentAnswer ||
+                            isCurrentQuestionLocked ||
                             saveLoadState === ADMIN_LOAD_STATES.PENDING ||
                             activeAttempt?.status !== "IN_PROGRESS"
                           }
@@ -867,17 +1622,27 @@ const StudentExamCenter = () => {
                         <button
                           type="button"
                           className="student-question-btn muted"
-                          onClick={() =>
-                            dispatch(
-                              setStudentExamQuestionIndex(
-                                Math.min(boundedQuestionIndex + 1, totalQuestions - 1)
-                              )
-                            )
-                          }
-                          disabled={boundedQuestionIndex >= totalQuestions - 1}
+                          onClick={() => {
+                            if (nextQuestionIndex < 0) return;
+                            dispatch(setStudentExamQuestionIndex(nextQuestionIndex));
+                          }}
+                          disabled={nextQuestionIndex < 0}
                         >
                           <span>Next</span>
                           <FiChevronRight />
+                        </button>
+
+                        <button
+                          type="button"
+                          className="student-question-btn muted"
+                          onClick={() => {
+                            if (skipQuestionIndex < 0) return;
+                            dispatch(setStudentExamQuestionIndex(skipQuestionIndex));
+                          }}
+                          disabled={skipQuestionIndex < 0}
+                        >
+                          <FiSkipForward />
+                          <span>Skip</span>
                         </button>
 
                         <button
@@ -911,8 +1676,8 @@ const StudentExamCenter = () => {
                     <h5>Attempt session unavailable</h5>
                   </div>
                   <p>
-                    Active exam attempt load nahi ho paaya. Please wapas jaakar exam dobara
-                    start karein.
+                    The active exam attempt could not be loaded. Please go back and start the
+                    exam again.
                   </p>
                   <div className="student-exam-preflight-actions">
                     <button
@@ -928,12 +1693,92 @@ const StudentExamCenter = () => {
             </>
           )}
         </section>
+      ) : isAttemptResultsPage ? (
+        <section className="student-exam-attempt-results-page">
+          <header className="student-exam-attempt-results-head">
+            <div>
+              <h4>{selectedResultExam?.title || "Exam Attempts"}</h4>
+              <p>
+                View marks for each attempt and open any attempt result in detail.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="student-exam-action secondary"
+              onClick={closeAttemptResultsPage}
+            >
+              <FiArrowLeft />
+              <span>Back to Exams</span>
+            </button>
+          </header>
+
+          <div className="student-exam-attempt-results-table-wrap">
+            <table className="student-exam-attempt-results-table">
+              <thead>
+                <tr>
+                  <th>Attempt</th>
+                  <th>Marks</th>
+                  <th>Submitted</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.isArray(selectedResultExam?.evaluatedAttempts) &&
+                selectedResultExam.evaluatedAttempts.length > 0 ? (
+                  selectedResultExam.evaluatedAttempts.map((attemptRow) => {
+                    const isLoadingResult =
+                      resultLoadState === ADMIN_LOAD_STATES.PENDING &&
+                      String(activeResultAttemptId) ===
+                        String(attemptRow?.attemptId || "");
+                    const totalAwarded = Number(attemptRow?.totalAwarded || 0);
+                    const totalMax = Number(attemptRow?.totalMax || 0);
+                    return (
+                      <tr key={String(attemptRow?.attemptId || attemptRow?.attemptNumber || "")}>
+                        <td>Attempt {Number(attemptRow?.attemptNumber || 1)}</td>
+                        <td>
+                          {totalAwarded} / {totalMax}
+                        </td>
+                        <td>
+                          {attemptRow?.submittedAt
+                            ? formatDateTime(attemptRow.submittedAt)
+                            : "N/A"}
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="student-exam-action secondary student-exam-attempt-view-btn"
+                            onClick={() => handleViewResult(attemptRow?.attemptId)}
+                            disabled={isLoadingResult}
+                          >
+                            {isLoadingResult ? (
+                              <ClipLoader
+                                size={13}
+                                color="#0f172a"
+                                trackColor="rgba(15,23,42,0.18)"
+                              />
+                            ) : (
+                              <FiCheckCircle />
+                            )}
+                            <span>View Result</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td colSpan={4}>No evaluated attempts found.</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : (
         <div className="student-exam-grid">
           {examsLoadState === ADMIN_LOAD_STATES.PENDING && exams.length === 0 ? (
             <div className="student-exam-loading-card">
-              <ClipLoader size={18} color="#0f766e" trackColor="rgba(15,118,110,0.25)" />
-              <span>Loading published exams...</span>
+              <BeatLoader size={10} margin={3} color="#2563eb" />
             </div>
           ) : exams.length === 0 ? (
             <div className="student-exam-empty-card">
@@ -946,16 +1791,67 @@ const StudentExamCenter = () => {
               const isStartPending =
                 startLoadState === ADMIN_LOAD_STATES.PENDING &&
                 String(pendingBlueprintId) === String(exam?._id);
-              const cardStatus = exam?.hasActiveAttempt
+              const scheduleStartMs = new Date(exam?.scheduleStart || "").getTime();
+              const scheduleEndMs = new Date(exam?.scheduleEnd || "").getTime();
+              const hasValidWindow =
+                Number.isFinite(scheduleStartMs) && Number.isFinite(scheduleEndMs);
+              const isBeforeStart = hasValidWindow && clockNow < scheduleStartMs;
+              const isExpired = hasValidWindow && clockNow >= scheduleEndMs;
+              const startsInMs = hasValidWindow ? Math.max(scheduleStartMs - clockNow, 0) : 0;
+              const endsInMs = hasValidWindow ? Math.max(scheduleEndMs - clockNow, 0) : 0;
+
+              const cardStatus = isExpired
+                ? "Expired"
+                : exam?.hasActiveAttempt
                 ? "In Progress"
+                : isBeforeStart
+                ? "Upcoming"
                 : exam?.canAttempt
                 ? "Available"
                 : "Locked";
-              const cardStatusClass = exam?.hasActiveAttempt
+              const cardStatusClass = isExpired || isBeforeStart
+                ? "locked"
+                : exam?.hasActiveAttempt
                 ? "in-progress"
                 : exam?.canAttempt
                 ? "available"
                 : "locked";
+
+              const timeGuardDisabled = isBeforeStart || isExpired;
+              const hasAttemptsLeft =
+                Number(exam?.attemptsUsed || 0) < Number(exam?.maxAttempts || 10);
+              const isAttemptActionAllowed = Boolean(exam?.canAttempt || exam?.hasActiveAttempt);
+              const primaryActionDisabled =
+                isStartPending || timeGuardDisabled || !isAttemptActionAllowed;
+
+              const scheduleHint = isExpired
+                ? "Your exam has expired."
+                : isBeforeStart
+                ? `Exam starts at ${formatDateTime(exam?.scheduleStart)} (starts in ${formatTimer(
+                    startsInMs
+                  )}).`
+                : !isAttemptActionAllowed
+                ? hasAttemptsLeft
+                  ? "Start is currently unavailable for this exam."
+                  : "Maximum attempts reached for this exam."
+                : hasValidWindow
+                ? `Exam is live. Ends in ${formatTimer(endsInMs)}.`
+                : "";
+
+              const primaryActionLabel = isExpired
+                ? "Exam Expired"
+                : isBeforeStart
+                ? "Exam Not Started"
+                : !isAttemptActionAllowed
+                ? hasAttemptsLeft
+                  ? "Start Unavailable"
+                  : "Attempts Completed"
+                : exam?.hasActiveAttempt
+                ? "Continue Exam"
+                : "Start Exam";
+              const evaluatedAttempts = Array.isArray(exam?.evaluatedAttempts)
+                ? exam.evaluatedAttempts
+                : [];
 
               return (
                 <article key={exam?._id} className="student-exam-card">
@@ -979,11 +1875,11 @@ const StudentExamCenter = () => {
                       <p>{Number(exam?.totalMarks || 0)}</p>
                     </div>
                     <div>
-                      <label>Attempts</label>
-                      <p>
-                        {Number(exam?.attemptsUsed || 0)} / {Number(exam?.maxAttempts || 2)}
-                      </p>
-                    </div>
+                        <label>Attempts</label>
+                        <p>
+                          {Number(exam?.attemptsUsed || 0)} / {Number(exam?.maxAttempts || 10)}
+                        </p>
+                      </div>
                     <div>
                       <label>Teacher</label>
                       <p>{exam?.teacher?.name || "Not Assigned"}</p>
@@ -997,50 +1893,46 @@ const StudentExamCenter = () => {
                     </span>
                   </div>
 
-                  <div className="student-exam-card-actions">
-                    {(exam?.canAttempt || exam?.hasActiveAttempt) && (
-                      <button
-                        type="button"
-                        className="student-exam-action primary"
-                        onClick={() => openExamWorkspace(exam?._id)}
-                        disabled={isStartPending}
-                      >
-                        {isStartPending ? (
-                          <ClipLoader
-                            size={14}
-                            color="#ffffff"
-                            trackColor="rgba(255,255,255,0.28)"
-                          />
-                        ) : exam?.hasActiveAttempt ? (
-                          <FiPlayCircle />
-                        ) : (
-                          <FiTarget />
-                        )}
-                        <span>{exam?.hasActiveAttempt ? "Continue Exam" : "Start Exam"}</span>
-                      </button>
-                    )}
+                  {scheduleHint && <p className="student-exam-subject">{scheduleHint}</p>}
 
-                    {exam?.latestEvaluatedAttemptId && (
+                  <div className="student-exam-card-actions">
+                    <button
+                      type="button"
+                      className="student-exam-action primary"
+                      onClick={() => openExamWorkspace(exam?._id)}
+                      disabled={primaryActionDisabled}
+                    >
+                      {isStartPending ? (
+                        <ClipLoader
+                          size={14}
+                          color="#ffffff"
+                          trackColor="rgba(255,255,255,0.28)"
+                        />
+                      ) : isExpired || isBeforeStart || !isAttemptActionAllowed ? (
+                        <FiClock />
+                      ) : exam?.hasActiveAttempt ? (
+                        <FiPlayCircle />
+                      ) : (
+                        <FiTarget />
+                      )}
+                      <span>{primaryActionLabel}</span>
+                    </button>
+
+                  </div>
+
+                  {evaluatedAttempts.length > 0 && (
+                    <div className="student-exam-attempt-result-list">
+                      <label>Attempt {Number(exam?.attemptsUsed || 0)} ({Number(exam?.attemptsUsed || 0)}/{Number(exam?.maxAttempts || 10)})</label>
                       <button
                         type="button"
-                        className="student-exam-action secondary"
-                        onClick={() => handleViewResult(exam.latestEvaluatedAttemptId)}
-                        disabled={
-                          resultLoadState === ADMIN_LOAD_STATES.PENDING &&
-                          String(activeResultAttemptId) ===
-                            String(exam.latestEvaluatedAttemptId)
-                        }
+                        className="student-exam-action secondary student-exam-attempt-result-btn"
+                        onClick={() => openAttemptResultsPage(exam?._id)}
                       >
-                        {resultLoadState === ADMIN_LOAD_STATES.PENDING &&
-                        String(activeResultAttemptId) === String(exam.latestEvaluatedAttemptId) ? (
-                          <ClipLoader size={14} color="#0f172a" trackColor="rgba(15,23,42,0.18)" />
-                        ) : (
-                          <FiCheckCircle />
-                        )}
-                        <span>View Result</span>
+                        <FiCheckCircle />
+                        <span>View Results</span>
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </article>
               );
             })
@@ -1048,15 +1940,12 @@ const StudentExamCenter = () => {
         </div>
       )}
 
-      {!showWorkspace && (
+      {!showWorkspace &&
+        (resultLoadState === ADMIN_LOAD_STATES.PENDING ||
+          Boolean(result?.evaluation)) && (
         <section className="student-exam-result-panel">
           <header className="student-exam-result-header">
             <h4>Exam Result</h4>
-            {resultSummary && (
-              <span className="student-exam-result-score">
-                {resultSummary.totalAwarded}/{resultSummary.totalMax}
-              </span>
-            )}
           </header>
 
           {resultLoadState === ADMIN_LOAD_STATES.PENDING ? (
@@ -1064,28 +1953,110 @@ const StudentExamCenter = () => {
               <ClipLoader size={18} color="#0f766e" trackColor="rgba(15,118,110,0.2)" />
               <span>Loading result...</span>
             </div>
-          ) : !result?.evaluation ? (
-            <p className="student-exam-result-empty">
-              Result will appear here after you submit and evaluation is completed.
-            </p>
           ) : (
             <>
-              <div className="student-exam-result-cards">
-                <article>
-                  <label>Total Score</label>
-                  <strong>
-                    {resultSummary?.totalAwarded} / {resultSummary?.totalMax}
-                  </strong>
-                </article>
-                <article>
-                  <label>Percentage</label>
-                  <strong>{resultSummary?.percentage}%</strong>
-                </article>
-                <article>
-                  <label>Status</label>
-                  <strong>{result?.attempt?.status || "EVALUATED"}</strong>
-                </article>
-              </div>
+              {resultInsights && (
+                <div className="student-exam-result-overview-grid">
+                  <article className="student-exam-overview-score-card">
+                    <div className="student-exam-overview-score-box">
+                      <label>Overall Score</label>
+                      <strong>
+                        {resultSummary?.totalAwarded}/{resultSummary?.totalMax}
+                      </strong>
+                    </div>
+                    <div
+                      className="student-exam-overview-gauge"
+                      style={{ "--result-value": `${resultSummary?.percentage || 0}` }}
+                    >
+                      <span>{resultSummary?.percentage}%</span>
+                    </div>
+                    <h5>{resultInsights.remarkTitle}</h5>
+                    <p>{resultInsights.remarkText}</p>
+                  </article>
+
+                  <article className="student-exam-overview-breakdown">
+                    <h5>Scores by Question Types</h5>
+                    <div className="student-exam-breakdown-row">
+                      <div>
+                        <strong>Correct ({resultInsights.correctCount})</strong>
+                      </div>
+                      <span>
+                        {resultInsights.correctCount}/{resultInsights.perQuestion.length} (
+                        {resultInsights.accuracy}%)
+                      </span>
+                    </div>
+                    <div className="student-exam-breakdown-track">
+                      <span style={{ width: `${resultInsights.accuracy}%` }} />
+                    </div>
+
+                    <div className="student-exam-breakdown-row">
+                      <div>
+                        <strong>Incorrect ({resultInsights.incorrectCount})</strong>
+                      </div>
+                      <span>
+                        {resultInsights.incorrectCount}/{resultInsights.perQuestion.length} (
+                        {Number((100 - resultInsights.accuracy).toFixed(1))}%)
+                      </span>
+                    </div>
+                    <div className="student-exam-breakdown-track wrong">
+                      <span
+                        style={{
+                          width: `${Math.max(0, 100 - resultInsights.accuracy)}%`,
+                        }}
+                      />
+                    </div>
+                  </article>
+
+                  <article className="student-exam-overview-chart">
+                    <h5>Question wise performance</h5>
+                    <svg
+                      viewBox={`0 0 ${resultInsights.chartWidth} ${resultInsights.chartHeight}`}
+                      role="img"
+                      aria-label="Question wise performance chart"
+                    >
+                      {[0, 25, 50, 75, 100].map((tick) => {
+                        const y = 16 + ((100 - tick) / 100) * (resultInsights.chartHeight - 32);
+                        return (
+                          <g key={`tick-${tick}`}>
+                            <line
+                              x1="30"
+                              y1={y}
+                              x2={resultInsights.chartWidth - 30}
+                              y2={y}
+                              className="student-exam-chart-grid"
+                            />
+                            <text x="8" y={y + 4} className="student-exam-chart-axis-label">
+                              {tick}
+                            </text>
+                          </g>
+                        );
+                      })}
+                      <polyline
+                        points={resultInsights.polylinePoints}
+                        className="student-exam-chart-line"
+                      />
+                      {resultInsights.points.map((pt) => (
+                        <g key={`pt-${pt.label}`}>
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="4"
+                            className="student-exam-chart-point"
+                          />
+                          <text
+                            x={pt.x}
+                            y={resultInsights.chartHeight - 4}
+                            textAnchor="middle"
+                            className="student-exam-chart-axis-label"
+                          >
+                            {pt.label}
+                          </text>
+                        </g>
+                      ))}
+                    </svg>
+                  </article>
+                </div>
+              )}
 
               <div className="student-exam-result-table-wrap">
                 <table className="student-exam-result-table">
@@ -1098,13 +2069,20 @@ const StudentExamCenter = () => {
                   </thead>
                   <tbody>
                     {(result?.evaluation?.perQuestion || []).map((item) => (
-                      <tr key={`result-q-${item?.questionIndex}`}>
-                        <td>Q{Number(item?.questionIndex || 0) + 1}</td>
-                        <td>
-                          {Number(item?.awardedMarks || 0)} / {Number(item?.maxMarks || 0)}
-                        </td>
-                        <td>{item?.feedback || "No feedback available."}</td>
-                      </tr>
+                      (() => {
+                        const isCorrect = Boolean(item?.isCorrect);
+                        return (
+                          <tr key={`result-q-${item?.questionIndex}`}>
+                            <td>Q{Number(item?.questionIndex || 0) + 1}</td>
+                            <td>{isCorrect ? "1 / 1" : "0 / 1"}</td>
+                            <td>
+                              {isCorrect
+                                ? "Correct answer."
+                                : "Incorrect answer."}
+                            </td>
+                          </tr>
+                        );
+                      })()
                     ))}
                   </tbody>
                 </table>

@@ -164,83 +164,104 @@ const StudentFeeMapping = () => {
 
         <form
           onSubmit={submitMapping}
-          style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px" }}
+          className="sfm-form-grid"
         >
-          <input
-            type="text"
-            placeholder="Student document id (optional)"
-            value={form.studentMongoId}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, studentMongoId: event.target.value }))
-            }
-          />
-          <input
-            type="text"
-            placeholder="User id"
-            value={form.userId}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, userId: event.target.value }))
-            }
-            required
-          />
-          <input
-            type="text"
-            placeholder="Student enrollment id"
-            value={form.studentId}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, studentId: event.target.value }))
-            }
-            required
-          />
-          <input
-            type="text"
-            placeholder="Batch id (Mongo ObjectId)"
-            value={form.batchId}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, batchId: event.target.value }))
-            }
-            required
-          />
-          <select
-            value={form.programId}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, programId: event.target.value, branchId: "" }))
-            }
-            required
-          >
-            <option value="">Select program</option>
-            {programs.map((program) => (
-              <option key={program._id} value={program._id}>
-                {program.programName}
-              </option>
-            ))}
-          </select>
-          <select
-            value={form.branchId}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, branchId: event.target.value }))
-            }
-            required
-          >
-            <option value="">Select branch</option>
-            {branchOptions.map((branch) => (
-              <option key={branch._id} value={branch._id}>
-                {branch.branchName}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min="1"
-            placeholder="Current semester"
-            value={form.currentSemester}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, currentSemester: event.target.value }))
-            }
-            required
-          />
-          <label>
-            Scholarship Type
+          <label className="sfm-form-field">
+            <span>Student document id (optional)</span>
+            <input
+              type="text"
+              placeholder="Student document id"
+              value={form.studentMongoId}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, studentMongoId: event.target.value }))
+              }
+            />
+          </label>
+          <label className="sfm-form-field">
+            <span>User id</span>
+            <input
+              type="text"
+              placeholder="User id"
+              value={form.userId}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, userId: event.target.value }))
+              }
+              required
+            />
+          </label>
+          <label className="sfm-form-field">
+            <span>Student enrollment id</span>
+            <input
+              type="text"
+              placeholder="Student enrollment id"
+              value={form.studentId}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, studentId: event.target.value }))
+              }
+              required
+            />
+          </label>
+          <label className="sfm-form-field">
+            <span>Batch id (Mongo ObjectId)</span>
+            <input
+              type="text"
+              placeholder="Batch id"
+              value={form.batchId}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, batchId: event.target.value }))
+              }
+              required
+            />
+          </label>
+          <label className="sfm-form-field">
+            <span>Program</span>
+            <select
+              value={form.programId}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, programId: event.target.value, branchId: "" }))
+              }
+              required
+            >
+              <option value="">Select program</option>
+              {programs.map((program) => (
+                <option key={program._id} value={program._id}>
+                  {program.programName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sfm-form-field">
+            <span>Branch</span>
+            <select
+              value={form.branchId}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, branchId: event.target.value }))
+              }
+              required
+            >
+              <option value="">Select branch</option>
+              {branchOptions.map((branch) => (
+                <option key={branch._id} value={branch._id}>
+                  {branch.branchName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="sfm-form-field">
+            <span>Current semester</span>
+            <input
+              type="number"
+              min="1"
+              placeholder="Current semester"
+              value={form.currentSemester}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, currentSemester: event.target.value }))
+              }
+              required
+            />
+          </label>
+          <label className="sfm-form-field">
+            <span>Scholarship Type</span>
             <select
               value={form.scholarshipType}
               onChange={(event) =>
@@ -252,17 +273,20 @@ const StudentFeeMapping = () => {
               <option value="FIXED">FIXED</option>
             </select>
           </label>
-          <input
-            type="number"
-            min="0"
-            placeholder="Scholarship value"
-            value={form.scholarshipValue}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, scholarshipValue: event.target.value }))
-            }
-          />
-          <label>
-            Discount Type
+          <label className="sfm-form-field">
+            <span>Scholarship value</span>
+            <input
+              type="number"
+              min="0"
+              placeholder="Scholarship value"
+              value={form.scholarshipValue}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, scholarshipValue: event.target.value }))
+              }
+            />
+          </label>
+          <label className="sfm-form-field">
+            <span>Discount Type</span>
             <select
               value={form.discountType}
               onChange={(event) =>
@@ -274,16 +298,19 @@ const StudentFeeMapping = () => {
               <option value="FIXED">FIXED</option>
             </select>
           </label>
-          <input
-            type="number"
-            min="0"
-            placeholder="Discount value"
-            value={form.discountValue}
-            onChange={(event) =>
-              setForm((prev) => ({ ...prev, discountValue: event.target.value }))
-            }
-          />
-          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label className="sfm-form-field">
+            <span>Discount value</span>
+            <input
+              type="number"
+              min="0"
+              placeholder="Discount value"
+              value={form.discountValue}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, discountValue: event.target.value }))
+              }
+            />
+          </label>
+          <label className="sfm-checkbox-field">
             <input
               type="checkbox"
               checked={form.hostelOpted}
@@ -291,9 +318,9 @@ const StudentFeeMapping = () => {
                 setForm((prev) => ({ ...prev, hostelOpted: event.target.checked }))
               }
             />
-            Hostel opted
+            <span>Hostel opted</span>
           </label>
-          <label style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          <label className="sfm-checkbox-field">
             <input
               type="checkbox"
               checked={form.transportOpted}
@@ -301,11 +328,13 @@ const StudentFeeMapping = () => {
                 setForm((prev) => ({ ...prev, transportOpted: event.target.checked }))
               }
             />
-            Transport opted
+            <span>Transport opted</span>
           </label>
-          <button type="submit" className="sfm-export-btn" disabled={submitting}>
-            {submitting ? "Saving..." : "Create Mapping"}
-          </button>
+          <div className="sfm-form-actions">
+            <button type="submit" className="sfm-export-btn" disabled={submitting}>
+              {submitting ? "Saving..." : "Create Mapping"}
+            </button>
+          </div>
         </form>
       </section>
     </div>

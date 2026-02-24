@@ -2,6 +2,19 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import {
+  FiActivity,
+  FiCalendar,
+  FiCheckCircle,
+  FiClock,
+  FiCreditCard,
+  FiDollarSign,
+  FiHash,
+  FiLayers,
+  FiRefreshCw,
+  FiUser,
+  FiXCircle,
+} from "react-icons/fi";
+import {
   createFeePayment,
   fetchFeeDemands,
   fetchFeePayments,
@@ -23,6 +36,15 @@ const PAYMENT_MODES = [
 ];
 
 const STATUS_OPTIONS = ["SUCCESS", "FAILED", "CANCELLED", "REFUNDED"];
+
+const getStatusClass = (status = "") => {
+  const normalized = String(status || "").toUpperCase();
+  if (normalized === "SUCCESS") return "is-success";
+  if (normalized === "FAILED") return "is-failed";
+  if (normalized === "CANCELLED") return "is-cancelled";
+  if (normalized === "REFUNDED") return "is-refunded";
+  return "is-warning";
+};
 
 const PaymentMethods = () => {
   const dispatch = useDispatch();
@@ -97,23 +119,41 @@ const PaymentMethods = () => {
     <div className="payment-methods-page">
       <header className="pm-hero">
         <div>
-          <p className="pm-eyebrow">Fees · Payment Processing</p>
+          <p className="pm-eyebrow">Fees - Payment Processing</p>
           <h1>Payment Methods & Status</h1>
           <p>
             Integrated endpoints: <code>/api/admin/fee/payment</code> and{" "}
             <code>/api/admin/fee/payment/:paymentId/status</code>.
           </p>
         </div>
+        <div className="pm-hero-stats">
+          <article>
+            <p>
+              <FiLayers /> Pending Demands
+            </p>
+            <strong>{pendingDemands.length}</strong>
+          </article>
+          <article>
+            <p>
+              <FiCreditCard /> Payments Logged
+            </p>
+            <strong>{payments.length}</strong>
+          </article>
+        </div>
       </header>
 
       <section className="pm-cash-form">
         <div>
-          <h3>Record New Payment</h3>
+          <h3>
+            <FiDollarSign /> Record New Payment
+          </h3>
           <p>Use this for cash/counter/manual settlement entries.</p>
         </div>
         <form onSubmit={submitPayment} className="pm-cash-form-grid">
           <label>
-            <span>Demand</span>
+            <span className="pm-field-label">
+              <FiUser /> Demand
+            </span>
             <select
               value={paymentForm.demandId}
               onChange={(event) =>
@@ -124,14 +164,16 @@ const PaymentMethods = () => {
               <option value="">Select demand</option>
               {pendingDemands.map((demand) => (
                 <option key={demand._id} value={demand._id}>
-                  {demand.studentId} · {demand.academicYear} · Sem {demand.semesterNo} · Due{" "}
+                  {demand.studentId} - {demand.academicYear} - Sem {demand.semesterNo} - Due{" "}
                   {demand.dueAmount}
                 </option>
               ))}
             </select>
           </label>
           <label>
-            <span>Amount</span>
+            <span className="pm-field-label">
+              <FiDollarSign /> Amount
+            </span>
             <input
               type="number"
               min="1"
@@ -144,7 +186,9 @@ const PaymentMethods = () => {
             />
           </label>
           <label>
-            <span>Mode</span>
+            <span className="pm-field-label">
+              <FiCreditCard /> Mode
+            </span>
             <select
               value={paymentForm.mode}
               onChange={(event) =>
@@ -159,7 +203,9 @@ const PaymentMethods = () => {
             </select>
           </label>
           <label>
-            <span>Gateway</span>
+            <span className="pm-field-label">
+              <FiActivity /> Gateway
+            </span>
             <input
               type="text"
               value={paymentForm.gateway}
@@ -170,7 +216,9 @@ const PaymentMethods = () => {
             />
           </label>
           <label>
-            <span>Transaction Id</span>
+            <span className="pm-field-label">
+              <FiHash /> Transaction Id
+            </span>
             <input
               type="text"
               value={paymentForm.transactionId}
@@ -180,7 +228,9 @@ const PaymentMethods = () => {
             />
           </label>
           <label>
-            <span>Receipt No</span>
+            <span className="pm-field-label">
+              <FiHash /> Receipt No
+            </span>
             <input
               type="text"
               value={paymentForm.receiptNo}
@@ -190,19 +240,39 @@ const PaymentMethods = () => {
             />
           </label>
           <button type="submit" className="pm-cash-submit" disabled={actionLoading}>
-            {actionLoading ? "Saving..." : "Record Payment"}
+            {actionLoading ? (
+              <>
+                <FiRefreshCw /> Saving...
+              </>
+            ) : (
+              <>
+                <FiCheckCircle /> Record Payment
+              </>
+            )}
           </button>
         </form>
       </section>
 
       <section className="pm-table-card">
         <div className="pm-table-head">
-          <p>Student</p>
-          <p>Amount</p>
-          <p>Mode</p>
-          <p>Status</p>
-          <p>Update Status</p>
-          <p>Created</p>
+          <p className="pm-head-cell">
+            <FiUser /> Student
+          </p>
+          <p className="pm-head-cell">
+            <FiDollarSign /> Amount
+          </p>
+          <p className="pm-head-cell">
+            <FiCreditCard /> Mode
+          </p>
+          <p className="pm-head-cell">
+            <FiActivity /> Status
+          </p>
+          <p className="pm-head-cell">
+            <FiRefreshCw /> Update Status
+          </p>
+          <p className="pm-head-cell">
+            <FiCalendar /> Created
+          </p>
         </div>
         <div className="pm-table-body">
           {payments.map((payment) => (
@@ -211,10 +281,24 @@ const PaymentMethods = () => {
                 <p className="pm-method-name">{payment.studentId}</p>
                 <small>{payment.transactionId || payment.receiptNo || "No ref"}</small>
               </div>
-              <p>{payment.amount}</p>
+              <p className="pm-amount-cell">
+                <FiDollarSign />
+                <span>{payment.amount}</span>
+              </p>
               <p>{payment.mode}</p>
-              <p>{payment.status}</p>
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <p className="pm-status">
+                <span className={`pm-status-chip ${getStatusClass(payment.status)}`}>
+                  {String(payment.status || "").toUpperCase() === "SUCCESS" ? (
+                    <FiCheckCircle />
+                  ) : String(payment.status || "").toUpperCase() === "FAILED" ? (
+                    <FiXCircle />
+                  ) : (
+                    <FiClock />
+                  )}
+                  <span>{payment.status}</span>
+                </span>
+              </p>
+              <div className="pm-status-actions">
                 <select
                   value={statusForm[payment._id] || ""}
                   onChange={(event) =>
@@ -236,7 +320,7 @@ const PaymentMethods = () => {
             </article>
           ))}
           {payments.length === 0 && (
-            <article className="pm-row">
+            <article className="pm-row pm-empty-row">
               <p>No payments found</p>
             </article>
           )}

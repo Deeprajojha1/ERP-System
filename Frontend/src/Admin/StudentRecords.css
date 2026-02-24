@@ -1,7 +1,7 @@
 .student-records-page {
   min-height: 100vh;
   padding: 32px;
-  background: #f6f7fb;
+  background: linear-gradient(180deg, #f5f7fb 0%, #edf2fa 100%);
   color: #0f172a;
   display: flex;
   flex-direction: column;
@@ -111,10 +111,19 @@
   gap: 10px;
 }
 
+.sr-search-icon {
+  color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+}
+
 .sr-search input {
   border: none;
   flex: 1;
   font-size: 0.95rem;
+  background: transparent;
 }
 
 .sr-search input:focus {
@@ -131,9 +140,65 @@
 
 .sr-table-card {
   background: #fff;
+  border: 1px solid #dbe4f0;
   border-radius: 22px;
   box-shadow: 0 24px 40px rgba(15, 23, 42, 0.08);
   overflow: hidden;
+}
+
+.sr-demand-card {
+  margin-bottom: 12px;
+}
+
+.sr-demand-head {
+  padding: 18px 24px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.sr-demand-head p {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.sr-demand-form {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+
+.sr-demand-input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: 15px;
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.sr-demand-input::placeholder {
+  color: #94a3b8;
+}
+
+.sr-demand-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.16);
+}
+
+.sr-demand-actions {
+  grid-column: 1 / -1;
+}
+
+.sr-demand-actions .sr-primary-btn {
+  width: 100%;
+  justify-content: center;
 }
 
 .sr-table-head,
@@ -210,9 +275,26 @@
   color: #0f766e;
 }
 
+.sr-status-paid {
+  background: rgba(34, 197, 94, 0.16);
+  color: #0f766e;
+}
+
+.sr-status-partial {
+  background: rgba(59, 130, 246, 0.16);
+  color: #1d4ed8;
+}
+
 .sr-status-pending {
   background: rgba(248, 113, 113, 0.16);
   color: #c2410c;
+}
+
+.sr-table-row-empty p {
+  grid-column: 1 / -1;
+  text-align: center;
+  color: #64748b;
+  font-weight: 600;
 }
 
 .sr-modal-overlay {
@@ -273,6 +355,10 @@
 }
 
 @media (max-width: 1024px) {
+  .sr-demand-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .sr-table-head,
   .sr-table-row {
     grid-template-columns: minmax(180px, 1.3fr) minmax(200px, 1.1fr) 140px 160px;
@@ -287,6 +373,10 @@
 @media (max-width: 768px) {
   .student-records-page {
     padding: 24px 16px 72px;
+  }
+
+  .sr-demand-form {
+    grid-template-columns: 1fr;
   }
 
   .sr-hero {

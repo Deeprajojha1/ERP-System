@@ -63,6 +63,7 @@ const Dashboard = () => {
    * @type {boolean}
    */
   const [showCalendar, setShowCalendar] = useState(false);
+  const [studentCoursesFromApi, setStudentCoursesFromApi] = useState([]);
 
   /**
    * STATE: selectedCourse
@@ -179,10 +180,57 @@ const Dashboard = () => {
     fetchStudentData();
   }, [apiBase, user?.role, userData?.enrolledCourses, dispatch]);
 
+  useEffect(() => {
+    const shouldFetchCourses = apiBase && user?.role === "student";
+    if (!shouldFetchCourses) {
+      setStudentCoursesFromApi([]);
+      return;
+    }
+
+    let isMounted = true;
+    const fetchStudentCourses = async () => {
+      try {
+        const res = await axios.get(`${apiBase}/student/courses`, {
+          withCredentials: true,
+        });
+        const list = Array.isArray(res?.data?.courses) ? res.data.courses : [];
+        if (isMounted) setStudentCoursesFromApi(list);
+      } catch (error) {
+        console.error(
+          "Failed to fetch student courses from /student/courses:",
+          error.response?.data || error.message
+        );
+        if (isMounted) setStudentCoursesFromApi([]);
+      }
+    };
+
+    fetchStudentCourses();
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBase, user?.role]);
+
+  const effectiveEnrolledCourses = useMemo(() => {
+    if (Array.isArray(studentCoursesFromApi) && studentCoursesFromApi.length > 0) {
+      return studentCoursesFromApi;
+    }
+    const roleDetailsGroupCourses = Array.isArray(roleDetails?.group?.courseIds)
+      ? roleDetails.group.courseIds
+      : [];
+    if (roleDetailsGroupCourses.length > 0) {
+      return roleDetailsGroupCourses;
+    }
+    return enrolledCourses;
+  }, [studentCoursesFromApi, enrolledCourses, roleDetails]);
+
   const coursesData = useMemo(() => {
-    return enrolledCourses.map((course) => {
+    return effectiveEnrolledCourses.map((course) => {
+      const courseId = String(course?._id || course?.id || "");
       const attendance = attendanceData.find(
-        (item) => item.course?._id === course._id
+        (item) => {
+          const attendanceCourseId = String(item?.course?._id || item?.course || "");
+          return attendanceCourseId && attendanceCourseId === courseId;
+        }
       );
       const totalClasses = attendance?.totalSessions || 0;
       const attendedClasses = attendance?.presentCount || 0;
@@ -194,10 +242,14 @@ const Dashboard = () => {
           : 0;
 
       return {
-        id: course._id,
-        courseCode: course.code,
-        courseName: course.courseName,
-        credits: course.credit ?? 'N/A',
+        id: course?._id || course?.id,
+        courseCode: course?.code || course?.courseCode || "N/A",
+        courseName: course?.courseName || course?.name || "Course",
+        credits: course?.credit ?? course?.credits ?? "N/A",
+        semester: course?.semester ?? roleDetails?.semester ?? null,
+        academicYear: course?.academicYear ?? roleDetails?.academicYear ?? null,
+        courseType: course?.type || course?.courseType || null,
+        status: course?.status || null,
         instructor: 'N/A',
         schedule: 'N/A',
         room: roleDetails?.group?.roomNo || 'N/A',
@@ -206,7 +258,7 @@ const Dashboard = () => {
         attendancePercentage: percentage,
       };
     });
-  }, [enrolledCourses, attendanceData, roleDetails]);
+  }, [effectiveEnrolledCourses, attendanceData, roleDetails]);
 
   const totalSessions = attendanceData.reduce(
     (total, item) => total + (item?.totalSessions || 0),
