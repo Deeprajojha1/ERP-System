@@ -340,7 +340,7 @@
   font-weight: 700;
 }
 
-.faculty-modal {
+.admin-faculty-modal {
   position: fixed;
   inset: 0;
   z-index: 50;
@@ -351,13 +351,13 @@
   padding: calc(var(--admin-nav-height, 74px) + 12px) 12px 12px;
 }
 
-.faculty-modal-backdrop {
+.admin-faculty-modal-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(15, 23, 42, 0.45);
 }
 
-.faculty-modal-card {
+.admin-faculty-modal-card {
   position: relative;
   z-index: 1;
   width: min(760px, 92vw);
@@ -369,12 +369,12 @@
   overflow-y: auto;
 }
 
-.faculty-modal-head h2 {
+.admin-faculty-modal-head h2 {
   margin: 0;
   font-size: 20px;
 }
 
-.faculty-modal-head p {
+.admin-faculty-modal-head p {
   margin: 4px 0 0;
   color: #64748b;
 }
@@ -441,7 +441,7 @@
   cursor: not-allowed;
 }
 
-.faculty-modal-actions {
+.admin-faculty-modal-actions {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
@@ -492,11 +492,11 @@
     grid-template-columns: 1fr;
   }
 
-  .faculty-modal {
+  .admin-faculty-modal {
     padding: calc(var(--admin-nav-height, 74px) + 8px) 12px 12px;
   }
 
-  .faculty-modal-card {
+  .admin-faculty-modal-card {
     width: 100%;
     max-height: calc(100dvh - (var(--admin-nav-height, 74px) + 20px));
   }

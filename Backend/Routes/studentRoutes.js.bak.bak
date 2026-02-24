@@ -30,15 +30,9 @@ import {
   createMyPayment,
 } from "../controllers/feeController.js";
 import { getStudentAlerts } from "../controllers/alertController.js";
-import {
-  analyzeProfile,
-  getLinkedinReports,
-} from "../controllers/linkedinAnalyzerController.js";
-import linkedinPdfUpload from "../config/linkedinPdfUpload.js";
 import isAuth from "../middlewares/isAuth.js";
 import isStudent from "../middlewares/isStudent.js";
 import feeRateLimit from "../middlewares/feeRateLimit.js";
-import linkedinAnalyzerRateLimit from "../middlewares/linkedinAnalyzerRateLimit.js";
 
 const router = express.Router();
 
@@ -74,23 +68,5 @@ router.get("/attempt/:attemptId/result", isAuth, isStudent, getMyExamResult);
 router.get("/fee/me/demand", isAuth, isStudent, feeRateLimit, getMyFeeDemands);
 router.get("/fee/me/payment", isAuth, isStudent, feeRateLimit, getMyPaymentHistory);
 router.post("/fee/me/payment", isAuth, isStudent, feeRateLimit, createMyPayment);
-
-/* LinkedIn Analyzer (Student) */
-router.post(
-  "/linkedin-analyzer/analyze-profile",
-  isAuth,
-  isStudent,
-  linkedinAnalyzerRateLimit,
-  (req, res, next) => {
-    linkedinPdfUpload.single("profilePdf")(req, res, (err) => {
-      if (!err) return next();
-      return res.status(400).json({
-        message: err.message || "Invalid PDF upload request",
-      });
-    });
-  },
-  analyzeProfile
-);
-router.get("/linkedin-analyzer/reports", isAuth, isStudent, getLinkedinReports);
 
 export default router;

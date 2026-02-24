@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
@@ -631,20 +632,17 @@ const Faculty = () => {
     );
   };
 
-  return (
-    <div className="faculty-page">
-      {renderState()}
-{isOpen && (
-        <div className="faculty-modal">
+  const modalContent = isOpen ? (
+        <div className="admin-faculty-modal">
           <div
-            className="faculty-modal-backdrop"
+            className="admin-faculty-modal-backdrop"
             onClick={() => setIsOpen(false)}
             role="button"
             tabIndex={0}
             aria-label="Close"
           />
-          <div className="faculty-modal-card">
-            <div className="faculty-modal-head">
+          <div className="admin-faculty-modal-card">
+            <div className="admin-faculty-modal-head">
               <h2>
                 {editTarget ? "Edit Faculty" : "Add New Faculty"}
               </h2>
@@ -793,7 +791,7 @@ const Faculty = () => {
                   />
                 </label>
               </div>
-              <div className="faculty-modal-actions">
+              <div className="admin-faculty-modal-actions">
                 <button
                   type="button"
                   className="btn-secondary"
@@ -821,7 +819,12 @@ const Faculty = () => {
             </form>
           </div>
         </div>
-      )}
+      ) : null;
+
+  return (
+    <div className="faculty-page">
+      {renderState()}
+      {modalContent && createPortal(modalContent, document.body)}
     </div>
   );
 };
