@@ -60,7 +60,16 @@ const Hostel = () => {
 
   const fetchHostels = async () => {
     const data = await getHostelSummaryApi();
-    setHostels(data);
+    const normalizedHostels = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.hostels)
+      ? data.hostels
+      : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.summary)
+      ? data.summary
+      : [];
+    setHostels(normalizedHostels);
     setLoading(false);
   };
 
@@ -123,7 +132,16 @@ const Hostel = () => {
 
   const fetchRooms = async (hostelId) => {
     const data = await getRoomsByHostelApi(hostelId);
-    setRooms(data);
+    const normalizedRooms = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.rooms)
+      ? data.rooms
+      : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.list)
+      ? data.list
+      : [];
+    setRooms(normalizedRooms);
   };
 
   const handleSaveRoom = async () => {
