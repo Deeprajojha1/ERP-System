@@ -104,6 +104,8 @@ const Dashboard = () => {
         error.response?.data || error.message
       );
     } finally {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("token");
       dispatch(clearUserData());
       sessionStorage.removeItem("lastFailedRoute");
       sessionStorage.removeItem("lastNetworkRedirectAt");

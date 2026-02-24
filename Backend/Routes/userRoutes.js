@@ -9,7 +9,7 @@ import {
   updateProfileImage,
 } from "../controllers/userController.js";
 import { renderPdfFromHtml } from "../controllers/pdfController.js";
-import { getStudentProfile } from "../controllers/profileController.js";
+import { getStudentProfile, deleteProfileImage } from "../controllers/profileController.js";
 import {
   getStudentAttendanceReport,
   getStudentOverallAttendance,
@@ -33,6 +33,7 @@ router.post("/logout", logout);
 // get user
 router.get("/me", isAuth, getUser);
 router.put("/profile-image", isAuth, updateProfileImage);
+router.delete("/profile-image", isAuth, deleteProfileImage);
 router.post("/pdf/render", isAuth, renderPdfFromHtml);
 router.post("/export/tabular", isAuth, exportTabularData);
 

@@ -1,208 +1,145 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import toast from "react-hot-toast";
+import axios from "../utils/axiosInstance";
 import {
-  FiPlus,
-  FiEdit2,
-  FiCopy,
-  FiTrash2,
-  FiCheckCircle,
-} from "react-icons/fi";
-import ClipLoader from "./components/ClipLoader";
+  createFeeBatch,
+  createFeeBranch,
+  createFeeProgram,
+  fetchFeePrograms,
+  selectFeeActionLoading,
+  selectFeePrograms,
+} from "../redux/feeSlice";
 import "./Fees.css";
 
-const ACADEMIC_YEAR_OPTIONS = ["2024-2025", "2023-2024", "2022-2023"];
-const PROGRAM_OPTIONS = ["All Programs", "B.Tech", "MBA", "BCA", "M.Tech", "MCA"];
+const parseSemesterBaseFees = (value) => {
+  const parts = String(value || "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 
-const COMPONENT_FIELDS = [
-  { key: "tuitionFee", label: "Tuition Fee" },
-  { key: "labFee", label: "Lab Fee" },
-  { key: "libraryFee", label: "Library Fee" },
-  { key: "hostelFee", label: "Hostel Fee" },
-  { key: "transportFee", label: "Transport Fee" },
-  { key: "examFee", label: "Examination Fee" },
-  { key: "developmentFee", label: "Development Fee" },
-  { key: "sportsFee", label: "Sports Fee" },
-  { key: "miscFee", label: "Miscellaneous" },
-];
-
-const BASE_STRUCTURES = [
-  {
-    id: "btech-cs-sem1",
-    title: "B.Tech - Computer Science",
-    program: "B.Tech",
-    department: "Computer Science",
-    semester: "Semester 1",
-    academicYear: "2024-2025",
-    status: "active",
-    components: {
-      tuitionFee: 75000,
-      labFee: 15000,
-      libraryFee: 5000,
-      hostelFee: 0,
-      transportFee: 0,
-      examFee: 3000,
-      developmentFee: 10000,
-      sportsFee: 2000,
-      miscFee: 15000,
-    },
-  },
-  {
-    id: "btech-cs-sem2",
-    title: "B.Tech - Computer Science",
-    program: "B.Tech",
-    department: "Computer Science",
-    semester: "Semester 2",
-    academicYear: "2024-2025",
-    status: "active",
-    components: {
-      tuitionFee: 65000,
-      labFee: 12000,
-      libraryFee: 5000,
-      hostelFee: 0,
-      transportFee: 0,
-      examFee: 3000,
-      developmentFee: 10000,
-      sportsFee: 2000,
-      miscFee: 15000,
-    },
-  },
-  {
-    id: "mba-sem1",
-    title: "MBA - Management",
-    program: "MBA",
-    department: "Management",
-    semester: "Semester 1",
-    academicYear: "2024-2025",
-    status: "active",
-    components: {
-      tuitionFee: 125000,
-      labFee: 10000,
-      libraryFee: 8000,
-      hostelFee: 0,
-      transportFee: 0,
-      examFee: 5000,
-      developmentFee: 20000,
-      sportsFee: 4000,
-      miscFee: 13000,
-    },
-  },
-  {
-    id: "btech-electronics",
-    title: "B.Tech - Electronics",
-    program: "B.Tech",
-    department: "Electronics",
-    semester: "Semester 1",
-    academicYear: "2024-2025",
-    status: "active",
-    components: {
-      tuitionFee: 70000,
-      labFee: 12000,
-      libraryFee: 5000,
-      hostelFee: 0,
-      transportFee: 0,
-      examFee: 3000,
-      developmentFee: 9000,
-      sportsFee: 2000,
-      miscFee: 9000,
-    },
-  },
-];
-
-const defaultFormValues = {
-  program: "B.Tech",
-  department: "Computer Science",
-  semester: "Semester 1",
-  academicYear: ACADEMIC_YEAR_OPTIONS[0],
-  components: COMPONENT_FIELDS.reduce((acc, field) => ({ ...acc, [field.key]: 0 }), {}),
+  return parts.map((part) => {
+    const [semesterNo, baseFee] = part.split(":").map((token) => token.trim());
+    return {
+      semesterNo: Number(semesterNo),
+      baseFee: Number(baseFee),
+    };
+  });
 };
 
-const formatCurrency = (value = 0) =>
-  `₹${Number(value || 0).toLocaleString("en-IN")}`;
-
 const FeesAcademic = () => {
-  const [selectedYear, setSelectedYear] = useState(ACADEMIC_YEAR_OPTIONS[0]);
-  const [selectedProgram, setSelectedProgram] = useState(PROGRAM_OPTIONS[0]);
-  const [structures] = useState(BASE_STRUCTURES);
-  const [modalMode, setModalMode] = useState(null);
-  const [formValues, setFormValues] = useState(defaultFormValues);
-  const [isSubmittingStructure, setIsSubmittingStructure] = useState(false);
+  const dispatch = useDispatch();
+  const apiBase = useSelector((state) => state.config.apiBase);
+  const programs = useSelector(selectFeePrograms);
+  const actionLoading = useSelector(selectFeeActionLoading);
+  const [departments, setDepartments] = useState([]);
+  const [programForm, setProgramForm] = useState({
+    programName: "",
+    durationYears: "4",
+  });
+  const [branchForm, setBranchForm] = useState({
+    programId: "",
+    branchName: "",
+    semesterBaseFees: "",
+  });
+  const [batchForm, setBatchForm] = useState({
+    batchYear: new Date().getFullYear().toString(),
+    departmentId: "",
+    programIds: [],
+  });
 
-  const handleDuplicate = (structure) => {
-    console.log("Duplicate structure", structure.id);
-  };
+  useEffect(() => {
+    dispatch(fetchFeePrograms());
+  }, [dispatch]);
 
-  const handleDelete = (structure) => {
-    console.log("Delete structure", structure.id);
-  };
-
-  const filteredStructures = useMemo(() => {
-    return structures.filter((structure) => {
-      const matchesYear = structure.academicYear === selectedYear;
-      const matchesProgram =
-        selectedProgram === "All Programs" || structure.program === selectedProgram;
-      return matchesYear && matchesProgram;
-    });
-  }, [structures, selectedYear, selectedProgram]);
-
-  const activeCount = filteredStructures.filter(
-    (structure) => structure.status === "active"
-  ).length;
-
-  const currentFormTotal = useMemo(() => {
-    return Object.values(formValues.components || {}).reduce(
-      (sum, value) => sum + Number(value || 0),
-      0
-    );
-  }, [formValues]);
-
-  const openCreateModal = () => {
-    setFormValues({ ...defaultFormValues, academicYear: selectedYear });
-    setModalMode("create");
-  };
-
-  const openEditModal = (structure) => {
-    const mappedComponents = COMPONENT_FIELDS.reduce((acc, field) => {
-      acc[field.key] = structure.components[field.key] || 0;
-      return acc;
-    }, {});
-    setFormValues({
-      program: structure.program,
-      department: structure.department,
-      semester: structure.semester,
-      academicYear: structure.academicYear,
-      components: mappedComponents,
-    });
-    setModalMode("edit");
-  };
-
-  const closeModal = () => {
-    if (isSubmittingStructure) return;
-    setModalMode(null);
-  };
-
-  const handleSubmitStructure = async () => {
-    if (isSubmittingStructure) return;
-    setIsSubmittingStructure(true);
-    try {
-      await new Promise((resolve) => window.setTimeout(resolve, 350));
-      if (modalMode === "edit") {
-        console.log("Update structure", formValues);
-      } else {
-        console.log("Create structure", formValues);
+  useEffect(() => {
+    if (!apiBase) return;
+    (async () => {
+      try {
+        const response = await axios.get(`${apiBase}/admin/department`, {
+          withCredentials: true,
+        });
+        setDepartments(response.data?.departments || []);
+      } catch (error) {
+        toast.error(error.response?.data?.message || "Failed to fetch departments");
       }
-      setModalMode(null);
-    } finally {
-      setIsSubmittingStructure(false);
+    })();
+  }, [apiBase]);
+
+  const totalSemesters = useMemo(
+    () => Number(programForm.durationYears || 0) * 2,
+    [programForm.durationYears]
+  );
+
+  const submitProgram = async (event) => {
+    event.preventDefault();
+    if (!programForm.programName.trim() || !Number(programForm.durationYears)) {
+      toast.error("Program name and duration are required");
+      return;
+    }
+    try {
+      await dispatch(
+        createFeeProgram({
+          programName: programForm.programName.trim(),
+          durationYears: Number(programForm.durationYears),
+          totalSemesters,
+        })
+      ).unwrap();
+      toast.success("Program created");
+      setProgramForm({ programName: "", durationYears: "4" });
+      dispatch(fetchFeePrograms());
+    } catch (error) {
+      toast.error(error || "Failed to create program");
     }
   };
 
-  const handleComponentChange = (key, value) => {
-    setFormValues((prev) => ({
-      ...prev,
-      components: {
-        ...prev.components,
-        [key]: Number(value) || 0,
-      },
-    }));
+  const submitBranch = async (event) => {
+    event.preventDefault();
+    const semesterBaseFees = parseSemesterBaseFees(branchForm.semesterBaseFees);
+    if (!branchForm.programId || !branchForm.branchName.trim() || !semesterBaseFees.length) {
+      toast.error("Program, branch and semester fees are required");
+      return;
+    }
+    try {
+      await dispatch(
+        createFeeBranch({
+          programId: branchForm.programId,
+          branchName: branchForm.branchName.trim(),
+          semesterBaseFees,
+        })
+      ).unwrap();
+      toast.success("Branch created");
+      setBranchForm({ programId: "", branchName: "", semesterBaseFees: "" });
+      dispatch(fetchFeePrograms());
+    } catch (error) {
+      toast.error(error || "Failed to create branch");
+    }
+  };
+
+  const submitBatch = async (event) => {
+    event.preventDefault();
+    if (
+      !batchForm.departmentId ||
+      !Number(batchForm.batchYear) ||
+      !Array.isArray(batchForm.programIds) ||
+      batchForm.programIds.length === 0
+    ) {
+      toast.error("Batch year, department and program(s) are required");
+      return;
+    }
+    try {
+      await dispatch(
+        createFeeBatch({
+          batchYear: Number(batchForm.batchYear),
+          departmentId: batchForm.departmentId,
+          programIds: batchForm.programIds,
+        })
+      ).unwrap();
+      toast.success("Batch created");
+      setBatchForm((prev) => ({ ...prev, programIds: [] }));
+    } catch (error) {
+      toast.error(error || "Failed to create batch");
+    }
   };
 
   return (
@@ -210,220 +147,179 @@ const FeesAcademic = () => {
       <header className="fee-structure-header">
         <div>
           <h1>Fee Structure Management</h1>
-          <p>Configure program and semester-based fee structures.</p>
+          <p>Live integration with program, branch, and batch endpoints.</p>
         </div>
-        <button type="button" className="fee-structure-add-btn" onClick={openCreateModal}>
-          <FiPlus /> Add Fee Structure
-        </button>
       </header>
 
-      <section className="fee-structure-toolbar">
-        <div className="fee-structure-select-group">
-          <label>
-            <span>Academic Year</span>
-            <select
-              value={selectedYear}
-              onChange={(event) => setSelectedYear(event.target.value)}
-            >
-              {ACADEMIC_YEAR_OPTIONS.map((yearOption) => (
-                <option key={yearOption}>{yearOption}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span>Program</span>
-            <select
-              value={selectedProgram}
-              onChange={(event) => setSelectedProgram(event.target.value)}
-            >
-              {PROGRAM_OPTIONS.map((programOption) => (
-                <option key={programOption}>{programOption}</option>
-              ))}
-            </select>
-          </label>
+      <section className="fee-table-section">
+        <div className="fee-table-head">
+          <h2 className="fee-table-title">Create Program</h2>
         </div>
-        <div className="fee-structure-stats">
-          <span className="fee-structure-chip">{filteredStructures.length} Structures</span>
-          <span className="fee-structure-chip fee-structure-chip--success">
-            {activeCount} Active
-          </span>
-        </div>
+        <form
+          onSubmit={submitProgram}
+          style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: "10px", marginBottom: "12px" }}
+        >
+          <input
+            type="text"
+            placeholder="Program name (e.g. B.Tech)"
+            value={programForm.programName}
+            onChange={(event) =>
+              setProgramForm((prev) => ({ ...prev, programName: event.target.value }))
+            }
+            required
+          />
+          <input
+            type="number"
+            min="1"
+            placeholder="Duration years"
+            value={programForm.durationYears}
+            onChange={(event) =>
+              setProgramForm((prev) => ({ ...prev, durationYears: event.target.value }))
+            }
+            required
+          />
+          <input type="number" value={totalSemesters} readOnly />
+          <button type="submit" disabled={actionLoading}>
+            {actionLoading ? "Saving..." : "Create Program"}
+          </button>
+        </form>
       </section>
 
-      <section className="fee-structure-grid">
-        {filteredStructures.map((structure) => {
-          const total = Object.values(structure.components).reduce(
-            (sum, value) => sum + Number(value || 0),
-            0
-          );
-          return (
-            <article className="fee-structure-card" key={structure.id}>
-              <div className="fee-structure-card-head">
-                <div>
-                  <p className="fee-structure-title">{structure.title}</p>
-                  <span className="fee-structure-meta">
-                    {structure.semester} • {structure.academicYear}
-                  </span>
-                </div>
-                <span className="fee-structure-status">
-                  <FiCheckCircle /> Active
-                </span>
-              </div>
-              <div className="fee-structure-total">
-                <span>Total Fee</span>
-                <strong>{formatCurrency(total)}</strong>
-              </div>
-              <div className="fee-structure-list">
-                {COMPONENT_FIELDS.map((field) => (
-                  <div className="fee-structure-list-row" key={field.key}>
-                    <span>{field.label}</span>
-                    <span>{formatCurrency(structure.components[field.key] || 0)}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="fee-structure-actions">
-                <button type="button" onClick={() => openEditModal(structure)}>
-                  <FiEdit2 />
-                </button>
-                <button type="button" onClick={() => handleDuplicate(structure)}>
-                  <FiCopy />
-                </button>
-                <button type="button" onClick={() => handleDelete(structure)}>
-                  <FiTrash2 />
-                </button>
-              </div>
-            </article>
-          );
-        })}
-      </section>
-
-      {modalMode && (
-        <div className="fee-structure-modal-overlay" onClick={closeModal}>
-          <div
-            className="fee-structure-modal"
-            role="dialog"
-            aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
+      <section className="fee-table-section">
+        <div className="fee-table-head">
+          <h2 className="fee-table-title">Create Branch</h2>
+        </div>
+        <form
+          onSubmit={submitBranch}
+          style={{ display: "grid", gridTemplateColumns: "1.5fr 1.5fr 2fr auto", gap: "10px", marginBottom: "12px" }}
+        >
+          <select
+            value={branchForm.programId}
+            onChange={(event) =>
+              setBranchForm((prev) => ({ ...prev, programId: event.target.value }))
+            }
+            required
           >
-            <div className="fee-structure-modal-head">
-              <h2>{modalMode === "edit" ? "Edit Fee Structure" : "Add Fee Structure"}</h2>
-              <button type="button" onClick={closeModal}>
-                ×
-              </button>
-            </div>
-            <div className="fee-modal-section">
-              <p className="fee-modal-label">Basic Information</p>
-              <div className="fee-modal-grid">
-                <label>
-                  Program *
-                  <select
-                    value={formValues.program}
-                    onChange={(event) =>
-                      setFormValues((prev) => ({ ...prev, program: event.target.value }))
-                    }
-                  >
-                    {PROGRAM_OPTIONS.filter((option) => option !== "All Programs").map(
-                      (option) => (
-                        <option key={option}>{option}</option>
-                      )
-                    )}
-                  </select>
-                </label>
-                <label>
-                  Department *
-                  <input
-                    value={formValues.department}
-                    onChange={(event) =>
-                      setFormValues((prev) => ({ ...prev, department: event.target.value }))
-                    }
-                  />
-                </label>
-                <label>
-                  Semester *
-                  <select
-                    value={formValues.semester}
-                    onChange={(event) =>
-                      setFormValues((prev) => ({ ...prev, semester: event.target.value }))
-                    }
-                  >
-                    {["Semester 1", "Semester 2", "Semester 3", "Semester 4"].map(
-                      (sem) => (
-                        <option key={sem}>{sem}</option>
-                      )
-                    )}
-                  </select>
-                </label>
-                <label>
-                  Academic Year *
-                  <select
-                    value={formValues.academicYear}
-                    onChange={(event) =>
-                      setFormValues((prev) => ({
-                        ...prev,
-                        academicYear: event.target.value,
-                      }))
-                    }
-                  >
-                    {ACADEMIC_YEAR_OPTIONS.map((yearOption) => (
-                      <option key={yearOption}>{yearOption}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            </div>
+            <option value="">Select program</option>
+            {programs.map((program) => (
+              <option key={program._id} value={program._id}>
+                {program.programName}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            placeholder="Branch name"
+            value={branchForm.branchName}
+            onChange={(event) =>
+              setBranchForm((prev) => ({ ...prev, branchName: event.target.value }))
+            }
+            required
+          />
+          <input
+            type="text"
+            placeholder="Semester fees (e.g. 1:50000,2:50000)"
+            value={branchForm.semesterBaseFees}
+            onChange={(event) =>
+              setBranchForm((prev) => ({ ...prev, semesterBaseFees: event.target.value }))
+            }
+            required
+          />
+          <button type="submit" disabled={actionLoading}>
+            {actionLoading ? "Saving..." : "Create Branch"}
+          </button>
+        </form>
+      </section>
 
-            <div className="fee-modal-section">
-              <p className="fee-modal-label">Fee Components</p>
-              <div className="fee-modal-grid">
-                {COMPONENT_FIELDS.map((field) => (
-                  <label key={field.key}>
-                    {field.label}
-                    <input
-                      type="number"
-                      min="0"
-                      value={formValues.components[field.key] ?? 0}
-                      onChange={(event) =>
-                        handleComponentChange(field.key, event.target.value)
-                      }
-                    />
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <div className="fee-modal-total">
-              <span>Total Fee Amount</span>
-              <strong>{formatCurrency(currentFormTotal)}</strong>
-            </div>
-
-            <div className="fee-modal-actions">
-              <button
-                type="button"
-                className="fee-modal-secondary"
-                onClick={closeModal}
-                disabled={isSubmittingStructure}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="fee-modal-primary admin-btn-with-loader"
-                onClick={handleSubmitStructure}
-                disabled={isSubmittingStructure}
-              >
-                {isSubmittingStructure ? (
-                  <>
-                    <ClipLoader size={15} />
-                    <span>{modalMode === "edit" ? "Updating..." : "Creating..."}</span>
-                  </>
-                ) : (
-                  modalMode === "edit" ? "Update Structure" : "Create Structure"
-                )}
-              </button>
-            </div>
-          </div>
+      <section className="fee-table-section">
+        <div className="fee-table-head">
+          <h2 className="fee-table-title">Create Batch</h2>
         </div>
-      )}
+        <form
+          onSubmit={submitBatch}
+          style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 2fr auto", gap: "10px", marginBottom: "12px" }}
+        >
+          <input
+            type="number"
+            min="2000"
+            max="2100"
+            value={batchForm.batchYear}
+            onChange={(event) =>
+              setBatchForm((prev) => ({ ...prev, batchYear: event.target.value }))
+            }
+            required
+          />
+          <select
+            value={batchForm.departmentId}
+            onChange={(event) =>
+              setBatchForm((prev) => ({ ...prev, departmentId: event.target.value }))
+            }
+            required
+          >
+            <option value="">Select department</option>
+            {departments.map((department) => (
+              <option key={department._id} value={department._id}>
+                {department.name}
+              </option>
+            ))}
+          </select>
+          <select
+            multiple
+            value={batchForm.programIds}
+            onChange={(event) => {
+              const values = Array.from(event.target.selectedOptions).map((option) => option.value);
+              setBatchForm((prev) => ({ ...prev, programIds: values }));
+            }}
+            required
+          >
+            {programs.map((program) => (
+              <option key={program._id} value={program._id}>
+                {program.programName}
+              </option>
+            ))}
+          </select>
+          <button type="submit" disabled={actionLoading}>
+            {actionLoading ? "Saving..." : "Create Batch"}
+          </button>
+        </form>
+      </section>
+
+      <section className="fee-table-section">
+        <div className="fee-table-head">
+          <h2 className="fee-table-title">Configured Programs</h2>
+        </div>
+        <div className="fees-table-wrap">
+          <table className="fees-table">
+            <thead>
+              <tr>
+                <th>Program</th>
+                <th>Duration</th>
+                <th>Total Semesters</th>
+                <th>Branches</th>
+              </tr>
+            </thead>
+            <tbody>
+              {programs.map((program) => (
+                <tr key={program._id}>
+                  <td className="fees-name">{program.programName}</td>
+                  <td>{program.durationYears} years</td>
+                  <td>{program.totalSemesters}</td>
+                  <td>
+                    {(program.branchIds || [])
+                      .map((branch) => branch.branchName || "Branch")
+                      .join(", ") || "No branches"}
+                  </td>
+                </tr>
+              ))}
+              {programs.length === 0 && (
+                <tr>
+                  <td colSpan={4}>No programs found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 };

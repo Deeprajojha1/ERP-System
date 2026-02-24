@@ -3,11 +3,23 @@ import dotenv from "dotenv";
 import connectDB from "./config/connectionDB.js";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+import path from "path";
 import userRoutes from "./Routes/userRoutes.js";
 import adminRoutes from "./Routes/adminRoutes.js";
 import facultyRoutes from "./Routes/facultyRoutes.js";
 import studentRoutes from "./Routes/studentRoutes.js";
 import attendanceRoutes from "./Routes/attendanceRoutes.js";
+import sectionRoutes from "./Routes/sectionRoutes.js"
+import sectionCourseRoutes from "./Routes/sectionCourseRoutes.js"
+import timeTableRoutes from "./Routes/timeTableRoutes.js"
+import placementRoutes from "./Routes/placementRoutes.js"
+import externalJobRoutes from "./Routes/externalJobRoutes.js"
+import dns from "node:dns/promises"
+dns.setServers(["1.1.1.1","8.8.8.8"])
+import hostelRoutes from "./Routes/hostelRoutes.js";
+import roomRoutes from "./Routes/roomRoutes.js";
+import hostelAllocationRoutes from "./Routes/hostelAllocationRoutes.js";
+
 dotenv.config();
 
 const app = express();
@@ -19,6 +31,7 @@ const envOrigins = String(process.env.FRONTEND_URL || "")
   .map(normalizeOrigin)
   .filter(Boolean);
 const allowedOrigins = [
+  "https://hu-erp-git-development-subeshs-projects.vercel.app",
   "https://hu-erp-git-development-subeshs-projects.vercel.app",
   "https://hu-erp1.vercel.app",
   "http://localhost:5173",
@@ -70,15 +83,29 @@ app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
 
+// Serve static files (uploads)
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
+
 // routes
 app.use('/api/user/', userRoutes)
 app.use('/api/admin/', adminRoutes)
 app.use('/api/faculty/', facultyRoutes)
 app.use('/api/student/', studentRoutes)
 app.use('/api/attendance/', attendanceRoutes)
+app.use("/api/sections/", sectionRoutes);
+app.use("/api/section-courses/", sectionCourseRoutes);
+app.use("/api/timetable/", timeTableRoutes);
+app.use("/api/placement/", placementRoutes);
+app.use("/api/external-jobs", externalJobRoutes);
 
+
+app.use("/api/hostels", hostelRoutes);
+app.use("/api/rooms", roomRoutes);
+app.use("/api/hostel-allocation", hostelAllocationRoutes);
 // Handle malformed JSON payloads from clients.
 app.use((err, req, res, next) => {
+  console.error("[Server Error Handler]", err);
+  
   if (
     err instanceof SyntaxError &&
     err.status === 400 &&

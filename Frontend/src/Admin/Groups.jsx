@@ -1,25 +1,55 @@
-import React, { useEffect, useMemo, useState } from "react";
-import axios from "../utils/axiosInstance";
-import { useSelector } from "react-redux";
-import { FiEdit2, FiPlus, FiSearch, FiTrash2, FiUsers } from "react-icons/fi";
-import { Oval } from "react-loader-spinner";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  FiEdit2,
+  FiLoader,
+  FiPlus,
+  FiSearch,
+  FiTrash2,
+  FiUsers,
+} from "react-icons/fi";
+import { ThreeDots } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Groups.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import toast from "react-hot-toast";
 import { selectTimetableRevision } from "../redux/timetableSlice";
+import {
+  createAdminGroup,
+  deleteAdminGroup,
+  fetchAdminGroups,
+  fetchGroupModalDependencies,
+  selectAdminGroupDeleteLoadState,
+  selectAdminGroupDeletingId,
+  selectAdminGroupDepartments,
+  selectAdminGroupError,
+  selectAdminGroupFaculty,
+  selectAdminGroupListLoadState,
+  selectAdminGroupModalLoadState,
+  selectAdminGroups,
+  selectAdminGroupSubmitLoadState,
+  updateAdminGroup,
+} from "../redux/groupSlice";
 
 const Groups = () => {
+  const dispatch = useDispatch();
   const [search, setSearch] = useState("");
   const [activeDept, setActiveDept] = useState("All Departments");
   const [isOpen, setIsOpen] = useState(false);
-  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
-  const [groups, setGroups] = useState([]);
-  const [departments, setDepartments] = useState([]);
-  const [faculty, setFaculty] = useState([]);
+  const [isOpeningAdd, setIsOpeningAdd] = useState(false);
+  const [openingEditId, setOpeningEditId] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
   const apiBase = useSelector((state) => state.config.apiBase);
   const timetableRevision = useSelector(selectTimetableRevision);
+  const groups = useSelector(selectAdminGroups);
+  const departments = useSelector(selectAdminGroupDepartments);
+  const faculty = useSelector(selectAdminGroupFaculty);
+  const listLoadState = useSelector(selectAdminGroupListLoadState);
+  const modalLoadState = useSelector(selectAdminGroupModalLoadState);
+  const submitLoadState = useSelector(selectAdminGroupSubmitLoadState);
+  const deleteLoadState = useSelector(selectAdminGroupDeleteLoadState);
+  const deletingGroupId = useSelector(selectAdminGroupDeletingId);
+  const groupError = useSelector(selectAdminGroupError);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -50,54 +80,45 @@ const Groups = () => {
     "linear-gradient(135deg, #475569, #1e293b)",
   ];
 
-  const fetchAll = async () => {
-    try {
-      setLoadState(ADMIN_LOAD_STATES.PENDING);
-      const groupRes = await axios.get(`${apiBase}/admin/group`, {
-        withCredentials: true,
-      });
-      setGroups(groupRes.data?.groups || []);
-      setLoadState(ADMIN_LOAD_STATES.SUCCESS);
-    } catch (error) {
-      console.error(
-        "Fetch groups failed:",
-        error.response?.data || error.message
-      );
-      toast.error(`${error.response?.data?.message || "Failed to load groups"}`);
-      setLoadState(ADMIN_LOAD_STATES.FAILURE);
-    }
-  };
+  const resetForm = useCallback(() => {
+    setFormData({
+      name: "",
+      department: "",
+      coordinator: "",
+      roomNo: "",
+    });
+  }, []);
 
-  const ensureModalDependencies = async () => {
-    const [deptRes, facRes] = await Promise.all([
-      axios.get(`${apiBase}/admin/department`, {
-        withCredentials: true,
-        params: { noCache: "true" },
-      }),
-      axios.get(`${apiBase}/admin/faculty`, {
-        withCredentials: true,
-        params: { noCache: "true" },
-      }),
-    ]);
-    setDepartments(deptRes.data?.departments || []);
-    setFaculty(facRes.data?.faculty || []);
-  };
+  const loadGroups = useCallback(
+    async ({ silent = false, noCache = false } = {}) => {
+      if (!apiBase) return;
+      try {
+        await dispatch(fetchAdminGroups({ apiBase, noCache })).unwrap();
+      } catch (error) {
+        if (!silent) {
+          toast.error(error || "Failed to load groups");
+        }
+      }
+    },
+    [apiBase, dispatch]
+  );
 
   useEffect(() => {
     if (!apiBase) return;
-    fetchAll();
-  }, [apiBase, timetableRevision]);
+    loadGroups();
+  }, [apiBase, timetableRevision, loadGroups]);
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
     return groups.filter((g) => {
+      const departmentId = g.department?._id || g.department;
       const matchSearch =
         (g.name || "").toLowerCase().includes(term) ||
         (g.department?.name || "").toLowerCase().includes(term) ||
         (g.roomNo || "").toLowerCase().includes(term);
       const matchBranch =
         activeDept === "All Departments" ||
-        g.department?._id === activeDept;
+        String(departmentId || "") === String(activeDept);
       return matchSearch && matchBranch;
     });
   }, [search, activeDept, groups]);
@@ -113,111 +134,128 @@ const Groups = () => {
     return Array.from(map.values());
   }, [groups]);
 
-  const handleOpenAdd = async () => {
+  const handleOpenAdd = async (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!apiBase || modalLoadState === ADMIN_LOAD_STATES.PENDING) return;
+    setIsOpeningAdd(true);
     try {
-      await ensureModalDependencies();
+      await dispatch(fetchGroupModalDependencies({ apiBase })).unwrap();
       setEditTarget(null);
-      setFormData({
-        name: "",
-        department: "",
-        coordinator: "",
-        roomNo: "",
-      });
+      resetForm();
       setIsOpen(true);
     } catch (error) {
-      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
-      toast.error(error.response?.data?.message || "Failed to load form data");
+      toast.error(error || "Failed to load form data");
+    } finally {
+      setIsOpeningAdd(false);
     }
   };
 
-  const handleOpenEdit = async (group) => {
+  const handleOpenEdit = async (event, group) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!apiBase || modalLoadState === ADMIN_LOAD_STATES.PENDING || !group?._id) return;
+    setOpeningEditId(group._id);
     try {
-      await ensureModalDependencies();
+      await dispatch(fetchGroupModalDependencies({ apiBase })).unwrap();
       setEditTarget(group);
       setFormData({
         name: group.name || "",
-        department: group.department?._id || "",
-        coordinator: group.coordinator?._id || "",
+        department: group.department?._id || group.department || "",
+        coordinator: group.coordinator?._id || group.coordinator || "",
         roomNo: group.roomNo || "",
       });
       setIsOpen(true);
     } catch (error) {
-      console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
-      toast.error(error.response?.data?.message || "Failed to load form data");
+      toast.error(error || "Failed to load form data");
+    } finally {
+      setOpeningEditId(null);
     }
   };
 
-  const handleDelete = async (group) => {
+  const handleDelete = async (event, group) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     if (!group?._id) return;
     const ok = window.confirm(`Delete group "${group.name}"?`);
     if (!ok) return;
     try {
-      await axios.patch(`${apiBase}/admin/group/${group._id}/delete`, {}, {
-        withCredentials: true,
-      });
+      await dispatch(deleteAdminGroup({ apiBase, id: group._id })).unwrap();
       toast.success("Group deleted successfully");
-      fetchAll();
     } catch (error) {
-      console.error(
-        "Delete group failed:",
-        error.response?.data || error.message
-      );
-      toast.error(`${error.response?.data?.message || "Failed to delete group"}`);
+      toast.error(error || "Failed to delete group");
     }
   };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (submitLoadState === ADMIN_LOAD_STATES.PENDING) return;
+
+    const payload = {
+      ...formData,
+      name: String(formData.name || "").trim(),
+      roomNo: String(formData.roomNo || "").trim(),
+    };
+
     try {
       if (editTarget?._id) {
-        await axios.put(
-          `${apiBase}/admin/group/${editTarget._id}`,
-          formData,
-          { withCredentials: true }
-        );
+        await dispatch(
+          updateAdminGroup({
+            apiBase,
+            id: editTarget._id,
+            payload,
+          })
+        ).unwrap();
         toast.success("Group updated successfully");
       } else {
-        await axios.post(`${apiBase}/admin/group`, formData, {
-          withCredentials: true,
-        });
+        await dispatch(createAdminGroup({ apiBase, payload })).unwrap();
         toast.success("Group added successfully");
       }
       setIsOpen(false);
       setEditTarget(null);
-      fetchAll();
+      resetForm();
     } catch (error) {
-      console.error(
-        "Save group failed:",
-        error.response?.data || error.message
-      );
-      toast.error(`${error.response?.data?.message || "Failed to save group"}`);
+      toast.error(error || "Failed to save group");
     }
   };
 
   const renderState = () => {
-    if (loadState === ADMIN_LOAD_STATES.PENDING) {
+    if (
+      listLoadState === ADMIN_LOAD_STATES.PENDING ||
+      listLoadState === ADMIN_LOAD_STATES.INITIAL
+    ) {
       return (
         <div className="groups-state pending app-loader-state">
-          <Oval
+          <ThreeDots
             height={64}
             width={64}
             color="#2563eb"
-            secondaryColor="#bfdbfe"
-            strokeWidth={4}
-            strokeWidthSecondary={4}
             ariaLabel="Loading"
-            visible
+            visible={true}
           />
           <p>Loading groups...</p>
         </div>
       );
     }
-    if (loadState === ADMIN_LOAD_STATES.FAILURE) {
+    if (listLoadState === ADMIN_LOAD_STATES.FAILURE) {
       return (
         <div className="groups-state error">
           <img src={emptyStateImg} alt="Failed" className="groups-state-img" />
           <h3>Failed to load groups</h3>
-          <p>Please try again in a moment.</p>
+          <p>{groupError || "Please try again in a moment."}</p>
+          <button
+            type="button"
+            className="groups-add-btn"
+            onClick={() => loadGroups()}
+          >
+            Retry
+          </button>
         </div>
       );
     }
@@ -235,9 +273,12 @@ const Groups = () => {
             className="groups-add-btn"
             type="button"
             onClick={handleOpenAdd}
+            disabled={
+              modalLoadState === ADMIN_LOAD_STATES.PENDING || isOpeningAdd
+            }
           >
-            <FiPlus />
-            Add Group
+            {isOpeningAdd ? <FiLoader className="groups-spin" /> : <FiPlus />}
+            {isOpeningAdd ? "Loading..." : "Add Group"}
           </button>
         </div>
 
@@ -291,14 +332,27 @@ const Groups = () => {
                     <button
                       type="button"
                       className="groups-icon-btn"
-                      onClick={() => handleOpenEdit(g)}
+                      onClick={(event) => handleOpenEdit(event, g)}
+                      disabled={
+                        modalLoadState === ADMIN_LOAD_STATES.PENDING &&
+                        openingEditId === g._id
+                      }
                     >
-                      <FiEdit2 />
+                      {modalLoadState === ADMIN_LOAD_STATES.PENDING &&
+                      openingEditId === g._id ? (
+                        <FiLoader className="groups-spin" />
+                      ) : (
+                        <FiEdit2 />
+                      )}
                     </button>
                     <button
                       type="button"
                       className="groups-icon-btn danger"
-                      onClick={() => handleDelete(g)}
+                      onClick={(event) => handleDelete(event, g)}
+                      disabled={
+                        deleteLoadState === ADMIN_LOAD_STATES.PENDING &&
+                        deletingGroupId === g._id
+                      }
                     >
                       <FiTrash2 />
                     </button>
@@ -420,11 +474,22 @@ const Groups = () => {
                   type="button"
                   className="btn-secondary"
                   onClick={() => setIsOpen(false)}
+                  disabled={submitLoadState === ADMIN_LOAD_STATES.PENDING}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="btn-primary">
-                  {editTarget ? "Update" : "Save Group"}
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={submitLoadState === ADMIN_LOAD_STATES.PENDING}
+                >
+                  {submitLoadState === ADMIN_LOAD_STATES.PENDING
+                    ? editTarget
+                      ? "Updating..."
+                      : "Saving..."
+                    : editTarget
+                      ? "Update"
+                      : "Save Group"}
                 </button>
               </div>
             </form>

@@ -6,6 +6,16 @@ import departmentSlice from "./departmentSlice";
 import configSlice from "./configSlice";
 import leavesSlice from "./leavesSlice";
 import timetableSlice from "./timetableSlice";
+import attendanceSlice from "./attendanceSlice";
+import assignmentSlice from "./assignmentSlice";
+import examSlice from "./examSlice";
+import feeSlice from "./feeSlice";
+import alertSlice from "./alertSlice";
+import groupSlice from "./groupSlice";
+import resultSlice from "./resultSlice";
+import facultyDashboardSlice from "./facultyDashboardSlice";
+import adminExamBlueprintSlice from "./adminExamBlueprintSlice";
+import studentExamSlice from "./studentExamSlice";
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -25,6 +35,16 @@ const rootReducer = combineReducers({
   config: configSlice,
   leaves: leavesSlice,
   timetable: timetableSlice,
+  attendance: attendanceSlice,
+  assignment: assignmentSlice,
+  exam: examSlice,
+  fee: feeSlice,
+  alerts: alertSlice,
+  group: groupSlice,
+  result: resultSlice,
+  facultyDashboard: facultyDashboardSlice,
+  adminExamBlueprint: adminExamBlueprintSlice,
+  studentExam: studentExamSlice,
 });
 
 const persistedReducer = persistReducer(

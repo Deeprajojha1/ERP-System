@@ -7,6 +7,7 @@ import axios from "../../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { setUserData } from "../../redux/userSlice";
 import collegeLogo from "../../assets/college_47233.jpg";
+import { TailSpin } from "react-loader-spinner";
 import "./Login.css";
 import toast from "react-hot-toast";
 
@@ -79,7 +80,13 @@ const Login = () => {
 
       const res = await axios.post(`${apiBase}/user/login`, formData);
 
-            // Store user data in Redux
+      if (res.data?.token && typeof window !== "undefined") {
+        localStorage.setItem("authToken", res.data.token);
+        // Backward-compatible key while old components are migrated.
+        localStorage.setItem("token", res.data.token);
+      }
+
+      // Store user data in Redux
       dispatch(setUserData(res.data));
       toast.success(res.data.message || "Login successful");
 
@@ -221,6 +228,7 @@ const Login = () => {
                 onChange={handleChange}
                 placeholder="Enter email address"
                 required
+                disabled={loading}
               />
             </div>
 
@@ -236,6 +244,7 @@ const Login = () => {
                 onChange={handleChange}
                 placeholder="Enter password"
                 required
+                disabled={loading}
               />
 
               <span className="eye-icon" onClick={() => setShowPassword((prev) => !prev)}>
@@ -244,7 +253,12 @@ const Login = () => {
             </div>
 
             <button type="submit" className="login-btn" disabled={loading}>
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? (
+                <span className="btn-loader">
+                  <TailSpin height="20" width="20" color="#ffffff" ariaLabel="loading" />
+                  <span>Signing in...</span>
+                </span>
+              ) : "Sign In"}
             </button>
           </form>
         ) : (
@@ -272,6 +286,7 @@ const Login = () => {
                     onChange={handleOtpChange}
                     placeholder="Enter email address"
                     required
+                    disabled={otpSending}
                   />
                 </div>
 
@@ -281,7 +296,12 @@ const Login = () => {
                   onClick={handleSendOtp}
                   disabled={otpSending}
                 >
-                  {otpSending ? "Sending..." : "Send OTP"}
+                  {otpSending ? (
+                    <span className="btn-loader">
+                      <TailSpin height="20" width="20" color="#ffffff" ariaLabel="loading" />
+                      <span>Sending...</span>
+                    </span>
+                  ) : "Send OTP"}
                 </button>
               </>
             )}
@@ -301,6 +321,7 @@ const Login = () => {
                     onChange={handleOtpChange}
                     placeholder="Enter OTP"
                     required
+                    disabled={otpVerifying}
                   />
                 </div>
 
@@ -309,13 +330,13 @@ const Login = () => {
                     OTP expires in {time < 10 ? `0${time}` : time}:{second < 10 ? `0${second}` : second}
                   </p>
                 ) : (
-                  <button className="otp-resend-btn" type="button" onClick={handleSendOtp}>
+                  <button className="otp-resend-btn" type="button" onClick={handleSendOtp} disabled={otpVerifying}>
                     Resend OTP
                   </button>
                 )}
 
                 <div className="otp-btn-row">
-                  <button type="button" className="otp-secondary-btn" onClick={() => setOtpStep(1)}>
+                  <button type="button" className="otp-secondary-btn" onClick={() => setOtpStep(1)} disabled={otpVerifying}>
                     Back
                   </button>
                   <button
@@ -324,7 +345,12 @@ const Login = () => {
                     onClick={handleVerifyOtp}
                     disabled={otpVerifying}
                   >
-                    {otpVerifying ? "Verifying..." : "Verify OTP"}
+                    {otpVerifying ? (
+                      <span className="btn-loader">
+                        <TailSpin height="20" width="20" color="#ffffff" ariaLabel="loading" />
+                        <span>Verifying...</span>
+                      </span>
+                    ) : "Verify OTP"}
                   </button>
                 </div>
               </>
@@ -345,6 +371,7 @@ const Login = () => {
                     onChange={handleOtpChange}
                     placeholder="Enter new password"
                     required
+                    disabled={resetLoading}
                   />
                   <span className="eye-icon" onClick={() => setShowNewPassword((prev) => !prev)}>
                     {showNewPassword ? <IoMdEyeOff /> : <IoEyeOutline />}
@@ -363,6 +390,7 @@ const Login = () => {
                     onChange={handleOtpChange}
                     placeholder="Confirm password"
                     required
+                    disabled={resetLoading}
                   />
                   <span className="eye-icon" onClick={() => setShowConfirmPassword((prev) => !prev)}>
                     {showConfirmPassword ? <IoMdEyeOff /> : <IoEyeOutline />}
@@ -370,7 +398,7 @@ const Login = () => {
                 </div>
 
                 <div className="otp-btn-row">
-                  <button type="button" className="otp-secondary-btn" onClick={() => setOtpStep(2)}>
+                  <button type="button" className="otp-secondary-btn" onClick={() => setOtpStep(2)} disabled={resetLoading}>
                     Back
                   </button>
                   <button
@@ -379,7 +407,12 @@ const Login = () => {
                     onClick={handleResetPassword}
                     disabled={resetLoading}
                   >
-                    {resetLoading ? "Resetting..." : "Reset Password"}
+                    {resetLoading ? (
+                      <span className="btn-loader">
+                        <TailSpin height="20" width="20" color="#ffffff" ariaLabel="loading" />
+                        <span>Resetting...</span>
+                      </span>
+                    ) : "Reset Password"}
                   </button>
                 </div>
               </>

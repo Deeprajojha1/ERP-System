@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
-import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
+import { FiEdit2, FiLoader, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import toast from "react-hot-toast";
 import {
@@ -14,28 +14,11 @@ import "./Student.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import ClipLoader from "./components/ClipLoader";
 
-const PROGRAM_CANONICAL_MAP = {
-  btech: "btech",
-  mtech: "mtech",
-  bca: "bca",
-  mca: "mca",
-  bba: "bba",
-  mba: "mba",
-  bsc: "bsc",
-  msc: "msc",
-  bpharma: "bpharma",
-  mpharma: "mpharma",
-  phd: "phd",
-  bpharm: "bpharma",
-  mpharm: "mpharma",
-};
-
-const canonicalizeProgram = (value) => {
-  const normalized = String(value || "")
+const normalizeProgram = (value) => {
+  return String(value || "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z]/g, "");
-  return PROGRAM_CANONICAL_MAP[normalized] || "";
 };
 
 const Student = () => {
@@ -45,6 +28,9 @@ const Student = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [isOpeningAdd, setIsOpeningAdd] = useState(false);
+  const [openingEditId, setOpeningEditId] = useState("");
+  const [modalDependenciesLoading, setModalDependenciesLoading] = useState(false);
   const dispatch = useDispatch();
   const { students } = useSelector(
     (state) => state.student
@@ -98,6 +84,7 @@ const Student = () => {
 
   useEffect(() => {
     const fetchAll = async () => {
+      if (!apiBase) return;
       try {
         setLoadState(ADMIN_LOAD_STATES.PENDING);
         dispatch(setStudentsLoading(true));
@@ -132,21 +119,29 @@ const Student = () => {
     };
 
     fetchAll();
-  }, []);
+  }, [apiBase, dispatch]);
 
   const ensureModalDependencies = async () => {
-    const [deptRes, groupRes] = await Promise.all([
-      axios.get(`${apiBase}/admin/department`, {
-        withCredentials: true,
-        params: { noCache: "true" },
-      }),
-      axios.get(`${apiBase}/admin/group`, {
-        withCredentials: true,
-        params: { noCache: "true" },
-      }),
-    ]);
-    setDepartments(deptRes.data?.departments || []);
-    setGroups(groupRes.data?.groups || []);
+    if (!apiBase || modalDependenciesLoading) return;
+    setModalDependenciesLoading(true);
+    try {
+      const [deptRes, groupRes] = await Promise.all([
+        axios.get(`${apiBase}/admin/department`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+          params: { noCache: "true" },
+        }),
+        axios.get(`${apiBase}/admin/group`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+          params: { noCache: "true" },
+        }),
+      ]);
+      setDepartments(deptRes.data?.departments || []);
+      setGroups(groupRes.data?.groups || []);
+    } finally {
+      setModalDependenciesLoading(false);
+    }
   };
 
   const syncStudentsSilently = async () => {
@@ -190,7 +185,7 @@ const Student = () => {
     const selectedDept = departments.find((d) => d._id === formData.department);
     const deptPrograms = selectedDept?.programs || selectedDept?.program || [];
     if (!Array.isArray(deptPrograms)) return [];
-    return [...new Set(deptPrograms.map((prog) => canonicalizeProgram(prog)).filter(Boolean))];
+    return [...new Set(deptPrograms.map((prog) => normalizeProgram(prog)).filter(Boolean))];
   }, [departments, formData.department]);
 
   const handleChange = (e) => {
@@ -206,7 +201,7 @@ const Student = () => {
     if (name === "program") {
       setFormData((prev) => ({
         ...prev,
-        program: canonicalizeProgram(value),
+        program: normalizeProgram(value),
       }));
       return;
     }
@@ -216,7 +211,13 @@ const Student = () => {
     }));
   };
 
-  const openAddModal = async () => {
+  const openAddModal = async (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (modalDependenciesLoading || submitting) return;
+    setIsOpeningAdd(true);
     try {
       await ensureModalDependencies();
       setEditTarget(null);
@@ -241,16 +242,24 @@ const Student = () => {
     } catch (error) {
       console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to load form data");
+    } finally {
+      setIsOpeningAdd(false);
     }
   };
 
-  const openEditModal = async (student) => {
+  const openEditModal = async (event, student) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     if (!student?._id) return;
+    if (modalDependenciesLoading || openingEditId) return;
+    setOpeningEditId(student._id);
     try {
       await ensureModalDependencies();
       const res = await axios.get(
         `${apiBase}/admin/student/${student._id}?full=true`,
-        { withCredentials: true }
+        { withCredentials: true, skipNetworkRedirect: true }
       );
       const fullStudent = res.data?.student || student;
       setEditTarget(fullStudent);
@@ -265,7 +274,7 @@ const Student = () => {
         DOB: fullStudent.user?.DOB ? fullStudent.user.DOB.slice(0, 10) : "",
         enrollmentNumber: fullStudent.enrollmentNumber || fullStudent.rollNo || "",
         department: fullStudent.department?._id || fullStudent.department || "",
-        program: canonicalizeProgram(fullStudent.program || ""),
+        program: normalizeProgram(fullStudent.program || ""),
         semester: fullStudent.semester || "",
         academicYear: fullStudent.academicYear || "",
         fatherName: fullStudent.fatherName || "",
@@ -277,6 +286,8 @@ const Student = () => {
     } catch (error) {
       console.error("Fetch student details failed:", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to load student details");
+    } finally {
+      setOpeningEditId("");
     }
   };
 
@@ -311,7 +322,7 @@ const Student = () => {
     const base = {
       enrollmentNumber: formData.enrollmentNumber,
       department: formData.department,
-      program: canonicalizeProgram(formData.program),
+      program: normalizeProgram(formData.program),
       semester: formData.semester
         ? Number(formData.semester)
         : "",
@@ -457,8 +468,20 @@ const Student = () => {
               {filtered.length} Students in the organization
             </p>
           </div>
-          <button className="student-add-btn" type="button" onClick={openAddModal}>
-            + Add Student
+          <button
+            className="student-add-btn"
+            type="button"
+            onClick={openAddModal}
+            disabled={isOpeningAdd || modalDependenciesLoading}
+          >
+            {isOpeningAdd ? (
+              <>
+                <FiLoader className="student-spin" />
+                Loading...
+              </>
+            ) : (
+              "+ Add Student"
+            )}
           </button>
         </div>
 
@@ -531,9 +554,23 @@ const Student = () => {
                       </td>
                       <td>
                         <div className="student-actions">
-                          <button className="student-action-btn ghost" type="button" onClick={() => openEditModal(s)}>
-                            <FiEdit2 />
-                            Edit
+                          <button
+                            className="student-action-btn ghost"
+                            type="button"
+                            onClick={(event) => openEditModal(event, s)}
+                            disabled={openingEditId === s._id || modalDependenciesLoading}
+                          >
+                            {openingEditId === s._id ? (
+                              <>
+                                <FiLoader className="student-spin" />
+                                Loading...
+                              </>
+                            ) : (
+                              <>
+                                <FiEdit2 />
+                                Edit
+                              </>
+                            )}
                           </button>
                           <button className="student-action-btn danger" type="button" onClick={() => handleDelete(s)}>
                             <FiTrash2 />

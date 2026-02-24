@@ -368,64 +368,143 @@
 @media print {
   .no-print {
     display: none !important;
+    visibility: hidden !important;
   }
 
   .print-header {
     display: block !important;
+    visibility: visible !important;
+    position: static !important;
+    text-align: center !important;
+    padding: 15px !important;
+    margin-bottom: 15px !important;
+    border-bottom: 2px solid #000000 !important;
+    background: #ffffff !important;
+  }
+
+  .print-header h2,
+  .print-header h3,
+  .print-header h4,
+  .print-header p {
+    display: block !important;
+    visibility: visible !important;
+    color: #000000 !important;
+    background: #ffffff !important;
+    margin: 4px 0 !important;
+  }
+
+  .print-header h2 {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+  }
+
+  .print-header h3 {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+  }
+
+  .print-header h4 {
+    font-size: 13px !important;
+    font-weight: 600 !important;
+  }
+
+  .print-header p {
+    font-size: 12px !important;
   }
 
   .subject-attendance-page {
-    padding: 0;
+    padding: 10px !important;
+    margin: 0 !important;
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    background: #ffffff !important;
   }
 
   .subject-attendance-panel {
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
+    display: block !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    position: static !important;
+    background: #ffffff !important;
   }
 
   .subject-attendance-table-wrapper {
-    padding: 0;
-    background: #ffffff;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    height: auto !important;
+    display: block !important;
+    position: static !important;
   }
 
   .subject-attendance-table {
-    box-shadow: none;
-    border: 1px solid #000000;
-    font-size: 10px;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: 1px solid #000000 !important;
+    font-size: 9px !important;
+    border-collapse: collapse !important;
+    display: table !important;
+    visibility: visible !important;
   }
 
   .subject-attendance-table thead {
+    display: table-header-group !important;
     background: #ffffff !important;
     color: #000000 !important;
-    border-bottom: 2px solid #000000;
+    border-bottom: 2px solid #000000 !important;
+  }
+
+  .subject-attendance-table tbody {
+    display: table-row-group !important;
+  }
+
+  .subject-attendance-table tr {
+    display: table-row !important;
+    page-break-inside: avoid !important;
   }
 
   .subject-attendance-table th {
-    border-right: 1px solid #000000;
-    border-bottom: 1px solid #000000;
-    color: #000000;
-    padding: 6px 4px;
+    display: table-cell !important;
+    border: 1px solid #000000 !important;
+    color: #000000 !important;
+    padding: 4px 3px !important;
+    background: #f0f0f0 !important;
   }
 
   .subject-attendance-table td {
-    border-right: 1px solid #000000;
-    border-bottom: 1px solid #000000;
-    padding: 6px 4px;
+    display: table-cell !important;
+    border: 1px solid #000000 !important;
+    padding: 4px 3px !important;
+    background: #ffffff !important;
+    color: #000000 !important;
   }
 
   .subject-attendance-table tbody tr:hover {
-    background: #ffffff;
+    background: #ffffff !important;
   }
 
+  .attendance-cell,
   .attendance-cell.present,
   .attendance-cell.absent,
   .attendance-cell.not-marked,
   .total-present,
   .total-classes,
-  .percentage {
+  .percentage,
+  .sr-no-cell,
+  .student-details,
+  .student-name,
+  .student-info {
     background: #ffffff !important;
     color: #000000 !important;
+    visibility: visible !important;
   }
 
   @page {

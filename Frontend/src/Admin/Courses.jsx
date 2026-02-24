@@ -1,26 +1,86 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import axios from "../utils/axiosInstance";
 import "./Courses.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { Oval } from "react-loader-spinner";
-import { FiSearch } from "react-icons/fi";
-import { FiEdit2 } from "react-icons/fi";
+import { FiEdit2, FiLoader, FiSearch } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 import toast from "react-hot-toast";
 import { selectTimetableRevision } from "../redux/timetableSlice";
 import ClipLoader from "./components/ClipLoader";
 
+const resolveFacultyMembers = (course = {}) => {
+  if (Array.isArray(course.facultyMembers)) return course.facultyMembers;
+  if (Array.isArray(course.facultyIds)) {
+    return course.facultyIds
+      .map((faculty) => ({
+        _id: faculty?._id || faculty?.id || null,
+        name: faculty?.user?.name || faculty?.name || "Faculty",
+      }))
+      .filter((faculty) => faculty._id);
+  }
+  return [];
+};
+
+const normalizeCourseRow = (course = {}, { existingCourse, referenceCourses = [] } = {}) => {
+  const id = course?.id || course?._id || existingCourse?.id || "";
+  const departmentName =
+    typeof course?.department === "string"
+      ? course.department
+      : course?.department?.name || existingCourse?.department || "";
+  const departmentId =
+    course?.departmentId ||
+    course?.department?._id ||
+    (typeof course?.department === "string" ? existingCourse?.departmentId : course?.department) ||
+    existingCourse?.departmentId ||
+    "";
+  const facultyMembers = resolveFacultyMembers(course);
+  const coordinatorId =
+    course?.coordinatorId ||
+    facultyMembers[0]?._id ||
+    existingCourse?.coordinatorId ||
+    "";
+  const coordinatorName =
+    course?.coordinatorName ||
+    facultyMembers[0]?.name ||
+    existingCourse?.coordinatorName ||
+    null;
+  const inferredStudentCount =
+    existingCourse?.studentsInDepartment ??
+    referenceCourses.find((item) => String(item?.departmentId || "") === String(departmentId || ""))?.studentsInDepartment ??
+    0;
+
+  return {
+    id,
+    code: course?.code || existingCourse?.code || "",
+    courseName: course?.courseName || existingCourse?.courseName || "",
+    department: departmentName,
+    departmentId,
+    semester: course?.semester ?? existingCourse?.semester ?? null,
+    credit: course?.credit ?? existingCourse?.credit ?? null,
+    branch: course?.branch || existingCourse?.branch || null,
+    studentsInDepartment:
+      course?.studentsInDepartment ?? existingCourse?.studentsInDepartment ?? inferredStudentCount,
+    coordinatorId,
+    coordinatorName,
+    facultyMembers,
+  };
+};
+
 const Courses = () => {
   const [search, setSearch] = useState("");
   const [activeBranch, setActiveBranch] = useState("All Branches");
   const [isOpen, setIsOpen] = useState(false);
+  const [isOpeningAdd, setIsOpeningAdd] = useState(false);
+  const [openingEditId, setOpeningEditId] = useState("");
   const [modalMode, setModalMode] = useState("add");
   const [editingCourseId, setEditingCourseId] = useState("");
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [courses, setCourses] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [facultyList, setFacultyList] = useState([]);
+  const [modalDependenciesLoading, setModalDependenciesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     code: "",
@@ -56,11 +116,13 @@ const Courses = () => {
     return map[departmentName] || departmentName;
   };
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
+    if (!apiBase) return;
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
       const courseRes = await axios.get(`${apiBase}/admin/course`, {
         withCredentials: true,
+        skipNetworkRedirect: true,
       });
       setCourses(courseRes.data?.courses || []);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
@@ -69,13 +131,11 @@ const Courses = () => {
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
       toast.error(`${error.response?.data?.message || "Failed to load courses"}`);
     }
-  };
+  }, [apiBase]);
 
   useEffect(() => {
-    if (apiBase) {
-      fetchAll();
-    }
-  }, [apiBase, timetableRevision]);
+    fetchAll();
+  }, [fetchAll, timetableRevision]);
 
   const resetForm = () => {
     setFormData({
@@ -100,20 +160,28 @@ const Courses = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const ensureModalDependencies = async () => {
-    const [deptRes, facultyRes] = await Promise.all([
-      axios.get(`${apiBase}/admin/department`, {
-        withCredentials: true,
-        params: { noCache: "true" },
-      }),
-      axios.get(`${apiBase}/admin/faculty`, {
-        withCredentials: true,
-        params: { noCache: "true" },
-      }),
-    ]);
-    setDepartments(deptRes.data?.departments || []);
-    setFacultyList(facultyRes.data?.faculty || []);
-  };
+  const ensureModalDependencies = useCallback(async () => {
+    if (!apiBase || modalDependenciesLoading) return;
+    setModalDependenciesLoading(true);
+    try {
+      const [deptRes, facultyRes] = await Promise.all([
+        axios.get(`${apiBase}/admin/department`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+          params: { noCache: "true" },
+        }),
+        axios.get(`${apiBase}/admin/faculty`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+          params: { noCache: "true" },
+        }),
+      ]);
+      setDepartments(deptRes.data?.departments || []);
+      setFacultyList(facultyRes.data?.faculty || []);
+    } finally {
+      setModalDependenciesLoading(false);
+    }
+  }, [apiBase, modalDependenciesLoading]);
 
   const handleSubmitCourse = async (e) => {
     e.preventDefault();
@@ -124,6 +192,8 @@ const Courses = () => {
     }
 
     const selectedDepartment = departments.find((d) => d._id === formData.department);
+    const selectedFaculty = facultyList.find((f) => f._id === formData.facultyId);
+    const existingCourse = courses.find((course) => String(course.id) === String(editingCourseId));
     const payload = {
       code: formData.code.trim(),
       courseName: formData.courseName.trim(),
@@ -136,17 +206,60 @@ const Courses = () => {
 
     try {
       setSubmitting(true);
+      let response;
       if (modalMode === "edit" && editingCourseId) {
-        await axios.put(`${apiBase}/admin/course/${editingCourseId}`, payload, {
+        response = await axios.put(`${apiBase}/admin/course/${editingCourseId}`, payload, {
           withCredentials: true,
+          skipNetworkRedirect: true,
         });
         toast.success("Course updated successfully");
       } else {
-        await axios.post(`${apiBase}/admin/course`, payload, { withCredentials: true });
+        response = await axios.post(`${apiBase}/admin/course`, payload, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+        });
         toast.success("Course added successfully");
       }
+
+      const fallbackCourse = {
+        id: modalMode === "edit" ? editingCourseId : "",
+        code: payload.code,
+        courseName: payload.courseName,
+        department: selectedDepartment?.name || "",
+        departmentId: payload.department,
+        semester: payload.semester,
+        credit: payload.credit,
+        branch: payload.branch,
+        coordinatorId: formData.facultyId || "",
+        coordinatorName: selectedFaculty?.user?.name || selectedFaculty?.name || null,
+        facultyMembers: formData.facultyId
+          ? [
+              {
+                _id: formData.facultyId,
+                name: selectedFaculty?.user?.name || selectedFaculty?.name || "Faculty",
+              },
+            ]
+          : [],
+      };
+
+      const responseCourse = response?.data?.course || response?.data?.data?.course || fallbackCourse;
+
+      setCourses((prev) => {
+        const normalized = normalizeCourseRow(responseCourse, {
+          existingCourse,
+          referenceCourses: prev,
+        });
+        if (modalMode === "edit" && editingCourseId) {
+          return prev.map((course) =>
+            String(course.id) === String(editingCourseId)
+              ? { ...course, ...normalized }
+              : course
+          );
+        }
+        return [normalized, ...prev.filter((course) => String(course.id) !== String(normalized.id))];
+      });
+
       closeModal();
-      await fetchAll();
     } catch (error) {
       console.error("Course submit failed", error.response?.data || error.message);
       toast.error(
@@ -158,11 +271,17 @@ const Courses = () => {
     }
   };
 
-  const openEditModal = async (course) => {
+  const openEditModal = async (event, course) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!course?.id || modalDependenciesLoading) return;
+    setOpeningEditId(course.id);
     try {
       await ensureModalDependencies();
       setModalMode("edit");
-      setEditingCourseId(course.id || "");
+      setEditingCourseId(course.id || course._id || "");
       setFormData({
         code: course.code || "",
         courseName: course.courseName || "",
@@ -175,10 +294,18 @@ const Courses = () => {
     } catch (error) {
       console.error("Failed to load modal data", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to load form data");
+    } finally {
+      setOpeningEditId("");
     }
   };
 
-  const openAddModal = async () => {
+  const openAddModal = async (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (modalDependenciesLoading) return;
+    setIsOpeningAdd(true);
     try {
       await ensureModalDependencies();
       setModalMode("add");
@@ -188,6 +315,8 @@ const Courses = () => {
     } catch (error) {
       console.error("Failed to load modal data", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to load form data");
+    } finally {
+      setIsOpeningAdd(false);
     }
   };
 
@@ -246,8 +375,10 @@ const Courses = () => {
             className="courses-add-btn"
             type="button"
             onClick={openAddModal}
+            disabled={isOpeningAdd || modalDependenciesLoading}
           >
-            + Add Course
+            {isOpeningAdd ? <FiLoader className="courses-spin" /> : "+"}
+            {isOpeningAdd ? " Loading..." : " Add Course"}
           </button>
         </div>
 
@@ -305,11 +436,16 @@ const Courses = () => {
                       <button
                         type="button"
                         className="courses-edit-btn"
-                        onClick={() => openEditModal(c)}
+                        onClick={(event) => openEditModal(event, c)}
+                        disabled={modalDependenciesLoading && openingEditId === c.id}
                         aria-label={`Edit ${c.code}`}
                         title="Edit course"
                       >
-                        <FiEdit2 />
+                        {modalDependenciesLoading && openingEditId === c.id ? (
+                          <FiLoader className="courses-spin" />
+                        ) : (
+                          <FiEdit2 />
+                        )}
                       </button>
                     </td>
                   </tr>

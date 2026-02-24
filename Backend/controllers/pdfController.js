@@ -1,6 +1,4 @@
 import puppeteer from "puppeteer";
-import fs from "fs";
-import path from "path";
 
 const getLaunchArgs = () => [
   ...(process.platform === "linux"
@@ -43,54 +41,11 @@ const getExecutableCandidates = () => {
   return [...new Set(candidates.filter(Boolean))];
 };
 
-const getCachedChromeExecutable = () => {
-  const baseCacheDir =
-    process.env.PUPPETEER_CACHE_DIR
-    || (process.env.RENDER ? "/opt/render/.cache/puppeteer" : null);
-
-  if (!baseCacheDir) {
-    return null;
-  }
-
-  const chromeBaseDir = path.join(baseCacheDir, "chrome");
-  if (!fs.existsSync(chromeBaseDir)) {
-    return null;
-  }
-
-  try {
-    const platformDirs = fs.readdirSync(chromeBaseDir, { withFileTypes: true })
-      .filter((entry) => entry.isDirectory() && entry.name.startsWith("linux-"))
-      .map((entry) => entry.name)
-      .sort();
-
-    for (let i = platformDirs.length - 1; i >= 0; i -= 1) {
-      const candidate = path.join(
-        chromeBaseDir,
-        platformDirs[i],
-        "chrome-linux64",
-        "chrome"
-      );
-      if (fs.existsSync(candidate)) {
-        return candidate;
-      }
-    }
-  } catch (_) {
-    return null;
-  }
-
-  return null;
-};
-
 const launchBrowser = async () => {
   const args = getLaunchArgs();
   const errors = [];
 
-  const dynamicCachedChrome = getCachedChromeExecutable();
-  const executableCandidates = dynamicCachedChrome
-    ? [...new Set([dynamicCachedChrome, ...getExecutableCandidates()])]
-    : getExecutableCandidates();
-
-  for (const executablePath of executableCandidates) {
+  for (const executablePath of getExecutableCandidates()) {
     try {
       return await puppeteer.launch({
         headless: true,

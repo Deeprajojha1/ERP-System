@@ -35,13 +35,12 @@ const BranchSchema = new mongoose.Schema({
 BranchSchema.index({ programId: 1, branchName: 1 }, { unique: true });
 
 // Ensure semesterNo unique inside array
-BranchSchema.pre("validate", function (next) {
+BranchSchema.pre("validate", function () {
   const sems = this.semesterBaseFees.map(x => x.semesterNo);
   const unique = new Set(sems);
   if (sems.length !== unique.size) {
-    return next(new Error("Duplicate semesterNo found in semesterBaseFees"));
+    throw new Error("Duplicate semesterNo found in semesterBaseFees");
   }
-  next();
 });
 
 export default mongoose.model("Branch", BranchSchema);

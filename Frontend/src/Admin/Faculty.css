@@ -30,6 +30,16 @@
   border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.faculty-add-btn:disabled,
+.faculty-action-btn:disabled,
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
 }
 
 .faculty-panel {

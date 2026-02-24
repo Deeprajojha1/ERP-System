@@ -150,6 +150,13 @@
   color: #98a2b3;
 }
 
+.login-form .form-group input:disabled {
+  background: #f0f4f8;
+  color: #98a2b3;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
 .login-form .eye-icon {
   position: absolute;
   right: 16px;
@@ -290,6 +297,18 @@
 .login-btn:disabled {
   opacity: 0.7;
   cursor: not-allowed;
+}
+
+.btn-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-loader span {
+  display: flex;
+  align-items: center;
 }
 
 .login-register-row {

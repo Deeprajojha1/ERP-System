@@ -471,15 +471,25 @@ export const sendOtp = async (req, res) => {
       validateBeforeSave: false,
     });
 
-    const isEmailSent = await sendEmail(
-      email,
-      otp
-    );
+    const emailResult = await sendEmail(email, otp);
 
-    if (!isEmailSent) {
-      return res.status(500).json({
-        message:
-          "OTP saved but email not sent",
+    if (!emailResult?.ok) {
+      user.resetOtp = undefined;
+      user.otpExpires = undefined;
+      user.isOtpVerifed = false;
+      await user.save({
+        validateBeforeSave: false,
+      });
+
+      const isAuthIssue =
+        emailResult?.code === "SENDGRID_AUTH_FAILED" ||
+        emailResult?.code === "SENDGRID_NOT_CONFIGURED" ||
+        emailResult?.code === "SENDGRID_FROM_MISSING";
+
+      return res.status(isAuthIssue ? 503 : 500).json({
+        message: isAuthIssue
+          ? "Email service is temporarily unavailable. Please try again later."
+          : "Failed to send OTP email. Please try again.",
       });
     }
 

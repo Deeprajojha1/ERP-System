@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSelector } from "react-redux";
 import { PiStudentBold } from "react-icons/pi";
 import {
   FiHome,
   FiUser,
   FiActivity,
   FiBookOpen,
+  FiClipboard,
   FiChevronLeft,
   FiChevronRight,
   FiDollarSign,
+  FiBriefcase,
 } from "react-icons/fi";
 import { useLocation, useNavigate } from "react-router-dom";
 import heroImage from "../../assets/college_47233.jpg";
@@ -16,14 +19,14 @@ import AlertNotifications from "../common/AlertNotifications";
 import StudentDetails from "./StudentDetails";
 import AttendanceOverview from "./AttendanceOverview";
 import CoursesDetails from "./CoursesDetails";
+import StudentExamCenter from "./StudentExamCenter";
+import StudentExternalJobs from "./StudentExternalJobs";
 import "./StudentDashboardShell.css";
 
 const StudentDashboardShell = ({
   resolvedStudentData,
   roleDetails,
   totalSessions,
-  strongAttendanceCount,
-  lowAttendanceCount,
   overallAttendance,
   attendanceData,
   coursesData,
@@ -31,11 +34,40 @@ const StudentDashboardShell = ({
   onLogout,
   todayLabel,
 }) => {
+  const apiBase = useSelector((state) => state.config.apiBase);
+  const userData = useSelector((state) => state.user.userData);
   const navigate = useNavigate();
   const location = useLocation();
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true)
   );
+
+  // Keep existing profile image resolution behavior.
+  const profileImage = (() => {
+    const fileUrl = userData?.user?.profileImageUrl;
+    const fileName = userData?.user?.profileImage;
+    const base = apiBase?.replace("/api", "") || "";
+    if (fileUrl) {
+      if (fileUrl.startsWith("http") || fileUrl.startsWith("data:")) return fileUrl;
+      return `${base}${fileUrl}`;
+    }
+    if (fileName) {
+      if (fileName.startsWith("data:")) return fileName;
+      return `${base}/uploads/profile-images/${fileName}`;
+    }
+    return null;
+  })();
+
+  const studentName =
+    resolvedStudentData?.personalInfo?.name ||
+    userData?.user?.name ||
+    "Student";
+  const studentEmail =
+    resolvedStudentData?.personalInfo?.email ||
+    userData?.user?.email ||
+    "";
+  const enrolledCoursesCount = Array.isArray(coursesData) ? coursesData.length : 0;
 
   useEffect(() => {
     const handleResize = () => {
@@ -52,7 +84,9 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/profile")) return "profile";
     if (path.includes("/dashboard/attendance")) return "attendance";
     if (path.includes("/dashboard/courses")) return "courses";
+    if (path.includes("/dashboard/exams")) return "exams";
     if (path.includes("/dashboard/fees")) return "fees";
+    if (path.includes("/dashboard/jobs")) return "jobs";
     return "home";
   }, [location.pathname]);
 
@@ -61,14 +95,15 @@ const StudentDashboardShell = ({
     { id: "profile", label: "Profile", path: "/dashboard/profile", icon: FiUser },
     { id: "attendance", label: "Attendance", path: "/dashboard/attendance", icon: FiActivity },
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
+    { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
+    { id: "jobs", label: "Jobs", path: "/dashboard/jobs", icon: FiBriefcase },
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
   ];
 
-  const userInitials = (resolvedStudentData.personalInfo.name || "Student")
+  const userInitials = (studentName || "Student")
     .split(" ")
     .filter(Boolean)
     .slice(0, 2)
-    .map((word) => word[0]?.toUpperCase())
     .map((word) => word[0]?.toUpperCase())
     .join("");
 
@@ -83,17 +118,13 @@ const StudentDashboardShell = ({
       0;
     const remaining = Math.max(total - paid, 0);
     return { total, paid, remaining };
-    const remaining = Math.max(total - paid, 0);
-    return { total, paid, remaining };
   }, [roleDetails]);
 
-  const formatAmount = (value) =>
   const formatAmount = (value) =>
     new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       maximumFractionDigits: 0,
-    }).format(Number(value) || 0);
     }).format(Number(value) || 0);
 
   const dateWiseAttendance = useMemo(() => {
@@ -128,9 +159,7 @@ const StudentDashboardShell = ({
         </div>
         <div className="student-home-hero-copy">
           <h3>Welcome Back</h3>
-          <p>
-            Track your attendance, courses, and fee status from one place.
-          </p>
+          <p>Track your attendance, courses, and fee status from one place.</p>
         </div>
       </section>
 
@@ -207,12 +236,6 @@ const StudentDashboardShell = ({
       <div className="student-fee-summary">
         <article className="student-fee-card">
           <p>Total Academic Fee</p>
-  const renderFees = () => (
-    <section className="student-fees-page">
-      <h3>Fee Overview</h3>
-      <div className="student-fee-summary">
-        <article className="student-fee-card">
-          <p>Total Academic Fee</p>
           <strong>{formatAmount(feeSummary.total)}</strong>
         </article>
         <article className="student-fee-card">
@@ -226,18 +249,6 @@ const StudentDashboardShell = ({
       </div>
     </section>
   );
-        </article>
-        <article className="student-fee-card">
-          <p>Paid</p>
-          <strong>{formatAmount(feeSummary.paid)}</strong>
-        </article>
-        <article className="student-fee-card">
-          <p>Remaining</p>
-          <strong>{formatAmount(feeSummary.remaining)}</strong>
-        </article>
-      </div>
-    </section>
-  );
 
   const renderContent = () => {
     if (currentSection === "profile") {
@@ -249,21 +260,11 @@ const StudentDashboardShell = ({
     if (currentSection === "courses") {
       return <CoursesDetails coursesData={coursesData} onCourseClick={onCourseClick} />;
     }
-    if (currentSection === "fees") {
-      return renderFees();
+    if (currentSection === "exams") {
+      return <StudentExamCenter />;
     }
-    return renderHome();
-  };
-
-  const renderContent = () => {
-    if (currentSection === "profile") {
-      return <StudentDetails studentData={resolvedStudentData} />;
-    }
-    if (currentSection === "attendance") {
-      return renderDateWiseAttendance();
-    }
-    if (currentSection === "courses") {
-      return <CoursesDetails coursesData={coursesData} onCourseClick={onCourseClick} />;
+    if (currentSection === "jobs") {
+      return <StudentExternalJobs />;
     }
     if (currentSection === "fees") {
       return renderFees();
@@ -275,23 +276,29 @@ const StudentDashboardShell = ({
     <>
       <header className="student-admin-nav">
         <div className="student-admin-nav-inner">
-          <div className="student-admin-brand">
-            <PiStudentBold className="icons"/>
+          <div className="student-admin-nav-left">
+            <div className="student-admin-brand">
+              <PiStudentBold className="icons circle" />
+              <div className="student-admin-brand-copy">
+                <h1>Student Desk</h1>
+                <p>HU ERP Portal</p>
+              </div>
+            </div>
           </div>
 
           <div className="student-admin-nav-right">
             <div className="student-admin-welcome">
-              <span>Welcome, {resolvedStudentData.personalInfo.name}</span>
+              <span>Welcome, {studentName}</span>
               <small>{todayLabel}</small>
             </div>
             <NetworkSpeedBadge />
+            <AlertNotifications />
             <button className="student-admin-logout" type="button" onClick={onLogout}>
               Logout
             </button>
           </div>
         </div>
       </header>
-
       <div
         className={`student-admin-layout ${
           isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"
@@ -300,83 +307,45 @@ const StudentDashboardShell = ({
         {!isSidebarOpen && (
           <button
             type="button"
-            type="button"
             className="student-admin-sidebar-reopen"
             onClick={() => setIsSidebarOpen(true)}
-            aria-label="Open sidebar"
             aria-label="Open sidebar"
           >
             <FiChevronRight />
           </button>
         )}
 
-        <aside className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}>
+        <aside
+          id="student-dashboard-sidebar"
+          className={`student-admin-sidebar ${isSidebarOpen ? "open" : ""}`}
+        >
           <div className="student-admin-sidebar-profile">
             <div className="student-admin-sidebar-profile-main">
-              <div className="student-admin-sidebar-avatar">{userInitials || "ST"}</div>
+              {profileImage ? (
+                <img
+                  src={profileImage}
+                  alt="Profile"
+                  className="student-admin-sidebar-avatar-img"
+                />
+              ) : (
+                <div className="student-admin-sidebar-avatar">{userInitials || "ST"}</div>
+              )}
               <div className="student-admin-sidebar-profile-copy">
-                <h2>{resolvedStudentData.personalInfo.name}</h2>
-                <p>{resolvedStudentData.personalInfo.email}</p>
+                <h2>{studentName}</h2>
+                <p>{studentEmail}</p>
               </div>
             </div>
             <button
               type="button"
-              type="button"
               className="student-admin-sidebar-toggle"
               onClick={() => setIsSidebarOpen((prev) => !prev)}
               aria-label="Toggle sidebar"
-              onClick={() => setIsSidebarOpen((prev) => !prev)}
-              aria-label="Toggle sidebar"
             >
-              {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
               {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
             </button>
           </div>
 
           <div className="student-admin-sidebar-menu-scroll">
-            <div className="student-admin-sidebar-header">
-              <span className="student-admin-sidebar-title">Menu</span>
-            </div>
-
-            <div className="student-admin-sidebar-section">
-              <label className="student-admin-sidebar-label">DASHBOARD</label>
-              {menuItems.slice(0, 2).map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`student-admin-sidebar-btn ${
-                      currentSection === item.id ? "active" : ""
-                    }`}
-                    onClick={() => handleMenuClick(item)}
-                  >
-                    <Icon />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-
-            <div className="student-admin-sidebar-section">
-              <label className="student-admin-sidebar-label">ACADEMICS</label>
-              {menuItems.slice(2).map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`student-admin-sidebar-btn ${
-                      currentSection === item.id ? "active" : ""
-                    }`}
-                    onClick={() => handleMenuClick(item)}
-                  >
-                    <Icon />
-                    <span>{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
             <div className="student-admin-sidebar-header">
               <span className="student-admin-sidebar-title">Menu</span>
             </div>
@@ -430,7 +399,7 @@ const StudentDashboardShell = ({
               <section id="overview" className="student-admin-stats">
                 <article className="student-admin-stat">
                   <p>Enrolled Courses</p>
-                  <strong>{coursesData.length}</strong>
+                  <strong>{enrolledCoursesCount}</strong>
                 </article>
                 <article className="student-admin-stat">
                   <p>Total Sessions</p>
@@ -438,12 +407,14 @@ const StudentDashboardShell = ({
                 </article>
               </section>
             </>
+          ) : currentSection === "exams" ? (
+            <>{renderContent()}</>
           ) : (
             <>
               <section id="overview" className="student-admin-stats">
                 <article className="student-admin-stat">
                   <p>Enrolled Courses</p>
-                  <strong>{coursesData.length}</strong>
+                  <strong>{enrolledCoursesCount}</strong>
                 </article>
                 <article className="student-admin-stat">
                   <p>Total Sessions</p>
@@ -460,3 +431,5 @@ const StudentDashboardShell = ({
 };
 
 export default StudentDashboardShell;
+
+

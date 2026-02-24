@@ -94,7 +94,10 @@ const clearTimetableCacheForDepartments = async (departmentIds = []) => {
 
   await Promise.all(
     groups.map((group) =>
-      redisClient.del(`admin:timetable:group:${group._id}`)
+      Promise.all([
+        redisClient.del(`admin:timetable:group:${group._id}`),
+        redisClient.del(`admin:timetable:group:v2:${group._id}`),
+      ])
     )
   );
 };
@@ -104,9 +107,10 @@ const clearTimetableCacheForDepartments = async (departmentIds = []) => {
 export const getAllFaculty = async (req, res) => {
   try {
     const noCache = req.query.noCache === "true";
+    const minimal = req.query.minimal === "true";
     const cacheKey = "admin:faculty:all";
 
-    if (!noCache) {
+    if (!noCache && !minimal) {
       try {
         const cached = await redisClient.get(cacheKey);
         if (cached) {
@@ -118,14 +122,35 @@ export const getAllFaculty = async (req, res) => {
       }
     }
 
+    if (minimal) {
+      const faculty = await Faculty.find({ isDeleted: { $ne: true } })
+        .select("user employeeId department designation qualification joiningDate")
+        .populate("user", "name email status")
+        .populate("department", "name code");
+
+      return res.json({
+        message: "Faculty fetched successfully",
+        count: faculty.length,
+        faculty: faculty.map((item) => item.toObject()),
+      });
+    }
+
     const faculty = await Faculty.find({ isDeleted: { $ne: true } })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department");
+    const facultyWithRoutineDetails = [];
+
+    // Expand routine details sequentially to avoid DB saturation/timeouts on large datasets.
+    for (const f of faculty) {
+      const obj = f.toObject();
+      obj.routine = await buildRoutineWithDetails(f.routine);
+      facultyWithRoutineDetails.push(obj);
+    }
 
     const responsePayload = {
       message: "Faculty fetched successfully",
-      count: faculty.length,
-      faculty,
+      count: facultyWithRoutineDetails.length,
+      faculty: facultyWithRoutineDetails,
     };
 
     if (!noCache) {
@@ -162,9 +187,12 @@ export const getFacultyById = async (req, res) => {
       });
     }
 
+    const facultyObj = faculty.toObject();
+    facultyObj.routine = await buildRoutineWithDetails(faculty.routine);
+
     res.json({
       message: "Faculty fetched successfully",
-      faculty,
+      faculty: facultyObj,
     });
   } catch (error) {
     res.status(500).json({

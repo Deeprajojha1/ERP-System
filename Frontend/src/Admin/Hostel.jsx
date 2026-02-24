@@ -1,376 +1,577 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  FiHome,
-  FiPlus,
-  FiSearch,
-  FiArrowRight,
-  FiUsers,
-  FiMapPin,
-} from "react-icons/fi";
-import toast from "react-hot-toast";
+  getHostelSummaryApi,
+  createHostelApi,
+  deleteHostelApi,
+} from "./constants/hostelApi";
+import {
+  getRoomsByHostelApi,
+  createRoomApi,
+  updateRoomApi,
+  deleteRoomApi,
+} from "./constants/roomApi";
+import {
+  allocateStudentApi,
+  vacateStudentApi,
+} from "./constants/allocationApi";
 import "./Hostel.css";
 
-const INITIAL_HOSTELS = [
-  {
-    id: "hst-1",
-    name: "KD Bhawan",
-    code: "BH-A01",
-    category: "Male",
-    block: "Block A",
-    warden: "Mr. Sharma",
-    totalRooms: 120,
-    occupiedRooms: 102,
-  },
-  {
-    id: "hst-2",
-    name: "ML Bhawan",
-    code: "BH-B02",
-    category: "Male",
-    block: "Block B",
-    warden: "Mr. Verma",
-    totalRooms: 150,
-    occupiedRooms: 90,
-  },
-  {
-    id: "hst-3",
-    name: "PL Bhawan",
-    code: "GH-M01",
-    category: "Female",
-    block: "Main Block",
-    warden: "Ms. Kaur",
-    totalRooms: 200,
-    occupiedRooms: 184,
-  },
-];
-
 const Hostel = () => {
-  const [hostels, setHostels] = useState(INITIAL_HOSTELS);
-  const [searchValue, setSearchValue] = useState("");
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createForm, setCreateForm] = useState({
+  // ================= STATE =================
+
+  const [hostels, setHostels] = useState([]);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  const [selectedHostel, setSelectedHostel] = useState(null);
+  const [selectedRoom, setSelectedRoom] = useState(null);
+
+  const [showModal, setShowModal] = useState(false);
+  const [showRoomModal, setShowRoomModal] = useState(false);
+  const [showAllocateModal, setShowAllocateModal] = useState(false);
+
+  const [studentIdInput, setStudentIdInput] = useState("");
+
+  const [newHostel, setNewHostel] = useState({
     name: "",
-    code: "",
-    category: "Male",
-    block: "",
+    type: "Boys",
+    totalFloors: "",
     warden: "",
-    totalRooms: "",
-    occupiedRooms: "",
   });
 
-  const filteredHostels = useMemo(() => {
-    const query = searchValue.trim().toLowerCase();
-    if (!query) return hostels;
-    return hostels.filter((hostel) => {
-      return (
-        hostel.name.toLowerCase().includes(query) ||
-        hostel.code.toLowerCase().includes(query) ||
-        hostel.block.toLowerCase().includes(query) ||
-        hostel.warden.toLowerCase().includes(query)
-      );
-    });
-  }, [hostels, searchValue]);
+  const [newRoom, setNewRoom] = useState({
+    roomNumber: "",
+    floorNumber: "",
+    capacity: 1,
+    price: "",
+    priceType: "Yearly",
+  });
 
-  const openCreateModal = () => {
-    setShowCreateModal(true);
+  // ================= 🔥 NEW LOADER STATES (ADDED) =================
+  const [createHostelLoading, setCreateHostelLoading] = useState(false); // loader for create hostel
+  const [deleteHostelLoading, setDeleteHostelLoading] = useState(null); // loader for specific hostel delete
+  const [createRoomLoading, setCreateRoomLoading] = useState(false); // loader for create room
+  const [deleteRoomLoading, setDeleteRoomLoading] = useState(null); // loader for specific room delete
+  const [allocateLoading, setAllocateLoading] = useState(false); // loader for allocation
+  const [vacateLoading, setVacateLoading] = useState(null); // loader for specific student vacate
+  const [editingRoom, setEditingRoom] = useState(null);
+
+  // ================= FETCH HOSTELS =================
+
+  const fetchHostels = async () => {
+    const data = await getHostelSummaryApi();
+    const normalizedHostels = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.hostels)
+      ? data.hostels
+      : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.summary)
+      ? data.summary
+      : [];
+    setHostels(normalizedHostels);
+    setLoading(false);
   };
 
-  const closeCreateModal = () => {
-    setShowCreateModal(false);
-    setCreateForm({
+  useEffect(() => {
+    fetchHostels();
+  }, []);
+
+  // ================= HOSTEL ACTIONS =================
+
+  const handleCreateHostel = async () => {
+    setCreateHostelLoading(true); // 🔥 START LOADER
+
+    await createHostelApi(newHostel);
+
+    setCreateHostelLoading(false); // 🔥 STOP LOADER
+    setShowModal(false);
+
+    setNewHostel({
       name: "",
-      code: "",
-      category: "Male",
-      block: "",
+      type: "Boys",
+      totalFloors: "",
       warden: "",
-      totalRooms: "",
-      occupiedRooms: "",
     });
+
+    fetchHostels();
   };
 
-  const handleCreateHostel = (event) => {
-    event.preventDefault();
+  const handleDeleteHostel = async (id) => {
+    setDeleteHostelLoading(id); // 🔥 START LOADER FOR THIS HOSTEL
 
-    const totalRooms = Number(createForm.totalRooms);
-    const occupiedRooms = Number(createForm.occupiedRooms || 0);
+    await deleteHostelApi(id);
 
-    if (!createForm.name.trim() || !createForm.code.trim()) {
-      toast.error("Hostel name and code are required.");
-      return;
-    }
+    setDeleteHostelLoading(null); // 🔥 STOP LOADER
+    setSelectedHostel(null);
 
-    if (!Number.isFinite(totalRooms) || totalRooms <= 0) {
-      toast.error("Total rooms must be greater than 0.");
-      return;
-    }
-
-    if (!Number.isFinite(occupiedRooms) || occupiedRooms < 0) {
-      toast.error("Occupied rooms cannot be negative.");
-      return;
-    }
-
-    if (occupiedRooms > totalRooms) {
-      toast.error("Occupied rooms cannot exceed total rooms.");
-      return;
-    }
-
-    const nextHostel = {
-      id: `hst-${Date.now()}`,
-      name: createForm.name.trim(),
-      code: createForm.code.trim().toUpperCase(),
-      category: createForm.category,
-      block: createForm.block.trim() || "N/A",
-      warden: createForm.warden.trim() || "N/A",
-      totalRooms,
-      occupiedRooms,
-    };
-
-    setHostels((prev) => [nextHostel, ...prev]);
-    toast.success("Hostel created successfully.");
-    closeCreateModal();
+    fetchHostels();
   };
+
+  const totals = hostels.reduce(
+  (acc, hostel) => {
+    acc.totalHostels += 1;
+    acc.totalCapacity += hostel.totalCapacity || 0;
+    acc.totalOccupied += hostel.currentOccupancy || 0;
+    acc.totalPotentialRevenue += hostel.totalPotentialRevenue || 0;
+    acc.totalCurrentRevenue += hostel.currentRevenue || 0;
+    acc.totalVacancyLoss += hostel.vacancyLoss || 0;
+    return acc;
+  },
+  {
+    totalHostels: 0,
+    totalCapacity: 0,
+    totalOccupied: 0,
+    totalPotentialRevenue: 0,
+    totalCurrentRevenue: 0,
+    totalVacancyLoss: 0,
+  }
+);
+
+  // ================= ROOM ACTIONS =================
+
+  const fetchRooms = async (hostelId) => {
+    const data = await getRoomsByHostelApi(hostelId);
+    const normalizedRooms = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.rooms)
+      ? data.rooms
+      : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.list)
+      ? data.list
+      : [];
+    setRooms(normalizedRooms);
+  };
+
+  const handleSaveRoom = async () => {
+  setCreateRoomLoading(true);
+
+  try {
+    if (editingRoom) {
+      await updateRoomApi(editingRoom._id, newRoom);
+    } else {
+      await createRoomApi({
+        ...newRoom,
+        hostel: selectedHostel.id,
+      });
+    }
+
+    setShowRoomModal(false);
+    setEditingRoom(null);
+
+    setNewRoom({
+      roomNumber: "",
+      floorNumber: "",
+      capacity: 1,
+      price: "",
+      priceType: "Yearly",
+    });
+
+    fetchRooms(selectedHostel.id);
+    fetchHostels();
+
+  } catch (error) {
+  console.log(error.response);
+  alert(error.response?.data?.message || error.message);
+}
+
+  setCreateRoomLoading(false);
+};
+
+  const handleDeleteRoom = async (roomId) => {
+    setDeleteRoomLoading(roomId); // 🔥 START LOADER
+
+    await deleteRoomApi(roomId);
+
+    setDeleteRoomLoading(null); // 🔥 STOP LOADER
+
+    fetchRooms(selectedHostel.id);
+    fetchHostels();
+  };
+
+  // ================= ALLOCATION ACTIONS =================
+
+  const handleAllocateStudent = async () => {
+    setAllocateLoading(true); // 🔥 START LOADER
+
+    await allocateStudentApi({
+      enrollmentNumber: studentIdInput,
+      roomId: selectedRoom._id,
+    });
+
+    setAllocateLoading(false); // 🔥 STOP LOADER
+    setShowAllocateModal(false);
+    setStudentIdInput("");
+
+    fetchRooms(selectedHostel.id);
+    fetchHostels();
+  };
+
+  const handleVacateStudent = async (studentId) => {
+    setVacateLoading(studentId); // 🔥 START LOADER
+
+    await vacateStudentApi(studentId);
+
+    setVacateLoading(null); // 🔥 STOP LOADER
+
+    fetchRooms(selectedHostel.id);
+    fetchHostels();
+  };
+
+  if (loading) return <div>Loading...</div>;
 
   return (
-    <section className="hostel-admin-page">
-      <header className="hostel-admin-header">
-        <div className="hostel-admin-title-wrap">
-          <h1>Hostel Management</h1>
-          <p>Create and manage hostels, room occupancy, and wardens.</p>
-        </div>
-
-        <div className="hostel-admin-actions">
-          <label className="hostel-search">
-            <FiSearch />
-            <input
-              type="text"
-              placeholder="Search hostels..."
-              value={searchValue}
-              onChange={(event) => setSearchValue(event.target.value)}
-            />
-          </label>
-          <button
-            type="button"
-            className="hostel-btn hostel-btn-outline"
-            onClick={openCreateModal}
-          >
-            <FiPlus />
-            Create Block
-          </button>
-          <button
-            type="button"
-            className="hostel-btn hostel-btn-primary"
-            onClick={openCreateModal}
-          >
-            <FiPlus />
-            Create Hostel
-          </button>
-        </div>
-      </header>
-
-      <div className="hostel-admin-grid">
-        {filteredHostels.length === 0 ? (
-          <div className="hostel-empty-state">
-            <p>No hostels found for this search.</p>
-            <button
-              type="button"
-              className="hostel-btn hostel-btn-primary"
-              onClick={openCreateModal}
-            >
-              <FiPlus />
-              Create Hostel
-            </button>
-          </div>
-        ) : (
-          filteredHostels.map((hostel) => {
-            const occupancyPct = Math.min(
-              100,
-              Math.round((hostel.occupiedRooms / hostel.totalRooms) * 100)
-            );
-            const isFemale = hostel.category === "Female";
-
-            return (
-              <article key={hostel.id} className="hostel-card">
-                <div
-                  className={`hostel-card-media ${
-                    isFemale ? "female" : "male"
-                  }`}
-                >
-                  <span className="hostel-card-tag">{hostel.category}</span>
-                  <FiHome />
-                </div>
-
-                <div className="hostel-card-body">
-                  <div className="hostel-card-head">
-                    <h3>{hostel.name}</h3>
-                    <span>{hostel.code}</span>
-                  </div>
-
-                  <div className="hostel-card-info">
-                    <p>
-                      <FiMapPin />
-                      {hostel.block}
-                    </p>
-                    <p>
-                      <FiUsers />
-                      Warden: {hostel.warden}
-                    </p>
-                  </div>
-
-                  <p className="hostel-card-summary">
-                    Total Rooms: {hostel.totalRooms} | Occupancy: {occupancyPct}%
-                  </p>
-
-                  <div className="hostel-occupancy">
-                    <div className="hostel-occupancy-head">
-                      <span>Current Occupancy</span>
-                      <strong>
-                        {hostel.occupiedRooms} / {hostel.totalRooms}
-                      </strong>
-                    </div>
-                    <div className="hostel-occupancy-track">
-                      <span
-                        style={{ width: `${occupancyPct}%` }}
-                        className={isFemale ? "female" : "male"}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="hostel-card-actions">
-                    <button type="button" className="hostel-btn hostel-btn-primary">
-                      View Details <FiArrowRight />
-                    </button>
-                    <button type="button" className="hostel-btn hostel-btn-muted">
-                      Add Room
-                    </button>
-                  </div>
-                </div>
-              </article>
-            );
-          })
-        )}
+    <div className="hostel-container">
+      <div className="hostel-header">
+        <h2>Hostel Dashboard</h2>
+        <button onClick={() => setShowModal(true)}>+ Create Hostel</button>
       </div>
 
-      {showCreateModal && (
-        <div className="hostel-modal-overlay" onClick={closeCreateModal}>
-          <div className="hostel-modal" onClick={(event) => event.stopPropagation()}>
-            <header className="hostel-modal-header">
-              <h2>Create Hostel</h2>
-              <button type="button" onClick={closeCreateModal}>
-                Close
-              </button>
-            </header>
+      {/* ================= SUMMARY GRID ================= */}
+      <div className="summary-grid">
+        <div className="summary-card">
+          <h4>Total Hostels</h4>
+          <p>{totals.totalHostels}</p>
+        </div>
+        <div className="summary-card">
+          <h4>Total Capacity</h4>
+          <p>{totals.totalCapacity}</p>
+        </div>
+        <div className="summary-card green">
+          <h4>Total Current Revenue</h4>
+          <p>₹{totals.totalCurrentRevenue.toLocaleString()}</p>
+        </div>
+        <div className="summary-card red">
+          <h4>Total Vacancy Loss</h4>
+          <p>₹{totals.totalVacancyLoss.toLocaleString()}</p>
+        </div>
+      </div>
 
-            <form className="hostel-modal-form" onSubmit={handleCreateHostel}>
-              <label>
-                Hostel Name
-                <input
-                  type="text"
-                  value={createForm.name}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, name: event.target.value }))
-                  }
-                  placeholder="e.g. Boys Hostel C"
-                />
-              </label>
+      {/* ================= HOSTEL CARDS ================= */}
+      <div className="hostel-grid">
+        {hostels.map((hostel) => (
+          <div
+            key={hostel.id}
+            className={`hostel-card ${
+              selectedHostel?.id === hostel.id ? "active-hostel" : ""
+            }`}
+            onClick={() => {
+              setSelectedHostel(hostel);
+              fetchRooms(hostel.id);
+            }}
+          >
+            <h3>{hostel.name}</h3>
+            {hostel.vacancyLoss > 0 && (
+  <span
+    style={{
+      fontSize: "11px",
+      color: "#dc2626",
+      fontWeight: 600,
+    }}
+  >
+    ⚠ Revenue Leakage Detected
+  </span>
+)}
+            <p>Total Capacity: {hostel.totalCapacity}</p>
+            <p>Occupied: {hostel.currentOccupancy}</p>
+            <p>Available Beds: {hostel.availableBeds}</p>
+            <p>Occupancy: {hostel.occupancyPercentage}%</p>
 
-              <label>
-                Hostel Code
-                <input
-                  type="text"
-                  value={createForm.code}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, code: event.target.value }))
-                  }
-                  placeholder="e.g. BH-C03"
-                />
-              </label>
+<hr style={{ margin: "10px 0", opacity: 0.1 }} />
 
-              <label>
-                Category
-                <select
-                  value={createForm.category}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, category: event.target.value }))
-                  }
-                >
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
-              </label>
+<p>
+  Potential Revenue: ₹
+  {hostel.totalPotentialRevenue.toLocaleString()}
+</p>
 
-              <label>
-                Block
-                <input
-                  type="text"
-                  value={createForm.block}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, block: event.target.value }))
-                  }
-                  placeholder="e.g. Block C"
-                />
-              </label>
+<p style={{ color: "#059669", fontWeight: 600 }}>
+  Current Revenue: ₹
+  {hostel.currentRevenue.toLocaleString()}
+</p>
 
-              <label>
-                Warden Name
-                <input
-                  type="text"
-                  value={createForm.warden}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, warden: event.target.value }))
-                  }
-                  placeholder="e.g. Mr. Sharma"
-                />
-              </label>
+<p style={{ color: "#dc2626", fontWeight: 600 }}>
+  Vacancy Loss: ₹
+  {hostel.vacancyLoss.toLocaleString()}
+</p>
 
-              <label>
-                Total Rooms
-                <input
-                  type="number"
-                  min="1"
-                  value={createForm.totalRooms}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      totalRooms: event.target.value,
-                    }))
-                  }
-                  placeholder="e.g. 120"
-                />
-              </label>
+            <button
+              className="delete-btn"
+              disabled={deleteHostelLoading === hostel.id}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteHostel(hostel.id);
+              }}
+            >
+              {deleteHostelLoading === hostel.id
+                ? "Deleting..."
+                : "Delete"}
+            </button>
+          </div>
+        ))}
+      </div>
 
-              <label>
-                Occupied Rooms
-                <input
-                  type="number"
-                  min="0"
-                  value={createForm.occupiedRooms}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({
-                      ...prev,
-                      occupiedRooms: event.target.value,
-                    }))
-                  }
-                  placeholder="e.g. 90"
-                />
-              </label>
+      {/* ================= ROOM SECTION ================= */}
+      {selectedHostel && (
+        <div className="room-section">
+          <h3>Rooms - {selectedHostel.name}</h3>
+          <button onClick={() => setShowRoomModal(true)}>+ Add Room</button>
 
-              <div className="hostel-modal-actions">
+          <div className="room-grid">
+            {rooms.map((room) => (
+              <div key={room._id} className="room-card">
+                <h4>Room {room.roomNumber}</h4>
+                <p>Price: ₹{room.price} ({room.priceType})</p>
+                <p>Floor: {room.floorNumber}</p>
+                <p>Capacity: {room.capacity}</p>
+                <p>Status: {room.status}</p>
+
+                {/* 🔥 Occupancy Progress */}
+{(() => {
+  const occupied = room.occupants?.length || 0;
+  const percentage =
+    room.capacity === 0
+      ? 0
+      : Math.round((occupied / room.capacity) * 100);
+
+  let barColor = "#059669"; // green
+
+  if (percentage > 80) barColor = "#dc2626"; // red
+  else if (percentage > 50) barColor = "#d97706"; // yellow
+
+  return (
+    <div className="occupancy-wrapper">
+      <div className="occupancy-label">
+        {occupied}/{room.capacity} Beds Occupied ({percentage}%)
+      </div>
+      <div className="occupancy-bar">
+        <div
+          className="occupancy-fill"
+          style={{
+            width: `${percentage}%`,
+            background: barColor,
+          }}
+        />
+      </div>
+    </div>
+  );
+})()}
+
+                <div>
+                  <p>Occupants: {room.occupants?.length}</p>
+
+                  {room.occupants?.map((student) => (
+                    <div key={student._id} className="occupant-item">
+                      <span>{student.user.name}</span>
+
+                      <button
+                        disabled={vacateLoading === student._id}
+                        onClick={() =>
+                          handleVacateStudent(student._id)
+                        }
+                      >
+                        {vacateLoading === student._id
+                          ? "Vacating..."
+                          : "Vacate"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+
                 <button
-                  type="button"
-                  className="hostel-btn hostel-btn-muted"
-                  onClick={closeCreateModal}
+                  onClick={() => {
+                    setSelectedRoom(room);
+                    setShowAllocateModal(true);
+                  }}
                 >
-                  Cancel
+                  Allocate Student
                 </button>
-                <button type="submit" className="hostel-btn hostel-btn-primary">
-                  <FiPlus />
-                  Create Hostel
+
+                <button
+  onClick={() => {
+    setEditingRoom(room);
+    setNewRoom({
+      roomNumber: room.roomNumber,
+      floorNumber: room.floorNumber,
+      capacity: room.capacity,
+      price: room.price,
+      priceType: room.priceType,
+    });
+    setShowRoomModal(true);
+  }}
+>
+  Edit
+                 </button>
+
+                <button
+                  disabled={deleteRoomLoading === room._id}
+                  onClick={() => handleDeleteRoom(room._id)}
+                  className="delete-btn"
+                >
+                  {deleteRoomLoading === room._id
+                    ? "Deleting..."
+                    : "Delete"}
                 </button>
               </div>
-            </form>
+            ))}
           </div>
         </div>
       )}
-    </section>
+
+      {/* ================= CREATE HOSTEL MODAL ================= */}
+      {showModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>Create Hostel</h3>
+
+            <input
+              placeholder="Hostel Name"
+              value={newHostel.name}
+              onChange={(e) =>
+                setNewHostel({ ...newHostel, name: e.target.value })
+              }
+            />
+
+            <select
+              value={newHostel.type}
+              onChange={(e) =>
+                setNewHostel({ ...newHostel, type: e.target.value })
+              }
+            >
+              <option value="Boys">Boys</option>
+              <option value="Girls">Girls</option>
+            </select>
+
+            <input
+              type="number"
+              placeholder="Total Floors"
+              value={newHostel.totalFloors}
+              onChange={(e) =>
+                setNewHostel({ ...newHostel, totalFloors: e.target.value })
+              }
+            />
+
+            <input
+              placeholder="Warden ID"
+              value={newHostel.warden}
+              onChange={(e) =>
+                setNewHostel({ ...newHostel, warden: e.target.value })
+              }
+            />
+
+            <button
+              disabled={createHostelLoading}
+              onClick={handleCreateHostel}
+            >
+              {createHostelLoading ? "Creating..." : "Create"}
+            </button>
+
+            <button onClick={() => setShowModal(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ADD ROOM MODAL ================= */}
+      {showRoomModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>
+  {editingRoom ? "Edit Room" : "Add Room"} - {selectedHostel.name}
+</h3>
+
+            <input
+              placeholder="Room Number"
+              value={newRoom.roomNumber}
+              onChange={(e) =>
+                setNewRoom({ ...newRoom, roomNumber: e.target.value })
+              }
+            />
+
+            <input
+              type="number"
+              placeholder="Floor Number"
+              value={newRoom.floorNumber}
+              onChange={(e) =>
+                setNewRoom({ ...newRoom, floorNumber: e.target.value })
+              }
+            />
+
+            <select
+              value={newRoom.capacity}
+              onChange={(e) =>
+                setNewRoom({ ...newRoom, capacity: Number(e.target.value) })
+              }
+            >
+              <option value={1}>1</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+            </select>
+            <input
+               type="number"
+               placeholder="Room Price"
+               value={newRoom.price}
+               onChange={(e) =>
+               setNewRoom({ ...newRoom, price: Number(e.target.value) })
+          }
+            />
+
+<select
+  value={newRoom.priceType}
+  onChange={(e) =>
+    setNewRoom({ ...newRoom, priceType: e.target.value })
+  }
+>
+  <option value="Yearly">Yearly</option>
+  <option value="Semester">Semester</option>
+</select>
+
+            <button
+              disabled={createRoomLoading}
+              onClick={handleSaveRoom}
+            >
+              {createRoomLoading
+  ? editingRoom
+    ? "Updating..."
+    : "Creating..."
+  : editingRoom
+  ? "Update"
+  : "Create"}
+            </button>
+
+            <button onClick={() => setShowRoomModal(false)}>Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* ================= ALLOCATE STUDENT MODAL ================= */}
+      {showAllocateModal && (
+        <div className="modal">
+          <div className="modal-content">
+            <h3>
+              Allocate Student - Room {selectedRoom?.roomNumber}
+            </h3>
+
+            <input
+              placeholder="Enter Enrollment Number"
+              value={studentIdInput}
+              onChange={(e) => setStudentIdInput(e.target.value)}
+            />
+
+            <button
+              disabled={allocateLoading}
+              onClick={handleAllocateStudent}
+            >
+              {allocateLoading ? "Allocating..." : "Allocate"}
+            </button>
+
+            <button onClick={() => setShowAllocateModal(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

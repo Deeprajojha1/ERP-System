@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
@@ -23,11 +23,14 @@ const PROGRAM_CANONICAL_MAP = {
   mba: "mba",
   bsc: "bsc",
   msc: "msc",
+  bcom: "bcom",
   bpharma: "bpharma",
   mpharma: "mpharma",
+  dpharma: "dpharma",
   phd: "phd",
   bpharm: "bpharma",
   mpharm: "mpharma",
+  dpharm: "dpharma",
 };
 
 const canonicalizeProgram = (value) => {
@@ -56,8 +59,6 @@ const Department = () => {
   const dispatch = useDispatch();
   const { departments } = useSelector((state) => state.department);
   const apiBase = useSelector((state) => state.config.apiBase);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [search, setSearch] = useState("");
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.SUCCESS);
   const [isOpen, setIsOpen] = useState(false);
@@ -68,9 +69,10 @@ const Department = () => {
     program: [],
   });
   const [programInput, setProgramInput] = useState("");
-  const [nameMode, setNameMode] = useState("new");
-  const [selectedDeptId, setSelectedDeptId] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [isOpeningAdd, setIsOpeningAdd] = useState(false);
+  const [openingEditId, setOpeningEditId] = useState("");
+  const [deletingDeptId, setDeletingDeptId] = useState("");
   const cardGradients = [
     "linear-gradient(145deg, #dbeafe 0%, #f8fbff 45%, #ffffff 100%)",
     "linear-gradient(145deg, #dcfce7 0%, #f2fff7 45%, #ffffff 100%)",
@@ -94,11 +96,10 @@ const Department = () => {
     "linear-gradient(135deg, #475569, #1e293b)",
   ];
 
-  const fetchAll = async () => {
+  const fetchAll = useCallback(async () => {
+    if (!apiBase) return;
     try {
-      setLoading(true);
       setLoadState(ADMIN_LOAD_STATES.PENDING);
-      setError("");
       dispatch(setDepartmentsLoading(true));
       const [deptRes, facRes] = await Promise.all([
         axios.get(`${apiBase}/admin/department`, {
@@ -117,10 +118,6 @@ const Department = () => {
         err.response?.data || err.message
       );
       toast.error(`${err.response?.data?.message || "Failed to load departments"}`);
-      setError(
-        err.response?.data?.message ||
-          "Failed to load departments"
-      );
       dispatch(
         setDepartmentsError(
           err.response?.data?.message || "Failed to load departments"
@@ -129,13 +126,12 @@ const Department = () => {
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
     } finally {
       dispatch(setDepartmentsLoading(false));
-      setLoading(false);
     }
-  };
+  }, [apiBase, dispatch]);
 
   useEffect(() => {
     fetchAll();
-  }, []);
+  }, [fetchAll]);
 
   const refreshDepartments = async () => {
     const deptRes = await axios.get(`${apiBase}/admin/department`, {
@@ -180,26 +176,42 @@ const Department = () => {
     return date.toLocaleDateString();
   };
 
-  const openAddModal = () => {
-    setEditTarget(null);
-    setFormData({ name: "", hod: "", program: [] });
-    setProgramInput("");
-    setNameMode("new");
-    setSelectedDeptId("");
-    setIsOpen(true);
+  const openAddModal = async (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (isOpeningAdd || submitting) return;
+    setIsOpeningAdd(true);
+    try {
+      setEditTarget(null);
+      setFormData({ name: "", hod: "", program: [] });
+      setProgramInput("");
+      setIsOpen(true);
+    } finally {
+      setIsOpeningAdd(false);
+    }
   };
 
-  const openEditModal = (dept) => {
-    setEditTarget(dept);
-    setFormData({
-      name: dept.name || "",
-      hod: dept.hod?._id || "",
-      program: Array.isArray(dept.program) ? dept.program : [],
-    });
-    setProgramInput("");
-    setNameMode("edit");
-    setSelectedDeptId(dept._id || "");
-    setIsOpen(true);
+  const openEditModal = async (event, dept) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!dept?._id || openingEditId || deletingDeptId) return;
+    setOpeningEditId(dept._id);
+    try {
+      setEditTarget(dept);
+      setFormData({
+        name: dept.name || "",
+        hod: dept.hod?._id || "",
+        program: Array.isArray(dept.program) ? dept.program : [],
+      });
+      setProgramInput("");
+      setIsOpen(true);
+    } finally {
+      setOpeningEditId("");
+    }
   };
 
   const handleChange = (e) => {
@@ -210,30 +222,12 @@ const Department = () => {
     }));
   };
 
-  const handleNameSelect = (e) => {
-    const { value } = e.target;
-    if (value === "new") {
-      setNameMode("new");
-      setSelectedDeptId("");
-      setFormData((prev) => ({ ...prev, name: "" }));
-      return;
-    }
-
-    const matched = departments.find((d) => d._id === value);
-    setNameMode("existing");
-    setSelectedDeptId(value);
-    setFormData((prev) => ({
-      ...prev,
-      name: matched?.name || "",
-    }));
-  };
-
   const addProgramToken = () => {
     const value = canonicalizeProgram(programInput);
     if (!value) {
       if (programInput.trim()) {
         toast.error(
-          "Invalid program. Use btech, mtech, bca, mca, bba, mba, bsc, msc, bpharma, mpharma, or phd."
+          "Invalid program. Use btech, mtech, bca, mca, bba, mba, bsc, msc, bcom, bpharma, mpharma, dpharma, or phd."
         );
       }
       return;
@@ -296,8 +290,6 @@ const Department = () => {
       setEditTarget(null);
       setFormData({ name: "", hod: "", program: [] });
       setProgramInput("");
-      setNameMode("new");
-      setSelectedDeptId("");
       await refreshDepartments();
     } catch (err) {
       console.error(
@@ -312,12 +304,18 @@ const Department = () => {
     }
   };
 
-  const handleDelete = async (dept) => {
+  const handleDelete = async (event, dept) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     if (!dept?._id) return;
+    if (deletingDeptId) return;
     const confirmDelete = window.confirm(
       `Delete department "${dept.name}"?`
     );
     if (!confirmDelete) return;
+    setDeletingDeptId(dept._id);
     try {
       await axios.patch(
         `${apiBase}/admin/department/${dept._id}/delete`,
@@ -334,11 +332,11 @@ const Department = () => {
       toast.error(
         `${err.response?.data?.message || "Failed to delete department"}`
       );
+    } finally {
+      setDeletingDeptId("");
     }
   };
 
-  const isExistingSelection =
-    !editTarget && nameMode === "existing";
   const currentLeadLabel = getDepartmentLeadLabel(
     formData.name || editTarget?.name || ""
   );
@@ -384,11 +382,19 @@ const Department = () => {
                 </p>
               </div>
               <button
-                className="dept-add-btn"
+                className="dept-add-btn admin-btn-with-loader"
                 type="button"
                 onClick={openAddModal}
+                disabled={isOpeningAdd}
               >
-                + Add Department
+                {isOpeningAdd ? (
+                  <>
+                    <ClipLoader size={15} />
+                    <span>Loading...</span>
+                  </>
+                ) : (
+                  "+ Add Department"
+                )}
               </button>
             </div>
 
@@ -470,19 +476,47 @@ const Department = () => {
                       <div className="dept-actions">
                         <button
                           type="button"
-                          className="dept-action-btn ghost"
-                          onClick={() => openEditModal(dept)}
+                          className="dept-action-btn ghost admin-btn-with-loader"
+                          onClick={(event) => openEditModal(event, dept)}
+                          disabled={openingEditId === dept._id || deletingDeptId === dept._id}
                         >
-                          <FiEdit2 />
-                          Edit
+                          {openingEditId === dept._id ? (
+                            <>
+                              <ClipLoader
+                                size={14}
+                                color="#0f172a"
+                                trackColor="rgba(15, 23, 42, 0.2)"
+                              />
+                              <span>Loading...</span>
+                            </>
+                          ) : (
+                            <>
+                              <FiEdit2 />
+                              <span>Edit</span>
+                            </>
+                          )}
                         </button>
                         <button
                           type="button"
-                          className="dept-action-btn danger"
-                          onClick={() => handleDelete(dept)}
+                          className="dept-action-btn danger admin-btn-with-loader"
+                          onClick={(event) => handleDelete(event, dept)}
+                          disabled={deletingDeptId === dept._id}
                         >
-                          <FiTrash2 />
-                          Delete
+                          {deletingDeptId === dept._id ? (
+                            <>
+                              <ClipLoader
+                                size={14}
+                                color="#b91c1c"
+                                trackColor="rgba(185, 28, 28, 0.2)"
+                              />
+                              <span>Deleting...</span>
+                            </>
+                          ) : (
+                            <>
+                              <FiTrash2 />
+                              <span>Delete</span>
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
@@ -594,7 +628,6 @@ const Department = () => {
                   className="btn-primary admin-btn-with-loader"
                   disabled={
                     submitting ||
-                    isExistingSelection ||
                     !formData.name.trim() ||
                     formData.program.length === 0
                   }

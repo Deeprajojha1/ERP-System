@@ -23,6 +23,8 @@ function Header() {
       console.error("Logout failed:", error.response?.data || error.message);
       toast.error(`❌ ${error.response?.data?.message || "Logout failed"}`);
     } finally {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("token");
       dispatch(clearUserData());
       dispatch(clearStudents());
       dispatch(clearFaculty());

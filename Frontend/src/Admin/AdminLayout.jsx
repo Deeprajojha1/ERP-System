@@ -26,6 +26,7 @@ import {
   FiTrendingUp,
   FiCreditCard,
   FiCalendar,
+  FiBriefcase,
 } from "react-icons/fi";
 import { useDispatch } from "react-redux";
 import axios from "../utils/axiosInstance";
@@ -42,6 +43,7 @@ import {
   selectPendingAdminLeavesCount,
 } from "../redux/leavesSlice";
 import { clearTimetable } from "../redux/timetableSlice";
+import { clearFeeState } from "../redux/feeSlice";
 import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
@@ -134,6 +136,26 @@ const isFeePath = (pathname = "") =>
     )
   );
 
+const buildProfileImageUrl = (apiBase, fileUrl, fileName) => {
+  const backendBase = String(apiBase || "").replace(/\/api\/?$/, "");
+
+  if (fileUrl) {
+    if (fileUrl.startsWith("http") || fileUrl.startsWith("data:")) return fileUrl;
+    return `${backendBase}${fileUrl}`;
+  }
+
+  if (!fileName) return null;
+  if (fileName.startsWith("http") || fileName.startsWith("data:")) return fileName;
+
+  const normalizedFileName = String(fileName)
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
+  return `${backendBase}/uploads/profile-images/${normalizedFileName}`;
+};
+
 const AdminLayout = () => {
   const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -144,6 +166,7 @@ const AdminLayout = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => window.innerWidth >= 769
   );
+  const [avatarLoadFailed, setAvatarLoadFailed] = useState(false);
   const [isFeeMenuOpen, setIsFeeMenuOpen] = useState(() =>
     isFeePath(location.pathname)
   );
@@ -151,7 +174,11 @@ const AdminLayout = () => {
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const userName = userData?.user?.name || "Admin User";
   const userEmail = userData?.user?.email || "admin@university.edu";
-  const userProfileImage = userData?.user?.profileImage || "";
+  const userImg = buildProfileImageUrl(
+    apiBase,
+    userData?.user?.profileImageUrl,
+    userData?.user?.profileImage
+  );
   const userInitials = userName
     .split(" ")
     .filter(Boolean)
@@ -188,6 +215,10 @@ const AdminLayout = () => {
     }
   }, [isFeeRouteActive]);
 
+  useEffect(() => {
+    setAvatarLoadFailed(false);
+  }, [userImg]);
+
   const handleFeesButtonClick = () => {
     setIsFeeMenuOpen((prev) => !prev);
     if (!isFeeRouteActive) {
@@ -213,12 +244,15 @@ const AdminLayout = () => {
       );
       toast.error(`${error.response?.data?.message || "Logout failed"}`);
     } finally {
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("token");
       dispatch(clearUserData());
       dispatch(clearStudents());
       dispatch(clearFaculty());
       dispatch(clearDepartments());
       dispatch(clearLeaves());
       dispatch(clearTimetable());
+      dispatch(clearFeeState());
       sessionStorage.removeItem("lastFailedRoute");
       sessionStorage.removeItem("lastNetworkRedirectAt");
       navigate("/", { replace: true });
@@ -315,11 +349,12 @@ const AdminLayout = () => {
           <div className="sidebar-profile">
             <div className="sidebar-profile-main">
               <div className="sidebar-avatar">
-                {userProfileImage ? (
+                {userImg && !avatarLoadFailed ? (
                   <img
-                    src={userProfileImage}
-                    alt={`${userName} profile`}
-                    className="sidebar-avatar-image"
+                    src={userImg}
+                    alt="User"
+                    className="avatarimg"
+                    onError={() => setAvatarLoadFailed(true)}
                   />
                 ) : (
                   userInitials || "AD"
@@ -360,6 +395,7 @@ const AdminLayout = () => {
             <div className="sidebar-section">
               <label className="sidebar-label">DASHBOARD</label>
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/dashboard") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/dashboard");
@@ -373,6 +409,7 @@ const AdminLayout = () => {
             <div className="sidebar-section">
               <label className="sidebar-label">MANAGEMENT</label>
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/department") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/department");
@@ -382,14 +419,14 @@ const AdminLayout = () => {
                 <span className="sidebar-text">Department</span>
               </button>
 
-              <button className={`sidebar-btn ${isActive("/admin/faculty") ? "active" : ""}`} onClick={() => {
+              <button type="button" className={`sidebar-btn ${isActive("/admin/faculty") ? "active" : ""}`} onClick={() => {
                   navigate("/admin/faculty");
                 }}>
                 <GiTeacher />
                 <span className="sidebar-text">Faculty</span>
               </button>
 
-              <button className={`sidebar-btn ${isActive("/admin/student") ? "active" : ""}`} onClick={() => {
+              <button type="button" className={`sidebar-btn ${isActive("/admin/student") ? "active" : ""}`} onClick={() => {
                   navigate("/admin/student");
                 }}>
                 <PiStudentFill />
@@ -397,6 +434,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/hostel") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/hostel");
@@ -411,6 +449,7 @@ const AdminLayout = () => {
               <label className="sidebar-label">ACADEMICS</label>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/courses") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/courses");
@@ -422,6 +461,7 @@ const AdminLayout = () => {
 
               <button
                 className={`sidebar-btn ${isActive("/admin/groups") ? "active" : ""}`}
+                type="button"
                 onClick={() => {
                   navigate("/admin/groups");
                 }}
@@ -431,6 +471,29 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/classrooms") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/classrooms");
+                }}
+              >
+                <FiLayers />
+                <span className="sidebar-text">Classrooms</span>
+              </button>
+
+              <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/assignment") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/assignment");
+                }}
+              >
+                <MdCastForEducation />
+                <span className="sidebar-text">Assignments</span>
+              </button>
+
+              <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/timetable") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/timetable");
@@ -441,6 +504,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/exam") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/exam");
@@ -451,6 +515,18 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/exam-blueprint") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/exam-blueprint");
+                }}
+              >
+                <PiExamFill />
+                <span className="sidebar-text">Exam Blueprint</span>
+              </button>
+
+              <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/result") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/result");
@@ -465,6 +541,7 @@ const AdminLayout = () => {
               <label className="sidebar-label">OPERATIONS</label>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/attendance") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/attendance");
@@ -475,6 +552,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/leaves") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/leaves");
@@ -485,20 +563,86 @@ const AdminLayout = () => {
               </button>
 
               <button
-                className={`sidebar-btn ${isActive("/admin/fees") ? "active" : ""}`}
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/external-jobs") ? "active" : ""}`}
                 onClick={() => {
-                  navigate("/admin/fees");
+                  navigate("/admin/external-jobs");
                 }}
               >
-                <LuBadgeIndianRupee />
-                <span className="sidebar-text">Fees</span>
+                <FiBriefcase />
+                <span className="sidebar-text">External Jobs</span>
               </button>
+
+              <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/external-job-applications") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/external-job-applications");
+                }}
+              >
+                <FiBriefcase />
+                <span className="sidebar-text">Job Applications</span>
+              </button>
+
+              <div
+                className={`sidebar-dropdown ${
+                  isFeeRouteActive ? "open" : ""
+                }`}
+              >
+                <button
+                  type="button"
+                  className={`sidebar-btn sidebar-dropdown-toggle ${
+                    isFeesButtonActive ? "active" : ""
+                  }`}
+                  onClick={handleFeesButtonClick}
+                  aria-expanded={isFeeMenuOpen}
+                >
+                  <LuBadgeIndianRupee />
+                  <span className="sidebar-text">Fees</span>
+                  <FiChevronDown className="sidebar-dropdown-caret" />
+                </button>
+
+                <div
+                  className={`sidebar-submenu ${isFeeMenuOpen ? "show" : ""}`}
+                >
+                  {FEE_MENU_SECTIONS.map((section) => (
+                    <div
+                      className="sidebar-submenu-section"
+                      key={section.label}
+                    >
+                      <span className="sidebar-subtitle">{section.label}</span>
+                      {section.items.map((item) => {
+                        const allowChildren = item.matchChildren !== false;
+                        const active = item.paths.some((path) =>
+                          pathMatches(path, allowChildren)
+                        );
+                        const Icon = item.Icon;
+                        return (
+                          <button
+                            key={item.label}
+                            type="button"
+                            className={`sidebar-subitem ${
+                              active ? "active" : ""
+                            }`}
+                            onClick={() => navigate(item.paths[0])}
+                            data-muted={section.label === "DASHBOARD"}
+                          >
+                            <Icon />
+                            <span>{item.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
 
             <div className="sidebar-section">
               <label className="sidebar-label">SYSTEM</label>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/alerts") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/alerts");
@@ -509,6 +653,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/general-support") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/general-support");
@@ -519,6 +664,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/faculty-lecture-report") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/faculty-lecture-report");
@@ -529,6 +675,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/subject-attendance") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/subject-attendance");
@@ -539,6 +686,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/teaching-load") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/teaching-load");
@@ -549,6 +697,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/library") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/library");
@@ -559,6 +708,7 @@ const AdminLayout = () => {
               </button>
 
               <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/settings") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/settings");

@@ -25,6 +25,25 @@
   border-radius: 10px;
   font-weight: 600;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.courses-add-btn:disabled,
+.courses-edit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.courses-spin {
+  animation: courses-spin 0.9s linear infinite;
+}
+
+@keyframes courses-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .courses-toolbar {

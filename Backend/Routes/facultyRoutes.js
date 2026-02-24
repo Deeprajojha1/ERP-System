@@ -16,9 +16,23 @@ import {
   getInvigilatorAdmitCards,
   verifyStudentAdmitCardAtHall,
 } from "../controllers/facultyAdmitCardController.js";
+import {
+  getExamBlueprints,
+  getExamBlueprintById,
+  upsertExamSyllabus,
+  generateExamPaper,
+  getExamPaper,
+  reviewExamPaper,
+  getExamStudentScores,
+} from "../controllers/aiExamController.js";
+import { getFacultyAlerts } from "../controllers/alertController.js";
+import courseContentUpload from "../config/courseContentMulter.js";
+import {
+  getCourseContents,
+  createCourseContent,
+} from "../controllers/facultyCourseContentController.js";
 import isAuth from "../middlewares/isAuth.js";
 import isFacultyOrAdmin from "../middlewares/isFacultyOrAdmin.js";
-import { getMyAlerts, markAlertRead } from "../controllers/alertController.js";
 
 const router = express.Router();
 
@@ -27,10 +41,22 @@ router.get("/me", isAuth, getFacultyProfile);
 
 // get faculty profile by email & password
 router.post("/profile", getFacultyProfileByCredentials);
+router.get("/alerts", isFacultyOrAdmin, getFacultyAlerts);
 
 // Faculty Leave
 router.post("/leave", isFacultyOrAdmin, applyFacultyLeave);
 router.get("/leave", isFacultyOrAdmin, getFacultyLeaves);
+
+/* Course Content Routes (Faculty) */
+router.get("/course-content", isFacultyOrAdmin, getCourseContents);
+router.post("/course-content", isFacultyOrAdmin, (req, res, next) => {
+  courseContentUpload.single("file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "File upload failed" });
+    }
+    return next();
+  });
+}, createCourseContent);
 
 /* Attendance Routes (Faculty) */
 router.get("/attendance/:groupId", isFacultyOrAdmin, getGroupAttendancePage);
@@ -45,5 +71,14 @@ router.get("/attendance/session/:sessionId", isFacultyOrAdmin, getAttendanceById
 /* Admit Card Routes (Invigilator) */
 router.get("/admit-card", isFacultyOrAdmin, getInvigilatorAdmitCards);
 router.patch("/admit-card/:id/verify", isFacultyOrAdmin, verifyStudentAdmitCardAtHall);
+
+/* AI Exam Routes (Teacher/Admin) */
+router.get("/exam-blueprint", isFacultyOrAdmin, getExamBlueprints);
+router.get("/exam-blueprint/:id", isFacultyOrAdmin, getExamBlueprintById);
+router.put("/exam-blueprint/:id/syllabus", isFacultyOrAdmin, upsertExamSyllabus);
+router.post("/exam-blueprint/:id/generate-paper", isFacultyOrAdmin, generateExamPaper);
+router.get("/exam-blueprint/:id/paper", isFacultyOrAdmin, getExamPaper);
+router.put("/exam-paper/:paperId/review", isFacultyOrAdmin, reviewExamPaper);
+router.get("/exam-blueprint/:id/scores", isFacultyOrAdmin, getExamStudentScores);
 
 export default router;

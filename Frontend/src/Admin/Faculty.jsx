@@ -12,6 +12,7 @@ import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import "./Faculty.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import ClipLoader from "./components/ClipLoader";
 
 const DESIGNATION_OPTIONS = [
   { value: "professor", label: "Professor" },
@@ -77,6 +78,10 @@ const Faculty = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
+  const [modalDependenciesLoading, setModalDependenciesLoading] = useState(false);
+  const [isOpeningAdd, setIsOpeningAdd] = useState(false);
+  const [openingEditId, setOpeningEditId] = useState("");
+  const [deletingFacultyId, setDeletingFacultyId] = useState("");
   const dispatch = useDispatch();
   const { faculty } = useSelector(
     (state) => state.faculty
@@ -176,11 +181,17 @@ const Faculty = () => {
   };
 
   const ensureModalDependencies = async () => {
-    const deptRes = await axios.get(`${apiBase}/admin/department`, {
-      withCredentials: true,
-      params: { noCache: "true" },
-    });
-    setDepartments(deptRes.data?.departments || []);
+    if (!apiBase || modalDependenciesLoading) return;
+    setModalDependenciesLoading(true);
+    try {
+      const deptRes = await axios.get(`${apiBase}/admin/department`, {
+        withCredentials: true,
+        params: { noCache: "true" },
+      });
+      setDepartments(deptRes.data?.departments || []);
+    } finally {
+      setModalDependenciesLoading(false);
+    }
   };
 
   const handleChange = (e) => {
@@ -191,7 +202,13 @@ const Faculty = () => {
     }));
   };
 
-  const openEditModal = async (facultyMember) => {
+  const openEditModal = async (event, facultyMember) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (!facultyMember?._id || modalDependenciesLoading) return;
+    setOpeningEditId(facultyMember._id);
     try {
       await ensureModalDependencies();
       setEditTarget(facultyMember);
@@ -225,10 +242,18 @@ const Faculty = () => {
     } catch (error) {
       console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to load form data");
+    } finally {
+      setOpeningEditId("");
     }
   };
 
-  const openAddModal = async () => {
+  const openAddModal = async (event) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    if (modalDependenciesLoading) return;
+    setIsOpeningAdd(true);
     try {
       await ensureModalDependencies();
       setEditTarget(null);
@@ -237,15 +262,23 @@ const Faculty = () => {
     } catch (error) {
       console.error("Fetch modal dependencies failed:", error.response?.data || error.message);
       toast.error(error.response?.data?.message || "Failed to load form data");
+    } finally {
+      setIsOpeningAdd(false);
     }
   };
 
-  const handleDelete = async (facultyMember) => {
+  const handleDelete = async (event, facultyMember) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     if (!facultyMember?._id) return;
+    if (deletingFacultyId) return;
     const ok = window.confirm(
       `Delete faculty "${facultyMember.user?.name || facultyMember.name}"?`
     );
     if (!ok) return;
+    setDeletingFacultyId(facultyMember._id);
     try {
       await axios.patch(
         `${apiBase}/admin/faculty/${facultyMember._id}/delete`,
@@ -264,6 +297,8 @@ const Faculty = () => {
       toast.error(
         `${error.response?.data?.message || "Failed to delete faculty"}`
       );
+    } finally {
+      setDeletingFacultyId("");
     }
   };
 
@@ -431,8 +466,16 @@ const Faculty = () => {
             className="faculty-add-btn"
             type="button"
             onClick={openAddModal}
+            disabled={isOpeningAdd || modalDependenciesLoading}
           >
-            + Add Faculty
+            {isOpeningAdd ? (
+              <>
+                <ClipLoader size={15} />
+                <span>Loading...</span>
+              </>
+            ) : (
+              "+ Add Faculty"
+            )}
           </button>
         </div>
 
@@ -535,20 +578,48 @@ const Faculty = () => {
 
                   <div className="faculty-actions">
                     <button
-                      className="faculty-action-btn ghost"
+                      className="faculty-action-btn ghost admin-btn-with-loader"
                       type="button"
-                      onClick={() => openEditModal(f)}
+                      onClick={(event) => openEditModal(event, f)}
+                      disabled={openingEditId === f._id || modalDependenciesLoading}
                     >
-                      <FiEdit2 />
-                      Edit
+                      {openingEditId === f._id ? (
+                        <>
+                          <ClipLoader
+                            size={14}
+                            color="#0f172a"
+                            trackColor="rgba(15, 23, 42, 0.2)"
+                          />
+                          <span>Loading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FiEdit2 />
+                          <span>Edit</span>
+                        </>
+                      )}
                     </button>
                     <button
-                      className="faculty-action-btn danger"
+                      className="faculty-action-btn danger admin-btn-with-loader"
                       type="button"
-                      onClick={() => handleDelete(f)}
+                      onClick={(event) => handleDelete(event, f)}
+                      disabled={deletingFacultyId === f._id}
                     >
-                      <FiTrash2 />
-                      Delete
+                      {deletingFacultyId === f._id ? (
+                        <>
+                          <ClipLoader
+                            size={14}
+                            color="#b91c1c"
+                            trackColor="rgba(185, 28, 28, 0.2)"
+                          />
+                          <span>Deleting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FiTrash2 />
+                          <span>Delete</span>
+                        </>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -732,11 +803,16 @@ const Faculty = () => {
                 </button>
                 <button
                   type="submit"
-                  className="btn-primary"
+                  className="btn-primary admin-btn-with-loader"
                   disabled={submitting}
                 >
                   {submitting
-                    ? "Saving..."
+                    ? (
+                      <>
+                        <ClipLoader size={15} />
+                        <span>Saving...</span>
+                      </>
+                    )
                     : editTarget
                     ? "Update Faculty"
                     : "Add Faculty"}
