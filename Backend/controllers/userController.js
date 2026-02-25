@@ -64,23 +64,24 @@ const getRoleDetails = async (user) => {
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
     /* Field check */
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({
         message: "Email & Password required",
       });
     }
 
     /* Email validation */
-    if (!isEmail(email)) {
+    if (!isEmail(normalizedEmail)) {
       return res.status(400).json({
         message: "Invalid email format",
       });
     }
 
     /* Find user */
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(404).json({

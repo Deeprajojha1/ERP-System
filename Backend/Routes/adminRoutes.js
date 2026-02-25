@@ -3,6 +3,7 @@ import {
   getAllStudents,
   getStudentById,
   addStudent,
+  resetAllStudentPasswords,
   updateStudent,
   deleteStudent,
   hardDeleteStudent,
@@ -220,6 +221,7 @@ router.patch("/facultyleave/:id/status", isAdmin, updateFacultyLeaveStatus);
 router.get("/student", isAdmin, getAllStudents);
 router.get("/student/:id", isAdmin, getStudentById);
 router.post("/student", isAdmin, addStudent);
+router.post("/student/reset-password/all", isAdmin, resetAllStudentPasswords);
 router.put("/student/:id", isAdmin, updateStudent);
 router.patch("/student/:id/delete", isAdmin, deleteStudent);
 router.delete("/student/:id", isAdmin, hardDeleteStudent);

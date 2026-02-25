@@ -646,6 +646,8 @@ const Student = () => {
                       name="password"
                       value={formData.password}
                       onChange={handleChange}
+                      required
+                      minLength={6}
                     />
                   </label>
                   <label>

@@ -9,6 +9,7 @@ import { GoOrganization } from "react-icons/go";
 import { MdCastForEducation } from "react-icons/md";
 import { GiJusticeStar } from "react-icons/gi";
 import { TbReportSearch } from "react-icons/tb";
+import { FiHome } from "react-icons/fi";
 import "./AdminHome.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -382,6 +383,16 @@ const AdminHome = () => {
                     <PiExamFill />
                   </div>
                   <span className="quick-management-label">Examination Scheduling</span>
+                </button>
+
+                <button
+                  className="quick-management-card"
+                  onClick={() => navigate('/admin/hostel')}
+                >
+                  <div className="quick-management-icon hostel-icon">
+                    <FiHome />
+                  </div>
+                  <span className="quick-management-label">Hostel</span>
                 </button>
 
                 <button 

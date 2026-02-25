@@ -910,6 +910,11 @@
   background: #e0f2fe;
 }
 
+.quick-management-icon.hostel-icon {
+  color: #166534;
+  background: #dcfce7;
+}
+
 .quick-management-label {
   font-size: 14px;
   font-weight: 600;

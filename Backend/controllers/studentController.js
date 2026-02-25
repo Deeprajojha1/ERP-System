@@ -152,8 +152,33 @@ export const addStudent = async (req, res) => {
       group,
     } = req.body;
 
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const passwordValue = String(password || "");
+
+    if (
+      !name ||
+      !normalizedEmail ||
+      !passwordValue ||
+      !enrollmentNumber ||
+      !department ||
+      !program ||
+      !semester ||
+      !academicYear
+    ) {
+      return res.status(400).json({
+        message:
+          "Name, email, password, enrollment number, department, program, semester and academic year are required",
+      });
+    }
+
+    if (passwordValue.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+
     /* Check if user already exists */
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(400).json({
         message: "Email already registered",
@@ -184,12 +209,12 @@ export const addStudent = async (req, res) => {
 
     try {
       /* Create User first - extract only User schema fields */
-      const hashedPassword = await bcrypt.hash(password, 10);
+      const hashedPassword = await bcrypt.hash(passwordValue, 10);
       const [user] = await User.create(
         [
           {
             name,
-            email,
+            email: normalizedEmail,
             aadharNumber,
             phoneNumber,
             DOB,
@@ -258,6 +283,60 @@ export const addStudent = async (req, res) => {
     }
   } catch (error) {
     res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+/* ================= RESET ALL STUDENT PASSWORDS ================= */
+
+export const resetAllStudentPasswords = async (req, res) => {
+  try {
+    const { newPassword } = req.body || {};
+    const passwordValue = String(newPassword || "");
+
+    if (!passwordValue) {
+      return res.status(400).json({
+        message: "newPassword is required",
+      });
+    }
+
+    if (passwordValue.length < 6) {
+      return res.status(400).json({
+        message: "newPassword must be at least 6 characters",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(passwordValue, 10);
+    const result = await User.updateMany(
+      { role: "student", isDeleted: { $ne: true } },
+      {
+        $set: {
+          passwordHash: hashedPassword,
+          resetOtp: null,
+          otpExpires: null,
+          isOtpVerifed: false,
+        },
+      }
+    );
+
+    try {
+      await redisClient.del("admin:students:all:summary:v1");
+      await redisClient.del("admin:students:all:full:v1");
+    } catch (err) {
+      console.error(
+        "[Redis] resetAllStudentPasswords cache clear failed:",
+        err.message || err
+      );
+    }
+
+    return res.status(200).json({
+      message: "Student passwords reset successfully",
+      matchedCount: result.matchedCount || 0,
+      modifiedCount: result.modifiedCount || 0,
+    });
+  } catch (error) {
+    return res.status(500).json({
       message: error.message,
     });
   }

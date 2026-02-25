@@ -17,21 +17,22 @@ const { isEmail } = validator;
 export const studentLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const normalizedEmail = String(email || "").trim().toLowerCase();
 
-    if (!email || !password) {
+    if (!normalizedEmail || !password) {
       return res.status(400).json({
         message: "Email & Password required",
       });
     }
 
-    if (!isEmail(email)) {
+    if (!isEmail(normalizedEmail)) {
       return res.status(400).json({
         message: "Invalid email format",
       });
     }
 
     /* Find user */
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: normalizedEmail });
 
     if (!user) {
       return res.status(404).json({
