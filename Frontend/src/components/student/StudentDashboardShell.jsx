@@ -43,6 +43,7 @@ const StudentDashboardShell = ({
     () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true)
   );
   const [isExamFocusMode, setIsExamFocusMode] = useState(false);
+  const [failedAvatarSrc, setFailedAvatarSrc] = useState(null);
 
   // Keep existing profile image resolution behavior.
   const profileImage = (() => {
@@ -54,11 +55,12 @@ const StudentDashboardShell = ({
       return `${base}${fileUrl}`;
     }
     if (fileName) {
-      if (fileName.startsWith("data:")) return fileName;
+      if (fileName.startsWith("http") || fileName.startsWith("data:")) return fileName;
       return `${base}/uploads/profile-images/${fileName}`;
     }
     return null;
   })();
+  const canRenderAvatar = Boolean(profileImage && failedAvatarSrc !== profileImage);
 
   const studentName =
     resolvedStudentData?.personalInfo?.name ||
@@ -336,11 +338,12 @@ const StudentDashboardShell = ({
           >
             <div className="student-admin-sidebar-profile">
               <div className="student-admin-sidebar-profile-main">
-                {profileImage ? (
+                {canRenderAvatar ? (
                   <img
                     src={profileImage}
                     alt="Profile"
                     className="student-admin-sidebar-avatar-img"
+                    onError={() => setFailedAvatarSrc(profileImage)}
                   />
                 ) : (
                   <div className="student-admin-sidebar-avatar">{userInitials || "ST"}</div>

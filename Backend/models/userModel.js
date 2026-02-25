@@ -20,6 +20,11 @@ const userSchema = new mongoose.Schema(
       match: [/^\d{10}$/, "Phone number must be 10 digits"],
     },
     passwordHash: String,
+    gender: {
+      type: String,
+      enum: ["male", "female", "other", ""],
+      default: "",
+    },
     role: {
       type: String,
       enum: ["student", "faculty", "admin","librarian"],

@@ -94,11 +94,16 @@ const buildAnswerMap = (answers = []) => {
 const normalizeFaceVerification = (result) => {
   const facesDetected = Number(result?.facesDetected || 0);
   const eyesDetected = Number(result?.eyesDetected || 0);
+  const eyewearDetected = Boolean(result?.eyewearDetected);
+  const lowEyeConfidence = String(result?.reason || "") === "VERIFIED_EYE_LOW_CONFIDENCE";
   const gazeVerified =
     typeof result?.gazeVerified === "boolean"
       ? result.gazeVerified
-      : eyesDetected >= 1;
-  const verified = Boolean(result?.verified) && facesDetected === 1 && gazeVerified;
+      : eyesDetected >= 1 || eyewearDetected || lowEyeConfidence;
+  const verified =
+    Boolean(result?.verified) &&
+    facesDetected === 1 &&
+    (gazeVerified || eyewearDetected || lowEyeConfidence);
   const reason = verified
     ? "VERIFIED"
     : facesDetected === 0
@@ -108,7 +113,7 @@ const normalizeFaceVerification = (result) => {
     : !gazeVerified || String(result?.reason || "") === "EYES_NOT_VISIBLE"
     ? "EYES_NOT_VISIBLE"
     : String(result?.reason || "UNKNOWN");
-  return { verified, facesDetected, eyesDetected, gazeVerified, reason };
+  return { verified, facesDetected, eyesDetected, eyewearDetected, gazeVerified, reason };
 };
 
 const runFaceVerification = async (imageData) => {
@@ -155,6 +160,7 @@ export const verifyStudentFace = async (req, res) => {
       verified: verification.verified,
       facesDetected: verification.facesDetected,
       eyesDetected: verification.eyesDetected,
+      eyewearDetected: verification.eyewearDetected,
       gazeVerified: verification.gazeVerified,
       reason: verification.reason,
     });
@@ -213,6 +219,7 @@ export const checkAttemptFaceActivity = async (req, res) => {
       verified: verification.verified,
       facesDetected: verification.facesDetected,
       eyesDetected: verification.eyesDetected,
+      eyewearDetected: verification.eyewearDetected,
       gazeVerified: verification.gazeVerified,
       reason: verification.reason,
     });
