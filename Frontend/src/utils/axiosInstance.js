@@ -63,6 +63,7 @@ const redirectToNetworkError = () => {
  *    browsers that block third-party / cross-site cookies.
  */
 const axiosInstance = axios.create({
+  baseURL: import.meta.env.VITE_HOSTEL_BASE_URL || "http://localhost:3000",
   withCredentials: true, // still send cookies when the browser allows it
   timeout: 20000,
 });

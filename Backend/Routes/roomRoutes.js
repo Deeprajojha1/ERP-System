@@ -19,8 +19,8 @@ router.put("/:id", isAuth, isFacultyOrAdmin, updateRoom);
 router.delete("/:id", isAuth, isFacultyOrAdmin, deleteRoom);
 
 // All logged users
-router.get("/:hostelId", isAuth, getRoomsByHostel);
 router.get("/available/all", isAuth, getAvailableRooms);
 router.get("/full/all", isAuth, getFullRooms);
+router.get("/:hostelId", isAuth, getRoomsByHostel);
 
 export default router;
