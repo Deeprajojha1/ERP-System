@@ -12,6 +12,70 @@ import validator from "validator";
 
 const { isEmail } = validator;
 
+const normalizeDisciplineStatus = (status) =>
+  String(status || "clear").trim().toLowerCase();
+
+const formatDisciplineDate = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString().slice(0, 10);
+};
+
+const resolveStudentDisciplineForLogin = async (studentDetails) => {
+  if (!studentDetails) return { allowed: true, studentDetails };
+
+  const discipline = studentDetails.disciplineStatus || {};
+  const normalizedStatus = normalizeDisciplineStatus(discipline.currentStatus);
+
+  if (!["suspended", "detained"].includes(normalizedStatus)) {
+    return { allowed: true, studentDetails };
+  }
+
+  const endDate = discipline.endDate ? new Date(discipline.endDate) : null;
+  const endDateValid = endDate && !Number.isNaN(endDate.getTime());
+  const now = new Date();
+
+  if (endDateValid && endDate <= now) {
+    const cleared = await Student.findByIdAndUpdate(
+      studentDetails._id,
+      {
+        disciplineStatus: {
+          currentStatus: "clear",
+          reason: "",
+          startDate: null,
+          endDate: null,
+          updatedBy: null,
+          updatedAt: new Date(),
+        },
+      },
+      { new: true, runValidators: true }
+    )
+      .populate("department", "name code")
+      .populate({
+        path: "group",
+        select: "name roomNo department courseIds",
+        populate: {
+          path: "courseIds",
+          select: "code courseName department semester branch credit",
+          populate: {
+            path: "department",
+            select: "name code",
+          },
+        },
+      });
+
+    return { allowed: true, studentDetails: cleared || studentDetails };
+  }
+
+  const endDateLabel = endDateValid ? formatDisciplineDate(endDate) : null;
+  const message = endDateLabel
+    ? `Access blocked. Student is ${normalizedStatus} until ${endDateLabel}.`
+    : `Access blocked. Student is currently ${normalizedStatus}.`;
+
+  return { allowed: false, message };
+};
+
 /* ================= STUDENT LOGIN ================= */
 
 export const studentLogin = async (req, res) => {
@@ -72,7 +136,7 @@ export const studentLogin = async (req, res) => {
     });
 
     /* Fetch student details */
-    const studentDetails = await Student.findOne({ user: user._id })
+    let studentDetails = await Student.findOne({ user: user._id })
       .populate("department", "name code")
       .populate({
         path: "group",
@@ -92,6 +156,14 @@ export const studentLogin = async (req, res) => {
         message: "Student profile not found",
       });
     }
+
+    const disciplineGate = await resolveStudentDisciplineForLogin(studentDetails);
+    if (!disciplineGate.allowed) {
+      return res.status(403).json({
+        message: disciplineGate.message,
+      });
+    }
+    studentDetails = disciplineGate.studentDetails || studentDetails;
 
     /* Fetch enrolled courses from group or enrollment collection */
     let enrolledCourses = [];
@@ -232,6 +304,7 @@ export const studentLogin = async (req, res) => {
         fatherPhoneNumber: studentDetails.fatherPhoneNumber,
         collegeEmail: studentDetails.collegeEmail,
         group: studentDetails.group,
+        disciplineStatus: studentDetails.disciplineStatus,
       },
       enrolledCourses,
       attendanceData,
@@ -420,6 +493,7 @@ export const getStudentProfile = async (req, res) => {
         fatherPhoneNumber: studentDetails.fatherPhoneNumber,
         collegeEmail: studentDetails.collegeEmail,
         group: studentDetails.group,
+        disciplineStatus: studentDetails.disciplineStatus,
       },
       enrolledCourses,
       attendanceData,

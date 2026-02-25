@@ -7,7 +7,12 @@ import {
   updateStudent,
   deleteStudent,
   hardDeleteStudent,
+  updateStudentDisciplineStatus,
 } from "../controllers/studentController.js";
+import {
+  downloadStudentIdCard,
+  bulkDownloadStudentIdCards,
+} from "../controllers/studentIdCardController.js";
 
 import {
   getAllDepartments,
@@ -233,8 +238,11 @@ router.get("/student/:id", isAdmin, getStudentById);
 router.post("/student", isAdmin, addStudent);
 router.post("/student/reset-password/all", isAdmin, resetAllStudentPasswords);
 router.put("/student/:id", isAdmin, updateStudent);
+router.patch("/student/:id/discipline-status", isAdmin, updateStudentDisciplineStatus);
 router.patch("/student/:id/delete", isAdmin, deleteStudent);
 router.delete("/student/:id", isAdmin, hardDeleteStudent);
+router.get("/student/:studentId/id-card", isAdmin, downloadStudentIdCard);
+router.post("/student/id-card/bulk", isAdmin, bulkDownloadStudentIdCards);
 
 /* =========================
    COURSES

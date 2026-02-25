@@ -435,6 +435,28 @@ const AdminLayout = () => {
 
               <button
                 type="button"
+                className={`sidebar-btn ${isActive("/admin/student-discipline") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/student-discipline");
+                }}
+              >
+                <PiStudentFill />
+                <span className="sidebar-text">Student Discipline</span>
+              </button>
+
+              <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/student-id-cards") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/student-id-cards");
+                }}
+              >
+                <PiStudentFill />
+                <span className="sidebar-text">Student ID Cards</span>
+              </button>
+
+              <button
+                type="button"
                 className={`sidebar-btn ${isActive("/admin/hostel") ? "active" : ""}`}
                 onClick={() => {
                   navigate("/admin/hostel");

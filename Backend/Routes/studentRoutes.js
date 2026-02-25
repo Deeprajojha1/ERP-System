@@ -39,6 +39,7 @@ import {
   analyzeProfile,
   getLinkedinReports,
 } from "../controllers/linkedinAnalyzerController.js";
+import { getMyIdCard } from "../controllers/studentIdCardController.js";
 import linkedinPdfUpload from "../config/linkedinPdfUpload.js";
 import isAuth from "../middlewares/isAuth.js";
 import isStudent from "../middlewares/isStudent.js";
@@ -67,6 +68,7 @@ router.put("/exam-registration/:id", isAuth, isStudent, updateMyExamRegistration
 /* Student Admit Card */
 router.get("/admit-card", isAuth, isStudent, getMyAdmitCards);
 router.get("/admit-card/:id", isAuth, isStudent, getMyAdmitCardById);
+router.get("/id-card/download", isAuth, isStudent, getMyIdCard);
 
 /* AI Exam (Student) */
 router.get("/exam", isAuth, isStudent, getPublishedExamsForStudent);

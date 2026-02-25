@@ -49,6 +49,35 @@ const studentSchema = new mongoose.Schema(
       ref: "Group",
       default: null,
     },
+    disciplineStatus: {
+      currentStatus: {
+        type: String,
+        enum: ["clear", "suspended", "detained"],
+        default: "clear",
+      },
+      reason: {
+        type: String,
+        trim: true,
+        default: "",
+      },
+      startDate: {
+        type: Date,
+        default: null,
+      },
+      endDate: {
+        type: Date,
+        default: null,
+      },
+      updatedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+        default: null,
+      },
+      updatedAt: {
+        type: Date,
+        default: null,
+      },
+    },
     isDeleted: {
       type: Boolean,
       default: false,

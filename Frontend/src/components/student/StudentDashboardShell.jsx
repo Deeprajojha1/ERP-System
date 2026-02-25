@@ -21,6 +21,7 @@ import AttendanceOverview from "./AttendanceOverview";
 import CoursesDetails from "./CoursesDetails";
 import StudentExamCenter from "./StudentExamCenter";
 import LinkedinAnalyzer from "./linkedin/LinkedinAnalyzer";
+import StudentIdCardSection from "./StudentIdCardSection";
 import "./StudentDashboardShell.css";
 
 const StudentDashboardShell = ({
@@ -89,6 +90,7 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/courses")) return "courses";
     if (path.includes("/dashboard/exams")) return "exams";
     if (path.includes("/dashboard/fees")) return "fees";
+    if (path.includes("/dashboard/id-card")) return "id-card";
     if (path.includes("/dashboard/linkedin-analyzer")) return "linkedin";
     return "home";
   }, [location.pathname]);
@@ -100,6 +102,7 @@ const StudentDashboardShell = ({
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
     { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
+    { id: "id-card", label: "ID Card", path: "/dashboard/id-card", icon: FiUser },
     {
       id: "linkedin",
       label: "LinkedIn AI",
@@ -279,6 +282,9 @@ const StudentDashboardShell = ({
     }
     if (currentSection === "fees") {
       return renderFees();
+    }
+    if (currentSection === "id-card") {
+      return <StudentIdCardSection roleDetails={roleDetails} />;
     }
     if (currentSection === "linkedin") {
       return <LinkedinAnalyzer />;

@@ -71,18 +71,9 @@ const launchBrowser = async () => {
   );
 };
 
-export const renderPdfFromHtml = async (req, res) => {
+export const renderPdfBufferFromHtml = async (html, options = {}) => {
   let browser = null;
-
   try {
-    const { html, fileName, options } = req.body || {};
-
-    if (!html || typeof html !== "string") {
-      return res.status(400).json({
-        message: "html is required and must be a string",
-      });
-    }
-
     browser = await launchBrowser();
     const page = await browser.newPage();
 
@@ -92,7 +83,6 @@ export const renderPdfFromHtml = async (req, res) => {
         timeout: 45000,
       });
     } catch (error) {
-      // Some hosts never reach network-idle for synthetic HTML. Fallback to DOM ready.
       await page.setContent(html, {
         waitUntil: "domcontentloaded",
         timeout: 45000,
@@ -110,6 +100,29 @@ export const renderPdfFromHtml = async (req, res) => {
         left: "12mm",
       },
     });
+    return pdfBuffer;
+  } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch (_) {
+        // no-op
+      }
+    }
+  }
+};
+
+export const renderPdfFromHtml = async (req, res) => {
+  try {
+    const { html, fileName, options } = req.body || {};
+
+    if (!html || typeof html !== "string") {
+      return res.status(400).json({
+        message: "html is required and must be a string",
+      });
+    }
+
+    const pdfBuffer = await renderPdfBufferFromHtml(html, options);
 
     const safeFileName = String(fileName || "report.pdf")
       .replace(/[^\w.\-]/g, "_")
@@ -127,13 +140,5 @@ export const renderPdfFromHtml = async (req, res) => {
     return res.status(500).json({
       message: error.message || "Failed to generate PDF",
     });
-  } finally {
-    if (browser) {
-      try {
-        await browser.close();
-      } catch (_) {
-        // no-op
-      }
-    }
   }
 };

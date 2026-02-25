@@ -1,0 +1,120 @@
+.student-discipline-page {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.sdc-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.sdc-header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #0f172a;
+}
+
+.sdc-header p {
+  margin: 4px 0 0;
+  font-size: 0.88rem;
+  color: #64748b;
+}
+
+.sdc-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(160px, 220px) auto;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.sdc-toolbar input,
+.sdc-toolbar select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 0.9rem;
+}
+
+.sdc-toolbar button {
+  border: 0;
+  background: #0f766e;
+  color: #fff;
+  border-radius: 8px;
+  padding: 9px 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sdc-table-wrap {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: auto;
+}
+
+.sdc-state {
+  padding: 18px;
+  color: #475569;
+}
+
+.sdc-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 1080px;
+}
+
+.sdc-table th,
+.sdc-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px;
+  text-align: left;
+  font-size: 0.85rem;
+}
+
+.sdc-table th {
+  background: #f8fafc;
+  color: #334155;
+  font-weight: 700;
+}
+
+.sdc-table td input,
+.sdc-table td select {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 7px 8px;
+  font-size: 0.82rem;
+}
+
+.sdc-save-btn {
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 12px;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #fff;
+  background: #2563eb;
+}
+
+.sdc-save-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+@media (max-width: 1000px) {
+  .sdc-toolbar {
+    grid-template-columns: 1fr;
+  }
+}

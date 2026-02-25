@@ -53,6 +53,7 @@ export const getAllStudents = async (req, res) => {
           department: student.department?.name || "",
           semester: student.semester,
           status: student.user?.status || "inactive",
+          disciplineStatus: student?.disciplineStatus?.currentStatus || "clear",
         }));
 
     const responsePayload = {
@@ -379,6 +380,105 @@ export const updateStudent = async (req, res) => {
     res.json(responsePayload);
   } catch (error) {
     res.status(500).json({
+      message: error.message,
+    });
+  }
+};
+
+/* ================= UPDATE STUDENT DISCIPLINE STATUS ================= */
+
+export const updateStudentDisciplineStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      currentStatus = "clear",
+      reason = "",
+      startDate = null,
+      endDate = null,
+    } = req.body || {};
+
+    const normalizedStatus = String(currentStatus || "clear")
+      .trim()
+      .toLowerCase();
+
+    if (!["clear", "suspended", "detained"].includes(normalizedStatus)) {
+      return res.status(400).json({
+        message: "currentStatus must be clear, suspended, or detained",
+      });
+    }
+
+    const parsedStartDate = startDate ? new Date(startDate) : null;
+    const parsedEndDate = endDate ? new Date(endDate) : null;
+
+    if (parsedStartDate && Number.isNaN(parsedStartDate.getTime())) {
+      return res.status(400).json({ message: "Invalid startDate" });
+    }
+    if (parsedEndDate && Number.isNaN(parsedEndDate.getTime())) {
+      return res.status(400).json({ message: "Invalid endDate" });
+    }
+    if (parsedStartDate && parsedEndDate && parsedEndDate < parsedStartDate) {
+      return res.status(400).json({
+        message: "endDate must be greater than or equal to startDate",
+      });
+    }
+
+    const trimmedReason = String(reason || "").trim();
+    if (normalizedStatus !== "clear" && !trimmedReason) {
+      return res.status(400).json({
+        message: "reason is required when status is suspended or detained",
+      });
+    }
+
+    const disciplinePayload =
+      normalizedStatus === "clear"
+        ? {
+            currentStatus: "clear",
+            reason: "",
+            startDate: null,
+            endDate: null,
+            updatedBy: req.userId || null,
+            updatedAt: new Date(),
+          }
+        : {
+            currentStatus: normalizedStatus,
+            reason: trimmedReason,
+            startDate: parsedStartDate,
+            endDate: parsedEndDate,
+            updatedBy: req.userId || null,
+            updatedAt: new Date(),
+          };
+
+    const student = await Student.findByIdAndUpdate(
+      id,
+      { disciplineStatus: disciplinePayload },
+      { new: true, runValidators: true }
+    )
+      .populate("user", "name email status")
+      .populate("department", "name code")
+      .populate("group", "name roomNo");
+
+    if (!student) {
+      return res.status(404).json({
+        message: "Student not found",
+      });
+    }
+
+    try {
+      await redisClient.del("admin:students:all:summary:v1");
+      await redisClient.del("admin:students:all:full:v1");
+    } catch (err) {
+      console.error(
+        "[Redis] updateStudentDisciplineStatus cache clear failed:",
+        err.message || err
+      );
+    }
+
+    return res.json({
+      message: "Student discipline status updated successfully",
+      student,
+    });
+  } catch (error) {
+    return res.status(500).json({
       message: error.message,
     });
   }

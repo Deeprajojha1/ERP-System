@@ -15,6 +15,8 @@ import Department from "./Admin/Department";
 import AdminLayout from "./Admin/AdminLayout";
 import Faculty from "./Admin/Faculty";
 import Student from "./Admin/Student";
+import StudentDisciplineCenter from "./Admin/StudentDisciplineCenter";
+import StudentIdCardCenter from "./Admin/StudentIdCardCenter";
 import Hostel from "./Admin/Hostel";
 import HostelDetails from "./Admin/HostelDetails";
 import Courses from "./Admin/Courses";
@@ -258,6 +260,8 @@ function App() {
           <Route path="department" element={<Department />} />
           <Route path="faculty" element={<Faculty />} />
           <Route path="student" element={<Student />} />
+          <Route path="student-discipline" element={<StudentDisciplineCenter />} />
+          <Route path="student-id-cards" element={<StudentIdCardCenter />} />
           <Route path="hostel" element={<Hostel />} />
           <Route path="hostel/:hostelId" element={<HostelDetails />} />
           <Route path="courses" element={<Courses />} />
