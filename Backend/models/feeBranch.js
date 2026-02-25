@@ -27,7 +27,19 @@ const BranchSchema = new mongoose.Schema({
       required: true,
       min: 0
     }
-  }]
+  }],
+
+  hostelYearlyFee: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+
+  transportYearlyFee: {
+    type: Number,
+    default: 0,
+    min: 0
+  }
 
 }, { timestamps: true });
 

@@ -294,6 +294,9 @@ function App() {
           <Route path="subject-attendance" element={<SubjectAttendance />} />
           <Route path="teaching-load" element={<TeachingLoad />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="placement" element={<Navigate to="/admin/placement/jobs" replace />} />
+          <Route path="placement/jobs" element={<ExternalJobs />} />
+          <Route path="placement/applications" element={<ExternalJobApplications />} />
           <Route path="external-jobs" element={<ExternalJobs />} />
           <Route path="external-job-applications" element={<ExternalJobApplications />} />
           <Route path="*" element={<Navigate to="/page-not-found" replace />} />

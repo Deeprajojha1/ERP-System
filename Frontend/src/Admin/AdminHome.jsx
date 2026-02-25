@@ -372,7 +372,7 @@ const AdminHome = () => {
                   <div className="quick-management-icon subjects-icon">
                     <GiJusticeStar />
                   </div>
-                  <span className="quick-management-label">Subjects</span>
+                  <span className="quick-management-label">Groups</span>
                 </button>
 
                 <button

@@ -146,13 +146,21 @@ import {
   createFeeProgram,
   getFeeProgrammes,
   createFeeBatch,
+  getFeeBatches,
   createFeeBranch,
   createStudentFeeDetails,
+  getStudentFeeDetails,
+  updateStudentFeeDetailsBenefits,
   createFeeDemand,
+  generateFeeDemandFromProfile,
+  getFeeDemandRequests,
+  approveFeeDemandRequest,
+  rejectFeeDemandRequest,
   getFeeDemands,
   createPayment,
   updatePaymentStatus,
   getPaymentHistory,
+  handleRazorpayWebhook,
 } from "../controllers/feeController.js";
 
 
@@ -161,6 +169,8 @@ import {
 import isAdmin from "../middlewares/isAdmin.js";
 import upload from "../config/multerConfig.js";
 import feeRateLimit from "../middlewares/feeRateLimit.js";
+import feeSecurityHeaders from "../middlewares/feeSecurityHeaders.js";
+import verifyGatewaySignature from "../middlewares/verifyGatewaySignature.js";
 
 const router = express.Router();
 
@@ -373,15 +383,23 @@ router.patch("/exam-blueprint/:id/delete", isAdmin, deleteExamBlueprint);
 /* =========================
    FEES (ADMIN)
 ========================= */
-router.post("/fee/program", isAdmin, feeRateLimit, createFeeProgram);
-router.get("/fee/program", isAdmin, feeRateLimit, getFeeProgrammes);
-router.post("/fee/batch", isAdmin, feeRateLimit, createFeeBatch);
-router.post("/fee/branch", isAdmin, feeRateLimit, createFeeBranch);
-router.post("/fee/student-details", isAdmin, feeRateLimit, createStudentFeeDetails);
-router.post("/fee/demand", isAdmin, feeRateLimit, createFeeDemand);
-router.get("/fee/demand", isAdmin, feeRateLimit, getFeeDemands);
-router.post("/fee/payment", isAdmin, feeRateLimit, createPayment);
-router.patch("/fee/payment/:paymentId/status", isAdmin, feeRateLimit, updatePaymentStatus);
-router.get("/fee/payment", isAdmin, feeRateLimit, getPaymentHistory);
+router.post("/fee/program", isAdmin, feeSecurityHeaders, feeRateLimit, createFeeProgram);
+router.get("/fee/program", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeProgrammes);
+router.post("/fee/batch", isAdmin, feeSecurityHeaders, feeRateLimit, createFeeBatch);
+router.get("/fee/batch", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeBatches);
+router.post("/fee/branch", isAdmin, feeSecurityHeaders, feeRateLimit, createFeeBranch);
+router.post("/fee/student-details", isAdmin, feeSecurityHeaders, feeRateLimit, createStudentFeeDetails);
+router.get("/fee/student-details", isAdmin, feeSecurityHeaders, feeRateLimit, getStudentFeeDetails);
+router.patch("/fee/student-details/:id/benefits", isAdmin, feeSecurityHeaders, feeRateLimit, updateStudentFeeDetailsBenefits);
+router.post("/fee/demand", isAdmin, feeSecurityHeaders, feeRateLimit, createFeeDemand);
+router.post("/fee/demand/generate", isAdmin, feeSecurityHeaders, feeRateLimit, generateFeeDemandFromProfile);
+router.get("/fee/demand-request", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeDemandRequests);
+router.patch("/fee/demand-request/:id/approve", isAdmin, feeSecurityHeaders, feeRateLimit, approveFeeDemandRequest);
+router.patch("/fee/demand-request/:id/reject", isAdmin, feeSecurityHeaders, feeRateLimit, rejectFeeDemandRequest);
+router.get("/fee/demand", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeDemands);
+router.post("/fee/payment", isAdmin, feeSecurityHeaders, feeRateLimit, verifyGatewaySignature, createPayment);
+router.patch("/fee/payment/:paymentId/status", isAdmin, feeSecurityHeaders, feeRateLimit, updatePaymentStatus);
+router.get("/fee/payment", isAdmin, feeSecurityHeaders, feeRateLimit, getPaymentHistory);
+router.post("/fee/razorpay/webhook", feeSecurityHeaders, handleRazorpayWebhook);
 
 export default router;

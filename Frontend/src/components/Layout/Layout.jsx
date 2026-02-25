@@ -126,8 +126,8 @@ const Layout = () => {
         <span className="section-tag">ABOUT THE SYSTEM</span>
         <h2>ERP Management System for Modern Education</h2>
         <p className="about-intro">
-          A centralized and scalable ERP solution designed to streamline academic and
-          administrative operations.
+          A comprehensive ERP solution designed for modern education.
+          Streamline administration, enhance learning, and empower your campus community.
         </p>
 
         <div className="about-content">
@@ -165,20 +165,20 @@ const Layout = () => {
 
       <section className="landing-stats">
         <div>
-          <strong>10,000+</strong>
-          <span>Students</span>
+          <strong>16+</strong>
+          <span>Years of Educational Experience</span>
         </div>
         <div>
-          <strong>500+</strong>
-          <span>Faculty</span>
+          <strong>50+</strong>
+          <span>Multidisciplinary Programs</span>
         </div>
         <div>
-          <strong>100+</strong>
-          <span>Courses</span>
+          <strong>200+</strong>
+          <span>Companies Visited For Placement</span>
         </div>
         <div>
-          <strong>25+</strong>
-          <span>Years of Excellence</span>
+          <strong>5K+</strong>
+          <span>Glorious Alumni</span>
         </div>
       </section>
 

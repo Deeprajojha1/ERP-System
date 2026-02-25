@@ -44,7 +44,7 @@ const ExternalJobs = () => {
       setJobs(response.data?.jobs || []);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       if (!showLoader) {
-        toast.success("Jobs refreshed successfully", { icon: "?" });
+        toast.success("Jobs refreshed successfully", { icon: "✅" });
       }
     } catch (error) {
       console.error("Fetch jobs failed:", error.response?.data || error.message);

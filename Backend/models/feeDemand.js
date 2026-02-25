@@ -62,5 +62,7 @@ FeeDemandSchema.index(
   { studentId: 1, academicYear: 1, semesterNo: 1 },
   { unique: true }
 );
+FeeDemandSchema.index({ studentMongoId: 1, createdAt: -1 });
+FeeDemandSchema.index({ status: 1, dueDate: 1 });
 
 export default mongoose.model("FeeDemand", FeeDemandSchema);

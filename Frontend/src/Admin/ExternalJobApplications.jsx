@@ -37,7 +37,7 @@ const ExternalJobApplications = () => {
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       
       if (!showLoader) {
-        toast.success("Applications refreshed", { icon: "?" });
+        toast.success("Applications refreshed", { icon: "✅" });
       }
     } catch (error) {
       console.error("Fetch applications failed:", error);

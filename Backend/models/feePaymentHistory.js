@@ -33,11 +33,14 @@ const PaymentSchema = new mongoose.Schema({
 
   transactionId: {
     type: String,
-    trim: true
+    trim: true,
+    maxlength: 120
   },
   idempotencyKey: {
     type: String,
-    trim: true
+    trim: true,
+    maxlength: 100,
+    match: /^[a-zA-Z0-9:_-]{16,100}$/
   },
 
   gateway: {
@@ -53,7 +56,8 @@ const PaymentSchema = new mongoose.Schema({
 
   receiptNo: {
     type: String,
-    trim: true
+    trim: true,
+    maxlength: 120
   },
 
   initiatedAt: {
@@ -80,7 +84,8 @@ const PaymentSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 PaymentSchema.index({ studentId: 1, demandId: 1 });
-PaymentSchema.index({ transactionId: 1 }, { sparse: true });
+PaymentSchema.index({ demandId: 1, status: 1, createdAt: -1 });
+PaymentSchema.index({ transactionId: 1 }, { sparse: true, unique: true });
 PaymentSchema.index({ receiptNo: 1 }, { sparse: true, unique: true });
 PaymentSchema.index({ idempotencyKey: 1 }, { sparse: true, unique: true });
 

@@ -74,6 +74,39 @@ const StudentFeeDetailsSchema = new mongoose.Schema({
       default: 0,
       min: 0
     }
+  },
+
+  feeSummary: {
+    courseGrossFee: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    scholarshipAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    discountAmount: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    courseNetFee: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    totalPaid: {
+      type: Number,
+      default: 0,
+      min: 0
+    },
+    remainingFee: {
+      type: Number,
+      default: 0,
+      min: 0
+    }
   }
 
 }, { timestamps: true });

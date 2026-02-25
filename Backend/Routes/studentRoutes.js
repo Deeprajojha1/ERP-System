@@ -25,10 +25,15 @@ import {
   getMyExamResult,
 } from "../controllers/aiExamController.js";
 import {
+  getMyFeeProfile,
   getMyFeeDemands,
   getMyPaymentHistory,
+  createMyFeeDemandRequest,
   createMyPayment,
-} from "../controllers/feeController.js";
+  createMyRazorpayOrder,
+  verifyMyRazorpayPayment,
+}
+from "../controllers/feeController.js";
 import { getStudentAlerts } from "../controllers/alertController.js";
 import {
   analyzeProfile,
@@ -38,6 +43,8 @@ import linkedinPdfUpload from "../config/linkedinPdfUpload.js";
 import isAuth from "../middlewares/isAuth.js";
 import isStudent from "../middlewares/isStudent.js";
 import feeRateLimit from "../middlewares/feeRateLimit.js";
+import feeSecurityHeaders from "../middlewares/feeSecurityHeaders.js";
+import verifyGatewaySignature from "../middlewares/verifyGatewaySignature.js";
 import linkedinAnalyzerRateLimit from "../middlewares/linkedinAnalyzerRateLimit.js";
 
 const router = express.Router();
@@ -71,9 +78,13 @@ router.post("/attempt/:attemptId/submit", isAuth, isStudent, submitExamAttempt);
 router.get("/attempt/:attemptId/result", isAuth, isStudent, getMyExamResult);
 
 /* Fee (Student) */
-router.get("/fee/me/demand", isAuth, isStudent, feeRateLimit, getMyFeeDemands);
-router.get("/fee/me/payment", isAuth, isStudent, feeRateLimit, getMyPaymentHistory);
-router.post("/fee/me/payment", isAuth, isStudent, feeRateLimit, createMyPayment);
+router.get("/fee/me/profile", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeProfile);
+router.get("/fee/me/demand", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeDemands);
+router.get("/fee/me/payment", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyPaymentHistory);
+router.post("/fee/me/demand-request", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyFeeDemandRequest);
+router.post("/fee/me/payment/razorpay/order", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyRazorpayOrder);
+router.post("/fee/me/payment/razorpay/verify", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, verifyMyRazorpayPayment);
+router.post("/fee/me/payment", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, verifyGatewaySignature, createMyPayment);
 
 /* LinkedIn Analyzer (Student) */
 router.post(
