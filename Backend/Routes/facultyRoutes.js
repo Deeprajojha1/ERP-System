@@ -1,4 +1,6 @@
 import express from "express";
+import User from "../models/userModel.js";
+import Faculty from "../models/Faculty.js";
 import { facultyLogin, getFacultyProfile } from "../controllers/facultyAuthController.js";
 import { getFacultyProfileByCredentials } from "../controllers/profileController.js";
 import { applyFacultyLeave, getFacultyLeaves } from "../controllers/facultyLeaveController.js";
@@ -38,6 +40,37 @@ const router = express.Router();
 
 router.post("/login", facultyLogin);
 router.get("/me", isAuth, getFacultyProfile);
+router.put("/me", isAuth, async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { phoneNumber, DOB, gender, aadharNumber, qualification, specialization, university } = req.body;
+
+    // Update user basic info
+    const user = await User.findById(userId);
+    if (!user || user.role !== "faculty") {
+      return res.status(403).json({ message: "Access denied. Not a faculty account." });
+    }
+    user.phoneNumber = phoneNumber;
+    user.DOB = DOB;
+    user.gender = gender;
+    user.aadharNumber = aadharNumber;
+    await user.save();
+
+    // Update faculty details
+    const faculty = await Faculty.findOne({ user: userId });
+    if (!faculty) {
+      return res.status(404).json({ message: "Faculty profile not found" });
+    }
+    faculty.qualification = qualification;
+    faculty.specialization = specialization;
+    faculty.university = university;
+    await faculty.save();
+
+    return res.json({ message: "Profile updated successfully" });
+  } catch (err) {
+    return res.status(500).json({ message: err.message || "Failed to update profile" });
+  }
+});
 
 // get faculty profile by email & password
 router.post("/profile", getFacultyProfileByCredentials);

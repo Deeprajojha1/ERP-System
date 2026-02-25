@@ -16,6 +16,7 @@ import {
   FiSkipForward,
   FiTarget,
   FiUserCheck,
+  FiX,
 } from "react-icons/fi";
 import { BeatLoader } from "react-spinners";
 import ClipLoader from "../../Admin/components/ClipLoader";
@@ -34,11 +35,13 @@ import axios from "../../utils/axiosInstance";
 import "./StudentExamCenter.css";
 
 const PROCTOR_FACE_CHECK_INTERVAL_MS = 7000;
-const EXTENSION_PANEL_WIDTH_THRESHOLD = 120;
+const MOBILE_EXAM_BLOCK_MESSAGE =
+  "Exam attempts are not allowed on mobile devices. Please use a desktop or laptop browser.";
 
 const EXAM_INSTRUCTIONS = [
-  "After starting the exam, tab switch/minimize/focus loss or face-check failures trigger one warning. A second violation auto-submits your attempt.",
-  "External activity like fullscreen exit, extension side panel usage, copy/cut/paste, or screenshot attempts trigger warning on first violation and auto-submit on second.",
+  "After starting the exam, keep only your face in frame. Face movement/out-of-frame triggers warning and repeated violations auto-submit your attempt.",
+  "If the exam tab/window is closed, your attempt is submitted automatically.",
+  "Eyeglasses are supported in face detection; keep face clearly visible with proper lighting.",
   "Questions will open only after face verification is complete.",
   "Keep saving answers for each question. Unsaved answers may be missed during submission.",
   "Your attempt will be automatically submitted when the exam duration ends.",
@@ -126,10 +129,11 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
   const [isFaceChecking, setIsFaceChecking] = useState(false);
   const [isFaceVerified, setIsFaceVerified] = useState(false);
   const [isCameraReady, setIsCameraReady] = useState(false);
+  const [isMobileExamDevice, setIsMobileExamDevice] = useState(false);
   const [faceError, setFaceError] = useState("");
   const [autoSubmitReason, setAutoSubmitReason] = useState("");
+  const [showSubmitPrompt, setShowSubmitPrompt] = useState(false);
   const [lockedQuestionMap, setLockedQuestionMap] = useState({});
-  const [hasOpenExtensionPanel, setHasOpenExtensionPanel] = useState(false);
 
   const videoRef = useRef(null);
   const proctorVideoRef = useRef(null);
@@ -140,7 +144,6 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
   const lastIntegrityViolationAtRef = useRef(0);
   const missingFaceFrameCountRef = useRef(0);
   const isFaceMonitoringUnavailableRef = useRef(false);
-  const examViewportBaselineRef = useRef(0);
 
   const getFullscreenElement = useCallback(
     () =>
@@ -150,22 +153,6 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
       null,
     []
   );
-
-  const enterExamFullscreen = useCallback(async () => {
-    try {
-      const docEl = document.documentElement;
-      const requestFullscreen =
-        docEl?.requestFullscreen ||
-        docEl?.webkitRequestFullscreen ||
-        docEl?.msRequestFullscreen;
-      if (!requestFullscreen) return false;
-      if (getFullscreenElement()) return true;
-      await requestFullscreen.call(docEl);
-      return Boolean(getFullscreenElement());
-    } catch {
-      return false;
-    }
-  }, [getFullscreenElement]);
 
   const exitExamFullscreen = useCallback(async () => {
     try {
@@ -214,14 +201,6 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
     return canvas.toDataURL("image/jpeg", 0.85);
   }, []);
 
-  const hasLikelyOpenExtensionPanel = useCallback(() => {
-    const viewportWidth = window.visualViewport?.width || window.innerWidth || 0;
-    const outerWidth = window.outerWidth || 0;
-    if (!viewportWidth || !outerWidth) return false;
-    const occupiedWidth = outerWidth - viewportWidth;
-    return occupiedWidth >= EXTENSION_PANEL_WIDTH_THRESHOLD;
-  }, []);
-
   const verifyFaceWithBackend = useCallback(
     async ({ imageData, attemptId = "" }) => {
       if (!apiBase || !imageData) {
@@ -246,6 +225,7 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
           reason: String(response.data?.reason || ""),
           facesDetected: Number(response.data?.facesDetected || 0),
           eyesDetected: Number(response.data?.eyesDetected || 0),
+          eyewearDetected: Boolean(response.data?.eyewearDetected),
           gazeVerified: Boolean(response.data?.gazeVerified),
         };
       } catch (error) {
@@ -337,6 +317,7 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
     async (reason = "") => {
       if (!apiBase || !activeAttempt?._id || submitLockRef.current) return;
       submitLockRef.current = true;
+      setShowSubmitPrompt(false);
       if (reason) {
         setAutoSubmitReason(reason);
       }
@@ -548,28 +529,32 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
   }, [exams, resultRouteMatch]);
 
   useEffect(() => {
-    if (!showWorkspace || isAttemptInProgress) return undefined;
-
-    const evaluatePanelState = () => {
-      setHasOpenExtensionPanel(hasLikelyOpenExtensionPanel());
-    };
-
-    evaluatePanelState();
-    const timer = window.setInterval(evaluatePanelState, 800);
-    window.addEventListener("resize", evaluatePanelState);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", evaluatePanelState);
-    }
-
-    return () => {
-      window.clearInterval(timer);
-      window.removeEventListener("resize", evaluatePanelState);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", evaluatePanelState);
+    const detectMobileClient = () => {
+      if (typeof window === "undefined" || typeof navigator === "undefined") {
+        setIsMobileExamDevice(false);
+        return;
       }
-      setHasOpenExtensionPanel(false);
+      const ua = String(navigator.userAgent || "").toLowerCase();
+      const isMobileUserAgent =
+        /(android|iphone|ipod|ipad|mobile|blackberry|iemobile|opera mini|silk|tablet)/i.test(
+          ua
+        );
+      const hasTouchInput =
+        Number(navigator.maxTouchPoints || 0) > 0 || "ontouchstart" in window;
+      const isCompactViewport = window.matchMedia
+        ? window.matchMedia("(max-width: 1024px)").matches
+        : (window.innerWidth || 0) <= 1024;
+      setIsMobileExamDevice(isMobileUserAgent || (hasTouchInput && isCompactViewport));
     };
-  }, [hasLikelyOpenExtensionPanel, isAttemptInProgress, showWorkspace]);
+
+    detectMobileClient();
+    window.addEventListener("resize", detectMobileClient);
+    window.addEventListener("orientationchange", detectMobileClient);
+    return () => {
+      window.removeEventListener("resize", detectMobileClient);
+      window.removeEventListener("orientationchange", detectMobileClient);
+    };
+  }, []);
 
   useEffect(() => {
     if (typeof onExamFocusModeChange === "function") {
@@ -698,26 +683,6 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
   useEffect(() => {
     if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
 
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        handleIntegrityViolation(
-          "Warning 1/2: Tab switch or minimize detected. Next violation will auto-submit your exam.",
-          "Second policy violation detected. Attempt auto-submitted and exam closed."
-        );
-      }
-    };
-
-    const handleWindowBlur = () => {
-      window.setTimeout(() => {
-        if (document.hidden || document.visibilityState !== "visible" || !document.hasFocus()) {
-          handleIntegrityViolation(
-            "Warning 1/2: Tab switch or minimize detected. Next violation will auto-submit your exam.",
-            "Second policy violation detected. Attempt auto-submitted and exam closed."
-          );
-        }
-      }, 80);
-    };
-
     const handlePageHide = () => {
       submitAttemptKeepAlive(activeAttempt._id);
     };
@@ -726,96 +691,14 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
       submitAttemptKeepAlive(activeAttempt._id);
     };
 
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("pagehide", handlePageHide);
     window.addEventListener("beforeunload", handleBeforeUnload);
 
     return () => {
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("blur", handleWindowBlur);
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [
-    activeAttempt?._id,
-    isAttemptInProgress,
-    handleIntegrityViolation,
-    submitAttemptKeepAlive,
-  ]);
-
-  useEffect(() => {
-    if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
-
-    const handleFullscreenExit = () => {
-      if (submitLockRef.current) return;
-      if (!getFullscreenElement()) {
-        handleIntegrityViolation(
-          "Warning 1/2: Fullscreen exited during exam. Next violation will auto-submit your exam.",
-          "Second policy violation detected. Attempt auto-submitted and exam closed."
-        );
-      }
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenExit);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenExit);
-    document.addEventListener("MSFullscreenChange", handleFullscreenExit);
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenExit);
-      document.removeEventListener("webkitfullscreenchange", handleFullscreenExit);
-      document.removeEventListener("MSFullscreenChange", handleFullscreenExit);
-    };
-  }, [
-    activeAttempt?._id,
-    getFullscreenElement,
-    handleIntegrityViolation,
-    isAttemptInProgress,
-  ]);
-
-  useEffect(() => {
-    if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
-
-    if (!examViewportBaselineRef.current) {
-      examViewportBaselineRef.current =
-        window.visualViewport?.width || window.innerWidth || 0;
-    }
-
-    const handleViewportResize = () => {
-      if (submitLockRef.current) return;
-      if (document.hidden || document.visibilityState !== "visible" || !document.hasFocus()) {
-        return;
-      }
-      const currentWidth = window.visualViewport?.width || window.innerWidth || 0;
-      if (!currentWidth) return;
-
-      if (!examViewportBaselineRef.current || currentWidth > examViewportBaselineRef.current) {
-        examViewportBaselineRef.current = currentWidth;
-        return;
-      }
-
-      const widthDrop = examViewportBaselineRef.current - currentWidth;
-      if (widthDrop >= 180) {
-        handleIntegrityViolation(
-          "Warning 1/2: Browser side panel or external activity detected. Next violation will auto-submit your exam.",
-          "Second policy violation detected. Attempt auto-submitted and exam closed."
-        );
-      }
-    };
-
-    window.addEventListener("resize", handleViewportResize);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener("resize", handleViewportResize);
-    }
-
-    return () => {
-      window.removeEventListener("resize", handleViewportResize);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener("resize", handleViewportResize);
-      }
-      examViewportBaselineRef.current = 0;
-    };
-  }, [activeAttempt?._id, handleIntegrityViolation, isAttemptInProgress]);
+  }, [activeAttempt?._id, isAttemptInProgress, submitAttemptKeepAlive]);
 
   useEffect(() => {
     if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
@@ -864,7 +747,7 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
         ) {
           if (!isFaceMonitoringUnavailableRef.current) {
             setAutoSubmitReason(
-              "Automatic face monitoring is unavailable on this browser. Tab and focus integrity checks remain active."
+              "Automatic face monitoring is unavailable on this browser/device."
             );
             isFaceMonitoringUnavailableRef.current = true;
           }
@@ -878,15 +761,16 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
         return;
       }
       if (!effectiveResult.verified) {
-        if (effectiveResult.reason === "EYES_NOT_VISIBLE") {
-          handleAutoOrManualSubmit(
-            "Eyes not visible on screen during exam monitoring. Attempt auto-submitted."
+        const reason = String(effectiveResult.reason || "").toUpperCase();
+        if (reason === "NO_FACE" || reason === "MULTIPLE_FACES") {
+          handleIntegrityViolation(
+            "Warning 1/2: Face movement detected. Keep one face centered in camera.",
+            "Second face movement warning triggered. Attempt auto-submitted."
           );
           return;
         }
-        handleIntegrityViolation(
-          "Warning 1/2: Face not detected clearly. Keep only your face visible in camera.",
-          "Second face verification failure detected. Attempt auto-submitted."
+        setAutoSubmitReason(
+          "Face visibility is low. If wearing glasses, adjust light/angle and keep eyes toward camera."
         );
       }
     };
@@ -907,96 +791,11 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
   }, [
     activeAttempt?._id,
     captureFrameDataUrl,
-    handleAutoOrManualSubmit,
     handleIntegrityViolation,
     isAttemptInProgress,
     verifyFaceWithBrowserDetector,
     verifyFaceWithBackend,
   ]);
-
-  useEffect(() => {
-    if (!isAttemptInProgress || !activeAttempt?._id) return undefined;
-
-    const blockAndWarnForAction = (event, warningText, submitText) => {
-      if (event?.preventDefault) event.preventDefault();
-      if (event?.stopPropagation) event.stopPropagation();
-      if (submitLockRef.current) return false;
-      handleIntegrityViolation(
-        warningText,
-        submitText || "Second policy violation detected. Attempt auto-submitted and exam closed."
-      );
-      return false;
-    };
-
-    const onCopy = (event) =>
-      blockAndWarnForAction(
-        event,
-        "Warning 1/2: Copy action detected during exam. Next violation will auto-submit your exam."
-      );
-
-    const onCut = (event) =>
-      blockAndWarnForAction(
-        event,
-        "Warning 1/2: Cut action detected during exam. Next violation will auto-submit your exam."
-      );
-
-    const onPaste = (event) =>
-      blockAndWarnForAction(
-        event,
-        "Warning 1/2: Paste action detected during exam. Next violation will auto-submit your exam."
-      );
-
-    const onKeyDown = (event) => {
-      const key = String(event?.key || "").toLowerCase();
-      const isModifierCopyCutPaste =
-        (event.ctrlKey || event.metaKey) && ["c", "v", "x"].includes(key);
-      if (isModifierCopyCutPaste) {
-        return blockAndWarnForAction(
-          event,
-          "Warning 1/2: Copy/Paste shortcut detected during exam. Next violation will auto-submit your exam."
-        );
-      }
-
-      const isPrintScreenKey = key === "printscreen" || key === "snapshot";
-      const isMacScreenshotShortcut =
-        event.metaKey && event.shiftKey && ["3", "4", "5"].includes(key);
-      const isCtrlShiftScreenshot =
-        event.ctrlKey && event.shiftKey && key === "s";
-
-      if (isPrintScreenKey || isMacScreenshotShortcut || isCtrlShiftScreenshot) {
-        return blockAndWarnForAction(
-          event,
-          "Warning 1/2: Screenshot shortcut detected during exam. Next violation will auto-submit your exam."
-        );
-      }
-      return undefined;
-    };
-
-    const onKeyUp = (event) => {
-      const key = String(event?.key || "").toLowerCase();
-      if (key === "printscreen" || key === "snapshot") {
-        return blockAndWarnForAction(
-          event,
-          "Warning 1/2: Screenshot key detected during exam. Next violation will auto-submit your exam."
-        );
-      }
-      return undefined;
-    };
-
-    document.addEventListener("copy", onCopy, true);
-    document.addEventListener("cut", onCut, true);
-    document.addEventListener("paste", onPaste, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    document.addEventListener("keyup", onKeyUp, true);
-
-    return () => {
-      document.removeEventListener("copy", onCopy, true);
-      document.removeEventListener("cut", onCut, true);
-      document.removeEventListener("paste", onPaste, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-      document.removeEventListener("keyup", onKeyUp, true);
-    };
-  }, [activeAttempt?._id, handleIntegrityViolation, isAttemptInProgress]);
 
   const resultSummary = useMemo(() => {
     const evaluation = result?.evaluation;
@@ -1070,8 +869,13 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
 
   const openExamWorkspace = (blueprintId) => {
     if (!blueprintId) return;
+    if (isMobileExamDevice) {
+      window.alert(MOBILE_EXAM_BLOCK_MESSAGE);
+      return;
+    }
     dispatch(clearStudentExamResult());
     setAutoSubmitReason("");
+    setShowSubmitPrompt(false);
     setWorkspaceBlueprintId(String(blueprintId));
     setWorkspaceStep("instructions");
     setFaceError("");
@@ -1082,10 +886,8 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
 
   const handleLaunchAttempt = async () => {
     if (!apiBase || !workspaceBlueprintId || !isFaceVerified) return;
-    if (hasLikelyOpenExtensionPanel()) {
-      setFaceError(
-        "Please close your browser extension/side panel before starting the exam."
-      );
+    if (isMobileExamDevice) {
+      setFaceError(MOBILE_EXAM_BLOCK_MESSAGE);
       return;
     }
     if (workspaceScheduleInfo.isBeforeStart) {
@@ -1100,15 +902,6 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
       setFaceError("Your exam has expired.");
       return;
     }
-    const fullscreenReady = await enterExamFullscreen();
-    if (!fullscreenReady) {
-      setFaceError(
-        "Fullscreen permission is required to start exam. Please allow fullscreen and try again."
-      );
-      return;
-    }
-    examViewportBaselineRef.current =
-      window.visualViewport?.width || window.innerWidth || 0;
     setPendingBlueprintId(String(workspaceBlueprintId));
     try {
       await dispatch(
@@ -1130,6 +923,7 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
 
   const closeWorkspace = () => {
     if (isAttemptInProgress) return;
+    setShowSubmitPrompt(false);
     exitExamFullscreen();
     setWorkspaceBlueprintId("");
     setWorkspaceStep("instructions");
@@ -1180,6 +974,8 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
       const nextOpen = getNavigableIndex(boundedQuestionIndex, 1, true);
       if (nextOpen >= 0) {
         dispatch(setStudentExamQuestionIndex(nextOpen));
+      } else {
+        setShowSubmitPrompt(true);
       }
     } catch {
       // Save error is already handled by slice state.
@@ -1188,10 +984,11 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
 
   const handleSubmitAttempt = async () => {
     if (!activeAttempt?._id || !apiBase) return;
-    const confirmed = window.confirm(
-      "Submit exam now? You will not be able to edit answers after submission."
-    );
-    if (!confirmed) return;
+    setShowSubmitPrompt(true);
+  };
+
+  const handleConfirmSubmitAttempt = async () => {
+    if (!activeAttempt?._id || !apiBase) return;
     await handleAutoOrManualSubmit("");
   };
 
@@ -1208,6 +1005,13 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
         <div className="student-exam-banner-error">
           <FiAlertCircle />
           <span>{examsError || startError || saveError || submitError || resultError}</span>
+        </div>
+      )}
+
+      {isMobileExamDevice && (
+        <div className="student-exam-banner-error">
+          <FiAlertCircle />
+          <span>{MOBILE_EXAM_BLOCK_MESSAGE}</span>
         </div>
       )}
 
@@ -1310,26 +1114,21 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                   disabled={
                     workspaceScheduleInfo.isBeforeStart ||
                     workspaceScheduleInfo.isExpired ||
-                    hasOpenExtensionPanel
+                    isMobileExamDevice
                   }
                 >
                   <FiCamera />
                   <span>
-                    {workspaceScheduleInfo.isExpired
+                    {isMobileExamDevice
+                      ? "Desktop Only"
+                      : workspaceScheduleInfo.isExpired
                       ? "Exam Expired"
-                      : hasOpenExtensionPanel
-                      ? "Close Extension Panel First"
                       : workspaceScheduleInfo.isBeforeStart
                       ? "Exam Not Started"
                       : "Proceed to Face Verification"}
                   </span>
                 </button>
               </div>
-              {hasOpenExtensionPanel && (
-                <p className="student-exam-face-error">
-                  Please close your browser extension/side panel before starting the exam.
-                </p>
-              )}
             </div>
           )}
 
@@ -1361,11 +1160,6 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
               </div>
 
               {faceError && <p className="student-exam-face-error">{faceError}</p>}
-              {hasOpenExtensionPanel && (
-                <p className="student-exam-face-error">
-                  Please close your browser extension/side panel before starting the exam.
-                </p>
-              )}
 
               <div className="student-exam-preflight-actions">
                 {!isFaceVerified && (
@@ -1419,9 +1213,9 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                         setIsFaceVerified(false);
                         setFaceError(
                           effectiveResult.reason === "EYES_NOT_VISIBLE"
-                            ? "Eyes are not clearly visible. Look at the screen and keep your eyes visible."
-                            : 
-                          effectiveResult.reason === "MULTIPLE_FACES"
+                            ? "Eyes are not clearly visible. If wearing glasses, adjust light/angle and keep eyes visible."
+                            :
+                            effectiveResult.reason === "MULTIPLE_FACES"
                             ? "Multiple faces detected. Keep only your face in frame."
                             : "Face not detected. Keep your face visible and retry."
                         );
@@ -1441,9 +1235,9 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                   className="student-exam-action primary"
                   onClick={handleLaunchAttempt}
                   disabled={
+                    isMobileExamDevice ||
                     workspaceScheduleInfo.isBeforeStart ||
                     workspaceScheduleInfo.isExpired ||
-                    hasOpenExtensionPanel ||
                     !isFaceVerified ||
                     (startLoadState === ADMIN_LOAD_STATES.PENDING &&
                       String(pendingBlueprintId) === String(workspaceBlueprintId))
@@ -1482,9 +1276,9 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                   <div className="student-exam-integrity-note">
                     <FiShield />
                     <span>
-                      Proctoring is active: tab/minimize, face-check failures, fullscreen exit,
-                      extension side-panel activity, copy/cut/paste, and screenshot attempts
-                      trigger one warning; the second violation auto-submits your exam.
+                      Proctoring is active: keep one face centered in camera. Face movement
+                      triggers warning, and repeated face violations auto-submit the exam.
+                      Closing the tab/window submits your attempt automatically.
                     </span>
                   </div>
 
@@ -1822,9 +1616,11 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                 Number(exam?.attemptsUsed || 0) < Number(exam?.maxAttempts || 10);
               const isAttemptActionAllowed = Boolean(exam?.canAttempt || exam?.hasActiveAttempt);
               const primaryActionDisabled =
-                isStartPending || timeGuardDisabled || !isAttemptActionAllowed;
+                isStartPending || timeGuardDisabled || !isAttemptActionAllowed || isMobileExamDevice;
 
-              const scheduleHint = isExpired
+              const scheduleHint = isMobileExamDevice
+                ? MOBILE_EXAM_BLOCK_MESSAGE
+                : isExpired
                 ? "Your exam has expired."
                 : isBeforeStart
                 ? `Exam starts at ${formatDateTime(exam?.scheduleStart)} (starts in ${formatTimer(
@@ -1838,7 +1634,9 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                 ? `Exam is live. Ends in ${formatTimer(endsInMs)}.`
                 : "";
 
-              const primaryActionLabel = isExpired
+              const primaryActionLabel = isMobileExamDevice
+                ? "Desktop Only"
+                : isExpired
                 ? "Exam Expired"
                 : isBeforeStart
                 ? "Exam Not Started"
@@ -1908,6 +1706,8 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                           color="#ffffff"
                           trackColor="rgba(255,255,255,0.28)"
                         />
+                      ) : isMobileExamDevice ? (
+                        <FiAlertCircle />
                       ) : isExpired || isBeforeStart || !isAttemptActionAllowed ? (
                         <FiClock />
                       ) : exam?.hasActiveAttempt ? (
@@ -2090,6 +1890,48 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
             </>
           )}
         </section>
+      )}
+
+      {showSubmitPrompt && isAttemptInProgress && (
+        <div className="student-submit-popup-overlay" role="presentation">
+          <div
+            className="student-submit-popup-card"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="student-submit-popup-title"
+          >
+            <button
+              type="button"
+              className="student-submit-popup-close"
+              onClick={() => setShowSubmitPrompt(false)}
+              aria-label="Close submit prompt"
+            >
+              <FiX />
+            </button>
+            <h5 id="student-submit-popup-title">Submit assessment?</h5>
+            <p>You have attempted all questions in this assessment.</p>
+            <p>Would you like to submit your answers?</p>
+            <button
+              type="button"
+              className="student-submit-popup-confirm"
+              onClick={handleConfirmSubmitAttempt}
+              disabled={
+                submitLoadState === ADMIN_LOAD_STATES.PENDING ||
+                activeAttempt?.status !== "IN_PROGRESS"
+              }
+            >
+              {submitLoadState === ADMIN_LOAD_STATES.PENDING ? (
+                <ClipLoader
+                  size={14}
+                  color="#ffffff"
+                  trackColor="rgba(255,255,255,0.24)"
+                />
+              ) : (
+                <span>Yes submit</span>
+              )}
+            </button>
+          </div>
+        </div>
       )}
     </section>
   );

@@ -9,20 +9,6 @@ def output(payload):
     sys.stdout.flush()
 
 
-def rect_overlap_ratio(a, b):
-    ax, ay, aw, ah = [int(x) for x in a]
-    bx, by, bw, bh = [int(x) for x in b]
-    inter_x1 = max(ax, bx)
-    inter_y1 = max(ay, by)
-    inter_x2 = min(ax + aw, bx + bw)
-    inter_y2 = min(ay + ah, by + bh)
-    if inter_x2 <= inter_x1 or inter_y2 <= inter_y1:
-        return 0.0
-    inter_area = float((inter_x2 - inter_x1) * (inter_y2 - inter_y1))
-    base_area = float(aw * ah) if aw > 0 and ah > 0 else 1.0
-    return inter_area / base_area
-
-
 def decode_image(image_data):
     if not image_data:
         raise ValueError("imageData is required")
@@ -98,17 +84,11 @@ def main():
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         cascade_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-        eye_cascade_path = cv2.data.haarcascades + "haarcascade_eye_tree_eyeglasses.xml"
+        eye_cascade_glasses_path = cv2.data.haarcascades + "haarcascade_eye_tree_eyeglasses.xml"
+        eye_cascade_plain_path = cv2.data.haarcascades + "haarcascade_eye.xml"
         detector = cv2.CascadeClassifier(cascade_path)
-        eye_detector = cv2.CascadeClassifier(eye_cascade_path)
-        if eye_detector.empty():
-            eye_detector = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_eye.xml")
-        upper_body_detector = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_upperbody.xml"
-        )
-        full_body_detector = cv2.CascadeClassifier(
-            cv2.data.haarcascades + "haarcascade_fullbody.xml"
-        )
+        eye_detector_glasses = cv2.CascadeClassifier(eye_cascade_glasses_path)
+        eye_detector_plain = cv2.CascadeClassifier(eye_cascade_plain_path)
         faces = detector.detectMultiScale(
             gray,
             scaleFactor=1.1,
@@ -118,71 +98,55 @@ def main():
 
         faces_detected = int(len(faces)) if faces is not None else 0
         eyes_detected = 0
+        eyewear_detected = False
         gaze_verified = False
-        objects_detected = 0
 
         if faces_detected == 1:
             x, y, w, h = faces[0]
             face_roi = gray[y : y + h, x : x + w]
-            eyes = eye_detector.detectMultiScale(
-                face_roi,
-                scaleFactor=1.1,
-                minNeighbors=6,
-                minSize=(14, 14),
-            )
 
-            # Count eyes found in the upper face region to reduce false positives.
+            eyes_glasses = []
+            eyes_plain = []
+            if not eye_detector_glasses.empty():
+                eyes_glasses = eye_detector_glasses.detectMultiScale(
+                    face_roi,
+                    scaleFactor=1.1,
+                    minNeighbors=5,
+                    minSize=(12, 12),
+                )
+            if not eye_detector_plain.empty():
+                eyes_plain = eye_detector_plain.detectMultiScale(
+                    face_roi,
+                    scaleFactor=1.1,
+                    minNeighbors=6,
+                    minSize=(12, 12),
+                )
+
+            # Keep eye candidates from upper face only to reduce false positives.
             upper_limit = int(h * 0.7)
-            valid_eyes = []
-            for eye_x, eye_y, eye_w, eye_h in eyes if eyes is not None else []:
+            valid_glasses = []
+            for eye_x, eye_y, eye_w, eye_h in eyes_glasses if eyes_glasses is not None else []:
                 eye_center_y = eye_y + (eye_h // 2)
                 if eye_center_y <= upper_limit:
-                    valid_eyes.append((eye_x, eye_y, eye_w, eye_h))
+                    valid_glasses.append((eye_x, eye_y, eye_w, eye_h))
 
-            eyes_detected = len(valid_eyes)
-            gaze_verified = eyes_detected >= 1
+            valid_plain = []
+            for eye_x, eye_y, eye_w, eye_h in eyes_plain if eyes_plain is not None else []:
+                eye_center_y = eye_y + (eye_h // 2)
+                if eye_center_y <= upper_limit:
+                    valid_plain.append((eye_x, eye_y, eye_w, eye_h))
 
-        body_candidates = []
-        if not upper_body_detector.empty():
-            upper_bodies = upper_body_detector.detectMultiScale(
-                gray,
-                scaleFactor=1.08,
-                minNeighbors=4,
-                minSize=(60, 60),
-            )
-            body_candidates.extend([tuple(map(int, rect)) for rect in upper_bodies] if upper_bodies is not None else [])
+            eyes_detected = max(len(valid_glasses), len(valid_plain))
+            eyewear_detected = len(valid_glasses) > 0 and len(valid_plain) == 0
+            gaze_verified = eyes_detected >= 1 or eyewear_detected
 
-        if not full_body_detector.empty():
-            full_bodies = full_body_detector.detectMultiScale(
-                gray,
-                scaleFactor=1.08,
-                minNeighbors=3,
-                minSize=(60, 120),
-            )
-            body_candidates.extend([tuple(map(int, rect)) for rect in full_bodies] if full_bodies is not None else [])
-
-        if body_candidates:
-            if faces_detected == 1:
-                primary_face = tuple(map(int, faces[0]))
-                filtered = [
-                    rect
-                    for rect in body_candidates
-                    if rect_overlap_ratio(primary_face, rect) < 0.12
-                ]
-                objects_detected = int(len(filtered))
-            else:
-                # When no clear single face exists, any body-like detection is suspicious.
-                objects_detected = int(len(body_candidates))
-
-        verified = faces_detected == 1 and objects_detected == 0
+        verified = faces_detected == 1
         if verified:
             reason = "VERIFIED" if gaze_verified else "VERIFIED_EYE_LOW_CONFIDENCE"
         elif faces_detected == 0:
             reason = "NO_FACE"
         elif faces_detected > 1:
             reason = "MULTIPLE_FACES"
-        elif objects_detected > 0:
-            reason = "OBJECT_DETECTED"
         else:
             reason = "UNKNOWN"
 
@@ -192,8 +156,9 @@ def main():
                 "verified": verified,
                 "facesDetected": faces_detected,
                 "eyesDetected": int(eyes_detected),
+                "eyewearDetected": bool(eyewear_detected),
                 "gazeVerified": bool(gaze_verified),
-                "objectsDetected": int(objects_detected),
+                "objectsDetected": 0,
                 "reason": reason,
             }
         )

@@ -6,6 +6,7 @@ import axios from "../../utils/axiosInstance";
 import toast from "react-hot-toast";
 import { fetchFacultyProfile } from "../../redux/facultyDashboardSlice";
 import "./FacultyEditProfile.css";
+import ClipLoader from "../../Admin/components/ClipLoader";
 
 export default function FacultyEditProfile() {
   const apiBase = useSelector((s) => s.config.apiBase);
@@ -70,6 +71,7 @@ export default function FacultyEditProfile() {
       const msg = err?.response?.data?.message || err.message || "Failed to update profile";
       toast.error(msg);
     }
+  const [loading, setLoading] = useState(false);
   };
 
   return (
@@ -101,6 +103,7 @@ export default function FacultyEditProfile() {
             <strong>{user?.email || "N/A"}</strong>
           </div>
           <div className="faculty-edit-profile-static-item">
+      setLoading(false);
             <span>Designation</span>
             <strong>{roleDetails?.designation || faculty?.designation || "Faculty"}</strong>
           </div>

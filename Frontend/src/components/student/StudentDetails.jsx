@@ -18,7 +18,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from '../../utils/axiosInstance';
 import toast from 'react-hot-toast';
-import { getUser } from '../../redux/userSlice';
+import { setUserData } from '../../redux/userSlice';
 import ClipLoader from '../../Admin/components/ClipLoader';
 import { ADMIN_LOAD_STATES } from '../../Admin/constants/loadStates';
 import { FiCamera, FiTrash2 } from 'react-icons/fi';
@@ -43,7 +43,7 @@ const StudentDetails = ({ studentData }) => {
       return `${baseUrl}${fileUrl}`;
     }
     if (fileName) {
-      if (fileName.startsWith('data:')) return fileName;
+      if (fileName.startsWith('http') || fileName.startsWith('data:')) return fileName;
       return `${baseUrl}/uploads/profile-images/${fileName}`;
     }
     return null;
@@ -113,39 +113,47 @@ const StudentDetails = ({ studentData }) => {
       return;
     }
 
-    // Create preview
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setProfileImage(typeof reader.result === "string" ? reader.result : "");
-    };
-    reader.readAsDataURL(file);
-
-    // Upload to server
     try {
+      const base64Image = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () =>
+          resolve(typeof reader.result === "string" ? reader.result : "");
+        reader.onerror = () => reject(new Error("Failed to read selected image"));
+        reader.readAsDataURL(file);
+      });
+      setProfileImage(base64Image);
+
+      // Upload to server
       setUploadingImage(true);
       setProfileLoadState(ADMIN_LOAD_STATES.PENDING);
-      const formData = new FormData();
-      formData.append('profileImage', file);
-      
-      const uploadUrl = `${apiBase}/user/student/upload-image`;
+      const uploadUrl = `${apiBase}/user/profile-image`;
       console.log("[Student] Uploading to:", uploadUrl);
       
-      const response = await axios.post(
+      const response = await axios.put(
         uploadUrl,
-        formData,
-        {
-          headers: {
-            // Don't set Content-Type manually for FormData - let browser set it with boundary
-          },
-        }
+        { profileImage: base64Image }
       );
       
       // Update current profile image with the new URL
-      const imageUrl = resolveImageUrl(response.data.profileImageUrl, response.data.profileImage);
+      const imageUrl = resolveImageUrl(
+        response.data?.user?.profileImageUrl,
+        response.data?.user?.profileImage || response.data?.profileImage
+      );
       setCurrentProfileImage(imageUrl);
       
-      // Refresh user data to get updated profile image
-      await dispatch(getUser());
+      const updatedUserFromApi = response.data?.user;
+      if (userData?.user) {
+        dispatch(
+          setUserData({
+            ...userData,
+            user: {
+              ...userData.user,
+              ...(updatedUserFromApi || {}),
+              profileImage: updatedUserFromApi?.profileImage || imageUrl || "",
+            },
+          })
+        );
+      }
       setProfileLoadState(ADMIN_LOAD_STATES.SUCCESS);
       
       toast.success('Profile image updated successfully');
@@ -172,7 +180,7 @@ const StudentDetails = ({ studentData }) => {
       setUploadingImage(true);
       setProfileLoadState(ADMIN_LOAD_STATES.PENDING);
       
-      const deleteUrl = `${apiBase}/user/student/delete-image`;
+      const deleteUrl = `${apiBase}/user/profile-image`;
       console.log("[Student] Deleting from:", deleteUrl);
       
       await axios.delete(deleteUrl);
@@ -180,8 +188,18 @@ const StudentDetails = ({ studentData }) => {
       setCurrentProfileImage(null);
       setProfileImage("");
       
-      // Refresh user data to get updated profile image
-      await dispatch(getUser());
+      if (userData?.user) {
+        dispatch(
+          setUserData({
+            ...userData,
+            user: {
+              ...userData.user,
+              profileImage: "",
+              profileImageUrl: "",
+            },
+          })
+        );
+      }
       setProfileLoadState(ADMIN_LOAD_STATES.SUCCESS);
       
       toast.success('Profile image removed successfully');
@@ -256,7 +274,11 @@ const StudentDetails = ({ studentData }) => {
               <img 
                 src={profileImage || currentProfileImage} 
                 alt="Profile" 
-                className="profile-avatar-img" 
+                className="profile-avatar-img"
+                onError={() => {
+                  setCurrentProfileImage(null);
+                  setProfileImage("");
+                }}
               />
             ) : (
               <span className="profile-initial">{getInitial(userData?.user?.name || 'Student')}</span>
@@ -283,6 +305,7 @@ const StudentDetails = ({ studentData }) => {
               </label>
               {(currentProfileImage || profileImage) && (
                 <button 
+                  type="button"
                   className="profile-delete-btn"
                   onClick={handleDeleteProfileImage}
                   disabled={isProfilePending}

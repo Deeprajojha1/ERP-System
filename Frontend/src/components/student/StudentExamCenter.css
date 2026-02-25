@@ -1032,6 +1032,83 @@
   line-height: 1.35;
 }
 
+.student-submit-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 72px 14px;
+}
+
+.student-submit-popup-card {
+  width: min(100%, 420px);
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 22px 18px 18px;
+  position: relative;
+  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.3);
+}
+
+.student-submit-popup-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: #6d5efc;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.student-submit-popup-card h5 {
+  margin: 0 0 12px;
+  color: #0f172a;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.student-submit-popup-card p {
+  margin: 0;
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.6;
+}
+
+.student-submit-popup-card p + p {
+  margin-top: 2px;
+}
+
+.student-submit-popup-confirm {
+  margin-top: 18px;
+  margin-left: auto;
+  border: none;
+  border-radius: 8px;
+  background: #6d5efc;
+  color: #ffffff;
+  padding: 10px 18px;
+  font-size: 16px;
+  font-weight: 700;
+  min-height: 44px;
+  min-width: 120px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.student-submit-popup-confirm:disabled {
+  opacity: 0.75;
+  cursor: not-allowed;
+}
+
 @media (max-width: 980px) {
   .student-exam-attempt-body {
     grid-template-columns: 1fr;
