@@ -19,7 +19,7 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false }) {
       Rooms: "/warden-rooms",
       Students: "/warden-students",
       Outpass: "/warden-outpass",
-      Complaints: "/student-complaints",
+      Complaints: "/warden-complaints",
     };
     return routeMap[itemName] || "/warden-dashboard";
   };

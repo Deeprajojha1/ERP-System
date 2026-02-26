@@ -116,6 +116,7 @@ import {
   deleteLibrarian,
   hardDeleteLibrarian,
 } from "../controllers/librarianController.js";
+import { addWarden } from "../controllers/wardenController.js";
 import { changePassword } from "../controllers/userController.js";
 import { getTeachingLoad } from "../controllers/teachingLoadController.js";
 
@@ -307,6 +308,7 @@ router.post("/librarian", isAdmin, addLibrarian);
 router.put("/librarian/:id", isAdmin, updateLibrarian);
 router.patch("/librarian/:id/delete", isAdmin, deleteLibrarian);
 router.delete("/librarian/:id", isAdmin, hardDeleteLibrarian);
+router.post("/warden", isAdmin, addWarden);
 
 router.get("/library/statistics", getStatistics);
 

@@ -10,6 +10,10 @@ import Dashboard from "./components/pages/Dashboard";
 import FacultyErpDashboard from "./components/faculty/FacultyErpDashboard";
 import FacultyEditProfile from "./components/faculty/FacultyEditProfile";
 import WardenDashboard from "./components/wardenDashboard/WardenDashboard";
+import RoomManagement from "./components/wardenDashboard/RoomManagement";
+import StudentManagement from "./components/wardenDashboard/StudentManagement";
+import OutpassManagement from "./components/wardenDashboard/OutpassManagement";
+import ComplaintManagement from "./components/wardenDashboard/ComplaintManagement";
 import AdminHome from "./Admin/AdminHome";
 import useGetCurrentUser from "./components/customHooks/getCurrentUser";
 import Department from "./Admin/Department";
@@ -261,6 +265,46 @@ function App() {
           element={
             userData?.user?.role === "warden" ? (
               <WardenDashboard />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/warden-rooms/*"
+          element={
+            userData?.user?.role === "warden" ? (
+              <RoomManagement />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/warden-students/*"
+          element={
+            userData?.user?.role === "warden" ? (
+              <StudentManagement />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/warden-outpass/*"
+          element={
+            userData?.user?.role === "warden" ? (
+              <OutpassManagement />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/warden-complaints/*"
+          element={
+            userData?.user?.role === "warden" ? (
+              <ComplaintManagement />
             ) : (
               <Navigate to="/" replace />
             )
