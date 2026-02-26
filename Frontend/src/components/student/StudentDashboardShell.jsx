@@ -10,8 +10,9 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiDollarSign,
-  FiTrendingUp,
+  FiBriefcase,
 } from "react-icons/fi";
+import { FaLinkedin } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 import heroImage from "../../assets/college_47233.jpg";
 import NetworkSpeedBadge from "../common/NetworkSpeedBadge";
@@ -20,8 +21,8 @@ import StudentDetails from "./StudentDetails";
 import AttendanceOverview from "./AttendanceOverview";
 import CoursesDetails from "./CoursesDetails";
 import StudentExamCenter from "./StudentExamCenter";
+import StudentExternalJobs from "./StudentExternalJobs";
 import LinkedinAnalyzer from "./linkedin/LinkedinAnalyzer";
-import StudentIdCardSection from "./StudentIdCardSection";
 import "./StudentDashboardShell.css";
 
 const StudentDashboardShell = ({
@@ -44,7 +45,7 @@ const StudentDashboardShell = ({
     () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true)
   );
   const [isExamFocusMode, setIsExamFocusMode] = useState(false);
-  const [failedAvatarSrc, setFailedAvatarSrc] = useState(null);
+  const [isScrolled, setIsScrolled] = useState(false);
 
   // Keep existing profile image resolution behavior.
   const profileImage = (() => {
@@ -56,12 +57,11 @@ const StudentDashboardShell = ({
       return `${base}${fileUrl}`;
     }
     if (fileName) {
-      if (fileName.startsWith("http") || fileName.startsWith("data:")) return fileName;
+      if (fileName.startsWith("data:")) return fileName;
       return `${base}/uploads/profile-images/${fileName}`;
     }
     return null;
   })();
-  const canRenderAvatar = Boolean(profileImage && failedAvatarSrc !== profileImage);
 
   const studentName =
     resolvedStudentData?.personalInfo?.name ||
@@ -83,6 +83,15 @@ const StudentDashboardShell = ({
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   const currentSection = useMemo(() => {
     const path = location.pathname.toLowerCase();
     if (path.includes("/dashboard/profile")) return "profile";
@@ -90,25 +99,23 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/courses")) return "courses";
     if (path.includes("/dashboard/exams")) return "exams";
     if (path.includes("/dashboard/fees")) return "fees";
-    if (path.includes("/dashboard/id-card")) return "id-card";
-    if (path.includes("/dashboard/linkedin-analyzer")) return "linkedin";
+    if (path.includes("/dashboard/jobs")) return "jobs";
+    if (path.includes("/dashboard/linkedin")) return "linkedin";
     return "home";
   }, [location.pathname]);
 
-  const menuItems = [
+  const dashboardMenuItems = [
     { id: "home", label: "Home", path: "/dashboard", icon: FiHome },
     { id: "profile", label: "Profile", path: "/dashboard/profile", icon: FiUser },
+  ];
+
+  const academicsMenuItems = [
     { id: "attendance", label: "Attendance", path: "/dashboard/attendance", icon: FiActivity },
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
     { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
-    { id: "id-card", label: "ID Card", path: "/dashboard/id-card", icon: FiUser },
-    {
-      id: "linkedin",
-      label: "LinkedIn AI",
-      path: "/dashboard/linkedin-analyzer",
-      icon: FiTrendingUp,
-    },
+    { id: "jobs", label: "Jobs", path: "/dashboard/jobs", icon: FiBriefcase },
+    { id: "linkedin", label: "LinkedIn AI", path: "/dashboard/linkedin", icon: FaLinkedin },
   ];
 
   const userInitials = (studentName || "Student")
@@ -162,6 +169,42 @@ const StudentDashboardShell = ({
     }
   };
 
+  const renderFeeCards = ({
+    wrapperClassName = "student-home-fee-row",
+    cardClassName = "",
+  } = {}) => (
+    <section className={wrapperClassName}>
+      <article className={`student-summary-card student-summary-card--fee-total ${cardClassName}`}>
+        <p>Total Academic Fee</p>
+        <strong>{formatAmount(feeSummary.total)}</strong>
+      </article>
+      <article className={`student-summary-card student-summary-card--fee-paid ${cardClassName}`}>
+        <p>Paid</p>
+        <strong>{formatAmount(feeSummary.paid)}</strong>
+      </article>
+      <article className={`student-summary-card student-summary-card--fee-remaining ${cardClassName}`}>
+        <p>Remaining</p>
+        <strong>{formatAmount(feeSummary.remaining)}</strong>
+      </article>
+    </section>
+  );
+
+  const renderHomeSummaryCards = () => (
+    <section id="overview" className="student-home-summary-stack">
+      {renderFeeCards({ wrapperClassName: "student-home-fee-row" })}
+      <section className="student-home-stats-row">
+        <article className="student-summary-card student-summary-card--courses">
+          <p>Enrolled Courses</p>
+          <strong>{enrolledCoursesCount}</strong>
+        </article>
+        <article className="student-summary-card student-summary-card--sessions">
+          <p>Total Sessions</p>
+          <strong>{totalSessions}</strong>
+        </article>
+      </section>
+    </section>
+  );
+
   const renderHome = () => (
     <div className="student-home-stack">
       <section className="student-home-hero">
@@ -173,21 +216,7 @@ const StudentDashboardShell = ({
           <p>Track your attendance, courses, and fee status from one place.</p>
         </div>
       </section>
-
-      <section className="student-fee-summary">
-        <article className="student-fee-card">
-          <p>Total Academic Fee</p>
-          <strong>{formatAmount(feeSummary.total)}</strong>
-        </article>
-        <article className="student-fee-card">
-          <p>Paid</p>
-          <strong>{formatAmount(feeSummary.paid)}</strong>
-        </article>
-        <article className="student-fee-card">
-          <p>Remaining</p>
-          <strong>{formatAmount(feeSummary.remaining)}</strong>
-        </article>
-      </section>
+      {renderHomeSummaryCards()}
 
       <AttendanceOverview
         overallAttendance={overallAttendance}
@@ -198,13 +227,13 @@ const StudentDashboardShell = ({
   );
 
   const renderDateWiseAttendance = () => (
-    <section className="student-attendance-table-card">
+    <section className="student-attendance-table-card rounded-2xl border border-gray-100 bg-white shadow-md">
       <h3>Date-wise Attendance</h3>
       {dateWiseAttendance.length === 0 ? (
         <p className="student-empty-state">No date-wise attendance data available.</p>
       ) : (
         <div className="student-attendance-table-wrap">
-          <table className="student-attendance-table">
+          <table className="student-attendance-table border-separate [border-spacing:0_0.75rem]">
             <thead>
               <tr>
                 <th>Date</th>
@@ -215,16 +244,31 @@ const StudentDashboardShell = ({
             </thead>
             <tbody>
               {dateWiseAttendance.map((row, idx) => (
-                <tr key={`${row.date}-${row.courseCode}-${idx}`}>
-                  <td>
+                <tr
+                  key={`${row.date}-${row.courseCode}-${idx}`}
+                  className="group transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-sm"
+                >
+                  <td className="rounded-l-xl border-y border-l border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
                     {Number.isNaN(new Date(row.date).getTime())
                       ? "N/A"
                       : new Date(row.date).toLocaleDateString("en-IN")}
                   </td>
-                  <td>{row.courseCode}</td>
-                  <td>{row.courseName}</td>
-                  <td>
-                    <span className={`attendance-chip ${row.status}`}>
+                  <td className="border-y border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
+                    {row.courseCode}
+                  </td>
+                  <td className="border-y border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
+                    {row.courseName}
+                  </td>
+                  <td className="rounded-r-xl border-y border-r border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
+                    <span
+                      className={`inline-flex rounded-lg px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-all duration-200 ease-in-out ${
+                        row.status === "present"
+                          ? "bg-emerald-600 hover:bg-emerald-700"
+                          : row.status === "absent"
+                          ? "bg-red-600 hover:bg-red-700"
+                          : "bg-gray-500 hover:bg-gray-600"
+                      }`}
+                    >
                       {row.status === "present"
                         ? "Present"
                         : row.status === "absent"
@@ -242,21 +286,13 @@ const StudentDashboardShell = ({
   );
 
   const renderFees = () => (
-    <section className="student-fees-page">
-      <h3>Fee Overview</h3>
-      <div className="student-fee-summary">
-        <article className="student-fee-card">
-          <p>Total Academic Fee</p>
-          <strong>{formatAmount(feeSummary.total)}</strong>
-        </article>
-        <article className="student-fee-card">
-          <p>Paid</p>
-          <strong>{formatAmount(feeSummary.paid)}</strong>
-        </article>
-        <article className="student-fee-card">
-          <p>Remaining</p>
-          <strong>{formatAmount(feeSummary.remaining)}</strong>
-        </article>
+    <section className="student-fees-page mt-10 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
+      <h3 className="relative z-10 text-2xl font-semibold text-gray-800">Fee Overview</h3>
+      <div className="relative z-10 mt-6">
+        {renderFeeCards({
+          wrapperClassName: "student-fee-overview-row",
+          cardClassName: "student-summary-card--hoverable",
+        })}
       </div>
     </section>
   );
@@ -283,8 +319,8 @@ const StudentDashboardShell = ({
     if (currentSection === "fees") {
       return renderFees();
     }
-    if (currentSection === "id-card") {
-      return <StudentIdCardSection roleDetails={roleDetails} />;
+    if (currentSection === "jobs") {
+      return <StudentExternalJobs />;
     }
     if (currentSection === "linkedin") {
       return <LinkedinAnalyzer />;
@@ -295,28 +331,41 @@ const StudentDashboardShell = ({
   return (
     <>
       {!isExamFocusMode && (
-        <header className="student-admin-nav">
-          <div className="student-admin-nav-inner">
+        <header
+          className={`student-admin-nav sticky top-0 z-50 h-16 w-full transition-all duration-300 ease-in-out ${
+            isScrolled ? "is-scrolled" : ""
+          }`}
+        >
+          <div
+            className="student-admin-nav-inner student-header-shell h-full"
+          >
             <div className="student-admin-nav-left">
               <div className="student-admin-brand">
-                <PiStudentBold className="icons circle" />
+                <PiStudentBold className="student-admin-brand-icon" />
                 <div className="student-admin-brand-copy">
                   <h1>Student Desk</h1>
-                  <p>HU ERP Portal</p>
+                  <p>HU ERP PORTAL</p>
                 </div>
               </div>
             </div>
 
             <div className="student-admin-nav-right">
               <div className="student-admin-welcome">
-                <span>Welcome, {studentName}</span>
-                <small>{todayLabel}</small>
+                <span className="student-admin-welcome-name">Welcome {studentName}</span>
+                <small className="student-admin-welcome-date">{todayLabel}</small>
               </div>
-              <NetworkSpeedBadge />
-              <AlertNotifications />
-              <button className="student-admin-logout" type="button" onClick={onLogout}>
-                Logout
-              </button>
+              <div className="student-admin-nav-actions">
+                <NetworkSpeedBadge className="student-nav-speed" />
+                <AlertNotifications className="student-nav-alert" />
+                <button
+                  className="student-admin-logout group relative overflow-hidden rounded-lg bg-gray-100 px-4 py-1.5 text-gray-700 shadow-sm transition-all duration-300"
+                  type="button"
+                  onClick={onLogout}
+                >
+                  <span aria-hidden="true" className="student-admin-logout-fill" />
+                  <span className="student-admin-logout-text">Logout</span>
+                </button>
+              </div>
             </div>
           </div>
         </header>
@@ -344,12 +393,11 @@ const StudentDashboardShell = ({
           >
             <div className="student-admin-sidebar-profile">
               <div className="student-admin-sidebar-profile-main">
-                {canRenderAvatar ? (
+                {profileImage ? (
                   <img
                     src={profileImage}
                     alt="Profile"
                     className="student-admin-sidebar-avatar-img"
-                    onError={() => setFailedAvatarSrc(profileImage)}
                   />
                 ) : (
                   <div className="student-admin-sidebar-avatar">{userInitials || "ST"}</div>
@@ -376,7 +424,7 @@ const StudentDashboardShell = ({
 
               <div className="student-admin-sidebar-section">
                 <label className="student-admin-sidebar-label">DASHBOARD</label>
-                {menuItems.slice(0, 2).map((item) => {
+                {dashboardMenuItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <button
@@ -396,7 +444,7 @@ const StudentDashboardShell = ({
 
               <div className="student-admin-sidebar-section">
                 <label className="student-admin-sidebar-label">ACADEMICS</label>
-                {menuItems.slice(2).map((item) => {
+                {academicsMenuItems.map((item) => {
                   const Icon = item.icon;
                   return (
                     <button
@@ -417,44 +465,13 @@ const StudentDashboardShell = ({
           </aside>
         )}
 
-        <main className="student-admin-content">
-          {currentSection === "home" ? (
-            <>
-              {renderContent()}
-              <section id="overview" className="student-admin-stats">
-                <article className="student-admin-stat">
-                  <p>Enrolled Courses</p>
-                  <strong>{enrolledCoursesCount}</strong>
-                </article>
-                <article className="student-admin-stat">
-                  <p>Total Sessions</p>
-                  <strong>{totalSessions}</strong>
-                </article>
-              </section>
-            </>
-          ) : currentSection === "exams" ? (
-            <>{renderContent()}</>
-          ) : (
-            <>
-              <section id="overview" className="student-admin-stats">
-                <article className="student-admin-stat">
-                  <p>Enrolled Courses</p>
-                  <strong>{enrolledCoursesCount}</strong>
-                </article>
-                <article className="student-admin-stat">
-                  <p>Total Sessions</p>
-                  <strong>{totalSessions}</strong>
-                </article>
-              </section>
-              {renderContent()}
-            </>
-          )}
-        </main>
+        <main className="student-admin-content">{renderContent()}</main>
       </div>
     </>
   );
 };
 
 export default StudentDashboardShell;
+
 
 

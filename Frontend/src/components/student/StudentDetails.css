@@ -223,3 +223,112 @@
     gap: 4px;
   }
 }
+
+/* Profile cards: professional colored underline interaction */
+.detail-box {
+  position: relative;
+  overflow: hidden;
+}
+
+.detail-box::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 8px;
+  height: 3px;
+  border-radius: 999px;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.24s ease;
+}
+
+.detail-box.personal-info::after {
+  background: #3b82f6;
+}
+
+.detail-box.guardian-info::after {
+  background: #0ea5a4;
+}
+
+.detail-box.academic-info::after {
+  background: #6366f1;
+}
+
+.detail-box:hover::after,
+.detail-box:active::after,
+.detail-box:focus-within::after {
+  transform: scaleX(1);
+}
+
+/* Match profile card interaction with exam cards (blue border focus effect) */
+.detail-box::after {
+  display: none !important;
+}
+
+.detail-box {
+  transition: border-color 0.22s ease, box-shadow 0.22s ease !important;
+}
+
+.detail-box:hover,
+.detail-box:active,
+.detail-box:focus-within {
+  border-color: #60a5fa !important;
+  border-left-color: #2563eb !important;
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.14), inset 0 -4px 0 #2563eb !important;
+}
+
+/* Email + Course values: prefer 1 line, otherwise clamp to 2 lines */
+.personal-info .info-row:nth-of-type(2) .value,
+.academic-info .info-row:nth-of-type(1) .value {
+  font-size: 0.8rem;
+  line-height: 1.28;
+  overflow-wrap: normal !important;
+  word-break: break-word;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.detail-box {
+  position: relative;
+  overflow: hidden;
+  animation: slideUp 0.4s ease both;
+}
+
+.detail-box::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #2563eb, #3b82f6, transparent);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.detail-box:hover,
+.detail-box:active,
+.detail-box:focus-within {
+  transform: translateY(-4px);
+}
+
+.detail-box:hover::before,
+.detail-box:active::before,
+.detail-box:focus-within::before {
+  opacity: 1;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

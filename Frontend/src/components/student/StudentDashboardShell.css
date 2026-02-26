@@ -605,17 +605,32 @@
   display: grid;
   grid-template-columns: minmax(220px, 340px) minmax(0, 1fr);
   gap: 10px;
-  background: #ffffff;
-  border: 1px solid #d7e2ef;
+  position: relative;
+  isolation: isolate;
+  background: linear-gradient(130deg, #123a8f 0%, #1d4ed8 52%, #2563eb 100%);
+  border: 1px solid #1e40af;
   border-radius: 14px;
   padding: 8px;
-  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 18px 38px rgba(30, 64, 175, 0.28);
+  overflow: hidden;
+}
+
+.student-home-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 82% 18%, rgba(255, 255, 255, 0.24), transparent 44%);
+  z-index: 0;
 }
 
 .student-home-image-wrap {
+  position: relative;
+  z-index: 1;
   border-radius: 12px;
   overflow: hidden;
   min-height: 115px;
+  border: 1px solid rgba(191, 219, 254, 0.65);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.25);
 }
 
 .student-home-image {
@@ -626,19 +641,21 @@
 }
 
 .student-home-hero-copy {
+  position: relative;
+  z-index: 1;
   align-self: center;
 }
 
 .student-home-hero-copy h3 {
   margin: 0 0 4px;
-  color: #0f172a;
+  color: #eff6ff;
   font-size: 20px;
   font-weight: 800;
 }
 
 .student-home-hero-copy p {
   margin: 0;
-  color: #475569;
+  color: #dbeafe;
   line-height: 1.45;
   font-size: 15px;
   max-width: 52ch;
@@ -704,23 +721,28 @@
 
 .student-attendance-table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0 12px;
   min-width: 620px;
 }
 
 .student-attendance-table th,
 .student-attendance-table td {
   text-align: left;
-  padding: 10px 8px;
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: none;
   color: #0f172a;
 }
 
 .student-attendance-table th {
+  padding: 0 8px;
   color: #64748b;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   font-size: 12px;
+}
+
+.student-attendance-table td {
+  padding: 0;
 }
 
 .student-attendance-table .attendance-chip {
@@ -1060,4 +1082,1432 @@
 
 .student-icon.muted {
   color: #94a3b8;
+}
+
+/* Premium light dashboard overrides for student fees experience */
+.student-admin-layout {
+  background: #f9fafb !important;
+  padding-top: 100px !important;
+}
+
+.student-admin-content {
+  background: #f9fafb !important;
+  padding: 24px !important;
+}
+
+.student-home-stack {
+  gap: 24px !important;
+}
+
+.student-admin-sidebar {
+  background: #ffffff !important;
+  border-right: 1px solid #f3f4f6 !important;
+  top: 100px !important;
+  height: calc(100vh - 100px) !important;
+}
+
+.student-admin-sidebar-reopen {
+  top: 100px !important;
+}
+
+.student-admin-nav {
+  background: transparent !important;
+  border-bottom: none !important;
+  box-shadow: none !important;
+  padding: 0 16px !important;
+  height: 80px !important;
+}
+
+.student-admin-nav-inner {
+  padding: 0 32px !important;
+  min-height: 80px !important;
+  gap: 24px !important;
+}
+
+.student-header-shell {
+  background: #ffffff !important;
+  border: 1px solid #f3f4f6 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+  backdrop-filter: blur(0px);
+  -webkit-backdrop-filter: blur(0px);
+}
+
+.student-header-shell.scrolled {
+  background: rgba(255, 255, 255, 0.7) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.12) !important;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.student-admin-nav-right {
+  display: flex !important;
+  align-items: center !important;
+  gap: 24px !important;
+  margin-left: auto !important;
+}
+
+.student-admin-welcome {
+  align-items: flex-start !important;
+  text-align: left !important;
+}
+
+.student-admin-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.student-admin-brand p {
+  margin: 0 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.12em !important;
+  color: #9ca3af !important;
+  text-transform: uppercase !important;
+}
+
+.student-nav-alert .alert-bell-btn {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 9999px !important;
+  background: #f3f4f6 !important;
+  color: #4b5563 !important;
+  border: none !important;
+  padding: 0 !important;
+  transition: all 0.2s ease !important;
+  box-shadow: none !important;
+}
+
+.student-nav-alert .alert-bell-btn:hover {
+  background: #dbeafe !important;
+  color: #2563eb !important;
+  transform: none !important;
+}
+
+.student-nav-alert .alert-badge {
+  animation: none !important;
+}
+
+.student-admin-logout {
+  position: relative !important;
+  overflow: hidden !important;
+  border: none !important;
+  border-radius: 12px !important;
+  background: #f3f4f6 !important;
+  color: #374151 !important;
+  font-weight: 500 !important;
+  transition: all 0.3s ease-out !important;
+}
+
+.student-admin-logout:hover {
+  background: #f3f4f6 !important;
+}
+
+.student-admin-logout-fill {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 100%;
+  background: #ef4444;
+  transition: all 0.3s ease-out;
+  z-index: 0;
+}
+
+.student-admin-logout:hover .student-admin-logout-fill,
+.student-admin-logout:focus-visible .student-admin-logout-fill {
+  width: 100%;
+}
+
+.student-admin-logout-text {
+  position: relative;
+  z-index: 1;
+  display: inline-block;
+  padding: 0;
+  transition: color 0.3s ease-out;
+}
+
+.student-admin-logout:hover .student-admin-logout-text,
+.student-admin-logout:focus-visible .student-admin-logout-text {
+  color: #ffffff;
+}
+
+.student-admin-stats {
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  gap: 40px !important;
+  margin-top: 32px !important;
+  margin-bottom: 0 !important;
+  flex-wrap: wrap !important;
+}
+
+.student-admin-stat {
+  width: 300px !important;
+  border: 1px solid #f3f4f6 !important;
+  border-top: 2px solid #dbeafe !important;
+  border-radius: 16px !important;
+  background: #ffffff !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+  padding: 24px !important;
+  transition: all 0.3s ease-out !important;
+}
+
+.student-admin-stat:hover {
+  transform: translateY(-4px) scale(1.02) !important;
+  box-shadow: 0 20px 28px rgba(15, 23, 42, 0.12) !important;
+}
+
+.student-admin-stat p {
+  margin: 0 !important;
+  font-size: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.08em !important;
+  color: #9ca3af !important;
+  font-weight: 500 !important;
+}
+
+.student-admin-stat strong {
+  margin-top: 8px !important;
+  display: block !important;
+  font-size: 36px !important;
+  line-height: 1 !important;
+  color: #1f2937 !important;
+  font-weight: 600 !important;
+}
+
+.student-fees-page {
+  margin-top: 40px !important;
+}
+
+.student-fee-summary {
+  gap: 24px !important;
+}
+
+@media (max-width: 1023px) {
+  .student-admin-layout {
+    padding-top: 96px !important;
+  }
+
+  .student-admin-nav {
+    height: 80px !important;
+    padding: 0 12px !important;
+  }
+
+  .student-admin-sidebar,
+  .student-admin-sidebar-reopen {
+    top: 96px !important;
+  }
+
+  .student-admin-sidebar {
+    height: calc(100vh - 96px) !important;
+  }
+
+  .student-admin-nav-inner {
+    padding: 0 16px !important;
+  }
+
+  .student-admin-nav-right,
+  .student-admin-nav-actions {
+    gap: 12px !important;
+  }
+}
+
+/* Requested student ERP dashboard layout refinements */
+.student-admin-nav {
+  width: 100% !important;
+  height: 88px !important;
+  padding: 0 !important;
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+}
+
+.student-admin-nav-inner {
+  width: 100% !important;
+  max-width: none !important;
+  min-height: 88px !important;
+  border-radius: 0 !important;
+  padding: 10px 28px 12px !important;
+  align-items: stretch !important;
+  gap: 20px !important;
+}
+
+.student-header-shell,
+.student-header-shell.scrolled {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.student-admin-nav-left {
+  display: flex !important;
+  align-items: flex-end !important;
+  min-width: fit-content !important;
+  padding-bottom: 2px !important;
+}
+
+.student-admin-brand {
+  align-items: flex-end !important;
+  gap: 12px !important;
+}
+
+.student-admin-brand-copy {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  gap: 2px !important;
+}
+
+.student-admin-brand h1 {
+  margin: 0 !important;
+  font-size: 1.24rem !important;
+  font-weight: 600 !important;
+  line-height: 1.05 !important;
+  color: #111827 !important;
+}
+
+.student-admin-brand p {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  line-height: 1.08 !important;
+  text-transform: uppercase !important;
+}
+
+.student-admin-nav-right {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  margin-left: auto !important;
+  gap: 16px !important;
+}
+
+.student-admin-nav-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.student-admin-welcome {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-end !important;
+  text-align: right !important;
+  gap: 4px !important;
+  min-width: 220px;
+}
+
+.student-admin-welcome-name {
+  margin: 0 !important;
+  color: #1f2937 !important;
+  font-size: 0.98rem !important;
+  font-weight: 600 !important;
+  line-height: 1.12 !important;
+}
+
+.student-admin-welcome-date {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 0.8rem !important;
+  font-weight: 500 !important;
+  line-height: 1.05 !important;
+}
+
+.student-home-stack {
+  gap: 20px !important;
+}
+
+.student-home-summary-row {
+  width: 100%;
+  display: grid;
+  justify-content: center;
+  gap: 16px;
+}
+
+.student-home-summary-row--stats {
+  grid-template-columns: repeat(2, minmax(220px, 260px));
+}
+
+.student-home-summary-row--fees {
+  grid-template-columns: repeat(3, minmax(220px, 250px));
+}
+
+.student-summary-card {
+  width: 100%;
+  min-height: 136px;
+  padding: 18px 20px;
+  border: 1px solid #e5e7eb;
+  border-top-width: 3px;
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  transition: none !important;
+}
+
+.student-summary-card p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.student-summary-card strong {
+  margin-top: 10px;
+  color: #111827;
+  font-size: 1.9rem;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.student-summary-card--courses,
+.student-summary-card--sessions {
+  border-top-color: #bfdbfe;
+}
+
+.student-summary-card--fee-total {
+  border-top-color: #bfdbfe;
+}
+
+.student-summary-card--fee-paid {
+  border-top-color: #a7f3d0;
+}
+
+.student-summary-card--fee-remaining {
+  border-top-color: #fde68a;
+}
+
+@media (max-width: 1280px) {
+  .student-home-summary-row--fees {
+    grid-template-columns: repeat(3, minmax(190px, 1fr));
+  }
+
+  .student-summary-card strong {
+    font-size: 1.65rem;
+  }
+}
+
+@media (max-width: 1023px) {
+  .student-admin-nav-inner {
+    min-height: 84px !important;
+    padding: 10px 14px 12px !important;
+  }
+
+  .student-admin-nav-actions {
+    display: flex !important;
+    gap: 8px !important;
+  }
+
+  .student-admin-welcome {
+    display: flex !important;
+    min-width: 0;
+  }
+
+  .student-admin-welcome-name {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 0.88rem !important;
+  }
+
+  .student-admin-welcome-date {
+    font-size: 0.74rem !important;
+  }
+
+  .student-home-summary-row--fees {
+    grid-template-columns: repeat(2, minmax(220px, 260px));
+  }
+}
+
+@media (max-width: 760px) {
+  .student-admin-brand p {
+    display: block !important;
+    font-size: 0.62rem !important;
+  }
+
+  .student-admin-brand h1 {
+    font-size: 1.05rem !important;
+  }
+
+  .student-home-summary-row--stats,
+  .student-home-summary-row--fees {
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+
+  .student-summary-card {
+    min-height: 122px;
+  }
+}
+
+/* Final ERP attendance UI refinements */
+.student-admin-nav {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 50 !important;
+  width: 100% !important;
+  height: 64px !important;
+  min-height: 64px !important;
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+  transition: all 0.3s ease-in-out !important;
+}
+
+.student-admin-nav.is-scrolled {
+  background: rgba(255, 255, 255, 0.9) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.1) !important;
+}
+
+.student-admin-nav-inner {
+  width: 100% !important;
+  min-height: 64px !important;
+  padding: 0 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 16px !important;
+}
+
+.student-header-shell,
+.student-header-shell.scrolled {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.student-admin-layout {
+  padding-top: 0 !important;
+}
+
+.student-admin-content {
+  margin-top: 0 !important;
+  padding: 20px !important;
+}
+
+.student-admin-sidebar {
+  top: 64px !important;
+  height: calc(100vh - 64px) !important;
+}
+
+.student-admin-sidebar-reopen {
+  top: 64px !important;
+}
+
+.student-admin-nav-left {
+  display: flex !important;
+  align-items: center !important;
+}
+
+.student-admin-welcome {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  gap: 2px !important;
+}
+
+.student-admin-welcome-name {
+  margin: 0 !important;
+  color: #1f2937 !important;
+  font-size: 1rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+}
+
+.student-admin-welcome-date {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  line-height: 1.1 !important;
+}
+
+.student-admin-nav-right {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  margin-left: auto !important;
+}
+
+.student-admin-nav-actions {
+  display: flex !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+.student-admin-logout {
+  border-radius: 0.5rem !important;
+  padding: 6px 16px !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+}
+
+.student-home-summary-stack {
+  display: grid;
+  gap: 24px;
+}
+
+.student-home-fee-row,
+.student-fee-overview-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 24px;
+}
+
+.student-home-stats-row {
+  display: flex;
+  justify-content: center;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.student-summary-card {
+  height: 120px !important;
+  padding: 20px !important;
+  border-radius: 16px !important;
+  border: 1px solid #f3f4f6 !important;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+  transition: all 0.2s ease !important;
+}
+
+.student-home-stats-row .student-summary-card {
+  width: min(300px, 100%);
+}
+
+.student-summary-card p {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.student-summary-card strong {
+  margin-top: 8px !important;
+  color: #1f2937 !important;
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  line-height: 1.2 !important;
+}
+
+.student-fees-page .student-summary-card--hoverable {
+  transition: all 0.3s ease-in-out !important;
+}
+
+.student-fees-page .student-summary-card--hoverable:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 20px rgba(15, 23, 42, 0.12) !important;
+}
+
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-total:hover {
+  border-color: #3b82f6 !important;
+  background: #eff6ff !important;
+}
+
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-paid:hover {
+  border-color: #10b981 !important;
+  background: #ecfdf5 !important;
+}
+
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-remaining:hover {
+  border-color: #ef4444 !important;
+  background: #fef2f2 !important;
+}
+
+@media (min-width: 768px) {
+  .student-home-fee-row,
+  .student-fee-overview-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1023px) {
+  .student-admin-nav-inner {
+    padding: 0 16px !important;
+  }
+
+  .student-admin-nav-actions {
+    gap: 10px !important;
+  }
+
+  .student-admin-welcome-name {
+    font-size: 0.95rem !important;
+  }
+
+  .student-admin-welcome-date {
+    font-size: 0.8rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  .student-admin-content {
+    padding: 14px !important;
+  }
+
+  .student-home-stats-row {
+    gap: 16px;
+  }
+
+  .student-home-fee-row,
+  .student-home-summary-stack {
+    gap: 16px;
+  }
+
+  .student-summary-card {
+    height: 120px !important;
+    padding: 16px !important;
+  }
+}
+
+/* Header visual match with provided reference */
+.student-admin-nav {
+  height: 62px !important;
+  min-height: 62px !important;
+  background: rgba(249, 244, 239, 0.82) !important;
+  border-bottom: 1px solid rgba(231, 217, 206, 0.95) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.student-admin-nav.is-scrolled {
+  background: rgba(249, 244, 239, 0.94) !important;
+  border-bottom: 1px solid #e5d8cd !important;
+  box-shadow: 0 3px 10px rgba(15, 23, 42, 0.08) !important;
+}
+
+.student-admin-nav-inner {
+  min-height: 62px !important;
+  padding: 0 20px !important;
+  gap: 18px !important;
+}
+
+.student-admin-brand {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+}
+
+.student-admin-brand-icon {
+  width: 26px;
+  height: 26px;
+  color: #111827;
+  flex-shrink: 0;
+}
+
+.student-admin-brand-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.student-admin-brand-copy h1 {
+  margin: 0;
+  color: #111827;
+  font-size: 1.26rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.student-admin-brand-copy p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.student-admin-nav-right {
+  gap: 16px !important;
+}
+
+.student-admin-welcome {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  text-align: left !important;
+  gap: 2px !important;
+  min-width: 110px;
+}
+
+.student-admin-welcome-label {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 0.72rem !important;
+  font-weight: 500 !important;
+  line-height: 1.1 !important;
+}
+
+.student-admin-welcome-name {
+  margin: 0 !important;
+  color: #111827 !important;
+  font-size: 1.05rem !important;
+  font-weight: 600 !important;
+  line-height: 1.1 !important;
+}
+
+.student-admin-welcome-date {
+  margin: 0 !important;
+  color: #6b7280 !important;
+  font-size: 0.74rem !important;
+  font-weight: 500 !important;
+  line-height: 1.1 !important;
+}
+
+.student-admin-nav-actions {
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.student-nav-speed {
+  border: 1px solid #f3d4bc !important;
+  background: #fff2e8 !important;
+  color: #b45309 !important;
+  border-radius: 9999px !important;
+  padding: 6px 12px !important;
+  font-size: 0.74rem !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05) !important;
+  transition: all 0.2s ease !important;
+}
+
+.student-nav-speed:hover {
+  background: #fde9d8 !important;
+  border-color: #efc5a5 !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.1) !important;
+}
+
+.student-nav-alert .alert-bell-btn {
+  width: 38px !important;
+  height: 38px !important;
+  border-radius: 10px !important;
+  border: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+  color: #4b5563 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+  transition: all 0.2s ease !important;
+}
+
+.student-nav-alert .alert-bell-btn:hover {
+  background: #f8fafc !important;
+  border-color: #d1d5db !important;
+  color: #111827 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.12) !important;
+}
+
+.student-admin-logout {
+  border: 1px solid #e5e7eb !important;
+  background: #ffffff !important;
+  color: #111827 !important;
+  border-radius: 10px !important;
+  padding: 8px 16px !important;
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  line-height: 1 !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06) !important;
+  transition: all 0.22s ease !important;
+}
+
+.student-admin-logout:hover {
+  background: #111827 !important;
+  border-color: #111827 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.16) !important;
+}
+
+.student-admin-logout-fill {
+  display: none !important;
+}
+
+.student-admin-logout-text {
+  color: inherit !important;
+}
+
+@media (max-width: 1023px) {
+  .student-admin-nav {
+    height: 58px !important;
+    min-height: 58px !important;
+  }
+
+  .student-admin-nav-inner {
+    min-height: 58px !important;
+    padding: 0 14px !important;
+  }
+
+  .student-admin-brand-copy h1 {
+    font-size: 1.04rem;
+  }
+
+  .student-admin-brand-copy p {
+    font-size: 0.64rem;
+  }
+
+  .student-admin-welcome {
+    display: none !important;
+  }
+}
+
+/* Header stability override */
+.student-admin-nav {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  z-index: 60 !important;
+  background: rgba(255, 255, 255, 0.62) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.42) !important;
+  backdrop-filter: blur(12px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(120%) !important;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.08) !important;
+}
+
+.student-admin-nav.is-scrolled {
+  background: rgba(255, 255, 255, 0.88) !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  backdrop-filter: blur(16px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(16px) saturate(130%) !important;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.11) !important;
+}
+
+.student-admin-layout {
+  padding-top: 72px !important;
+}
+
+.student-admin-layout.exam-focus-mode {
+  padding-top: 0 !important;
+}
+
+.student-admin-sidebar {
+  top: 72px !important;
+  height: calc(100vh - 72px) !important;
+}
+
+.student-admin-sidebar-reopen {
+  top: 72px !important;
+}
+
+@media (max-width: 1023px) {
+  .student-admin-layout {
+    padding-top: 64px !important;
+  }
+
+  .student-admin-sidebar,
+  .student-admin-sidebar-reopen {
+    top: 58px !important;
+  }
+
+  .student-admin-sidebar {
+    height: calc(100vh - 58px) !important;
+  }
+}
+
+/* Sidebar glassmorphism (professional blue) */
+.student-admin-sidebar {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.54) 0%, rgba(244, 249, 255, 0.48) 100%) !important;
+  border-right: 1px solid rgba(148, 163, 184, 0.3) !important;
+  box-shadow: 14px 0 34px rgba(15, 23, 42, 0.12) !important;
+  backdrop-filter: blur(18px) saturate(138%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(138%) !important;
+  overflow: hidden !important;
+}
+
+.student-admin-sidebar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(420px 260px at 8% 12%, rgba(59, 130, 246, 0.17), transparent 74%),
+    radial-gradient(340px 220px at 0% 82%, rgba(14, 165, 233, 0.11), transparent 76%),
+    linear-gradient(180deg, rgba(239, 246, 255, 0.62) 0%, rgba(248, 250, 252, 0.36) 100%);
+  pointer-events: none;
+}
+
+.student-admin-sidebar > * {
+  position: relative;
+  z-index: 1;
+}
+
+.student-admin-sidebar-profile {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.28) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42) 0%, rgba(255, 255, 255, 0.22) 100%) !important;
+}
+
+.student-admin-sidebar-profile-copy h2 {
+  color: #1e293b !important;
+  font-weight: 700 !important;
+}
+
+.student-admin-sidebar-profile-copy p {
+  color: #64748b !important;
+}
+
+.student-admin-sidebar-avatar,
+.student-admin-sidebar-avatar-img {
+  border: 2px solid rgba(147, 197, 253, 0.52) !important;
+  box-shadow: 0 6px 14px rgba(30, 64, 175, 0.16) !important;
+}
+
+.student-admin-sidebar-toggle,
+.student-admin-sidebar-reopen {
+  border: 1px solid rgba(148, 163, 184, 0.42) !important;
+  background: rgba(255, 255, 255, 0.74) !important;
+  color: #334155 !important;
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.08) !important;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease !important;
+}
+
+.student-admin-sidebar-toggle:hover,
+.student-admin-sidebar-reopen:hover {
+  transform: translateY(-1px);
+  border-color: rgba(59, 130, 246, 0.58) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 8px 14px rgba(37, 99, 235, 0.16) !important;
+}
+
+.student-admin-sidebar-menu-scroll {
+  padding-top: 6px !important;
+}
+
+.student-admin-sidebar-title,
+.student-admin-sidebar-label {
+  color: #64748b !important;
+}
+
+.student-admin-sidebar-title {
+  font-weight: 600 !important;
+}
+
+.student-admin-sidebar-label {
+  letter-spacing: 0.12em !important;
+  font-weight: 700 !important;
+}
+
+.student-admin-sidebar-btn {
+  position: relative !important;
+  isolation: isolate;
+  overflow: hidden;
+  color: #334155 !important;
+  border: 1px solid transparent !important;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.1)) !important;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease !important;
+}
+
+.student-admin-sidebar-btn::before {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #2563eb, #60a5fa);
+  opacity: 0;
+  transform: scaleY(0.45);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.student-admin-sidebar-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.12), rgba(37, 99, 235, 0));
+  opacity: 0;
+  transition: opacity 0.22s ease;
+  z-index: 0;
+}
+
+.student-admin-sidebar-btn svg,
+.student-admin-sidebar-btn span {
+  position: relative;
+  z-index: 1;
+}
+
+.student-admin-sidebar-btn svg {
+  color: #475569 !important;
+  transition: color 0.2s ease, transform 0.2s ease !important;
+}
+
+.student-admin-sidebar-btn:hover {
+  background: linear-gradient(135deg, rgba(219, 234, 254, 0.92), rgba(191, 219, 254, 0.58)) !important;
+  border-color: rgba(96, 165, 250, 0.56) !important;
+  color: #0f172a !important;
+  transform: translateX(2px);
+  box-shadow: 0 8px 16px rgba(37, 99, 235, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.72) !important;
+}
+
+.student-admin-sidebar-btn:hover::before {
+  opacity: 0.92;
+  transform: scaleY(1);
+}
+
+.student-admin-sidebar-btn:hover::after {
+  opacity: 1;
+}
+
+.student-admin-sidebar-btn:hover svg {
+  color: #1d4ed8 !important;
+  transform: translateX(1px);
+}
+
+.student-admin-sidebar-btn:focus-visible {
+  outline: none !important;
+  border-color: rgba(37, 99, 235, 0.7) !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2), 0 8px 16px rgba(37, 99, 235, 0.14) !important;
+}
+
+.student-admin-sidebar-btn:active {
+  transform: translateX(1px) scale(0.995);
+  box-shadow: inset 0 2px 8px rgba(30, 64, 175, 0.16) !important;
+}
+
+.student-admin-sidebar-btn.active {
+  background: linear-gradient(135deg, rgba(191, 219, 254, 0.98), rgba(219, 234, 254, 0.82)) !important;
+  border-color: rgba(37, 99, 235, 0.5) !important;
+  color: #1d4ed8 !important;
+  transform: translateX(3px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.84), inset 0 -3px 0 rgba(37, 99, 235, 0.36) !important;
+}
+
+.student-admin-sidebar-btn.active::before,
+.student-admin-sidebar-btn.active::after {
+  opacity: 1;
+}
+
+.student-admin-sidebar-btn.active::before {
+  transform: scaleY(1);
+}
+
+.student-admin-sidebar-btn.active svg {
+  color: #1d4ed8 !important;
+  transform: none;
+}
+
+.student-admin-sidebar-btn.active span {
+  font-weight: 700 !important;
+}
+
+@media (max-width: 1023px) {
+  .student-admin-sidebar-btn:hover {
+    transform: none;
+  }
+
+  .student-admin-sidebar-btn:active {
+    transform: scale(0.995);
+  }
+}
+
+/* Full-page glassmorphism + blue ambient background */
+.student-admin-layout {
+  position: relative !important;
+  background:
+    radial-gradient(860px 520px at 8% 12%, rgba(59, 130, 246, 0.2), transparent 68%),
+    radial-gradient(820px 500px at 94% 24%, rgba(14, 165, 233, 0.14), transparent 70%),
+    linear-gradient(180deg, #f3f8ff 0%, #edf4ff 48%, #f5f9ff 100%) !important;
+  overflow: hidden !important;
+}
+
+.student-admin-layout::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    repeating-linear-gradient(
+      0deg,
+      rgba(255, 255, 255, 0.18) 0px,
+      rgba(255, 255, 255, 0.18) 1px,
+      transparent 1px,
+      transparent 40px
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+.student-admin-content {
+  position: relative;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.26) !important;
+  backdrop-filter: blur(12px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(120%) !important;
+}
+
+@media (max-width: 1023px) {
+  .student-admin-layout {
+    background:
+      radial-gradient(620px 420px at 6% 12%, rgba(59, 130, 246, 0.18), transparent 68%),
+      radial-gradient(560px 360px at 96% 32%, rgba(14, 165, 233, 0.12), transparent 72%),
+      linear-gradient(180deg, #f4f8ff 0%, #edf3ff 52%, #f7faff 100%) !important;
+  }
+
+  .student-admin-content {
+    background: rgba(255, 255, 255, 0.32) !important;
+  }
+}
+
+/* Requested refinement pass: cards + header + actions */
+.student-admin-nav.is-scrolled {
+  background: rgba(255, 255, 255, 0.5) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(18px) saturate(135%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(135%) !important;
+}
+
+.student-admin-welcome {
+  gap: 3px !important;
+}
+
+.student-admin-welcome-name {
+  font-size: 0.98rem !important;
+  font-weight: 600 !important;
+  line-height: 1.1 !important;
+}
+
+.student-admin-welcome-date {
+  font-size: 0.76rem !important;
+  line-height: 1.05 !important;
+}
+
+.student-admin-logout:hover {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 8px 16px rgba(220, 38, 38, 0.28) !important;
+}
+
+.student-home-fee-row,
+.student-fee-overview-row {
+  justify-content: center;
+  gap: 20px;
+}
+
+@media (min-width: 768px) {
+  .student-home-fee-row,
+  .student-fee-overview-row {
+    grid-template-columns: repeat(3, minmax(230px, 290px));
+  }
+}
+
+.student-home-stats-row .student-summary-card {
+  width: min(270px, 100%);
+}
+
+.student-summary-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.student-summary-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: #cbd5e1;
+}
+
+.student-summary-card--fee-total::before,
+.student-summary-card--courses::before {
+  background: #60a5fa;
+}
+
+.student-summary-card--fee-paid::before {
+  background: #34d399;
+}
+
+.student-summary-card--fee-remaining::before {
+  background: #f87171;
+}
+
+.student-summary-card--sessions::before {
+  background: #94a3b8;
+}
+
+/* Final size tuning for 5 summary cards */
+.student-home-fee-row,
+.student-fee-overview-row {
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .student-home-fee-row,
+  .student-fee-overview-row {
+    grid-template-columns: repeat(3, minmax(200px, 248px));
+  }
+}
+
+.student-home-stats-row {
+  gap: 16px;
+}
+
+.student-home-stats-row .student-summary-card {
+  width: min(236px, 100%);
+}
+
+.student-summary-card {
+  height: 106px !important;
+  min-height: 106px !important;
+  padding: 14px !important;
+  border-radius: 14px !important;
+}
+
+.student-summary-card p {
+  font-size: 0.96rem !important;
+  font-weight: 600 !important;
+}
+
+.student-summary-card strong {
+  margin-top: 6px !important;
+  font-size: 1.45rem !important;
+}
+
+@media (max-width: 640px) {
+  .student-home-fee-row,
+  .student-home-summary-stack,
+  .student-home-stats-row {
+    gap: 12px;
+  }
+
+  .student-summary-card {
+    height: 100px !important;
+    min-height: 100px !important;
+    padding: 12px !important;
+  }
+}
+
+/* Fees cards: full color fill hover with high-contrast text */
+.student-fees-page .student-summary-card--hoverable {
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out, border-color 0.3s ease-in-out, background-color 0.3s ease-in-out !important;
+}
+
+.student-fees-page .student-summary-card--hoverable:hover,
+.student-fees-page .student-summary-card--hoverable:active,
+.student-fees-page .student-summary-card--hoverable:focus-within {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 24px rgba(15, 23, 42, 0.16) !important;
+}
+
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-total:hover,
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-total:active,
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-total:focus-within {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+}
+
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-paid:hover,
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-paid:active,
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-paid:focus-within {
+  background: #059669 !important;
+  border-color: #059669 !important;
+}
+
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-remaining:hover,
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-remaining:active,
+.student-fees-page .student-summary-card--hoverable.student-summary-card--fee-remaining:focus-within {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+}
+
+.student-fees-page .student-summary-card--hoverable:hover p,
+.student-fees-page .student-summary-card--hoverable:hover strong,
+.student-fees-page .student-summary-card--hoverable:active p,
+.student-fees-page .student-summary-card--hoverable:active strong,
+.student-fees-page .student-summary-card--hoverable:focus-within p,
+.student-fees-page .student-summary-card--hoverable:focus-within strong {
+  color: #ffffff !important;
+}
+
+/* Mobile card alignment + aspect ratio fix (keeps laptop layout unchanged) */
+@media (max-width: 767px) {
+  .student-home-summary-stack {
+    gap: 12px !important;
+  }
+
+  .student-home-fee-row {
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    justify-items: stretch !important;
+  }
+
+  .student-home-stats-row {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+    justify-content: stretch !important;
+  }
+
+  .student-home-stats-row .student-summary-card,
+  .student-home-fee-row .student-summary-card {
+    width: 100% !important;
+    max-width: none !important;
+    height: 92px !important;
+    min-height: 92px !important;
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+  }
+
+  .student-summary-card p {
+    font-size: 0.84rem !important;
+    line-height: 1.2 !important;
+  }
+
+  .student-summary-card strong {
+    margin-top: 4px !important;
+    font-size: 1.22rem !important;
+    line-height: 1.1 !important;
+  }
+}
+
+/* Subtle pop-up effect for the 5 home summary cards */
+.student-home-fee-row .student-summary-card,
+.student-home-stats-row .student-summary-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease !important;
+  animation: slideUp 0.4s ease both;
+}
+
+.student-home-fee-row .student-summary-card:hover,
+.student-home-stats-row .student-summary-card:hover {
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 12px 22px rgba(15, 23, 42, 0.14) !important;
+}
+
+.student-home-fee-row .student-summary-card:active,
+.student-home-stats-row .student-summary-card:active {
+  transform: translateY(-1px) scale(1.005);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

@@ -105,6 +105,9 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
     return "Academic details unavailable";
   }, [coursesData, roleDetails]);
 
+  const cardFxClass =
+    "group relative overflow-hidden rounded-2xl shadow-md transition-all duration-300 ease-in-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl before:absolute before:inset-0 before:bg-gradient-to-r before:from-white/40 before:to-transparent before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100";
+
   const filteredCourses = useMemo(() => {
     const query = searchValue.trim().toLowerCase();
     if (!query) return resolvedCourses;
@@ -519,20 +522,41 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
           <p className="no-courses">No matching course found.</p>
         ) : (
           filteredCourses.map((course) => (
-            <article key={course.id} className="course-card">
+            <article
+              key={course.id}
+              className={`course-card ${cardFxClass} !border-gray-200 !bg-white hover:!border-blue-400`}
+            >
               <div className="course-head-row">
                 <div>
-                  <h4>{course.courseName}</h4>
+                  <h4 className="relative z-10 !text-lg !font-semibold !text-gray-900">
+                    {course.courseName}
+                  </h4>
                   <p className="course-code">{course.courseCode}</p>
                 </div>
-                <span className="course-status-chip">{course.status}</span>
+                <span className="course-status-chip !bg-gray-100 !text-gray-600 !border-gray-200">
+                  {course.status}
+                </span>
               </div>
 
-              <div className="course-badges">
-                <span>{course.courseCode}</span>
-                <span>{course.semester}</span>
-                <span>{course.credits}</span>
-                <span>{course.courseType}</span>
+              <div className="course-badges relative z-10">
+                {[course.courseCode, course.semester, course.credits, course.courseType].map(
+                  (badge, index) => {
+                    const text = String(badge || "N/A");
+                    const isCreditsBadge = /credit/i.test(text);
+                    const isNaBadge = text.toUpperCase() === "N/A";
+                    const badgeClass = isCreditsBadge
+                      ? "rounded-full !bg-emerald-100 px-3 py-1 text-sm !text-emerald-700"
+                      : isNaBadge
+                      ? "rounded-full !bg-gray-100 px-3 py-1 text-sm !text-gray-600"
+                      : "rounded-full !bg-blue-100 px-3 py-1 text-sm !text-blue-700";
+
+                    return (
+                      <span key={`${course.id}-badge-${index}`} className={badgeClass}>
+                        {text}
+                      </span>
+                    );
+                  }
+                )}
               </div>
 
               <p className="course-faculty">Faculty: {course.faculty}</p>
@@ -551,7 +575,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
               <div className="course-actions">
                 <button
                   type="button"
-                  className="course-btn course-btn-primary"
+                  className="course-btn course-btn-primary rounded-lg !bg-blue-600 text-white transition-all duration-300 hover:!bg-blue-700"
                   onClick={() => {
                     setActiveCourseDetail(course);
                     setActiveAssignmentCourse(null);
@@ -561,7 +585,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
                 </button>
                 <button
                   type="button"
-                  className="course-btn course-btn-muted"
+                  className="course-btn course-btn-muted rounded-lg !bg-gray-100 !text-gray-800 transition-all duration-300 hover:!bg-gray-200"
                   onClick={() => {
                     setActiveAssignmentCourse(course);
                     setSelectedStatus("pending");

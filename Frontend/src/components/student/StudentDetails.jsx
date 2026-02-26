@@ -18,7 +18,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import axios from '../../utils/axiosInstance';
 import toast from 'react-hot-toast';
-import { setUserData } from '../../redux/userSlice';
+import { getUser } from '../../redux/userSlice';
 import ClipLoader from '../../Admin/components/ClipLoader';
 import { ADMIN_LOAD_STATES } from '../../Admin/constants/loadStates';
 import { FiCamera, FiTrash2 } from 'react-icons/fi';
@@ -43,7 +43,7 @@ const StudentDetails = ({ studentData }) => {
       return `${baseUrl}${fileUrl}`;
     }
     if (fileName) {
-      if (fileName.startsWith('http') || fileName.startsWith('data:')) return fileName;
+      if (fileName.startsWith('data:')) return fileName;
       return `${baseUrl}/uploads/profile-images/${fileName}`;
     }
     return null;
@@ -113,47 +113,39 @@ const StudentDetails = ({ studentData }) => {
       return;
     }
 
-    try {
-      const base64Image = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () =>
-          resolve(typeof reader.result === "string" ? reader.result : "");
-        reader.onerror = () => reject(new Error("Failed to read selected image"));
-        reader.readAsDataURL(file);
-      });
-      setProfileImage(base64Image);
+    // Create preview
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setProfileImage(typeof reader.result === "string" ? reader.result : "");
+    };
+    reader.readAsDataURL(file);
 
-      // Upload to server
+    // Upload to server
+    try {
       setUploadingImage(true);
       setProfileLoadState(ADMIN_LOAD_STATES.PENDING);
-      const uploadUrl = `${apiBase}/user/profile-image`;
+      const formData = new FormData();
+      formData.append('profileImage', file);
+      
+      const uploadUrl = `${apiBase}/user/student/upload-image`;
       console.log("[Student] Uploading to:", uploadUrl);
       
-      const response = await axios.put(
+      const response = await axios.post(
         uploadUrl,
-        { profileImage: base64Image }
+        formData,
+        {
+          headers: {
+            // Don't set Content-Type manually for FormData - let browser set it with boundary
+          },
+        }
       );
       
       // Update current profile image with the new URL
-      const imageUrl = resolveImageUrl(
-        response.data?.user?.profileImageUrl,
-        response.data?.user?.profileImage || response.data?.profileImage
-      );
+      const imageUrl = resolveImageUrl(response.data.profileImageUrl, response.data.profileImage);
       setCurrentProfileImage(imageUrl);
       
-      const updatedUserFromApi = response.data?.user;
-      if (userData?.user) {
-        dispatch(
-          setUserData({
-            ...userData,
-            user: {
-              ...userData.user,
-              ...(updatedUserFromApi || {}),
-              profileImage: updatedUserFromApi?.profileImage || imageUrl || "",
-            },
-          })
-        );
-      }
+      // Refresh user data to get updated profile image
+      await dispatch(getUser());
       setProfileLoadState(ADMIN_LOAD_STATES.SUCCESS);
       
       toast.success('Profile image updated successfully');
@@ -180,7 +172,7 @@ const StudentDetails = ({ studentData }) => {
       setUploadingImage(true);
       setProfileLoadState(ADMIN_LOAD_STATES.PENDING);
       
-      const deleteUrl = `${apiBase}/user/profile-image`;
+      const deleteUrl = `${apiBase}/user/student/delete-image`;
       console.log("[Student] Deleting from:", deleteUrl);
       
       await axios.delete(deleteUrl);
@@ -188,18 +180,8 @@ const StudentDetails = ({ studentData }) => {
       setCurrentProfileImage(null);
       setProfileImage("");
       
-      if (userData?.user) {
-        dispatch(
-          setUserData({
-            ...userData,
-            user: {
-              ...userData.user,
-              profileImage: "",
-              profileImageUrl: "",
-            },
-          })
-        );
-      }
+      // Refresh user data to get updated profile image
+      await dispatch(getUser());
       setProfileLoadState(ADMIN_LOAD_STATES.SUCCESS);
       
       toast.success('Profile image removed successfully');
@@ -241,11 +223,17 @@ const StudentDetails = ({ studentData }) => {
     { label: 'University', value: academicInfo.university },
   ];
 
+  const cardFxClass =
+    "group relative overflow-hidden rounded-2xl shadow-md transition-all duration-300 ease-in-out hover:-translate-y-1 hover:scale-[1.02] hover:shadow-xl before:absolute before:inset-0 before:bg-gradient-to-r before:from-white/40 before:to-transparent before:opacity-0 before:transition-opacity before:duration-300 hover:before:opacity-100";
+  const parentCardClass = "relative overflow-hidden rounded-2xl shadow-md";
+  const subCardHoverClass =
+    "cursor-pointer border border-transparent transition-all duration-300 hover:border-blue-500 hover:ring-2 hover:ring-blue-400/40 hover:shadow-lg";
+
   const renderRows = (rows) =>
     rows.map((row) => (
-      <div className="info-row" key={row.label}>
-        <span className="label">{row.label}</span>
-        <span className="value">{row.value || 'N/A'}</span>
+      <div className="info-row relative z-10" key={row.label}>
+        <span className="label !text-gray-500">{row.label}</span>
+        <span className="value !text-black">{row.value || 'N/A'}</span>
       </div>
     ));
 
@@ -265,7 +253,7 @@ const StudentDetails = ({ studentData }) => {
   }
 
   return (
-    <div className="student-details-container">
+    <div className={`student-details-container !bg-white ${parentCardClass}`}>
       {/* Header with Profile Logo */}
       <div className="student-header">
         <div className="profile-section">
@@ -274,11 +262,7 @@ const StudentDetails = ({ studentData }) => {
               <img 
                 src={profileImage || currentProfileImage} 
                 alt="Profile" 
-                className="profile-avatar-img"
-                onError={() => {
-                  setCurrentProfileImage(null);
-                  setProfileImage("");
-                }}
+                className="profile-avatar-img" 
               />
             ) : (
               <span className="profile-initial">{getInitial(userData?.user?.name || 'Student')}</span>
@@ -305,7 +289,6 @@ const StudentDetails = ({ studentData }) => {
               </label>
               {(currentProfileImage || profileImage) && (
                 <button 
-                  type="button"
                   className="profile-delete-btn"
                   onClick={handleDeleteProfileImage}
                   disabled={isProfilePending}
@@ -334,20 +317,26 @@ const StudentDetails = ({ studentData }) => {
       {/* Details Grid */}
       <div className="details-grid">
         {/* Personal Information Box */}
-        <div className="detail-box personal-info">
-          <h3>Personal Information</h3>
+        <div
+          className={`detail-box personal-info border-l-4 border-blue-500 !bg-blue-50 ${cardFxClass} ${subCardHoverClass}`}
+        >
+          <h3 className="relative z-10 font-semibold !text-gray-900">Personal Information</h3>
           {renderRows(personalRows)}
         </div>
 
         {/* Guardian Information Box */}
-        <div className="detail-box guardian-info">
-          <h3>Guardian Contact</h3>
+        <div
+          className={`detail-box guardian-info border-l-4 border-teal-500 !bg-teal-50 ${cardFxClass} ${subCardHoverClass}`}
+        >
+          <h3 className="relative z-10 font-semibold !text-gray-900">Guardian Contact</h3>
           {renderRows(guardianRows)}
         </div>
 
         {/* Academic Information Box */}
-        <div className="detail-box academic-info">
-          <h3>Academic Information</h3>
+        <div
+          className={`detail-box academic-info border-l-4 border-violet-500 !bg-violet-50 ${cardFxClass} ${subCardHoverClass}`}
+        >
+          <h3 className="relative z-10 font-semibold !text-gray-900">Academic Information</h3>
           {renderRows(academicRows)}
         </div>
       </div>

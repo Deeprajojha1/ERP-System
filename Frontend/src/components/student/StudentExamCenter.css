@@ -1032,83 +1032,6 @@
   line-height: 1.35;
 }
 
-.student-submit-popup-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 1300;
-  background: rgba(15, 23, 42, 0.55);
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  padding: 72px 14px;
-}
-
-.student-submit-popup-card {
-  width: min(100%, 420px);
-  border-radius: 12px;
-  background: #ffffff;
-  padding: 22px 18px 18px;
-  position: relative;
-  box-shadow: 0 20px 44px rgba(15, 23, 42, 0.3);
-}
-
-.student-submit-popup-close {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 999px;
-  background: transparent;
-  color: #6d5efc;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.student-submit-popup-card h5 {
-  margin: 0 0 12px;
-  color: #0f172a;
-  font-size: 22px;
-  font-weight: 700;
-}
-
-.student-submit-popup-card p {
-  margin: 0;
-  color: #475569;
-  font-size: 16px;
-  line-height: 1.6;
-}
-
-.student-submit-popup-card p + p {
-  margin-top: 2px;
-}
-
-.student-submit-popup-confirm {
-  margin-top: 18px;
-  margin-left: auto;
-  border: none;
-  border-radius: 8px;
-  background: #6d5efc;
-  color: #ffffff;
-  padding: 10px 18px;
-  font-size: 16px;
-  font-weight: 700;
-  min-height: 44px;
-  min-width: 120px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-.student-submit-popup-confirm:disabled {
-  opacity: 0.75;
-  cursor: not-allowed;
-}
-
 @media (max-width: 980px) {
   .student-exam-attempt-body {
     grid-template-columns: 1fr;
@@ -1156,5 +1079,140 @@
 
   .student-question-btn.submit {
     margin-left: 0;
+  }
+}
+
+/* Exam cards: blue border interaction on hover/touch/focus */
+.student-exam-card {
+  transition: border-color 0.22s ease, box-shadow 0.22s ease !important;
+}
+
+.student-exam-card:hover,
+.student-exam-card:active,
+.student-exam-card:focus-within {
+  border-color: #60a5fa !important;
+  border-left-color: #2563eb !important;
+  transform: translateY(-4px);
+  box-shadow: 0 12px 22px rgba(37, 99, 235, 0.14), inset 0 -4px 0 #2563eb !important;
+}
+
+.student-exam-card,
+.student-exam-empty-card,
+.student-exam-loading-card,
+.student-exam-attempt-results-page,
+.student-exam-workspace,
+.student-exam-attempt-panel,
+.student-exam-result-panel,
+.student-exam-result-cards article,
+.student-exam-overview-score-card,
+.student-exam-overview-breakdown,
+.student-exam-overview-chart {
+  position: relative;
+  overflow: hidden;
+  animation: slideUp 0.4s ease both;
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease !important;
+}
+
+.student-exam-card::before,
+.student-exam-empty-card::before,
+.student-exam-loading-card::before,
+.student-exam-attempt-results-page::before,
+.student-exam-workspace::before,
+.student-exam-attempt-panel::before,
+.student-exam-result-panel::before,
+.student-exam-result-cards article::before,
+.student-exam-overview-score-card::before,
+.student-exam-overview-breakdown::before,
+.student-exam-overview-chart::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #2563eb, #3b82f6, transparent);
+  opacity: 0;
+  transition: opacity 0.22s ease;
+}
+
+.student-exam-empty-card:hover,
+.student-exam-loading-card:hover,
+.student-exam-attempt-results-page:hover,
+.student-exam-workspace:hover,
+.student-exam-attempt-panel:hover,
+.student-exam-result-panel:hover,
+.student-exam-result-cards article:hover,
+.student-exam-overview-score-card:hover,
+.student-exam-overview-breakdown:hover,
+.student-exam-overview-chart:hover,
+.student-exam-empty-card:active,
+.student-exam-loading-card:active,
+.student-exam-attempt-results-page:active,
+.student-exam-workspace:active,
+.student-exam-attempt-panel:active,
+.student-exam-result-panel:active,
+.student-exam-result-cards article:active,
+.student-exam-overview-score-card:active,
+.student-exam-overview-breakdown:active,
+.student-exam-overview-chart:active,
+.student-exam-empty-card:focus-within,
+.student-exam-loading-card:focus-within,
+.student-exam-attempt-results-page:focus-within,
+.student-exam-workspace:focus-within,
+.student-exam-attempt-panel:focus-within,
+.student-exam-result-panel:focus-within,
+.student-exam-result-cards article:focus-within,
+.student-exam-overview-score-card:focus-within,
+.student-exam-overview-breakdown:focus-within,
+.student-exam-overview-chart:focus-within {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 32px rgba(37, 99, 235, 0.14), 0 2px 8px rgba(37, 99, 235, 0.08), inset 0 -4px 0 #2563eb !important;
+  border-color: rgba(37, 99, 235, 0.22) !important;
+}
+
+.student-exam-card:hover::before,
+.student-exam-empty-card:hover::before,
+.student-exam-loading-card:hover::before,
+.student-exam-attempt-results-page:hover::before,
+.student-exam-workspace:hover::before,
+.student-exam-attempt-panel:hover::before,
+.student-exam-result-panel:hover::before,
+.student-exam-result-cards article:hover::before,
+.student-exam-overview-score-card:hover::before,
+.student-exam-overview-breakdown:hover::before,
+.student-exam-overview-chart:hover::before,
+.student-exam-card:active::before,
+.student-exam-empty-card:active::before,
+.student-exam-loading-card:active::before,
+.student-exam-attempt-results-page:active::before,
+.student-exam-workspace:active::before,
+.student-exam-attempt-panel:active::before,
+.student-exam-result-panel:active::before,
+.student-exam-result-cards article:active::before,
+.student-exam-overview-score-card:active::before,
+.student-exam-overview-breakdown:active::before,
+.student-exam-overview-chart:active::before,
+.student-exam-card:focus-within::before,
+.student-exam-empty-card:focus-within::before,
+.student-exam-loading-card:focus-within::before,
+.student-exam-attempt-results-page:focus-within::before,
+.student-exam-workspace:focus-within::before,
+.student-exam-attempt-panel:focus-within::before,
+.student-exam-result-panel:focus-within::before,
+.student-exam-result-cards article:focus-within::before,
+.student-exam-overview-score-card:focus-within::before,
+.student-exam-overview-breakdown:focus-within::before,
+.student-exam-overview-chart:focus-within::before {
+  opacity: 1;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
