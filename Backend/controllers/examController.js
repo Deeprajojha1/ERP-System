@@ -1,6 +1,10 @@
 import Exam from "../models/Exam.js";
 import Group from "../models/Group.js";
 import Student from "../models/Student.js";
+import {
+  bumpNamespaceVersion,
+  getOrSetVersionedJsonCache,
+} from "../utils/cacheNamespace.js";
 
 const parseStrengthInput = (strength) => {
   if (strength === undefined || strength === null || strength === "") return null;
@@ -40,6 +44,7 @@ export const getAllExams = async (req, res) => {
       fromDate,
       toDate,
       search,
+      noCache,
     } = req.query;
 
     const query = { isDeleted: { $ne: true } };
@@ -66,18 +71,43 @@ export const getAllExams = async (req, res) => {
       ];
     }
 
-    const exams = await Exam.find(query)
-      .sort({ examDate: 1, startTime: 1 })
-      .populate("department", "name")
-      .populate("course", "code courseName semester")
-      .populate("group", "name")
-      .populate({ path: "invigilators", select: "employeeId", populate: { path: "user", select: "name" } });
+    const queryForKey = {
+      department: department || "",
+      semester: semester || "",
+      course: course || "",
+      group: group || "",
+      status: status || "",
+      examType: examType || "",
+      fromDate: fromDate || "",
+      toDate: toDate || "",
+      search: search || "",
+    };
 
-    return res.json({
-      message: "Exams fetched successfully",
-      count: exams.length,
-      exams,
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "exams",
+      baseKey: `list:${JSON.stringify(queryForKey)}`,
+      noCache: noCache === "true",
+      fetcher: async () => {
+        const exams = await Exam.find(query)
+          .sort({ examDate: 1, startTime: 1 })
+          .populate("department", "name")
+          .populate("course", "code courseName semester")
+          .populate("group", "name")
+          .populate({
+            path: "invigilators",
+            select: "employeeId",
+            populate: { path: "user", select: "name" },
+          });
+
+        return {
+          message: "Exams fetched successfully",
+          count: exams.length,
+          exams,
+        };
+      },
     });
+
+    return res.json(payload);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -87,18 +117,33 @@ export const getAllExams = async (req, res) => {
 export const getExamById = async (req, res) => {
   try {
     const { id } = req.params;
+    const noCache = req.query.noCache === "true";
 
-    const exam = await Exam.findOne({ _id: id, isDeleted: { $ne: true } })
-      .populate("department", "name")
-      .populate("course", "code courseName semester")
-      .populate("group", "name")
-      .populate({ path: "invigilators", select: "employeeId", populate: { path: "user", select: "name" } });
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "exams",
+      baseKey: `by-id:${id}`,
+      noCache,
+      fetcher: async () => {
+        const exam = await Exam.findOne({ _id: id, isDeleted: { $ne: true } })
+          .populate("department", "name")
+          .populate("course", "code courseName semester")
+          .populate("group", "name")
+          .populate({
+            path: "invigilators",
+            select: "employeeId",
+            populate: { path: "user", select: "name" },
+          });
 
-    if (!exam) {
+        if (!exam) return null;
+        return { message: "Exam fetched successfully", exam };
+      },
+    });
+
+    if (!payload) {
       return res.status(404).json({ message: "Exam not found" });
     }
 
-    return res.json({ message: "Exam fetched successfully", exam });
+    return res.json(payload);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -120,6 +165,7 @@ export const addExam = async (req, res) => {
       .populate("group", "name")
       .populate({ path: "invigilators", select: "employeeId", populate: { path: "user", select: "name" } });
 
+    await bumpNamespaceVersion("exams");
     return res.status(201).json({
       message: "Exam created successfully",
       exam: created,
@@ -165,6 +211,7 @@ export const updateExam = async (req, res) => {
       return res.status(404).json({ message: "Exam not found" });
     }
 
+    await bumpNamespaceVersion("exams");
     return res.json({ message: "Exam updated successfully", exam });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -186,6 +233,7 @@ export const deleteExam = async (req, res) => {
       return res.status(404).json({ message: "Exam not found" });
     }
 
+    await bumpNamespaceVersion("exams");
     return res.json({ message: "Exam deleted successfully" });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -202,6 +250,7 @@ export const hardDeleteExam = async (req, res) => {
       return res.status(404).json({ message: "Exam not found" });
     }
 
+    await bumpNamespaceVersion("exams");
     return res.json({ message: "Exam permanently deleted" });
   } catch (error) {
     return res.status(500).json({ message: error.message });

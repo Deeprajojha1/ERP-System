@@ -1,9 +1,18 @@
 import { Building, ChevronLeft, ChevronRight, ShieldCheck, LayoutDashboard, Bed, Users, LogOut, Clock, AlertCircle } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import axios from "../../utils/axiosInstance";
+import { clearUserData } from "../../redux/userSlice";
+import { clearStudents } from "../../redux/studentSlice";
+import { clearFaculty } from "../../redux/facultySlice";
+import { clearLeaves } from "../../redux/leavesSlice";
+import { clearTimetable } from "../../redux/timetableSlice";
 
 function Sidebar({ isCollapsed, onToggle, items, mobile = false }) {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const apiBase = useSelector((state) => state.config.apiBase);
 
   const iconMap = {
     Overview: LayoutDashboard,
@@ -27,6 +36,34 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false }) {
   const isActiveRoute = (itemName) => {
     const path = getRoutePath(itemName);
     return location.pathname === path;
+  };
+
+  const handleLogout = async () => {
+    try {
+      if (apiBase) {
+        await axios.post(
+          `${apiBase}/user/logout`,
+          {},
+          {
+            withCredentials: true,
+            skipNetworkRedirect: true,
+          }
+        );
+      }
+    } catch (error) {
+      console.error("Warden logout failed:", error?.response?.data || error.message);
+    } finally {
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("token");
+      }
+      dispatch(clearUserData());
+      dispatch(clearStudents());
+      dispatch(clearFaculty());
+      dispatch(clearLeaves());
+      dispatch(clearTimetable());
+      navigate("/login", { replace: true });
+    }
   };
 
   const layoutClass = mobile
@@ -94,7 +131,7 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false }) {
       <div className="border-t border-blue-200 pt-4">
         <button
           type="button"
-          onClick={() => navigate("/login")}
+          onClick={handleLogout}
           className="flex w-full items-center rounded-lg px-3 py-2 text-sm font-medium text-blue-900 transition-all duration-200 hover:bg-blue-200"
           title={isCollapsed ? "Logout" : ""}
         >

@@ -1,6 +1,10 @@
 import mongoose from "mongoose";
 import Result from "../models/Result.js";
 import Student from "../models/Student.js";
+import {
+  bumpNamespaceVersion,
+  getOrSetVersionedJsonCache,
+} from "../utils/cacheNamespace.js";
 
 const toNumber = (value, fallback = 0) => {
   const num = Number(value);
@@ -212,7 +216,15 @@ const buildCumulativeForStudent = async ({ studentId, currentResultDoc, excludeR
 /* ================= GET ALL RESULTS ================= */
 export const getAllResults = async (req, res) => {
   try {
-    const { student, department, semester, academicYear, publishStatus, search } = req.query;
+    const {
+      student,
+      department,
+      semester,
+      academicYear,
+      publishStatus,
+      search,
+      noCache,
+    } = req.query;
 
     const query = { isDeleted: { $ne: true } };
     if (student) query.student = student;
@@ -243,17 +255,39 @@ export const getAllResults = async (req, res) => {
       query.student = { $in: studentIdsBySearch };
     }
 
-    const results = await Result.find(query)
-      .sort({ resultDate: -1, createdAt: -1 })
-      .populate({ path: "student", select: "enrollmentNumber user semester", populate: { path: "user", select: "name" } })
-      .populate("department", "name")
-      .populate("group", "name");
+    const queryForKey = {
+      student: student || "",
+      department: department || "",
+      semester: semester || "",
+      academicYear: academicYear || "",
+      publishStatus: publishStatus || "",
+      search: search || "",
+    };
 
-    return res.json({
-      message: "Results fetched successfully",
-      count: results.length,
-      results,
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "results",
+      baseKey: `list:${JSON.stringify(queryForKey)}`,
+      noCache: noCache === "true",
+      fetcher: async () => {
+        const results = await Result.find(query)
+          .sort({ resultDate: -1, createdAt: -1 })
+          .populate({
+            path: "student",
+            select: "enrollmentNumber user semester",
+            populate: { path: "user", select: "name" },
+          })
+          .populate("department", "name")
+          .populate("group", "name");
+
+        return {
+          message: "Results fetched successfully",
+          count: results.length,
+          results,
+        };
+      },
     });
+
+    return res.json(payload);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -263,19 +297,34 @@ export const getAllResults = async (req, res) => {
 export const getResultById = async (req, res) => {
   try {
     const { id } = req.params;
+    const noCache = req.query.noCache === "true";
 
-    const result = await Result.findOne({ _id: id, isDeleted: { $ne: true } })
-      .populate({ path: "student", select: "enrollmentNumber user semester", populate: { path: "user", select: "name" } })
-      .populate("department", "name")
-      .populate("group", "name")
-      .populate("subjects.course", "code courseName credit")
-      .populate("subjects.exam");
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "results",
+      baseKey: `by-id:${id}`,
+      noCache,
+      fetcher: async () => {
+        const result = await Result.findOne({ _id: id, isDeleted: { $ne: true } })
+          .populate({
+            path: "student",
+            select: "enrollmentNumber user semester",
+            populate: { path: "user", select: "name" },
+          })
+          .populate("department", "name")
+          .populate("group", "name")
+          .populate("subjects.course", "code courseName credit")
+          .populate("subjects.exam");
 
-    if (!result) {
+        if (!result) return null;
+        return { message: "Result fetched successfully", result };
+      },
+    });
+
+    if (!payload) {
       return res.status(404).json({ message: "Result not found" });
     }
 
-    return res.json({ message: "Result fetched successfully", result });
+    return res.json(payload);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -333,6 +382,7 @@ export const addResult = async (req, res) => {
       .populate("subjects.course", "code courseName credit")
       .populate("subjects.exam");
 
+    await bumpNamespaceVersion("results");
     return res.status(201).json({
       message: "Result created successfully",
       result: populated,
@@ -395,6 +445,7 @@ export const updateResult = async (req, res) => {
       .populate("subjects.course", "code courseName credit")
       .populate("subjects.exam");
 
+    await bumpNamespaceVersion("results");
     return res.json({ message: "Result updated successfully", result: updated });
   } catch (error) {
     if (error instanceof mongoose.Error.ValidationError) {
@@ -408,32 +459,44 @@ export const updateResult = async (req, res) => {
 export const getStudentResultSummary = async (req, res) => {
   try {
     const { studentId } = req.params;
+    const noCache = req.query.noCache === "true";
 
-    const latestResult = await Result.findOne({
-      student: studentId,
-      isDeleted: { $ne: true },
-    }).sort({ resultDate: -1, updatedAt: -1 });
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "results",
+      baseKey: `summary:${studentId}`,
+      noCache,
+      fetcher: async () => {
+        const latestResult = await Result.findOne({
+          student: studentId,
+          isDeleted: { $ne: true },
+        }).sort({ resultDate: -1, updatedAt: -1 });
 
-    if (!latestResult) {
+        if (!latestResult) return null;
+
+        const cumulative = await buildCumulativeForStudent({
+          studentId,
+          currentResultDoc: latestResult.toObject(),
+          excludeResultId: latestResult._id,
+        });
+
+        return {
+          message: "Student result summary fetched successfully",
+          summary: {
+            totalBack: cumulative.totalBack,
+            activeBack: cumulative.activeBack,
+            clearedBack: cumulative.clearedBack,
+            semWiseSgpa: cumulative.semWiseSgpa,
+            totalCgpa: cumulative.cgpa,
+          },
+        };
+      },
+    });
+
+    if (!payload) {
       return res.status(404).json({ message: "No result found for student" });
     }
 
-    const cumulative = await buildCumulativeForStudent({
-      studentId,
-      currentResultDoc: latestResult.toObject(),
-      excludeResultId: latestResult._id,
-    });
-
-    return res.json({
-      message: "Student result summary fetched successfully",
-      summary: {
-        totalBack: cumulative.totalBack,
-        activeBack: cumulative.activeBack,
-        clearedBack: cumulative.clearedBack,
-        semWiseSgpa: cumulative.semWiseSgpa,
-        totalCgpa: cumulative.cgpa,
-      },
-    });
+    return res.json(payload);
   } catch (error) {
     return res.status(500).json({ message: error.message });
   }
@@ -454,6 +517,7 @@ export const deleteResult = async (req, res) => {
       return res.status(404).json({ message: "Result not found" });
     }
 
+    await bumpNamespaceVersion("results");
     return res.json({ message: "Result deleted successfully" });
   } catch (error) {
     return res.status(500).json({ message: error.message });
@@ -470,6 +534,7 @@ export const hardDeleteResult = async (req, res) => {
       return res.status(404).json({ message: "Result not found" });
     }
 
+    await bumpNamespaceVersion("results");
     return res.json({ message: "Result permanently deleted" });
   } catch (error) {
     return res.status(500).json({ message: error.message });

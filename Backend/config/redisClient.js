@@ -49,6 +49,10 @@ const safeRedisClient = {
     if (!client || !isReady) return 0;
     return client.del(key);
   },
+  async incr(key) {
+    if (!client || !isReady) return null;
+    return client.incr(key);
+  },
 };
 
 export default safeRedisClient;

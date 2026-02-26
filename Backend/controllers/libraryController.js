@@ -1,6 +1,10 @@
 import Book from '../models/Book.js';
 import BookIssue from '../models/BookIssue.js';
 import Student from '../models/Student.js';
+import {
+  bumpNamespaceVersion,
+  getOrSetVersionedJsonCache,
+} from "../utils/cacheNamespace.js";
 
 /* =====================================================
    ADD BOOK
@@ -27,6 +31,7 @@ export const addBook = async (req, res) => {
           : totalCopies,
     });
 
+    await bumpNamespaceVersion("library");
     return res.status(201).json({ success: true, data: book });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -38,7 +43,7 @@ export const addBook = async (req, res) => {
 ===================================================== */
 export const getAllBooks = async (req, res) => {
   try {
-    const { search, status, category, page = 1, limit = 20 } = req.query;
+    const { search, status, category, page = 1, limit = 20, noCache } = req.query;
 
     const query = { isDeleted: { $ne: true } };
 
@@ -57,28 +62,43 @@ export const getAllBooks = async (req, res) => {
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const [books, total] = await Promise.all([
-      Book.find(query)
-        .populate('addedBy', 'firstName lastName')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
-      Book.countDocuments(query),
-    ]);
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "library",
+      baseKey: `books:${JSON.stringify({
+        search: search || "",
+        status: status || "",
+        category: category || "",
+        page: pageNum,
+        limit: limitNum,
+      })}`,
+      noCache: noCache === "true",
+      fetcher: async () => {
+        const [books, total] = await Promise.all([
+          Book.find(query)
+            .populate('addedBy', 'firstName lastName')
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .lean(),
+          Book.countDocuments(query),
+        ]);
 
-    return res.json({
-      success: true,
-      data: {
-        books,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          pages: Math.ceil(total / limitNum),
-        },
+        return {
+          success: true,
+          data: {
+            books,
+            pagination: {
+              page: pageNum,
+              limit: limitNum,
+              total,
+              pages: Math.ceil(total / limitNum),
+            },
+          },
+        };
       },
     });
+
+    return res.json(payload);
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -161,6 +181,7 @@ export const updateBook = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Book not found' });
     }
 
+    await bumpNamespaceVersion("library");
     return res.json({ success: true, data: book });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -192,6 +213,7 @@ export const deleteBook = async (req, res) => {
     book.isDeleted = true;
     await book.save();
 
+    await bumpNamespaceVersion("library");
     return res.json({ success: true, message: 'Book deleted successfully' });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -266,6 +288,7 @@ export const issueBook = async (req, res) => {
       { path: 'issuedBy', select: 'firstName lastName' },
     ]);
 
+    await bumpNamespaceVersion("library");
     return res.status(201).json({ success: true, data: bookIssue });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -318,6 +341,7 @@ export const returnBook = async (req, res) => {
       await book.save();
     }
 
+    await bumpNamespaceVersion("library");
     return res.json({ success: true, data: bookIssue });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
@@ -329,7 +353,7 @@ export const returnBook = async (req, res) => {
 ===================================================== */
 export const getIssuedBooks = async (req, res) => {
   try {
-    const { status, page = 1, limit = 20 } = req.query;
+    const { status, page = 1, limit = 20, noCache } = req.query;
 
     const query = status
       ? { status }
@@ -339,31 +363,44 @@ export const getIssuedBooks = async (req, res) => {
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    const [issues, total] = await Promise.all([
-      BookIssue.find(query)
-        .populate('book', 'title author isbn')
-        .populate('student', 'firstName lastName enrollmentNumber')
-        .populate('issuedBy', 'firstName lastName')
-        .populate('returnedBy', 'firstName lastName')
-        .sort({ issueDate: -1 })
-        .skip(skip)
-        .limit(limitNum)
-        .lean(),
-      BookIssue.countDocuments(query),
-    ]);
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "library",
+      baseKey: `issues:${JSON.stringify({
+        status: status || "",
+        page: pageNum,
+        limit: limitNum,
+      })}`,
+      noCache: noCache === "true",
+      fetcher: async () => {
+        const [issues, total] = await Promise.all([
+          BookIssue.find(query)
+            .populate('book', 'title author isbn')
+            .populate('student', 'firstName lastName enrollmentNumber')
+            .populate('issuedBy', 'firstName lastName')
+            .populate('returnedBy', 'firstName lastName')
+            .sort({ issueDate: -1 })
+            .skip(skip)
+            .limit(limitNum)
+            .lean(),
+          BookIssue.countDocuments(query),
+        ]);
 
-    return res.json({
-      success: true,
-      data: {
-        issues,
-        pagination: {
-          page: pageNum,
-          limit: limitNum,
-          total,
-          pages: Math.ceil(total / limitNum),
-        },
+        return {
+          success: true,
+          data: {
+            issues,
+            pagination: {
+              page: pageNum,
+              limit: limitNum,
+              total,
+              pages: Math.ceil(total / limitNum),
+            },
+          },
+        };
       },
     });
+
+    return res.json(payload);
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
@@ -374,32 +411,42 @@ export const getIssuedBooks = async (req, res) => {
 ===================================================== */
 export const getStatistics = async (req, res) => {
   try {
-    const [totalBooks, totalIssues, overdueIssues] = await Promise.all([
-      Book.countDocuments({ isDeleted: { $ne: true } }),
-      BookIssue.countDocuments(),
-      BookIssue.countDocuments({ status: 'OVERDUE' }),
-    ]);
+    const noCache = req.query.noCache === "true";
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "library",
+      baseKey: "stats",
+      noCache,
+      fetcher: async () => {
+        const [totalBooks, totalIssues, overdueIssues] = await Promise.all([
+          Book.countDocuments({ isDeleted: { $ne: true } }),
+          BookIssue.countDocuments(),
+          BookIssue.countDocuments({ status: 'OVERDUE' }),
+        ]);
 
-    const availableBooks = await Book.countDocuments({
-      isDeleted: { $ne: true },
-      availableCopies: { $gt: 0 },
-    });
+        const availableBooks = await Book.countDocuments({
+          isDeleted: { $ne: true },
+          availableCopies: { $gt: 0 },
+        });
 
-    const issuedBooks = await Book.countDocuments({
-      isDeleted: { $ne: true },
-      availableCopies: { $lte: 0 },
-    });
+        const issuedBooks = await Book.countDocuments({
+          isDeleted: { $ne: true },
+          availableCopies: { $lte: 0 },
+        });
 
-    return res.json({
-      success: true,
-      data: {
-        totalBooks,
-        availableBooks,
-        issuedBooks,
-        overdueBooks: overdueIssues,
-        totalIssues,
+        return {
+          success: true,
+          data: {
+            totalBooks,
+            availableBooks,
+            issuedBooks,
+            overdueBooks: overdueIssues,
+            totalIssues,
+          },
+        };
       },
     });
+
+    return res.json(payload);
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }

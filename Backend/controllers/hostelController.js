@@ -1,4 +1,8 @@
 import Hostel from "../models/hostelModel.js";
+import {
+  bumpNamespaceVersion,
+  getOrSetVersionedJsonCache,
+} from "../utils/cacheNamespace.js";
 
 /**
  * CREATE HOSTEL
@@ -20,6 +24,7 @@ export const createHostel = async (req, res) => {
       foodMenu,
     });
 
+    await bumpNamespaceVersion("hostels");
     res.status(201).json({
       message: "Hostel created successfully",
       hostel,
@@ -34,11 +39,18 @@ export const createHostel = async (req, res) => {
  */
 export const getAllHostels = async (req, res) => {
   try {
-    const hostels = await Hostel.find()
-      .populate("warden", "name email")
-      .populate("rooms");
+    const noCache = req.query.noCache === "true";
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "hostels",
+      baseKey: "all",
+      noCache,
+      fetcher: async () =>
+        Hostel.find()
+          .populate("warden", "name email")
+          .populate("rooms"),
+    });
 
-    res.status(200).json(hostels);
+    res.status(200).json(payload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -49,15 +61,22 @@ export const getAllHostels = async (req, res) => {
  */
 export const getSingleHostel = async (req, res) => {
   try {
-    const hostel = await Hostel.findById(req.params.id)
-      .populate("warden", "name email")
-      .populate("rooms");
+    const noCache = req.query.noCache === "true";
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "hostels",
+      baseKey: `by-id:${req.params.id}`,
+      noCache,
+      fetcher: async () =>
+        Hostel.findById(req.params.id)
+          .populate("warden", "name email")
+          .populate("rooms"),
+    });
 
-    if (!hostel) {
+    if (!payload) {
       return res.status(404).json({ message: "Hostel not found" });
     }
 
-    res.status(200).json(hostel);
+    res.status(200).json(payload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -78,6 +97,7 @@ export const updateHostel = async (req, res) => {
       return res.status(404).json({ message: "Hostel not found" });
     }
 
+    await bumpNamespaceVersion("hostels");
     res.status(200).json({
       message: "Hostel updated successfully",
       hostel,
@@ -98,6 +118,7 @@ export const deleteHostel = async (req, res) => {
       return res.status(404).json({ message: "Hostel not found" });
     }
 
+    await bumpNamespaceVersion("hostels");
     res.status(200).json({ message: "Hostel deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -106,52 +127,60 @@ export const deleteHostel = async (req, res) => {
 
 export const getHostelSummary = async (req, res) => {
   try {
-    const hostels = await Hostel.find().populate({
-      path: "rooms",
-      populate: { path: "occupants" },
+    const noCache = req.query.noCache === "true";
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "hostels",
+      baseKey: "summary",
+      noCache,
+      fetcher: async () => {
+        const hostels = await Hostel.find().populate({
+          path: "rooms",
+          populate: { path: "occupants" },
+        });
+
+        return hostels.map((hostel) => {
+          let totalCapacity = 0;
+          let currentOccupancy = 0;
+          let totalPotentialRevenue = 0;
+          let currentRevenue = 0;
+
+          hostel.rooms.forEach((room) => {
+            totalCapacity += room.capacity || 0;
+
+            const occupied = room.occupants?.length || 0;
+            currentOccupancy += occupied;
+
+            const potential = (room.capacity || 0) * (room.price || 0);
+            const current = occupied * (room.price || 0);
+
+            totalPotentialRevenue += potential;
+            currentRevenue += current;
+          });
+
+          const availableBeds = totalCapacity - currentOccupancy;
+          const vacancyLoss = totalPotentialRevenue - currentRevenue;
+
+          const occupancyPercentage =
+            totalCapacity === 0
+              ? 0
+              : ((currentOccupancy / totalCapacity) * 100).toFixed(2);
+
+          return {
+            id: hostel._id,
+            name: hostel.name,
+            totalCapacity,
+            currentOccupancy,
+            availableBeds,
+            occupancyPercentage,
+            totalPotentialRevenue,
+            currentRevenue,
+            vacancyLoss,
+          };
+        });
+      },
     });
 
-    const summary = hostels.map((hostel) => {
-      let totalCapacity = 0;
-      let currentOccupancy = 0;
-      let totalPotentialRevenue = 0;
-      let currentRevenue = 0;
-
-      hostel.rooms.forEach((room) => {
-        totalCapacity += room.capacity || 0;
-
-        const occupied = room.occupants?.length || 0;
-        currentOccupancy += occupied;
-
-        const potential = (room.capacity || 0) * (room.price || 0);
-        const current = occupied * (room.price || 0);
-
-        totalPotentialRevenue += potential;
-        currentRevenue += current;
-      });
-
-      const availableBeds = totalCapacity - currentOccupancy;
-      const vacancyLoss = totalPotentialRevenue - currentRevenue;
-
-      const occupancyPercentage =
-        totalCapacity === 0
-          ? 0
-          : ((currentOccupancy / totalCapacity) * 100).toFixed(2);
-
-      return {
-        id: hostel._id,
-        name: hostel.name,
-        totalCapacity,
-        currentOccupancy,
-        availableBeds,
-        occupancyPercentage,
-        totalPotentialRevenue,
-        currentRevenue,
-        vacancyLoss,
-      };
-    });
-
-    res.status(200).json(summary);
+    res.status(200).json(payload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

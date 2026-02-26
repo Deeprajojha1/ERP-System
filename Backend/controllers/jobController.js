@@ -1,6 +1,9 @@
 import Job from "../models/Job.js";
 import Company from "../models/Company.js";
-import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
+import {
+  bumpNamespaceVersion,
+  getOrSetVersionedJsonCache,
+} from "../utils/cacheNamespace.js";
 
 /* ================= GET ALL JOBS ================= */
 export const getAllJobs = async (req, res) => {
@@ -12,16 +15,29 @@ export const getAllJobs = async (req, res) => {
     if (jobType) filter.jobType = jobType;
     if (company) filter.company = company;
 
-    const jobs = await Job.find(filter)
-      .populate("company", "name logo location")
-      .populate("postedBy", "name email")
-      .sort({ createdAt: -1 });
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "jobs",
+      baseKey: `list:${JSON.stringify({
+        status: status || "",
+        jobType: jobType || "",
+        company: company || "",
+      })}`,
+      noCache: noCache === "true",
+      fetcher: async () => {
+        const jobs = await Job.find(filter)
+          .populate("company", "name logo location")
+          .populate("postedBy", "name email")
+          .sort({ createdAt: -1 });
 
-    res.json({
-      message: "Jobs fetched successfully",
-      count: jobs.length,
-      jobs,
+        return {
+          message: "Jobs fetched successfully",
+          count: jobs.length,
+          jobs,
+        };
+      },
     });
+
+    res.json(payload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -31,20 +47,30 @@ export const getAllJobs = async (req, res) => {
 export const getJobById = async (req, res) => {
   try {
     const { id } = req.params;
+    const noCache = req.query.noCache === "true";
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "jobs",
+      baseKey: `by-id:${id}`,
+      noCache,
+      fetcher: async () => {
+        const job = await Job.findOne({ _id: id, isDeleted: { $ne: true } })
+          .populate("company")
+          .populate("postedBy", "name email")
+          .populate("placementDrive");
 
-    const job = await Job.findOne({ _id: id, isDeleted: { $ne: true } })
-      .populate("company")
-      .populate("postedBy", "name email")
-      .populate("placementDrive");
+        if (!job) return null;
+        return {
+          message: "Job fetched successfully",
+          job,
+        };
+      },
+    });
 
-    if (!job) {
+    if (!payload) {
       return res.status(404).json({ message: "Job not found" });
     }
 
-    res.json({
-      message: "Job fetched successfully",
-      job,
-    });
+    res.json(payload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -108,6 +134,7 @@ export const addJob = async (req, res) => {
       .populate("company", "name logo location")
       .populate("postedBy", "name email");
 
+    await bumpNamespaceVersion("jobs");
     res.status(201).json({
       message: "Job created successfully",
       job: populatedJob,
@@ -143,6 +170,7 @@ export const updateJob = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
+    await bumpNamespaceVersion("jobs");
     res.json({
       message: "Job updated successfully",
       job,
@@ -167,6 +195,7 @@ export const deleteJob = async (req, res) => {
       return res.status(404).json({ message: "Job not found" });
     }
 
+    await bumpNamespaceVersion("jobs");
     res.json({ message: "Job deleted successfully" });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -197,47 +226,57 @@ export const getEligibleJobsForStudent = async (req, res) => {
       applicationDeadline: { $gte: new Date() },
     };
 
-    const jobs = await Job.find(filter)
-      .populate("company", "name logo location")
-      .sort({ createdAt: -1 });
+    const noCache = req.query.noCache === "true";
+    const payload = await getOrSetVersionedJsonCache({
+      namespace: "jobs",
+      baseKey: `eligible:${studentId}`,
+      noCache,
+      fetcher: async () => {
+        const jobs = await Job.find(filter)
+          .populate("company", "name logo location")
+          .sort({ createdAt: -1 });
 
-    // Filter based on eligibility
-    const eligibleJobs = jobs.filter((job) => {
-      const elig = job.eligibility;
-      
-      // Check program
-      if (elig.programs && elig.programs.length > 0) {
-        if (!elig.programs.includes(student.program)) return false;
-      }
-      
-      // Check branch/department
-      if (elig.branches && elig.branches.length > 0) {
-        if (!elig.branches.includes(student.department?.name)) return false;
-      }
-      
-      // Check CGPA
-      if (elig.minCGPA && profile?.cgpa) {
-        if (profile.cgpa < elig.minCGPA) return false;
-      }
-      
-      // Check percentage
-      if (elig.minPercentage && profile?.percentage) {
-        if (profile.percentage < elig.minPercentage) return false;
-      }
-      
-      // Check backlogs
-      if (elig.maxBacklogs !== undefined && profile?.backlogs) {
-        if (profile.backlogs.current > elig.maxBacklogs) return false;
-      }
-      
-      return true;
+        // Filter based on eligibility
+        const eligibleJobs = jobs.filter((job) => {
+          const elig = job.eligibility;
+
+          // Check program
+          if (elig.programs && elig.programs.length > 0) {
+            if (!elig.programs.includes(student.program)) return false;
+          }
+
+          // Check branch/department
+          if (elig.branches && elig.branches.length > 0) {
+            if (!elig.branches.includes(student.department?.name)) return false;
+          }
+
+          // Check CGPA
+          if (elig.minCGPA && profile?.cgpa) {
+            if (profile.cgpa < elig.minCGPA) return false;
+          }
+
+          // Check percentage
+          if (elig.minPercentage && profile?.percentage) {
+            if (profile.percentage < elig.minPercentage) return false;
+          }
+
+          // Check backlogs
+          if (elig.maxBacklogs !== undefined && profile?.backlogs) {
+            if (profile.backlogs.current > elig.maxBacklogs) return false;
+          }
+
+          return true;
+        });
+
+        return {
+          message: "Eligible jobs fetched successfully",
+          count: eligibleJobs.length,
+          jobs: eligibleJobs,
+        };
+      },
     });
 
-    res.json({
-      message: "Eligible jobs fetched successfully",
-      count: eligibleJobs.length,
-      jobs: eligibleJobs,
-    });
+    res.json(payload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
