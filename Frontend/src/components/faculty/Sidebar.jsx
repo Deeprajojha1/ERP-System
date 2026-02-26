@@ -56,7 +56,7 @@ const menuSections = [
   { label: "ACCOUNT", items: menuItems.filter(item => item.section === "ACCOUNT") },
 ];
 
-export default function Sidebar({ facultyData }) {
+export default function Sidebar({ facultyData, isSidebarOpen }) {
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
   const userData = useSelector((state) => state.user.userData);
@@ -80,13 +80,6 @@ export default function Sidebar({ facultyData }) {
     user.profileImageUrl || user.profileImage,
     user.profileImage
   );
-  
-  // Reset failed image when profile image changes
-  useEffect(() => {
-    if (userImg) {
-      setFailedImageSrc(null);
-    }
-  }, [userImg]);
 
   const canRenderAvatar = Boolean(userImg && failedImageSrc !== userImg);
 
@@ -118,35 +111,41 @@ export default function Sidebar({ facultyData }) {
   };
 
   return (
-    <div className="faculty-sidebar">
+    <div
+      className={`z-[60] flex min-h-[calc(100dvh-74px)] flex-col border-r border-slate-200 bg-white transition-all duration-300 lg:fixed lg:left-0 lg:top-[74px] lg:h-[calc(100dvh-74px)] ${
+        isSidebarOpen
+          ? "fixed left-0 top-[74px] w-[min(82vw,280px)] translate-x-0 lg:w-[292px]"
+          : "fixed left-0 top-[74px] w-[min(82vw,280px)] -translate-x-full lg:w-0 lg:min-w-0 lg:overflow-hidden lg:border-r-0"
+      }`}
+    >
       {/* Profile Section */}
-      <div className="sidebar-profile">
-        <div className="sidebar-profile-main">
-          <div className="sidebar-avatar">
+      <div className="flex shrink-0 items-center justify-between gap-2.5 border-b border-gray-300 p-4">
+        <div className="min-w-0 flex items-center gap-3">
+          <div className="inline-flex h-11 w-11 min-w-11 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-blue-300 to-blue-200 text-lg font-bold text-sky-700">
             {canRenderAvatar ? (
               <img
                 src={userImg}
                 alt="User"
-                className="avatarimg"
+                className="h-full w-full rounded-full object-cover"
                 onError={() => setFailedImageSrc(userImg)}
               />
             ) : (
               userInitials || "FA"
             )}
           </div>
-          <div className="sidebar-profile-copy">
-            <h2>{userName}</h2>
-            <p>{userEmail}</p>
+          <div className="min-w-0">
+            <h2 className="m-0 break-words text-base font-semibold leading-tight text-gray-800">{userName}</h2>
+            <p className="mt-0.5 break-words text-[13px] leading-tight text-gray-500">{userEmail}</p>
           </div>
         </div>
         <button
-          className="sidebar-close sidebar-profile-close"
+          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 transition-colors duration-200 hover:from-blue-100 hover:to-blue-200 max-[1023px]:inline-flex"
           type="button"
           onClick={closeSidebar}
           aria-label="Close sidebar"
         >
           <svg
-            className="sidebar-toggle-icon"
+            className="h-[22px] w-[22px]"
             viewBox="0 0 24 24"
             aria-hidden="true"
           >
@@ -154,7 +153,7 @@ export default function Sidebar({ facultyData }) {
               d="M4 7h16M4 12h16M4 17h16"
               fill="none"
               stroke="currentColor"
-              strokeWidth="2"
+              strokeWidth="2.6"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
@@ -163,25 +162,35 @@ export default function Sidebar({ facultyData }) {
       </div>
 
       {/* Menu Scroll Area */}
-      <div className="sidebar-menu-scroll">
-        <div className="sidebar-header">
-          <span className="sidebar-title">Menu</span>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex shrink-0 items-center justify-start px-[14px] pb-1.5 pt-2.5">
+          <span className="mr-auto text-[11px] text-slate-500">Menu</span>
         </div>
 
         {menuSections.map((section) => (
-          <div className="sidebar-section" key={section.label}>
-            <label className="sidebar-label">{section.label}</label>
+          <div className="flex flex-col gap-2 px-3 pb-1" key={section.label}>
+            <label className="ml-2 mt-1 hidden text-[10px] font-semibold tracking-[1.1px] text-slate-500">{section.label}</label>
             {section.items.map((item) => {
               const Icon = item.icon;
+              const isActive = activeSection === item.id;
               return (
                 <button
                   key={item.id}
                   type="button"
                   onClick={() => handleMenuClick(item.id)}
-                  className={`sidebar-btn ${activeSection === item.id ? "active" : ""}`}
+                  className={`w-full rounded-xl bg-transparent px-3.5 py-3 text-left text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 ${
+                    isActive
+                      ? "bg-blue-50 text-blue-700"
+                      : "text-slate-900 hover:bg-slate-100 hover:text-slate-800"
+                  }`}
                 >
-                  <Icon size={18} />
-                  <span className="sidebar-text">{item.label}</span>
+                  <span className="flex items-center gap-3">
+                    <Icon
+                      size={18}
+                      className={isActive ? "shrink-0 text-sky-600" : "shrink-0 text-gray-600"}
+                    />
+                    <span className="flex-1">{item.label}</span>
+                  </span>
                 </button>
               );
             })}

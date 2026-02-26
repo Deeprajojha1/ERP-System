@@ -10,7 +10,6 @@ import {
   selectFacultyLeavesError,
   selectFacultyLeavesLoading,
 } from "../../redux/leavesSlice";
-import "./FacultyLeaves.css";
 
 const normalizeLeaveStatus = (value = "") => {
   const normalized = String(value).trim().toLowerCase();
@@ -75,15 +74,15 @@ function FacultyLeaves() {
   const hasLeaves = useMemo(() => leaves.length > 0, [leaves]);
 
   return (
-    <section className="faculty-leaves-page">
-      <div className="faculty-leaves-head">
+    <section className="w-full max-w-6xl mx-auto p-4 md:p-6">
+      <div className="mb-6 flex flex-col items-center justify-between gap-3 text-center md:flex-row md:text-left">
         <div>
-          <h1>My Leaves</h1>
-          <p>Track your leave requests and approval status.</p>
+          <h1 className="m-0 text-2xl font-bold text-slate-900">My Leaves</h1>
+          <p className="mt-1 text-sm text-slate-600">Track your leave requests and approval status.</p>
         </div>
         <button
           type="button"
-          className="back-dashboard-btn"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
           onClick={() => navigate("/faculty/faculty-dashboard")}
         >
           <FiArrowLeft />
@@ -92,7 +91,7 @@ function FacultyLeaves() {
       </div>
 
       {loadState === FACULTY_LOAD_STATES.PENDING && (
-        <div className="leaves-state pending app-loader-state">
+        <div className="app-loader-state">
           <Oval
             height={64}
             width={64}
@@ -103,45 +102,51 @@ function FacultyLeaves() {
             ariaLabel="Loading"
             visible
           />
-          <p>Loading leaves...</p>
+          <p className="m-0 mt-2 text-sm text-slate-600">Loading leaves...</p>
         </div>
       )}
       {loadState === FACULTY_LOAD_STATES.FAILURE && (
-        <p className="leaves-state error">{error}</p>
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-medium text-rose-700">{error}</p>
       )}
 
       {loadState === FACULTY_LOAD_STATES.SUCCESS && !error && !hasLeaves && (
-        <p className="leaves-state">No leave requests found.</p>
+        <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-600">No leave requests found.</p>
       )}
 
       {loadState === FACULTY_LOAD_STATES.SUCCESS && !error && hasLeaves && (
-        <div className="leaves-grid">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
           {leaves.map((leave) => {
             const normalizedStatus = normalizeLeaveStatus(leave?.status);
             return (
-              <article className="leave-card" key={leave._id}>
-                <div className="leave-card-head">
-                  <p className="leave-type">{leave.type || "leave"}</p>
+              <article className="rounded-xl border border-blue-100 bg-gradient-to-br from-white via-sky-50 to-blue-50 p-4 shadow-[0_8px_18px_rgba(15,23,42,0.08)]" key={leave._id}>
+                <div className="mb-3 flex items-start justify-between gap-2">
+                  <p className="m-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-700">{leave.type || "leave"}</p>
                   <span
-                    className={`leave-status status-${normalizedStatus.key}`}
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      normalizedStatus.key === "approved"
+                        ? "bg-emerald-100 text-emerald-800"
+                        : normalizedStatus.key === "rejected"
+                          ? "bg-rose-100 text-rose-800"
+                          : "bg-amber-100 text-amber-800"
+                    }`}
                   >
                     {normalizedStatus.label}
                   </span>
                 </div>
 
-                <div className="leave-details">
-                  <p>
-                    <span>Applied:</span> {toDisplayDate(leave.createdAt)}
+                <div className="space-y-1.5 text-sm text-slate-700">
+                  <p className="m-0">
+                    <span className="font-semibold text-slate-900">Applied:</span> {toDisplayDate(leave.createdAt)}
                   </p>
-                  <p>
-                    <span>From:</span> {toDisplayDate(leave.dateFrom)}
+                  <p className="m-0">
+                    <span className="font-semibold text-slate-900">From:</span> {toDisplayDate(leave.dateFrom)}
                   </p>
-                  <p>
-                    <span>To:</span> {toDisplayDate(leave.dateTo)}
+                  <p className="m-0">
+                    <span className="font-semibold text-slate-900">To:</span> {toDisplayDate(leave.dateTo)}
                   </p>
                 </div>
 
-                <p className="leave-reason">{leave.reason || "No reason provided."}</p>
+                <p className="mt-3 text-sm text-slate-600">{leave.reason || "No reason provided."}</p>
               </article>
             );
           })}

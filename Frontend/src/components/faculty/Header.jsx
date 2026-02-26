@@ -8,7 +8,6 @@ import { clearFaculty } from "../../redux/facultySlice";
 import { clearLeaves } from "../../redux/leavesSlice";
 import { clearTimetable } from "../../redux/timetableSlice";
 import NetworkSpeedBadge from "../common/NetworkSpeedBadge";
-import "./Header.css";
 
 function Header() {
   const dispatch = useDispatch();
@@ -37,17 +36,20 @@ function Header() {
   };
 
   return (
-    <header className="top-bar">
-      <div className="brand">
-        <span className="brand-mark">FP</span>
+    <header className="flex items-center justify-between gap-3 rounded-xl border border-blue-100 bg-gradient-to-r from-white via-sky-50 to-blue-50 px-4 py-3 shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
+      <div className="flex items-center gap-3">
+        <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-blue-700 to-cyan-600 font-bold text-white">FP</span>
         <div>
-          <p className="brand-title">Faculty Portal</p>
-          <p className="brand-subtitle">Attendance & Course Hub</p>
+          <p className="m-0 text-base font-bold text-slate-900">Faculty Portal</p>
+          <p className="m-0 text-xs text-slate-500">Attendance & Course Hub</p>
         </div>
       </div>
-      <div className="header-meta">
+      <div className="flex items-center gap-2">
         <NetworkSpeedBadge />
-        <button className="chip logout-chip" onClick={handleLogout}>
+        <button
+          className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+          onClick={handleLogout}
+        >
           Logout
         </button>
       </div>

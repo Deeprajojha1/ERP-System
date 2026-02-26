@@ -21,7 +21,6 @@ import {
   setSidebarOpen,
   toggleSidebar,
 } from "../../redux/facultyDashboardSlice";
-import "./FacultyDashboard.css";
 
 export default function FacultyErpDashboard() {
   const dispatch = useDispatch();
@@ -54,16 +53,10 @@ export default function FacultyErpDashboard() {
   // Loading state
   if (isInitialLoad) {
     return (
-      <div className="faculty-layout">
-        <div className="faculty-loading-container">
-          <div className="faculty-loading">
-            <div className="faculty-loading-spinner">
-              <span></span>
-              <span></span>
-              <span></span>
-            </div>
-            <p className="faculty-loading-text">Loading dashboard...</p>
-          </div>
+      <div className="flex min-h-dvh items-center justify-center bg-gradient-to-b from-sky-50 via-blue-50 to-slate-100">
+        <div className="flex flex-col items-center gap-3 rounded-2xl border border-blue-100 bg-white/80 px-8 py-7 shadow-lg backdrop-blur">
+          <div className="h-9 w-9 animate-spin rounded-full border-4 border-blue-200 border-t-blue-600" />
+          <p className="m-0 text-sm font-medium text-slate-600">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -73,7 +66,7 @@ export default function FacultyErpDashboard() {
   const renderSection = () => {
     switch (activeSection) {
       case "dashboard":
-        return <DashboardSection facultyData={facultyData} />;
+        return <DashboardSection facultyData={facultyData} isScheduleLoading={isLoading} />;
       case "attendance":
         return <AttendanceSection facultyData={facultyData} />;
       case "courses":
@@ -89,10 +82,10 @@ export default function FacultyErpDashboard() {
       case "profile":
         return <ProfileSection facultyData={facultyData} />;
       case "settings":
-        // Settings removed — fallback to dashboard
-        return <DashboardSection facultyData={facultyData} />;
+        // Settings removed - fallback to dashboard
+        return <DashboardSection facultyData={facultyData} isScheduleLoading={isLoading} />;
       default:
-        return <DashboardSection facultyData={facultyData} />;
+        return <DashboardSection facultyData={facultyData} isScheduleLoading={isLoading} />;
     }
   };
 
@@ -105,7 +98,7 @@ export default function FacultyErpDashboard() {
       {!isSidebarOpen && (
         <button
           type="button"
-          className="faculty-menu-btn faculty-menu-float"
+          className="fixed left-0 top-[74px] z-[95] inline-flex h-10 w-10 items-center justify-center rounded-r-lg border border-white/20 bg-[#0b2d6b] text-white transition-colors duration-200 hover:bg-[#10398a]"
           onClick={() => dispatch(toggleSidebar())}
           aria-label="Open sidebar"
           aria-expanded={isSidebarOpen}
@@ -114,12 +107,17 @@ export default function FacultyErpDashboard() {
         </button>
       )}
 
-      <div className={`faculty-layout ${isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"}`}>
-        <div className="faculty-layout-bg" aria-hidden="true" />
+      <div className="relative mt-[74px] flex min-h-[calc(100dvh-74px)] bg-[#f2f6fb]">
+        <div
+          className="pointer-events-none absolute inset-0 z-0 bg-[linear-gradient(180deg,#f4f8fc_0%,#eef3f9_65%,#ecf1f7_100%)]"
+          aria-hidden="true"
+        />
 
         {/* Overlay for mobile */}
         <div
-          className={`faculty-overlay ${isSidebarOpen ? "show" : ""}`}
+          className={`fixed inset-0 z-[45] bg-black/35 transition-opacity duration-200 lg:hidden ${
+            isSidebarOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+          }`}
           onClick={closeSidebar}
           role="button"
           tabIndex={0}
@@ -127,13 +125,18 @@ export default function FacultyErpDashboard() {
         />
 
         {/* Sidebar */}
-        <Sidebar facultyData={facultyData} />
+        <Sidebar facultyData={facultyData} isSidebarOpen={isSidebarOpen} />
 
         {/* Main Content */}
-        <main className={`faculty-content ${isLoading ? "loading" : ""}`}>
-          {renderSection()}
+        <main
+          className={`relative z-[1] min-w-0 flex-1 overflow-x-hidden p-[clamp(16px,2.2vw,26px)] pt-[max(20px,clamp(16px,2.2vw,26px))] transition-[margin] duration-300 ${isSidebarOpen ? "lg:ml-[292px]" : "lg:ml-0"} ${isLoading ? "opacity-90" : ""}`}
+        >
+          <div className="mx-auto w-full max-w-[1600px]">
+            {renderSection()}
+          </div>
         </main>
       </div>
     </>
   );
 }
+

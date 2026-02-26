@@ -4,17 +4,20 @@ import {
   FileText,
   CheckCircle,
   Clock,
-  AlertCircle,
   Eye,
   ArrowLeft,
   RefreshCw,
   Sparkles,
   BarChart3,
   ClipboardCheck,
+  CalendarDays,
+  BookOpen,
 } from "lucide-react";
 import { ClipLoader } from "react-spinners";
 import toast from "react-hot-toast";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
+import { facultyUi } from "./uiTokens";
+import { EmptyState, LoadingState } from "./SectionState";
 import {
   fetchFacultyExamBlueprints,
   fetchFacultyExamBlueprintById,
@@ -264,79 +267,79 @@ export default function FacultyExamsSection() {
 
   if (selectedBlueprint) {
     return (
-      <section className="faculty-section faculty-exams-section">
-        <div className="faculty-content-form-page faculty-exam-studio-page">
+      <section className={facultyUi.page}>
+        <div className="mx-auto w-full max-w-6xl">
           <button
             type="button"
-            className="faculty-course-back-btn"
+            className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
             onClick={handleCloseStudio}
           >
             <ArrowLeft size={16} />
             <span>Back to Blueprints</span>
           </button>
 
-          <div className="faculty-card faculty-exam-studio-card">
-            <div className="faculty-exam-studio-head">
-              <h3>{selectedBlueprint.title || "Blueprint Studio"}</h3>
-              <p>Manage syllabus, AI paper generation, review, and student scores.</p>
+          <div className={facultyUi.panel}>
+            <div className="border-b border-slate-200 bg-white/80 px-4 py-4">
+              <h3 className="m-0 text-xl font-bold text-slate-900">{selectedBlueprint.title || "Blueprint Studio"}</h3>
+              <p className="mt-1 text-sm text-slate-600">Manage syllabus, AI paper generation, review, and student scores.</p>
             </div>
 
-            <div className="faculty-exam-studio-body">
+            <div className="space-y-4 p-4">
               {isDetailsLoading ? (
-                <div className="faculty-loading-inline">
+                <div className="flex min-h-40 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/70">
                   <ClipLoader size={20} color="#0284c7" />
-                  <span>Loading details...</span>
+                  <span className="text-sm font-medium text-slate-600">Loading details...</span>
                 </div>
               ) : (
                 <>
-                  <div className="faculty-detail-grid">
-                    <div className="faculty-detail-item">
-                      <span className="faculty-detail-label">Subject</span>
-                      <span className="faculty-detail-value">{activeBlueprint?.subject || "N/A"}</span>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Subject</span>
+                      <span className="mt-1 block text-sm font-semibold text-slate-900">{activeBlueprint?.subject || "N/A"}</span>
                     </div>
-                    <div className="faculty-detail-item">
-                      <span className="faculty-detail-label">Exam Type</span>
-                      <span className="faculty-detail-value">{formatExamType(activeBlueprint?.examType)}</span>
+                    <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Exam Type</span>
+                      <span className="mt-1 block text-sm font-semibold text-slate-900">{formatExamType(activeBlueprint?.examType)}</span>
                     </div>
-                    <div className="faculty-detail-item">
-                      <span className="faculty-detail-label">Duration</span>
-                      <span className="faculty-detail-value">
+                    <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Duration</span>
+                      <span className="mt-1 block text-sm font-semibold text-slate-900">
                         {activeBlueprint?.durationMinutes ? `${activeBlueprint.durationMinutes} min` : "N/A"}
                       </span>
                     </div>
-                    <div className="faculty-detail-item">
-                      <span className="faculty-detail-label">Schedule Window</span>
-                      <span className="faculty-detail-value">
+                    <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">Schedule Window</span>
+                      <span className="mt-1 block text-sm font-semibold text-slate-900">
                         {formatDateTime(activeBlueprint?.scheduleStart)} to{" "}
                         {formatDateTime(activeBlueprint?.scheduleEnd)}
                       </span>
                     </div>
                   </div>
 
-                  <div className="faculty-exam-toolbar">
-                    <div className="faculty-form-group">
-                      <label>Number of Units</label>
+                  <div className="space-y-3">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-semibold text-slate-700">Number of Units</label>
                       <input
                         type="number"
                         min={1}
-                        className="faculty-form-input"
+                        className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 md:max-w-48"
                         value={syllabusUnits}
                         onChange={(e) => setSyllabusUnits(e.target.value)}
                       />
                     </div>
-                    <div className="faculty-form-group faculty-form-grow">
-                      <label>Syllabus (one unit per line, optionally `Unit: topic1, topic2`)</label>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-semibold text-slate-700">Syllabus (one unit per line, optionally `Unit: topic1, topic2`)</label>
                       <textarea
                         rows={5}
-                        className="faculty-form-textarea"
+                        className="min-h-28 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                         value={syllabusText}
                         onChange={(e) => setSyllabusText(e.target.value)}
                       />
                     </div>
-                    <div className="faculty-exam-actions">
+                    <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
-                        className="faculty-secondary-btn"
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isSavingSyllabus}
                         onClick={handleSaveSyllabus}
                       >
@@ -349,7 +352,7 @@ export default function FacultyExamsSection() {
                       </button>
                       <button
                         type="button"
-                        className="faculty-primary-btn"
+                        className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isGeneratingPaper}
                         onClick={handleGeneratePaper}
                       >
@@ -362,7 +365,7 @@ export default function FacultyExamsSection() {
                       </button>
                       <button
                         type="button"
-                        className="faculty-secondary-btn"
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                         disabled={isPaperLoading}
                         onClick={handleLoadPaper}
                       >
@@ -376,46 +379,46 @@ export default function FacultyExamsSection() {
                     </div>
                   </div>
 
-                  <div className="faculty-blueprint-sections">
-                    <h4>Sections</h4>
+                  <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                    <h4 className="m-0 mb-2 text-sm font-semibold text-slate-800">Sections</h4>
                     {(activeBlueprint?.sections || []).map((section, index) => (
-                      <div key={`${section.type}-${index}`} className="faculty-section-item">
-                        <span className="faculty-section-name">
+                      <div key={`${section.type}-${index}`} className="mb-1 flex items-center justify-between rounded-md bg-slate-50 px-2.5 py-2 text-sm last:mb-0">
+                        <span className="font-medium text-slate-700">
                           {section.type} x {section.questionCount}
                         </span>
-                        <span className="faculty-section-marks">{section.totalMarks} marks</span>
+                        <span className="text-slate-600">{section.totalMarks} marks</span>
                       </div>
                     ))}
                   </div>
 
-                  <div className="faculty-paper-panel">
-                    <h4>Generated Questions</h4>
+                  <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                    <h4 className="m-0 mb-2 text-sm font-semibold text-slate-800">Generated Questions</h4>
                     {!editableQuestions.length ? (
-                      <p className="faculty-empty-subtitle">No paper generated yet.</p>
+                      <p className="m-0 text-sm text-slate-500">No paper generated yet.</p>
                     ) : (
-                      <div className="faculty-paper-list">
+                      <div className="space-y-2">
                         {editableQuestions.map((question, index) => (
                           <div
-                            className="faculty-paper-item"
+                            className="rounded-lg border border-slate-200 bg-slate-50 p-3"
                             key={`${question.sectionType}-${index}`}
                           >
-                            <div className="faculty-question-meta">
+                            <div className="mb-2 inline-flex gap-2 text-xs font-semibold uppercase text-blue-700">
                               <span>Q{index + 1}</span>
                               <span>{question.sectionType}</span>
                             </div>
                             <textarea
-                              className="faculty-form-textarea"
+                              className="min-h-20 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                               rows={3}
                               value={question.questionText || ""}
                               onChange={(e) =>
                                 handleQuestionChange(index, "questionText", e.target.value)
                               }
                             />
-                            <div className="faculty-paper-fields">
+                            <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-[120px_1fr]">
                               <input
                                 type="number"
                                 min={1}
-                                className="faculty-form-input"
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                                 value={question.marks || 1}
                                 onChange={(e) =>
                                   handleQuestionChange(index, "marks", e.target.value)
@@ -423,7 +426,7 @@ export default function FacultyExamsSection() {
                               />
                               <input
                                 type="text"
-                                className="faculty-form-input"
+                                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                                 placeholder="Correct answer"
                                 value={question.correctAnswer || ""}
                                 onChange={(e) =>
@@ -442,7 +445,7 @@ export default function FacultyExamsSection() {
                     {!!editableQuestions.length && (
                       <button
                         type="button"
-                        className="faculty-primary-btn"
+                        className="mt-3 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-3 py-2 text-sm font-semibold text-white transition hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
                         onClick={handleReviewPaper}
                         disabled={isReviewingPaper}
                       >
@@ -456,39 +459,39 @@ export default function FacultyExamsSection() {
                     )}
                   </div>
 
-                  <div className="faculty-score-panel">
-                    <h4>
+                  <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
+                    <h4 className="m-0 mb-2 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800">
                       <BarChart3 size={16} /> Student Scores
                     </h4>
                     {isScoresLoading ? (
-                      <div className="faculty-loading-inline">
+                      <div className="flex min-h-32 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white/70">
                         <ClipLoader size={18} color="#0284c7" />
-                        <span>Loading scores...</span>
+                        <span className="text-sm font-medium text-slate-600">Loading scores...</span>
                       </div>
                     ) : activeScores.length === 0 ? (
-                      <p className="faculty-empty-subtitle">No attempts found.</p>
+                      <p className="m-0 text-sm text-slate-500">No attempts found.</p>
                     ) : (
-                      <div className="faculty-score-table-wrap">
-                        <table className="faculty-score-table">
+                      <div className="overflow-x-auto rounded-lg border border-slate-200">
+                        <table className="w-full min-w-[500px] border-collapse sm:min-w-[560px]">
                           <thead>
                             <tr>
-                              <th>Student</th>
-                              <th>Attempt</th>
-                              <th>Status</th>
-                              <th>Score</th>
+                              <th className="bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Student</th>
+                              <th className="bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Attempt</th>
+                              <th className="bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
+                              <th className="bg-slate-50 px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Score</th>
                             </tr>
                           </thead>
                           <tbody>
                             {activeScores.map((row) => (
                               <tr key={row.attemptId}>
-                                <td>
+                                <td className="border-t border-slate-100 px-3 py-2 text-sm text-slate-700">
                                   {row.student?.user?.name ||
                                     row.student?.enrollmentNumber ||
                                     "N/A"}
                                 </td>
-                                <td>{row.attemptNumber || 1}</td>
-                                <td>{row.status || "N/A"}</td>
-                                <td>
+                                <td className="border-t border-slate-100 px-3 py-2 text-sm text-slate-700">{row.attemptNumber || 1}</td>
+                                <td className="border-t border-slate-100 px-3 py-2 text-sm text-slate-700">{row.status || "N/A"}</td>
+                                <td className="border-t border-slate-100 px-3 py-2 text-sm text-slate-700">
                                   {row.totalAwarded != null && row.totalMax != null
                                     ? `${row.totalAwarded}/${row.totalMax}`
                                     : "Pending"}
@@ -510,17 +513,17 @@ export default function FacultyExamsSection() {
   }
 
   return (
-    <section className="faculty-section faculty-exams-section">
-      <div className="faculty-section-header">
+    <section className={facultyUi.page}>
+      <div className={facultyUi.pageHeader}>
         <div>
-          <h2 className="faculty-section-title">Exam Blueprint Studio</h2>
-          <p className="faculty-section-subtitle">
+          <h2 className={facultyUi.title}>Exam Blueprint Studio</h2>
+          <p className={facultyUi.subtitle}>
             Manage syllabus, AI paper generation, review, and student scores
           </p>
         </div>
         <button
           type="button"
-          className="faculty-secondary-btn"
+          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-slate-100 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-60"
           onClick={handleRefresh}
           disabled={refreshing || isLoading}
         >
@@ -529,70 +532,69 @@ export default function FacultyExamsSection() {
         </button>
       </div>
 
-      <div className="faculty-stats-grid">
-        <div className="faculty-stat-card">
-          <div className="faculty-stat-header">
-            <span className="faculty-stat-title">Total Blueprints</span>
-            <div className="faculty-stat-icon" style={{ background: "#dbeafe" }}>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={`${facultyUi.statCard} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">Total Blueprints</span>
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-blue-100">
               <FileText size={20} color="#2563eb" />
             </div>
           </div>
-          <p className="faculty-stat-value">{stats.total}</p>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">{stats.total}</p>
         </div>
-        <div className="faculty-stat-card">
-          <div className="faculty-stat-header">
-            <span className="faculty-stat-title">Draft</span>
-            <div className="faculty-stat-icon" style={{ background: "#f1f5f9" }}>
+        <div className={`${facultyUi.statCard} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-slate-500 to-slate-400" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">Draft</span>
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-slate-100">
               <FileText size={20} color="#64748b" />
             </div>
           </div>
-          <p className="faculty-stat-value">{stats.draft}</p>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">{stats.draft}</p>
         </div>
-        <div className="faculty-stat-card">
-          <div className="faculty-stat-header">
-            <span className="faculty-stat-title">Published</span>
-            <div className="faculty-stat-icon" style={{ background: "#dbeafe" }}>
+        <div className={`${facultyUi.statCard} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-indigo-500 to-blue-500" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">Published</span>
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-blue-100">
               <CheckCircle size={20} color="#2563eb" />
             </div>
           </div>
-          <p className="faculty-stat-value">{stats.published}</p>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">{stats.published}</p>
         </div>
-        <div className="faculty-stat-card">
-          <div className="faculty-stat-header">
-            <span className="faculty-stat-title">Closed</span>
-            <div className="faculty-stat-icon" style={{ background: "#fde68a" }}>
+        <div className={`${facultyUi.statCard} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">Closed</span>
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-amber-100">
               <Clock size={20} color="#b45309" />
             </div>
           </div>
-          <p className="faculty-stat-value">{stats.closed}</p>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">{stats.closed}</p>
         </div>
       </div>
 
-      <div className="faculty-card">
-        <h3 className="faculty-card-title">Assigned Blueprints</h3>
+      <div className={facultyUi.panel}>
+        <h3 className="m-0 mb-4 text-lg font-bold tracking-[0.2px] text-slate-900">Assigned Blueprints</h3>
 
         {isLoading ? (
-          <div className="faculty-loading-inline">
-            <ClipLoader size={24} color="#0284c7" />
-            <span>Loading blueprints...</span>
-          </div>
+          <LoadingState message="Loading exam blueprints..." minHeight="min-h-56" />
         ) : blueprints.length === 0 ? (
-          <div className="faculty-empty-state">
-            <AlertCircle size={48} color="#94a3b8" />
-            <p>No exam blueprints found</p>
-          </div>
+          <EmptyState message="No exam blueprints found" minHeight="min-h-56" />
         ) : (
-          <div className="faculty-blueprints-grid">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
             {blueprints.map((blueprint) => {
               const statusConfig = STATUS_CONFIG[blueprint.status] || STATUS_CONFIG.DRAFT;
               const StatusIcon = statusConfig.icon;
 
               return (
-                <div key={blueprint._id} className="faculty-blueprint-card">
-                  <div className="faculty-blueprint-header">
-                    <h4 className="faculty-blueprint-title">{blueprint.title || "Exam Blueprint"}</h4>
+                <div key={blueprint._id} className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-[0_6px_14px_rgba(15,23,42,0.06)]">
+                  <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-indigo-500 to-blue-600" />
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <h4 className="m-0 text-[1.08rem] font-semibold text-slate-900">{blueprint.title || "Exam Blueprint"}</h4>
                     <div
-                      className="faculty-blueprint-status"
+                      className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold"
                       style={{ background: statusConfig.bg, color: statusConfig.color }}
                     >
                       <StatusIcon size={14} />
@@ -600,29 +602,35 @@ export default function FacultyExamsSection() {
                     </div>
                   </div>
 
-                  <div className="faculty-blueprint-meta">
-                    <div className="faculty-blueprint-info">
-                      <span className="faculty-blueprint-label">Subject:</span>
-                      <span>{blueprint.subject || "N/A"}</span>
+                  <div className="mt-2.5 grid grid-cols-1 gap-2 text-sm text-slate-700 sm:grid-cols-2">
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                      <p className="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Subject</p>
+                      <p className="m-0 mt-0.5 inline-flex items-center gap-1.5 font-medium text-slate-800">
+                        <BookOpen size={13} />
+                        {blueprint.subject || "N/A"}
+                      </p>
                     </div>
-                    <div className="faculty-blueprint-info">
-                      <span className="faculty-blueprint-label">Type:</span>
-                      <span>{formatExamType(blueprint.examType)}</span>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                      <p className="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Type</p>
+                      <p className="m-0 mt-0.5 font-medium text-slate-800">{formatExamType(blueprint.examType)}</p>
                     </div>
-                    <div className="faculty-blueprint-info">
-                      <span className="faculty-blueprint-label">Window:</span>
-                      <span>{formatDateTime(blueprint.scheduleStart)}</span>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                      <p className="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Window</p>
+                      <p className="m-0 mt-0.5 inline-flex items-center gap-1.5 font-medium text-slate-800">
+                        <CalendarDays size={13} />
+                        {formatDateTime(blueprint.scheduleStart)}
+                      </p>
                     </div>
-                    <div className="faculty-blueprint-info">
-                      <span className="faculty-blueprint-label">Marks:</span>
-                      <span>{blueprint.totalMarks || "N/A"}</span>
+                    <div className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5">
+                      <p className="m-0 text-xs font-semibold uppercase tracking-wide text-slate-500">Marks</p>
+                      <p className="m-0 mt-0.5 font-medium text-slate-800">{blueprint.totalMarks || "N/A"}</p>
                     </div>
                   </div>
 
-                  <div className="faculty-blueprint-actions">
+                  <div className="mt-2.5">
                     <button
                       type="button"
-                      className="faculty-action-btn"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-blue-600 bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white transition hover:bg-blue-700"
                       onClick={() => handleOpenBlueprint(blueprint._id)}
                     >
                       <Eye size={16} />

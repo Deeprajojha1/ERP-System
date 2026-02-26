@@ -5,13 +5,15 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  AlertCircle,
   Plus,
   ArrowLeft,
+  FileText,
 } from "lucide-react";
 import { ClipLoader } from "react-spinners";
 import toast from "react-hot-toast";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
+import { facultyUi } from "./uiTokens";
+import { EmptyState, LoadingState } from "./SectionState";
 import {
   fetchFacultyLeaves,
   applyFacultyLeave,
@@ -30,9 +32,21 @@ const LEAVE_TYPES = [
 ];
 
 const STATUS_CONFIG = {
-  pending: { icon: Clock, color: "#f59e0b", bg: "#fef3c7", label: "Pending" },
-  approved: { icon: CheckCircle, color: "#10b981", bg: "#d1fae5", label: "Approved" },
-  rejected: { icon: XCircle, color: "#ef4444", bg: "#fee2e2", label: "Rejected" },
+  pending: {
+    icon: Clock,
+    label: "Pending",
+    className: "bg-amber-100 text-amber-800",
+  },
+  approved: {
+    icon: CheckCircle,
+    label: "Approved",
+    className: "bg-emerald-100 text-emerald-800",
+  },
+  rejected: {
+    icon: XCircle,
+    label: "Rejected",
+    className: "bg-rose-100 text-rose-800",
+  },
 };
 
 export default function FacultyLeavesSection({ facultyData }) {
@@ -122,36 +136,37 @@ export default function FacultyLeavesSection({ facultyData }) {
     });
   };
 
-  const getLeaveTypeLabel = (type) => {
-    return LEAVE_TYPES.find((t) => t.id === type)?.label || type;
-  };
+  const getLeaveTypeLabel = (type) =>
+    LEAVE_TYPES.find((t) => t.id === type)?.label || type;
 
-  return (
-    <section className="faculty-section faculty-leaves-section">
-      {showApplyForm ? (
-        <div className="faculty-content-form-page faculty-leave-form-page">
-          <div className="faculty-card faculty-leave-form-card">
+  if (showApplyForm) {
+    return (
+      <section className={facultyUi.page}>
+        <div className="mx-auto max-w-3xl">
+          <div className={facultyUi.panel}>
             <button
               type="button"
-              className="faculty-course-back-btn faculty-leave-form-back-btn"
+              className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
               onClick={closeLeaveForm}
             >
               <ArrowLeft size={16} />
               <span>Back to Leave Management</span>
             </button>
 
-            <div className="faculty-leave-form-head">
-              <h3>Apply for Leave</h3>
-              <p>Fill in leave details to submit your request for approval.</p>
+            <div className="mb-4">
+              <h3 className="m-0 text-xl font-bold text-slate-900">Apply for Leave</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Fill in leave details to submit your request for approval.
+              </p>
             </div>
 
-            <form onSubmit={handleSubmit} className="faculty-modal-form faculty-leave-inline-form">
-              <div className="faculty-form-group">
-                <label>Leave Type</label>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-700">Leave Type</label>
                 <select
                   value={formData.type}
                   onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-                  className="faculty-form-select"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                 >
                   {LEAVE_TYPES.map((type) => (
                     <option key={type.id} value={type.id}>
@@ -161,52 +176,56 @@ export default function FacultyLeavesSection({ facultyData }) {
                 </select>
               </div>
 
-              <div className="faculty-form-row">
-                <div className="faculty-form-group">
-                  <label>From Date</label>
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-slate-700">From Date</label>
                   <input
                     type="date"
                     value={formData.dateFrom}
                     onChange={(e) => setFormData({ ...formData, dateFrom: e.target.value })}
-                    className="faculty-form-input"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                     required
                   />
                 </div>
-                <div className="faculty-form-group">
-                  <label>To Date</label>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-semibold text-slate-700">To Date</label>
                   <input
                     type="date"
                     value={formData.dateTo}
                     onChange={(e) => setFormData({ ...formData, dateTo: e.target.value })}
-                    className="faculty-form-input"
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                     min={formData.dateFrom}
                     required
                   />
                 </div>
               </div>
 
-              <div className="faculty-form-group">
-                <label>Reason</label>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-semibold text-slate-700">Reason</label>
                 <textarea
                   value={formData.reason}
                   onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  className="faculty-form-textarea"
+                  className="min-h-28 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                   placeholder="Please provide a reason for your leave..."
                   rows={5}
                   required
                 />
               </div>
 
-              <div className="faculty-modal-actions">
+              <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-3">
                 <button
                   type="button"
-                  className="faculty-secondary-btn"
+                  className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                   onClick={closeLeaveForm}
                   disabled={isApplying}
                 >
                   Cancel
                 </button>
-                <button type="submit" className="faculty-primary-btn" disabled={isApplying}>
+                <button
+                  type="submit"
+                  className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isApplying}
+                >
                   {isApplying ? (
                     <>
                       <ClipLoader size={16} color="#fff" />
@@ -220,113 +239,131 @@ export default function FacultyLeavesSection({ facultyData }) {
             </form>
           </div>
         </div>
-      ) : (
-        <>
-          <div className="faculty-section-header faculty-leaves-header">
-            <div className="faculty-leaves-header-copy">
-              <h2 className="faculty-section-title">Leave Management</h2>
-              <p className="faculty-section-subtitle">Apply and track your leave requests</p>
-            </div>
-            <button
-              type="button"
-              className="faculty-primary-btn faculty-leaves-apply-btn"
-              onClick={() => setShowApplyForm(true)}
-            >
-              <Plus size={18} />
-              <span>Apply Leave</span>
-            </button>
-          </div>
+      </section>
+    );
+  }
 
-          <div className="faculty-stats-grid">
-            <div className="faculty-stat-card">
-              <div className="faculty-stat-header">
-                <span className="faculty-stat-title">Total Leaves</span>
-                <div className="faculty-stat-icon" style={{ background: "#dbeafe" }}>
-                  <Calendar size={20} color="#2563eb" />
-                </div>
-              </div>
-              <p className="faculty-stat-value">{leaves.length}</p>
-            </div>
-            <div className="faculty-stat-card">
-              <div className="faculty-stat-header">
-                <span className="faculty-stat-title">Pending</span>
-                <div className="faculty-stat-icon" style={{ background: "#fef3c7" }}>
-                  <Clock size={20} color="#f59e0b" />
-                </div>
-              </div>
-              <p className="faculty-stat-value">
-                {leaves.filter((l) => l.status === "pending").length}
-              </p>
-            </div>
-            <div className="faculty-stat-card">
-              <div className="faculty-stat-header">
-                <span className="faculty-stat-title">Approved</span>
-                <div className="faculty-stat-icon" style={{ background: "#d1fae5" }}>
-                  <CheckCircle size={20} color="#10b981" />
-                </div>
-              </div>
-              <p className="faculty-stat-value">
-                {leaves.filter((l) => l.status === "approved").length}
-              </p>
-            </div>
-            <div className="faculty-stat-card">
-              <div className="faculty-stat-header">
-                <span className="faculty-stat-title">Rejected</span>
-                <div className="faculty-stat-icon" style={{ background: "#fee2e2" }}>
-                  <XCircle size={20} color="#ef4444" />
-                </div>
-              </div>
-              <p className="faculty-stat-value">
-                {leaves.filter((l) => l.status === "rejected").length}
-              </p>
+  return (
+    <section className={facultyUi.page}>
+      <div className={facultyUi.pageHeader}>
+        <div>
+          <h2 className={facultyUi.title}>Leave Management</h2>
+          <p className={facultyUi.subtitle}>Apply and track your leave requests</p>
+        </div>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:from-cyan-700 hover:to-blue-700"
+          onClick={() => setShowApplyForm(true)}
+        >
+          <Plus size={18} />
+          <span>Apply Leave</span>
+        </button>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={`${facultyUi.statCard} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-blue-500 to-cyan-500" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">Total Leaves</span>
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-blue-100">
+              <Calendar size={20} color="#2563eb" />
             </div>
           </div>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">
+            {leaves.length}
+          </p>
+        </div>
+        <div className={`${facultyUi.statCard} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-500" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">Pending</span>
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-amber-100">
+              <Clock size={20} color="#f59e0b" />
+            </div>
+          </div>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">
+            {leaves.filter((l) => l.status === "pending").length}
+          </p>
+        </div>
+        <div className={`${facultyUi.statCard} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">Approved</span>
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-emerald-100">
+              <CheckCircle size={20} color="#10b981" />
+            </div>
+          </div>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">
+            {leaves.filter((l) => l.status === "approved").length}
+          </p>
+        </div>
+        <div className={`${facultyUi.statCard} relative overflow-hidden`}>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-rose-500 to-pink-500" />
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-sm font-medium text-slate-500">Rejected</span>
+            <div className="inline-flex h-9 w-9 items-center justify-center rounded-[10px] bg-rose-100">
+              <XCircle size={20} color="#ef4444" />
+            </div>
+          </div>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">
+            {leaves.filter((l) => l.status === "rejected").length}
+          </p>
+        </div>
+      </div>
 
-          <div className="faculty-card">
-            <h3 className="faculty-card-title">Leave History</h3>
-            {isLoading ? (
-              <div className="faculty-loading-inline">
-                <ClipLoader size={24} color="#0284c7" />
-                <span>Loading leaves...</span>
-              </div>
-            ) : leaves.length === 0 ? (
-              <div className="faculty-empty-state">
-                <AlertCircle size={48} color="#94a3b8" />
-                <p>No leave applications found</p>
-              </div>
-            ) : (
-              <div className="faculty-leaves-list">
-                {leaves.map((leave) => {
-                  const statusConfig = STATUS_CONFIG[leave.status] || STATUS_CONFIG.pending;
-                  const StatusIcon = statusConfig.icon;
+      <div className={facultyUi.panel}>
+        <h3 className="m-0 mb-4 text-lg font-bold tracking-[0.2px] text-slate-900">Leave History</h3>
+        {isLoading ? (
+          <LoadingState message="Loading leave applications..." minHeight="min-h-56" />
+        ) : leaves.length === 0 ? (
+          <EmptyState message="No leave applications found" minHeight="min-h-56" />
+        ) : (
+          <div className="flex flex-col gap-3">
+            {leaves.map((leave) => {
+              const statusConfig = STATUS_CONFIG[leave.status] || STATUS_CONFIG.pending;
+              const StatusIcon = statusConfig.icon;
 
-                  return (
-                    <div key={leave._id} className="faculty-leave-item">
-                      <div className="faculty-leave-info">
-                        <span className="faculty-leave-type">{getLeaveTypeLabel(leave.type)}</span>
-                        <div className="faculty-leave-dates">
-                          <Calendar size={14} />
-                          <span>
-                            {formatDisplayDate(leave.dateFrom)} - {formatDisplayDate(leave.dateTo)}
-                          </span>
-                        </div>
-                        {leave.reason && <p className="faculty-leave-reason">{leave.reason}</p>}
-                      </div>
-                      <div
-                        className="faculty-leave-status"
-                        style={{ background: statusConfig.bg, color: statusConfig.color }}
+              return (
+                <div
+                  key={leave._id}
+                  className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_8px_20px_rgba(15,23,42,0.06)]"
+                >
+                  <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-cyan-500 to-blue-600" />
+                  <div className="min-w-0">
+                    <div className="mb-2 flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold capitalize text-slate-700">
+                        <FileText size={12} className="mr-1 inline" />
+                        {getLeaveTypeLabel(leave.type)}
+                      </span>
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ${statusConfig.className}`}
                       >
                         <StatusIcon size={14} />
                         <span>{statusConfig.label}</span>
-                      </div>
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
-            )}
+                    <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-slate-600 md:grid-cols-2">
+                      <p className="m-0 inline-flex items-center gap-1.5">
+                        <Calendar size={14} />
+                        <span className="font-medium text-slate-700">From:</span>{" "}
+                        {formatDisplayDate(leave.dateFrom)}
+                      </p>
+                      <p className="m-0 inline-flex items-center gap-1.5">
+                        <Calendar size={14} />
+                        <span className="font-medium text-slate-700">To:</span>{" "}
+                        {formatDisplayDate(leave.dateTo)}
+                      </p>
+                    </div>
+                    <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                      {leave.reason || "No reason provided."}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-        </>
-      )}
+        )}
+      </div>
     </section>
   );
 }

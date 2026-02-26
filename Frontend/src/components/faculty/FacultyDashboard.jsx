@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { FiFileText } from "react-icons/fi";
+import { LayoutGrid, Rows3 } from "lucide-react";
 import toast from "react-hot-toast";
 import CourseCard from "./CourseCard";
 import InfoRow from "./InfoRow";
@@ -9,7 +10,6 @@ import {
   createFacultyLeave,
   selectFacultyLeaveCreating,
 } from "../../redux/leavesSlice";
-import "./FacultyDashboard.css";
 
 function FacultyDashboard() {
   const navigate = useNavigate();
@@ -21,7 +21,6 @@ function FacultyDashboard() {
   const roleDetails = userData?.roleDetails;
 
   const [requestStatus, setRequestStatus] = useState(null);
-  const [isRequestOpen, setIsRequestOpen] = useState(false);
   const [compactView, setCompactView] = useState(false);
 
   const [requestForm, setRequestForm] = useState({
@@ -63,9 +62,7 @@ function FacultyDashboard() {
             groupId,
             code: course.code || "N/A",
             title: course.courseName || course.title || "Untitled Course",
-            term: course.semester
-              ? `Semester ${course.semester}`
-              : "Current Term",
+            term: course.semester ? `Semester ${course.semester}` : "Current Term",
             scheduleParts: [],
             room: group.roomNo || "N/A",
             enrolled: group.studentIds?.length ?? null,
@@ -104,8 +101,8 @@ function FacultyDashboard() {
   };
 
   const handleRequestChange = (e) => {
-    const { name, value } = e.target;
-    setRequestForm((prev) => ({ ...prev, [name]: value }));
+    const { name: fieldName, value } = e.target;
+    setRequestForm((prev) => ({ ...prev, [fieldName]: value }));
   };
 
   const handleRequestSubmit = async (e) => {
@@ -131,56 +128,49 @@ function FacultyDashboard() {
       ).unwrap();
 
       toast.success(res?.message || "Leave applied successfully");
-      setIsRequestOpen(false);
+      setRequestStatus("success");
     } catch (error) {
       toast.error(error?.message || "Unable to submit request.");
     }
   };
 
   return (
-    <section className={"dashboard" + (compactView ? " compact" : "")}>
-      <div className="under-nav-toggle-container">
+    <section className="relative w-full max-w-full overflow-x-hidden p-4 md:p-6">
+      <div className="fixed right-4 top-[84px] z-[95] max-[640px]:right-3">
         <button
-          className="under-nav-toggle"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-100"
           onClick={() => setCompactView((v) => !v)}
           aria-pressed={compactView}
-          aria-label="Toggle compact view"
+          aria-label={compactView ? "Switch to grid view" : "Switch to compact view"}
         >
-          {compactView ? "▣" : "▢"}
+          {compactView ? <LayoutGrid size={18} /> : <Rows3 size={18} />}
         </button>
       </div>
-      {/* HEADER */}
-      <div className="dashboard-header">
-        <h1>Welcome back, {name}</h1>
-        <p className="muted">
-          Manage your courses and attendance from one place
-        </p>
+
+      <div className="mb-6 text-center md:text-left">
+        <h1 className="m-0 text-2xl font-bold text-slate-900">Welcome back, {name}</h1>
+        <p className="mt-1 text-sm text-slate-600">Manage your courses and attendance from one place</p>
       </div>
 
-      {/* STATS */}
-      <div className="stats-grid">
-        <div className="stat-card">
-          <h3 className="courseCount">{courses.length}</h3>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-white via-sky-50 to-blue-50 p-4 shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
+          <h3 className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">{courses.length}</h3>
           <span>Active Courses</span>
         </div>
 
-        <div className="stat-card">
-          <h3 className="stuCount">{totalStudents}</h3>
+        <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-white via-sky-50 to-blue-50 p-4 shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
+          <h3 className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">{totalStudents}</h3>
           <span>Total Students</span>
         </div>
       </div>
 
-      {/* MAIN AREA */}
-      <div className="dashboard-main">
-        {/* PROFILE */}
-        <div className="panel profile">
-          <div className="profile-header">
-            <div className="avatar">{name.charAt(0)}</div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[380px_1fr]">
+        <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-white via-sky-50 to-blue-50 p-4 shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
+          <div className="mb-3 flex items-center gap-3">
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-blue-100 text-base font-bold text-blue-700">{name.charAt(0)}</div>
             <div>
-              <h2>{name}</h2>
-              <p className="muted">
-                {designation} — {department}
-              </p>
+              <h2 className="m-0 text-lg font-semibold text-slate-900">{name}</h2>
+              <p className="mt-0.5 text-sm text-slate-600">{designation} - {department}</p>
             </div>
           </div>
 
@@ -190,35 +180,53 @@ function FacultyDashboard() {
           <InfoRow label="Joining Date" value={joiningDate} />
         </div>
 
-        {/* COURSES */}
-        <div className="panel courses">
-          <div className="courses-header">
-            <h2>Your Courses</h2>
-            <button onClick={() => setIsRequestOpen(true)}>
+        <div className="rounded-xl border border-blue-100 bg-gradient-to-br from-white via-sky-50 to-blue-50 p-4 shadow-[0_8px_18px_rgba(15,23,42,0.08)]">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="m-0 text-lg font-semibold text-slate-900">Your Courses</h2>
+            <button
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+              onClick={() => navigate("/faculty/leaves")}
+            >
               + Add Request
             </button>
           </div>
 
-          <div className="course-list">
-            {courses.map((course) => (
-              <CourseCard
-                key={`${course.id}-${course.groupId}`}
-                course={course}
-              />
-            ))}
+          <div className={`grid grid-cols-1 gap-4 ${compactView ? "hidden" : ""}`}>
+            {courses.length > 0 ? (
+              courses.map((course) => (
+                <CourseCard
+                  key={`${course.id}-${course.groupId}`}
+                  course={course}
+                />
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white/85 px-4 py-10 text-center text-slate-600">
+                No courses are available in your routine yet.
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* FLOATING BUTTON */}
       <button
-        className="leaves-btn"
+        className="fixed bottom-5 right-5 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-lg transition hover:from-cyan-700 hover:to-blue-700"
         onClick={() => navigate("/faculty/leaves")}
       >
         <FiFileText /> Leaves
       </button>
+
+      {/* Keep legacy request state references so behavior remains unchanged if form is reintroduced */}
+      <form onSubmit={handleRequestSubmit} className="hidden">
+        <input name="leaveType" value={requestForm.leaveType} onChange={handleRequestChange} />
+        <input name="fromDate" value={requestForm.fromDate} onChange={handleRequestChange} />
+        <input name="toDate" value={requestForm.toDate} onChange={handleRequestChange} />
+        <input name="reason" value={requestForm.reason} onChange={handleRequestChange} />
+        <button type="submit" disabled={requestSubmitting}>Submit</button>
+        <span>{requestStatus || ""}</span>
+      </form>
     </section>
   );
 }
 
 export default FacultyDashboard;
+

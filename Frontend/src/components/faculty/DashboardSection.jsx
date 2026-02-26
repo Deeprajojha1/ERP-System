@@ -1,15 +1,34 @@
-import { Calendar, Clock, Users, BookOpen, Bell, AlertCircle, Sparkles } from "lucide-react";
+import { Calendar, Clock, Users, BookOpen, Bell, AlertCircle } from "lucide-react";
 import { useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { ClipLoader } from "react-spinners";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
+import { facultyUi } from "./uiTokens";
 import {
   fetchFacultyAlerts,
   selectFacultyAlerts,
   selectFacultyAlertsLoadState,
 } from "../../redux/facultyDashboardSlice";
 
-export default function DashboardSection({ facultyData }) {
+const PRIORITY_ACCENT_CLASS = {
+  urgent: "border-l-red-500",
+  warning: "border-l-amber-500",
+  info: "border-l-blue-500",
+};
+
+const PRIORITY_BADGE_CLASS = {
+  urgent: "bg-red-100 text-red-800",
+  warning: "bg-amber-100 text-amber-800",
+  info: "bg-blue-100 text-blue-800",
+};
+
+const STATUS_BADGE_CLASS = {
+  completed: "bg-emerald-100 text-emerald-900",
+  ongoing: "bg-amber-100 text-amber-900",
+  scheduled: "bg-gray-200 text-gray-700",
+};
+
+export default function DashboardSection({ facultyData, isScheduleLoading = false }) {
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
   const alerts = useSelector(selectFacultyAlerts);
@@ -37,17 +56,6 @@ export default function DashboardSection({ facultyData }) {
     if (!apiBase || alertsLoadState !== ADMIN_LOAD_STATES.INITIAL) return;
     dispatch(fetchFacultyAlerts({ apiBase }));
   }, [apiBase, alertsLoadState, dispatch]);
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "urgent":
-        return "#ef4444";
-      case "warning":
-        return "#f59e0b";
-      default:
-        return "#3b82f6";
-    }
-  };
 
   // Get current time to determine class status
   const getCurrentStatus = (lectureNumber) => {
@@ -91,95 +99,96 @@ export default function DashboardSection({ facultyData }) {
     { completed: 0, ongoing: 0, scheduled: 0 }
   );
 
-  const unreadHighPriority = alerts.filter((item) =>
-    ["urgent", "warning"].includes(item?.priority)
-  ).length;
-
-    return (
-      <section className="faculty-section">
-      <div className="faculty-section-header">
+  return (
+    <section className={facultyUi.page}>
+      <div className={facultyUi.pageHeader}>
         <div>
-          <h2 className="faculty-section-title">Welcome back, {facultyName.split(" ").pop()}!</h2>
-          <p className="faculty-section-subtitle">Here is your academic overview for today</p>
-        </div>
-        <div className="faculty-dashboard-chip">
-          <Sparkles size={16} />
-          <span>{unreadHighPriority} priority alert(s)</span>
+          <h2 className={facultyUi.title}>Welcome back, {facultyName.split(" ").pop()}!</h2>
+          <p className={facultyUi.subtitle}>Here is your academic overview for today</p>
         </div>
       </div>
 
-      <div className="faculty-stats-grid">
-        <div className="faculty-stat-card">
-          <div className="faculty-stat-header">
-            <p className="faculty-stat-title">Today's Classes</p>
-            <div className="faculty-stat-icon" style={{ background: "#dbeafe", color: "#1d4ed8" }}>
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={`${facultyUi.statCard} flex flex-col gap-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="m-0 text-sm font-medium text-slate-500">Today's Classes</p>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-blue-100 text-blue-700">
               <Users size={20} />
             </div>
           </div>
-          <p className="faculty-stat-value">{todaySchedule.length}</p>
-          <p className="faculty-stat-subtitle">{facultyData?.today || "Today"}</p>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-3xl font-bold text-transparent">
+            {isScheduleLoading ? <ClipLoader size={24} color="#0f5ed7" /> : todaySchedule.length}
+          </p>
+          <p className="m-0 text-xs text-slate-500">{facultyData?.today || "Today"}</p>
         </div>
 
-        <div className="faculty-stat-card">
-          <div className="faculty-stat-header">
-            <p className="faculty-stat-title">Department</p>
-            <div className="faculty-stat-icon" style={{ background: "#d1fae5", color: "#065f46" }}>
+        <div className={`${facultyUi.statCard} flex flex-col gap-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="m-0 text-sm font-medium text-slate-500">Department</p>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-emerald-100 text-emerald-800">
               <BookOpen size={20} />
             </div>
           </div>
-          <p className="faculty-stat-value" style={{ fontSize: "20px" }}>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-xl font-bold text-transparent">
             {departmentName}
           </p>
-          <p className="faculty-stat-subtitle">Active</p>
+          <p className="m-0 text-xs text-slate-500">Active</p>
         </div>
 
-        <div className="faculty-stat-card">
-          <div className="faculty-stat-header">
-            <p className="faculty-stat-title">Designation</p>
-            <div className="faculty-stat-icon" style={{ background: "#ede9fe", color: "#7c3aed" }}>
+        <div className={`${facultyUi.statCard} flex flex-col gap-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="m-0 text-sm font-medium text-slate-500">Designation</p>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-violet-100 text-violet-700">
               <Calendar size={20} />
             </div>
           </div>
-          <p className="faculty-stat-value" style={{ fontSize: "18px" }}>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-lg font-bold text-transparent">
             {designation}
           </p>
-          <p className="faculty-stat-subtitle">{employeeId}</p>
+          <p className="m-0 text-xs text-slate-500">{employeeId}</p>
         </div>
 
-        <div className="faculty-stat-card">
-          <div className="faculty-stat-header">
-            <p className="faculty-stat-title">Next Class</p>
-            <div className="faculty-stat-icon" style={{ background: "#fef3c7", color: "#92400e" }}>
+        <div className={`${facultyUi.statCard} flex flex-col gap-2`}>
+          <div className="flex items-center justify-between gap-2">
+            <p className="m-0 text-sm font-medium text-slate-500">Next Class</p>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] bg-amber-100 text-amber-800">
               <Clock size={20} />
             </div>
           </div>
-          <p className="faculty-stat-value" style={{ fontSize: "20px" }}>
+          <p className="m-0 bg-gradient-to-br from-blue-700 to-cyan-600 bg-clip-text text-xl font-bold text-transparent">
             {nextClass ? getLectureTime(nextClass.lectureNumber)[0] : "No classes"}
           </p>
-          <p className="faculty-stat-subtitle">
+          <p className="m-0 text-xs text-slate-500">
             {nextClass ? nextClass.course?.courseName?.substring(0, 20) : "Today"}
           </p>
         </div>
       </div>
 
-      <div className="faculty-dashboard-grid">
-        <div className="faculty-card faculty-schedule-card">
-          <h3 className="faculty-card-title">Today's Schedule</h3>
-          {todaySchedule.length === 0 ? (
-            <div className="faculty-empty-state">
+      <div className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className={`${facultyUi.panel} mb-[18px] w-full overflow-x-hidden xl:col-span-1 xl:mx-auto xl:max-w-[700px]`}>
+          <h3 className="m-0 mb-4 text-lg font-bold tracking-[0.2px] text-slate-900">Today's Schedule</h3>
+          {isScheduleLoading ? (
+            <div className="rounded-xl border border-slate-200 bg-white/70 p-4">
+              <div className="flex min-h-56 flex-col items-center justify-center gap-3 rounded-lg bg-slate-50/70">
+                <ClipLoader size={28} color="#0284c7" />
+                <span className="text-sm font-semibold text-slate-600">Loading today's schedule</span>
+              </div>
+            </div>
+          ) : todaySchedule.length === 0 ? (
+            <div className="px-6 py-12 text-center text-slate-500">
               <Calendar size={48} color="#94a3b8" />
-              <p>No classes scheduled for today</p>
+              <p className="m-0 mt-4">No classes scheduled for today</p>
             </div>
           ) : (
-            <div className="faculty-card-content">
-              <div className="faculty-schedule-summary-strip">
-                <span className="faculty-pill faculty-pill-ongoing">
+            <div className="flex flex-col gap-3">
+              <div className="mb-1 flex flex-wrap gap-2">
+                <span className="inline-flex items-center rounded-full bg-cyan-50 px-[10px] py-1 text-[11px] font-bold tracking-[0.2px] text-cyan-700">
                   Ongoing: {classesByStatus.ongoing}
                 </span>
-                <span className="faculty-pill faculty-pill-scheduled">
+                <span className="inline-flex items-center rounded-full bg-blue-50 px-[10px] py-1 text-[11px] font-bold tracking-[0.2px] text-blue-700">
                   Scheduled: {classesByStatus.scheduled}
                 </span>
-                <span className="faculty-pill faculty-pill-completed">
+                <span className="inline-flex items-center rounded-full bg-emerald-50 px-[10px] py-1 text-[11px] font-bold tracking-[0.2px] text-emerald-700">
                   Completed: {classesByStatus.completed}
                 </span>
               </div>
@@ -187,20 +196,20 @@ export default function DashboardSection({ facultyData }) {
                 const [startTime, endTime] = getLectureTime(lecture.lectureNumber);
                 const status = getCurrentStatus(lecture.lectureNumber);
                 return (
-                  <div key={lecture.lectureNumber} className="faculty-schedule-item">
-                    <div className="faculty-schedule-time">
-                      <p className="faculty-schedule-lecture">Lecture {lecture.lectureNumber}</p>
-                      <p className="faculty-schedule-hours">
+                  <div key={lecture.lectureNumber} className="flex flex-col items-start gap-3 rounded-xl border border-slate-200 bg-gradient-to-br from-sky-50 to-slate-100 p-[14px] transition duration-200 hover:border-blue-200 hover:shadow-[0_2px_8px_rgba(15,23,42,0.06)] sm:flex-row sm:items-center sm:gap-4">
+                    <div className="min-w-20 shrink-0 text-center">
+                      <p className="m-0 mb-[2px] text-[13px] font-semibold text-slate-900">Lecture {lecture.lectureNumber}</p>
+                      <p className="m-0 text-[11px] text-slate-500">
                         {startTime} - {endTime}
                       </p>
                     </div>
-                    <div className="faculty-schedule-details">
-                      <p className="faculty-schedule-course">{lecture.course?.courseName || "Course"}</p>
-                      <p className="faculty-schedule-info">
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 mb-1 text-[15px] font-semibold text-slate-900">{lecture.course?.courseName || "Course"}</p>
+                      <p className="m-0 text-[13px] text-slate-500">
                         {lecture.course?.code || ""} | {lecture.group?.name || "Group"} | Room {lecture.group?.roomNo || "N/A"}
                       </p>
                     </div>
-                    <span className={`faculty-schedule-badge ${status.color}`}>{status.label}</span>
+                    <span className={`whitespace-nowrap rounded-[20px] px-3 py-1 text-xs font-semibold sm:shrink-0 ${STATUS_BADGE_CLASS[status.color] || STATUS_BADGE_CLASS.scheduled}`}>{status.label}</span>
                   </div>
                 );
               })}
@@ -208,35 +217,34 @@ export default function DashboardSection({ facultyData }) {
           )}
         </div>
 
-        <div className="faculty-card faculty-alerts-card">
-          <h3 className="faculty-card-title">
-            <Bell size={20} style={{ marginRight: "8px" }} />
+        <div className={`${facultyUi.panel} mb-[18px] overflow-x-hidden xl:col-span-1`}>
+          <h3 className="m-0 mb-4 inline-flex items-center text-lg font-bold tracking-[0.2px] text-slate-900">
+            <Bell size={20} className="mr-2" />
             Notifications
           </h3>
           {alertsLoading ? (
-            <div className="faculty-loading-inline">
+            <div className="flex min-h-52 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white/70">
               <ClipLoader size={24} color="#0284c7" />
-              <span>Loading notifications...</span>
+              <span className="text-sm font-medium text-slate-600">Loading notifications...</span>
             </div>
           ) : alerts.length === 0 ? (
-            <div className="faculty-empty-state">
+            <div className="px-6 py-12 text-center text-slate-500">
               <AlertCircle size={48} color="#94a3b8" />
-              <p>No notifications</p>
+              <p className="m-0 mt-4">No notifications</p>
             </div>
           ) : (
-            <div className="faculty-alerts-content">
+            <div className="flex max-h-[500px] flex-col gap-4 overflow-y-auto">
               {alerts.slice(0, 5).map((alert) => (
                 <div
                   key={alert._id}
-                  className="faculty-alert-item"
-                  style={{ borderLeftColor: getPriorityColor(alert.priority) }}
+                  className={`rounded-lg border-l-4 bg-gray-50 p-4 transition duration-200 hover:translate-x-1 hover:bg-gray-100 ${PRIORITY_ACCENT_CLASS[alert.priority] || PRIORITY_ACCENT_CLASS.info}`}
                 >
-                  <div className="faculty-alert-header">
-                    <h4 className="faculty-alert-title">{alert.title}</h4>
-                    <span className={`faculty-alert-priority priority-${alert.priority}`}>{alert.priority}</span>
+                  <div className="mb-2 flex items-start justify-between gap-2">
+                    <h4 className="m-0 flex-1 text-[0.95rem] font-semibold text-gray-900">{alert.title}</h4>
+                    <span className={`whitespace-nowrap rounded-full px-2 py-1 text-[0.75rem] font-semibold uppercase ${PRIORITY_BADGE_CLASS[alert.priority] || PRIORITY_BADGE_CLASS.info}`}>{alert.priority}</span>
                   </div>
-                  <p className="faculty-alert-message">{alert.message}</p>
-                  <p className="faculty-alert-time">
+                  <p className="m-0 mb-2 line-clamp-3 text-sm leading-6 text-gray-600">{alert.message}</p>
+                  <p className="m-0 text-xs text-gray-400">
                     {new Date(alert.createdAt).toLocaleDateString("en-IN", {
                       day: "2-digit",
                       month: "short",

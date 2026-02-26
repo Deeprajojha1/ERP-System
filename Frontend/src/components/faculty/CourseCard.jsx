@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { FaArrowRightLong } from 'react-icons/fa6'
+import { FiUsers, FiClock, FiMapPin, FiBookOpen } from 'react-icons/fi'
 import './CourseCard.css'
 
 function CourseCard({ course }) {
@@ -17,22 +18,31 @@ function CourseCard({ course }) {
       to={`/faculty/course/${course.id}?groupId=${course.groupId}`}
       className="course-card"
     >
-      <div>
-        <p className="course-code">{course.code}</p>
-        <h3>{course.title}</h3>
-        <p className="muted">{course.term}</p>
+      <div className="course-head">
+        <div className="course-badge">
+          <FiBookOpen />
+        </div>
+        <div>
+          <p className="course-code">{course.code}</p>
+          <h3>{course.title}</h3>
+          <p className="muted">{course.term}</p>
+        </div>
       </div>
+
       <div className="course-meta">
         <div>
           <p className="label">Schedule</p>
+          <span className="meta-icon"><FiClock /></span>
           <p>{course.schedule}</p>
         </div>
         <div>
           <p className="label">Room</p>
+          <span className="meta-icon"><FiMapPin /></span>
           <p>{course.room}</p>
         </div>
         <div>
           <p className="label">Enrolled</p>
+          <span className="meta-icon"><FiUsers /></span>
           <p>
             {enrolledLabel}
             {enrolledLabel === 'N/A' ? '' : ' students'}
@@ -45,7 +55,7 @@ function CourseCard({ course }) {
           {creditsLabel === 'N/A' ? '' : ' credits'}
         </span>
         <span className="cta">
-          Take Attendance <FaArrowRightLong className="cta-icon" />
+          Take Attendance <FaArrowRightLong />
         </span>
       </div>
     </Link>
