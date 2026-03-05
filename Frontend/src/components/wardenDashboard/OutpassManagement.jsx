@@ -13,18 +13,24 @@ import TopNavbar from "./TopNavbar";
 import StatCard from "./StatCard";
 import OutpassDrawer from "./OutpassDrawer";
 import StatusBadge from "./StatusBadge";
-import { 
-  outpassesData, 
-  getOutpassStats
-} from "./outpassMockData";
-import { profile, sidebarItems } from "./mockData";
+import { getOutpassStats } from "./outpassMockData";
+import { sidebarItems } from "./mockData";
+import "./wardenScope.css";
+import { useDispatch, useSelector } from "react-redux";
+import { useEffect } from "react";
+import { fetchWardenProfile } from "../../redux/wardenSlice";
+import { getWardenOutpassesApi, updateWardenOutpassApi } from "./constants/wardenApi";
 
 function OutpassManagement() {
+  const dispatch = useDispatch();
+  const profileState = useSelector((state) => state.warden.profile);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedOutpass, setSelectedOutpass] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [outpasses, setOutpasses] = useState(outpassesData);
+  const [outpasses, setOutpasses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState("all");
@@ -42,6 +48,36 @@ function OutpassManagement() {
   );
 
   const stats = useMemo(() => getOutpassStats(outpasses), [outpasses]);
+
+  const profile = useMemo(
+    () => ({
+      name: profileState?.name || "Warden",
+      role: profileState?.role || "warden",
+    }),
+    [profileState]
+  );
+
+  useEffect(() => {
+    dispatch(fetchWardenProfile());
+  }, [dispatch]);
+
+  const fetchOutpasses = async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const payload = await getWardenOutpassesApi();
+      setOutpasses(Array.isArray(payload?.outpasses) ? payload.outpasses : []);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to load outpasses.");
+      setOutpasses([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOutpasses();
+  }, []);
 
   const summaryCards = [
     {
@@ -86,47 +122,17 @@ function OutpassManagement() {
 
   // Handle status change
   const handleStatusChange = (outpassId, newStatus, remarks) => {
-    // TODO: API Integration - PATCH /api/warden/outpasses/:id
-    // Make API call: updateOutpass(outpassId, { status: newStatus, remarks, updatedAt: new Date() })
-    
-    setOutpasses((prevOutpasses) =>
-      prevOutpasses.map((outpass) => {
-        if (outpass.id === outpassId) {
-          const newLog = {
-            action: newStatus,
-            timestamp: new Date().toISOString(),
-            by: 'Warden - System',
-            remarks: remarks || `Status updated to ${newStatus}`,
-          };
-          return {
-            ...outpass,
-            status: newStatus,
-            logs: [...outpass.logs, newLog],
-            updatedAt: new Date().toISOString(),
-          };
-        }
-        return outpass;
-      })
-    );
-    
-    // Update selected outpass to show changes immediately
-    setSelectedOutpass((prevOutpass) => {
-      if (prevOutpass && prevOutpass.id === outpassId) {
-        const newLog = {
-          action: newStatus,
-          timestamp: new Date().toISOString(),
-          by: 'Warden - System',
-          remarks: remarks || `Status updated to ${newStatus}`,
-        };
-        return {
-          ...prevOutpass,
-          status: newStatus,
-          logs: [...prevOutpass.logs, newLog],
-          updatedAt: new Date().toISOString(),
-        };
+    (async () => {
+      try {
+        const response = await updateWardenOutpassApi(outpassId, { status: newStatus, remarks });
+        const updated = response?.outpass;
+        if (!updated?.id) return;
+        setOutpasses((prev) => prev.map((op) => (op.id === updated.id ? updated : op)));
+        setSelectedOutpass((prevSelected) => (prevSelected?.id === updated.id ? updated : prevSelected));
+      } catch (err) {
+        alert(err?.response?.data?.message || "Failed to update outpass status.");
       }
-      return prevOutpass;
-    });
+    })();
   };
 
   // Filter outpasses
@@ -148,7 +154,7 @@ function OutpassManagement() {
     filtered.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
 
     return filtered;
-  }, [statusFilter, dateFilter]);
+  }, [outpasses, statusFilter, dateFilter]);
 
   const handleViewDetails = (outpass) => {
     setSelectedOutpass(outpass);
@@ -161,7 +167,7 @@ function OutpassManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
+    <div className="warden-scope min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
       <div className="flex">
         <Sidebar
           isCollapsed={isSidebarCollapsed}
@@ -212,15 +218,23 @@ function OutpassManagement() {
             </section>
 
             {/* Outpass History */}
-            <section aria-label="Outpass History">
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="mb-5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-blue-600" aria-hidden="true" />
-                    <h3 className="text-lg font-semibold text-gray-900">Outpass History</h3>
-                  </div>
-                  <span className="text-sm text-gray-600">{filteredOutpasses.length} records</span>
-                </div>
+	            <section aria-label="Outpass History">
+	              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+	                <div className="mb-5 flex items-center justify-between">
+	                  <div className="flex items-center gap-2">
+	                    <FileText className="h-5 w-5 text-blue-600" aria-hidden="true" />
+	                    <h3 className="text-lg font-semibold text-gray-900">Outpass History</h3>
+	                  </div>
+	                  <span className="text-sm text-gray-600">
+	                    {loading ? "Loading..." : `${filteredOutpasses.length} records`}
+	                  </span>
+	                </div>
+
+	                {error && (
+	                  <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+	                    {error}
+	                  </div>
+	                )}
 
                 {/* Filters */}
                 <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -259,9 +273,9 @@ function OutpassManagement() {
                   </div>
                 </div>
 
-                {/* Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full">
+	                {/* Table */}
+	                <div className="overflow-x-auto">
+	                  <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50">
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
@@ -290,7 +304,7 @@ function OutpassManagement() {
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {formatDateTime(outpass.toDate)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{outpass.destination}</td>
+	                          <td className="px-4 py-3 text-sm text-gray-900">{outpass.destination || "—"}</td>
                           <td className="px-4 py-3">
                             <StatusBadge status={outpass.status} />
                           </td>
@@ -307,18 +321,25 @@ function OutpassManagement() {
                         </tr>
                       ))}
                     </tbody>
-                  </table>
+	                  </table>
 
-                  {filteredOutpasses.length === 0 && (
-                    <div className="py-12 text-center">
-                      <FileText className="mx-auto mb-3 h-12 w-12 text-gray-400" aria-hidden="true" />
-                      <p className="text-lg font-semibold text-gray-600">No outpass records found</p>
-                      <p className="text-sm text-gray-500">Try adjusting your filters</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </section>
+	                  {!loading && filteredOutpasses.length === 0 && (
+	                    <div className="py-12 text-center">
+	                      <FileText className="mx-auto mb-3 h-12 w-12 text-gray-400" aria-hidden="true" />
+	                      <p className="text-lg font-semibold text-gray-600">No outpass records found</p>
+	                      <p className="text-sm text-gray-500">Try adjusting your filters</p>
+	                    </div>
+	                  )}
+
+	                  {loading && (
+	                    <div className="py-12 text-center">
+	                      <FileText className="mx-auto mb-3 h-12 w-12 text-gray-300" aria-hidden="true" />
+	                      <p className="text-sm font-semibold text-gray-600">Loading outpasses…</p>
+	                    </div>
+	                  )}
+	                </div>
+	              </div>
+	            </section>
           </main>
         </div>
       </div>

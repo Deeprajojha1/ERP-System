@@ -16,6 +16,7 @@ import resultSlice from "./resultSlice";
 import facultyDashboardSlice from "./facultyDashboardSlice";
 import adminExamBlueprintSlice from "./adminExamBlueprintSlice";
 import studentExamSlice from "./studentExamSlice";
+import wardenSlice from "./wardenSlice";
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
 
@@ -45,6 +46,7 @@ const rootReducer = combineReducers({
   facultyDashboard: facultyDashboardSlice,
   adminExamBlueprint: adminExamBlueprintSlice,
   studentExam: studentExamSlice,
+  warden: wardenSlice,
 });
 
 const persistedReducer = persistReducer(

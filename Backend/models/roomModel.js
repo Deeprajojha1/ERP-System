@@ -16,6 +16,12 @@ const roomSchema = new mongoose.Schema(
 
     floorNumber: Number,
 
+    bedTier: {
+      type: String,
+      enum: ["single", "two-tier", "three-tier", "four-tier"],
+      default: "single",
+    },
+
     capacity: {
       type: Number,
       enum: [1, 2, 3, 4],
@@ -40,13 +46,18 @@ priceType: {
       },
     ],
 
-    status: {
-      type: String,
-      enum: ["Available", "Full"],
-      default: "Available",
-    },
-  },
-  { timestamps: true }
-);
+	    status: {
+	      type: String,
+	      enum: ["Available", "Full", "Maintenance"],
+	      default: "Available",
+	    },
+	  },
+	  { timestamps: true }
+	);
+
+// Enforce uniqueness of room numbers within a hostel.
+// NOTE: Some deployments previously created a legacy index on (hostelId, roomNumber).
+// The correct field name in this schema is `hostel`.
+roomSchema.index({ hostel: 1, roomNumber: 1 }, { unique: true });
 
 export default mongoose.model("Room", roomSchema);

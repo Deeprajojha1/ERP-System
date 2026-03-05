@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import { FiSearch } from "react-icons/fi";
+import { ThreeDots } from "react-loader-spinner";
 import axios from "../utils/axiosInstance";
+import ClipLoader from "./components/ClipLoader";
+import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import "./StudentIdCardCenter.css";
 
 const normalizeStudent = (student) => ({
@@ -29,15 +33,18 @@ const StudentIdCardCenter = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [search, setSearch] = useState("");
   const [selectedIds, setSelectedIds] = useState([]);
   const [downloadingId, setDownloadingId] = useState("");
   const [bulkDownloading, setBulkDownloading] = useState(false);
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     if (!apiBase) return;
     try {
       setLoading(true);
+      setLoadError("");
       const response = await axios.get(`${apiBase}/admin/student`, {
         params: { full: "true" },
         withCredentials: true,
@@ -47,15 +54,18 @@ const StudentIdCardCenter = () => {
         : [];
       setStudents(list);
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to load students");
+      const message = error.response?.data?.message || "Failed to load students";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
+      setHasFetchedOnce(true);
     }
-  };
+  }, [apiBase]);
 
   useEffect(() => {
     fetchStudents();
-  }, [apiBase]);
+  }, [fetchStudents]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -69,8 +79,15 @@ const StudentIdCardCenter = () => {
     });
   }, [students, search]);
 
-  const allFilteredSelected =
-    filtered.length > 0 && filtered.every((student) => selectedIds.includes(student._id));
+  const loadState = useMemo(() => {
+    if (!hasFetchedOnce && !loading) return ADMIN_LOAD_STATES.INITIAL;
+    if (loading) return ADMIN_LOAD_STATES.PENDING;
+    if (loadError) return ADMIN_LOAD_STATES.FAILURE;
+    return ADMIN_LOAD_STATES.SUCCESS;
+  }, [hasFetchedOnce, loading, loadError]);
+
+  const loadStateText =
+    ADMIN_LOAD_STATE_OPTIONS.find((option) => option.id === loadState)?.text || "Unknown";
 
   const toggleSelect = (studentId) => {
     setSelectedIds((prev) =>
@@ -78,15 +95,6 @@ const StudentIdCardCenter = () => {
         ? prev.filter((id) => id !== studentId)
         : [...prev, studentId]
     );
-  };
-
-  const toggleSelectAllFiltered = () => {
-    if (allFilteredSelected) {
-      setSelectedIds((prev) => prev.filter((id) => !filtered.some((s) => s._id === id)));
-      return;
-    }
-    const merged = new Set([...selectedIds, ...filtered.map((student) => student._id)]);
-    setSelectedIds(Array.from(merged));
   };
 
   const handleDownloadSingle = async (student) => {
@@ -98,7 +106,7 @@ const StudentIdCardCenter = () => {
         responseType: "blob",
       });
       triggerPdfDownload(response.data, `${student.enrollmentNumber || student._id}_id_card.pdf`);
-    } catch (error) {
+    } catch {
       toast.error("Failed to download ID card");
     } finally {
       setDownloadingId("");
@@ -120,7 +128,7 @@ const StudentIdCardCenter = () => {
       );
       triggerPdfDownload(response.data, "student_id_cards_bulk.pdf");
       toast.success("Bulk ID card download ready");
-    } catch (error) {
+    } catch {
       toast.error("Failed to bulk download ID cards");
     } finally {
       setBulkDownloading(false);
@@ -129,40 +137,58 @@ const StudentIdCardCenter = () => {
 
   return (
     <div className="student-idcard-page">
-      <header className="sid-header">
-        <div>
-          <h1>Student ID Card Module</h1>
-          <p>Single and bulk ID card download in a separate module.</p>
-        </div>
-        <button type="button" onClick={handleBulkDownload} disabled={bulkDownloading}>
-          {bulkDownloading ? "Preparing bulk PDF..." : `Bulk Download (${selectedIds.length})`}
-        </button>
-      </header>
+      <div className="sid-sticky-top">
+        <header className="sid-header">
+          <div>
+            <h1>Student ID Card Module</h1>
+            <p>Single and bulk ID card download in a separate module.</p>
+          </div>
+          <div className="sid-header-meta">
+            <span className={`sid-load-chip ${loadState}`}>{loadStateText}</span>
+            <span>{filtered.length} record(s)</span>
+            <button type="button" onClick={handleBulkDownload} disabled={bulkDownloading}>
+              {bulkDownloading ? <ClipLoader size={14} /> : `Bulk Download (${selectedIds.length})`}
+            </button>
+          </div>
+        </header>
 
-      <section className="sid-toolbar">
-        <input
-          type="text"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by name, enrollment, department"
-        />
-        <button type="button" onClick={fetchStudents} disabled={loading}>
-          Refresh
-        </button>
-      </section>
+        <section className="sid-toolbar">
+          <label className="sid-search">
+            <FiSearch />
+            <input
+              type="text"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search by name, enrollment, department"
+            />
+          </label>
+          <button type="button" onClick={fetchStudents} disabled={loading}>
+            {loading ? <ClipLoader size={14} /> : "Refresh"}
+          </button>
+        </section>
+      </div>
 
       <section className="sid-table-wrap">
-        {loading ? (
-          <div className="sid-state">Loading student records...</div>
+        {loadState === ADMIN_LOAD_STATES.PENDING ? (
+          <div className="sid-state sid-state-loading">
+            <ThreeDots
+              visible
+              height={36}
+              width={60}
+              color="#2563eb"
+              radius={8}
+              ariaLabel="student-id-cards-loading"
+            />
+          </div>
+        ) : loadState === ADMIN_LOAD_STATES.FAILURE ? (
+          <div className="sid-state">{loadError || "Failed to load student records."}</div>
         ) : filtered.length === 0 ? (
           <div className="sid-state">No students found for current filters.</div>
         ) : (
           <table className="sid-table">
             <thead>
               <tr>
-                <th>
-                  <input type="checkbox" checked={allFilteredSelected} onChange={toggleSelectAllFiltered} />
-                </th>
+                <th>Select</th>
                 <th>Name</th>
                 <th>Enrollment</th>
                 <th>Department</th>
@@ -191,7 +217,7 @@ const StudentIdCardCenter = () => {
                       onClick={() => handleDownloadSingle(student)}
                       disabled={downloadingId === student._id}
                     >
-                      {downloadingId === student._id ? "Downloading..." : "Download"}
+                      {downloadingId === student._id ? <ClipLoader size={14} /> : "Download"}
                     </button>
                   </td>
                 </tr>

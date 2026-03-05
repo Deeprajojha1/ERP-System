@@ -3,14 +3,14 @@ import { useSelector } from "react-redux";
 import { PiStudentBold } from "react-icons/pi";
 import {
   FiHome,
+  FiMapPin,
   FiUser,
   FiActivity,
   FiBookOpen,
   FiClipboard,
-  FiChevronLeft,
-  FiChevronRight,
   FiDollarSign,
   FiBriefcase,
+  FiMenu,
 } from "react-icons/fi";
 import { FaLinkedin } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -23,7 +23,30 @@ import CoursesDetails from "./CoursesDetails";
 import StudentExamCenter from "./StudentExamCenter";
 import StudentExternalJobs from "./StudentExternalJobs";
 import LinkedinAnalyzer from "./linkedin/LinkedinAnalyzer";
+import StudentHostel from "./StudentHostel";
+import axiosInstance from "../../utils/axiosInstance";
 import "./StudentDashboardShell.css";
+
+const buildProfileImageUrl = (apiBase, fileUrl, fileName) => {
+  const backendBase = String(apiBase || "").replace(/\/api\/?$/, "");
+  const normalizePath = (rawValue = "") => {
+    const value = String(rawValue || "").trim();
+    if (!value) return null;
+    if (value.startsWith("http") || value.startsWith("data:")) return value;
+    if (value.startsWith("/uploads/")) return `${backendBase}${value}`;
+    if (value.startsWith("uploads/")) return `${backendBase}/${value}`;
+    if (value.startsWith("/")) return `${backendBase}${value}`;
+
+    const normalizedFileName = value
+      .split("/")
+      .filter(Boolean)
+      .map((segment) => encodeURIComponent(segment))
+      .join("/");
+    return `${backendBase}/uploads/profile-images/${normalizedFileName}`;
+  };
+
+  return normalizePath(fileUrl) || normalizePath(fileName);
+};
 
 const StudentDashboardShell = ({
   resolvedStudentData,
@@ -42,26 +65,17 @@ const StudentDashboardShell = ({
   const location = useLocation();
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(
-    () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true)
+    () => (typeof window !== "undefined" ? window.innerWidth >= 769 : true)
   );
   const [isExamFocusMode, setIsExamFocusMode] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
 
   // Keep existing profile image resolution behavior.
-  const profileImage = (() => {
-    const fileUrl = userData?.user?.profileImageUrl;
-    const fileName = userData?.user?.profileImage;
-    const base = apiBase?.replace("/api", "") || "";
-    if (fileUrl) {
-      if (fileUrl.startsWith("http") || fileUrl.startsWith("data:")) return fileUrl;
-      return `${base}${fileUrl}`;
-    }
-    if (fileName) {
-      if (fileName.startsWith("data:")) return fileName;
-      return `${base}/uploads/profile-images/${fileName}`;
-    }
-    return null;
-  })();
+  const profileImage = buildProfileImageUrl(
+    apiBase,
+    userData?.user?.profileImageUrl,
+    userData?.user?.profileImage
+  );
 
   const studentName =
     resolvedStudentData?.personalInfo?.name ||
@@ -72,10 +86,34 @@ const StudentDashboardShell = ({
     userData?.user?.email ||
     "";
   const enrolledCoursesCount = Array.isArray(coursesData) ? coursesData.length : 0;
+  const attendancePercent = Number(overallAttendance?.percentage || 0);
+
+  const [hostelAllocation, setHostelAllocation] = useState(null);
+  const isHostelStudent = Boolean(hostelAllocation?.hostel?.id && hostelAllocation?.room?.id);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchHostelContext = async () => {
+      try {
+        const response = await axiosInstance.get("/api/student/hostel/context");
+        if (!isMounted) return;
+        setHostelAllocation(response?.data?.allocation || null);
+      } catch (error) {
+        void error;
+        if (!isMounted) return;
+        setHostelAllocation(null);
+      }
+    };
+
+    fetchHostelContext();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth >= 1024) {
+      if (window.innerWidth >= 769) {
         setIsSidebarOpen(true);
       }
     };
@@ -98,6 +136,7 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/attendance")) return "attendance";
     if (path.includes("/dashboard/courses")) return "courses";
     if (path.includes("/dashboard/exams")) return "exams";
+    if (path.includes("/dashboard/hostel")) return "hostel";
     if (path.includes("/dashboard/fees")) return "fees";
     if (path.includes("/dashboard/jobs")) return "jobs";
     if (path.includes("/dashboard/linkedin")) return "linkedin";
@@ -107,6 +146,9 @@ const StudentDashboardShell = ({
   const dashboardMenuItems = [
     { id: "home", label: "Home", path: "/dashboard", icon: FiHome },
     { id: "profile", label: "Profile", path: "/dashboard/profile", icon: FiUser },
+    ...(isHostelStudent
+      ? [{ id: "hostel", label: "Hostel", path: "/dashboard/hostel", icon: FiMapPin }]
+      : []),
   ];
 
   const academicsMenuItems = [
@@ -164,7 +206,7 @@ const StudentDashboardShell = ({
 
   const handleMenuClick = (item) => {
     navigate(item.path);
-    if (window.innerWidth < 1024) {
+    if (window.innerWidth < 769) {
       setIsSidebarOpen(false);
     }
   };
@@ -214,6 +256,11 @@ const StudentDashboardShell = ({
         <div className="student-home-hero-copy">
           <h3>Welcome Back</h3>
           <p>Track your attendance, courses, and fee status from one place.</p>
+          <div className="student-home-hero-chips">
+            <span>{enrolledCoursesCount} Courses</span>
+            <span>{totalSessions} Sessions</span>
+            <span>{attendancePercent.toFixed(1)}% Attendance</span>
+          </div>
         </div>
       </section>
       {renderHomeSummaryCards()}
@@ -319,6 +366,9 @@ const StudentDashboardShell = ({
     if (currentSection === "fees") {
       return renderFees();
     }
+    if (currentSection === "hostel") {
+      return <StudentHostel />;
+    }
     if (currentSection === "jobs") {
       return <StudentExternalJobs />;
     }
@@ -332,7 +382,7 @@ const StudentDashboardShell = ({
     <>
       {!isExamFocusMode && (
         <header
-          className={`student-admin-nav sticky top-0 z-50 h-16 w-full transition-all duration-300 ease-in-out ${
+          className={`student-admin-nav ${
             isScrolled ? "is-scrolled" : ""
           }`}
         >
@@ -358,7 +408,7 @@ const StudentDashboardShell = ({
                 <NetworkSpeedBadge className="student-nav-speed" />
                 <AlertNotifications className="student-nav-alert" />
                 <button
-                  className="student-admin-logout group relative overflow-hidden rounded-lg bg-gray-100 px-4 py-1.5 text-gray-700 shadow-sm transition-all duration-300"
+                  className="student-admin-logout"
                   type="button"
                   onClick={onLogout}
                 >
@@ -370,20 +420,31 @@ const StudentDashboardShell = ({
           </div>
         </header>
       )}
+      {/* Floating menu button - toggle sidebar open/close */}
+      {!isExamFocusMode && !isSidebarOpen && (
+        <button
+          type="button"
+          className="student-menu-btn student-menu-float"
+          onClick={() => setIsSidebarOpen(true)}
+          aria-label="Open sidebar"
+          aria-expanded={isSidebarOpen}
+        >
+          <FiMenu className="student-sidebar-toggle-icon" />
+        </button>
+      )}
+
       <div
         className={`student-admin-layout ${
           isExamFocusMode ? "exam-focus-mode" : isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"
         }`}
       >
-        {!isExamFocusMode && !isSidebarOpen && (
+        {!isExamFocusMode && isSidebarOpen && (
           <button
             type="button"
-            className="student-admin-sidebar-reopen"
-            onClick={() => setIsSidebarOpen(true)}
-            aria-label="Open sidebar"
-          >
-            <FiChevronRight />
-          </button>
+            className="student-admin-sidebar-overlay"
+            aria-label="Close sidebar overlay"
+            onClick={() => setIsSidebarOpen(false)}
+          />
         )}
 
         {!isExamFocusMode && (
@@ -410,10 +471,10 @@ const StudentDashboardShell = ({
               <button
                 type="button"
                 className="student-admin-sidebar-toggle"
-                onClick={() => setIsSidebarOpen((prev) => !prev)}
-                aria-label="Toggle sidebar"
+                onClick={() => setIsSidebarOpen(false)}
+                aria-label="Close sidebar"
               >
-                {isSidebarOpen ? <FiChevronLeft /> : <FiChevronRight />}
+                <FiMenu />
               </button>
             </div>
 

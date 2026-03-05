@@ -122,9 +122,12 @@ export const alertItems = [
 export const sidebarItems = [
   "Overview",
   "Rooms",
+  "Food Menu",
+  "Student Messages",
   "Students",
   "Outpass",
   "Complaints",
+  "Admin Support",
 ];
 
 export const profile = {

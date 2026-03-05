@@ -5,7 +5,13 @@ import Faculty from "../models/Faculty.js";
 import Group from "../models/Group.js";
 import FacultyCourseContent from "../models/FacultyCourseContent.js";
 
-const ALLOWED_TYPES = new Set(["materials", "assignments", "quizzes"]);
+const ALLOWED_TYPES = new Set([
+  "materials",
+  "assignments",
+  "quizzes",
+  "syllabus",
+  "questionbanks",
+]);
 
 const removeUploadedFile = async (filePath) => {
   if (!filePath) return;
@@ -144,6 +150,14 @@ export const createCourseContent = async (req, res) => {
 
     if (type === "materials" && !req.file) {
       return res.status(400).json({ message: "Please upload a file for materials" });
+    }
+
+    if (type === "syllabus" && !req.file) {
+      return res.status(400).json({ message: "Please upload a file for syllabus" });
+    }
+
+    if (type === "questionbanks" && !req.file) {
+      return res.status(400).json({ message: "Please upload a file for question bank" });
     }
 
     if (type === "assignments" && !dueDateRaw) {

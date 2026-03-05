@@ -14,7 +14,7 @@ const facultyCourseContentSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["materials", "assignments", "quizzes"],
+      enum: ["materials", "assignments", "quizzes", "syllabus", "questionbanks"],
       required: true,
     },
     title: {

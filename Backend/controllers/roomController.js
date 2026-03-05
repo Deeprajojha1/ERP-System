@@ -1,12 +1,43 @@
 import Room from "../models/roomModel.js";
 import Hostel from "../models/hostelModel.js";
+import { bumpNamespaceVersion } from "../utils/cacheNamespace.js";
+
+const BED_TIER_CAPACITY = Object.freeze({
+  single: 1,
+  "two-tier": 2,
+  "three-tier": 3,
+  "four-tier": 4,
+});
+const ALLOWED_CAPACITY = new Set([1, 2, 3, 4]);
+
+const normalizeBedTier = (value = "") => {
+  const normalized = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
+  if (normalized === "2-tier" || normalized === "two-tier") return "two-tier";
+  if (normalized === "3-tier" || normalized === "three-tier") return "three-tier";
+  if (normalized === "4-tier" || normalized === "four-tier") return "four-tier";
+  return "single";
+};
+
+const parseFloorNumber = (value) => {
+  const floor = Number(value);
+  if (!Number.isInteger(floor) || floor < 1) return null;
+  return floor;
+};
 
 /**
  * CREATE ROOM
  */
 export const createRoom = async (req, res) => {
   try {
-    const { hostel, roomNumber, floorNumber, capacity, price, priceType } = req.body;
+    const {
+      hostel,
+      roomNumber,
+      floorNumber,
+      capacity,
+      bedTier,
+      price,
+      priceType,
+    } = req.body;
 
     // Check hostel exists
     const hostelExists = await Hostel.findById(hostel);
@@ -14,25 +45,56 @@ export const createRoom = async (req, res) => {
       return res.status(404).json({ message: "Hostel not found" });
     }
 
+    const normalizedRoomNumber = String(roomNumber || "").trim();
+    if (!normalizedRoomNumber) {
+      return res.status(400).json({ message: "Room number is required" });
+    }
+
+    const normalizedFloorNumber = parseFloorNumber(floorNumber);
+    if (!normalizedFloorNumber) {
+      return res.status(400).json({ message: "Valid floor number is required" });
+    }
+
+    const hostelFloorLimit = Number(hostelExists.totalFloors || 0);
+    if (hostelFloorLimit > 0 && normalizedFloorNumber > hostelFloorLimit) {
+      return res.status(400).json({
+        message: `Invalid floor number. This hostel has only ${hostelFloorLimit} floor(s).`,
+      });
+    }
+
+    const normalizedBedTier = normalizeBedTier(bedTier);
+    const resolvedCapacityFromTier = BED_TIER_CAPACITY[normalizedBedTier] || 1;
+    const normalizedCapacity =
+      Number.isFinite(Number(capacity)) && Number(capacity) > 0
+        ? Number(capacity)
+        : resolvedCapacityFromTier;
+    if (!ALLOWED_CAPACITY.has(Number(normalizedCapacity))) {
+      return res.status(400).json({
+        message: "Invalid capacity. Allowed values are 1, 2, 3, or 4.",
+      });
+    }
+
     // Check duplicate room number inside same hostel
-    const existingRoom = await Room.findOne({ hostel, roomNumber });
+    const existingRoom = await Room.findOne({ hostel, roomNumber: normalizedRoomNumber });
     if (existingRoom) {
       return res.status(400).json({ message: "Room already exists in this hostel" });
     }
 
     const room = await Room.create({
       hostel,
-      roomNumber,
-      floorNumber,
-      capacity,
+      roomNumber: normalizedRoomNumber,
+      floorNumber: normalizedFloorNumber,
+      bedTier: normalizedBedTier,
+      capacity: normalizedCapacity,
       price,
       priceType,
     });
 
     // Update hostel
     hostelExists.rooms.push(room._id);
-    hostelExists.totalCapacity += capacity;
+    hostelExists.totalCapacity += normalizedCapacity;
     await hostelExists.save();
+    await bumpNamespaceVersion("hostels");
 
     res.status(201).json({
       message: "Room created successfully",
@@ -70,16 +132,71 @@ export const updateRoom = async (req, res) => {
       return res.status(404).json({ message: "Room not found" });
     }
 
-    const oldCapacity = room.capacity;
+    const hostel = await Hostel.findById(room.hostel).select("_id totalFloors totalCapacity");
+    if (!hostel) {
+      return res.status(404).json({ message: "Hostel not found for this room" });
+    }
 
-    Object.assign(room, req.body);
+    const oldCapacity = room.capacity;
+    const updatePayload = { ...req.body };
+
+    if (Object.prototype.hasOwnProperty.call(updatePayload, "roomNumber")) {
+      const normalizedRoomNumber = String(updatePayload.roomNumber || "").trim();
+      if (!normalizedRoomNumber) {
+        return res.status(400).json({ message: "Room number is required" });
+      }
+
+      const duplicateRoom = await Room.findOne({
+        _id: { $ne: room._id },
+        hostel: room.hostel,
+        roomNumber: normalizedRoomNumber,
+      }).select("_id");
+
+      if (duplicateRoom?._id) {
+        return res.status(400).json({ message: "Room already exists in this hostel" });
+      }
+      updatePayload.roomNumber = normalizedRoomNumber;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updatePayload, "floorNumber")) {
+      const normalizedFloorNumber = parseFloorNumber(updatePayload.floorNumber);
+      if (!normalizedFloorNumber) {
+        return res.status(400).json({ message: "Valid floor number is required" });
+      }
+      const hostelFloorLimit = Number(hostel.totalFloors || 0);
+      if (hostelFloorLimit > 0 && normalizedFloorNumber > hostelFloorLimit) {
+        return res.status(400).json({
+          message: `Invalid floor number. This hostel has only ${hostelFloorLimit} floor(s).`,
+        });
+      }
+      updatePayload.floorNumber = normalizedFloorNumber;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updatePayload, "bedTier")) {
+      updatePayload.bedTier = normalizeBedTier(updatePayload.bedTier);
+      if (!Object.prototype.hasOwnProperty.call(updatePayload, "capacity")) {
+        updatePayload.capacity = BED_TIER_CAPACITY[updatePayload.bedTier] || room.capacity;
+      }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(updatePayload, "capacity")) {
+      const parsedCapacity = Number(updatePayload.capacity);
+      if (!ALLOWED_CAPACITY.has(parsedCapacity)) {
+        return res.status(400).json({
+          message: "Invalid capacity. Allowed values are 1, 2, 3, or 4.",
+        });
+      }
+      updatePayload.capacity = parsedCapacity;
+    }
+
+    Object.assign(room, updatePayload);
     await room.save();
 
-    if (req.body.capacity && req.body.capacity !== oldCapacity) {
-      const hostel = await Hostel.findById(room.hostel);
-      hostel.totalCapacity += (req.body.capacity - oldCapacity);
+    if (updatePayload.capacity && Number(updatePayload.capacity) !== Number(oldCapacity)) {
+      hostel.totalCapacity += (Number(updatePayload.capacity) - Number(oldCapacity));
       await hostel.save();
     }
+    await bumpNamespaceVersion("hostels");
 
     res.status(200).json({
       message: "Room updated successfully",
@@ -109,6 +226,7 @@ export const deleteRoom = async (req, res) => {
     }
 
     await room.deleteOne();
+    await bumpNamespaceVersion("hostels");
 
     res.status(200).json({ message: "Room deleted successfully" });
 

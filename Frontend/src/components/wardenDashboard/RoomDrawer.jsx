@@ -52,6 +52,7 @@ function RoomDrawer({ room, isOpen, onClose }) {
 
   const statusBadgeStyle = STATUS_BADGE_STYLES[room.status] || "bg-gray-100 text-gray-700";
   const typeBadgeStyle = TYPE_BADGE_STYLES[room.type] || "bg-gray-100 text-gray-700";
+  const baseFee = Number(room.baseFee || 0);
 
   return (
     <>
@@ -141,7 +142,7 @@ function RoomDrawer({ room, isOpen, onClose }) {
                     Base Fee
                   </p>
                   <p className="text-lg font-bold text-gray-900">
-                    ₹{room.baseFee.toLocaleString("en-IN")}
+                    ₹{baseFee.toLocaleString("en-IN")}
                     <span className="ml-2 text-sm font-normal text-gray-500">per semester</span>
                   </p>
                 </div>

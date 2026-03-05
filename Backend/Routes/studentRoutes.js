@@ -5,6 +5,15 @@ import {
   getStudentCourses,
   getStudentAttendanceSummary
 } from "../controllers/studentAuthController.js";
+import { getStudentCourseContent } from "../controllers/studentCourseContentController.js";
+import {
+  createStudentCourseQuestion,
+  getStudentCourseQuestions,
+} from "../controllers/courseQuestionController.js";
+import assignmentSubmissionUpload from "../config/assignmentSubmissionMulter.js";
+import {
+  upsertStudentAssignmentSubmission,
+} from "../controllers/assignmentSubmissionController.js";
 import {
   applyExamRegistration,
   getMyExamRegistrations,
@@ -40,6 +49,15 @@ import {
   getLinkedinReports,
 } from "../controllers/linkedinAnalyzerController.js";
 import { getMyIdCard } from "../controllers/studentIdCardController.js";
+	import {
+	  createStudentHostelComplaint,
+	  getMyHostelComplaints,
+	  getStudentHostelContext,
+	} from "../controllers/hostelComplaintController.js";
+	import {
+	  createMyHostelOutpass,
+	  getMyHostelOutpasses,
+	} from "../controllers/hostelOutpassController.js";
 import linkedinPdfUpload from "../config/linkedinPdfUpload.js";
 import isAuth from "../middlewares/isAuth.js";
 import isStudent from "../middlewares/isStudent.js";
@@ -56,8 +74,32 @@ router.get("/me", isAuth, isStudent, getStudentProfile);
 
 /* Student Dashboard Routes */
 router.get("/courses", isAuth, isStudent, getStudentCourses);
+router.get("/course-content", isAuth, isStudent, getStudentCourseContent);
+router.post(
+  "/assignment-submissions",
+  isAuth,
+  isStudent,
+  (req, res, next) => {
+    assignmentSubmissionUpload.single("file")(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({
+          message: err.message || "Assignment upload failed",
+        });
+      }
+      return next();
+    });
+  },
+  upsertStudentAssignmentSubmission
+);
+router.get("/course-questions", isAuth, isStudent, getStudentCourseQuestions);
+router.post("/course-questions", isAuth, isStudent, createStudentCourseQuestion);
 router.get("/attendance", isAuth, isStudent, getStudentAttendanceSummary);
-router.get("/alerts", isAuth, isStudent, getStudentAlerts);
+	router.get("/alerts", isAuth, isStudent, getStudentAlerts);
+	router.get("/hostel/context", isAuth, isStudent, getStudentHostelContext);
+	router.post("/hostel/complaints", isAuth, isStudent, createStudentHostelComplaint);
+	router.get("/hostel/complaints", isAuth, isStudent, getMyHostelComplaints);
+	router.post("/hostel/holiday", isAuth, isStudent, createMyHostelOutpass);
+	router.get("/hostel/holiday", isAuth, isStudent, getMyHostelOutpasses);
 
 /* Student Exam Registration */
 router.post("/exam-registration/apply", isAuth, isStudent, applyExamRegistration);

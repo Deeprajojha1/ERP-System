@@ -123,6 +123,62 @@ const getRoleDetails = async (user) => {
   return null;
 };
 
+const resolveUserByLoginEmail = async (normalizedEmail) => {
+  const directUser = await User.findOne({ email: normalizedEmail });
+  if (directUser) return directUser;
+
+  // Allow students to login with their college email when it differs from user.email.
+  const studentByCollegeEmail = await Student.findOne({
+    collegeEmail: normalizedEmail,
+  }).select("user");
+
+  if (!studentByCollegeEmail?.user) return null;
+  return User.findById(studentByCollegeEmail.user);
+};
+
+const isLikelyBcryptHash = (value = "") =>
+  /^\$2[aby]\$\d{2}\$/.test(String(value || "").trim());
+
+const comparePlainPassword = (passwordInput, storedSecret) => {
+  const rawPassword = String(passwordInput ?? "");
+  const rawStoredSecret = String(storedSecret ?? "");
+  if (!rawPassword || !rawStoredSecret) return false;
+  if (rawPassword === rawStoredSecret) return true;
+  const trimmedPassword = rawPassword.trim();
+  return Boolean(trimmedPassword) && trimmedPassword === rawStoredSecret;
+};
+
+const verifyPasswordForLogin = async (passwordInput, passwordHash) => {
+  const rawPassword = String(passwordInput ?? "");
+  const hash = String(passwordHash ?? "");
+
+  if (!rawPassword || !hash) return false;
+
+  if (isLikelyBcryptHash(hash)) {
+    try {
+      if (await bcrypt.compare(rawPassword, hash)) {
+        return true;
+      }
+    } catch (_) {
+      // Continue to fallback below.
+    }
+
+    const trimmedPassword = rawPassword.trim();
+    if (trimmedPassword && trimmedPassword !== rawPassword) {
+      try {
+        return await bcrypt.compare(trimmedPassword, hash);
+      } catch (_) {
+        return false;
+      }
+    }
+
+    return false;
+  }
+
+  // Backward compatibility for legacy plain-text stored passwords.
+  return comparePlainPassword(rawPassword, hash);
+};
+
 /* ================= LOGIN ================= */
 
 export const login = async (req, res) => {
@@ -145,7 +201,7 @@ export const login = async (req, res) => {
     }
 
     /* Find user */
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = await resolveUserByLoginEmail(normalizedEmail);
 
     if (!user) {
       return res.status(404).json({
@@ -153,16 +209,52 @@ export const login = async (req, res) => {
       });
     }
 
-    /* Compare password */
-    const isMatch = await bcrypt.compare(
-      password,
-      user.passwordHash
+    // Accept legacy password storage (`password` or non-bcrypt `passwordHash`)
+    // and migrate it to bcrypt hash after successful login.
+    const legacyDoc = await User.collection.findOne(
+      { _id: user._id },
+      { projection: { passwordHash: 1, password: 1 } }
     );
+    const passwordCandidates = [
+      String(user.passwordHash || "").trim(),
+      String(legacyDoc?.passwordHash || "").trim(),
+      String(legacyDoc?.password || "").trim(),
+    ].filter(Boolean);
+
+    if (passwordCandidates.length === 0) {
+      return res.status(401).json({
+        message:
+          "Password is not set for this account. Please contact admin to reset your password.",
+      });
+    }
+
+    let isMatch = false;
+    let matchedSecret = "";
+    for (const candidate of passwordCandidates) {
+      if (await verifyPasswordForLogin(password, candidate)) {
+        isMatch = true;
+        matchedSecret = candidate;
+        break;
+      }
+    }
 
     if (!isMatch) {
       return res.status(401).json({
         message: "Invalid credentials",
       });
+    }
+
+    const currentHash = String(user.passwordHash || "").trim();
+    if (!isLikelyBcryptHash(currentHash)) {
+      const rawPassword = String(password ?? "");
+      const trimmedPassword = rawPassword.trim();
+      const passwordToPersist =
+        matchedSecret === trimmedPassword && trimmedPassword ? trimmedPassword : rawPassword;
+
+      if (passwordToPersist) {
+        user.passwordHash = await bcrypt.hash(passwordToPersist, 10);
+        await user.save({ validateBeforeSave: false });
+      }
     }
 
     /* Generate JWT */
@@ -549,22 +641,25 @@ export const sendOtp = async (req, res) => {
     const emailResult = await sendEmail(email, otp);
 
     if (!emailResult?.ok) {
-      user.resetOtp = undefined;
-      user.otpExpires = undefined;
-      user.isOtpVerifed = false;
-      await user.save({
-        validateBeforeSave: false,
-      });
-
       const isAuthIssue =
         emailResult?.code === "SENDGRID_AUTH_FAILED" ||
         emailResult?.code === "SENDGRID_NOT_CONFIGURED" ||
-        emailResult?.code === "SENDGRID_FROM_MISSING";
+        emailResult?.code === "SENDGRID_FROM_MISSING" ||
+        emailResult?.code === "SENDGRID_SENDER_UNVERIFIED";
+      const debugHint =
+        process.env.NODE_ENV !== "production" && emailResult?.message
+          ? ` (${emailResult.message})`
+          : "";
 
-      return res.status(isAuthIssue ? 503 : 500).json({
+      console.warn(
+        `[OTP FALLBACK] Email delivery failed for ${email}.${debugHint}`
+      );
+      console.log(`[OTP FALLBACK] OTP for ${email}: ${otp}`);
+
+      return res.status(200).json({
         message: isAuthIssue
-          ? "Email service is temporarily unavailable. Please try again later."
-          : "Failed to send OTP email. Please try again.",
+          ? "OTP generated. Email service is unavailable right now; use the OTP from server console."
+          : "OTP generated. Email delivery failed right now; use the OTP from server console.",
       });
     }
 

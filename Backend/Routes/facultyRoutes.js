@@ -5,14 +5,15 @@ import { facultyLogin, getFacultyProfile } from "../controllers/facultyAuthContr
 import { getFacultyProfileByCredentials } from "../controllers/profileController.js";
 import { applyFacultyLeave, getFacultyLeaves } from "../controllers/facultyLeaveController.js";
 import {
-  markGroupAttendance,
-  getGroupAttendancePage,
-  updateAttendance,
-  getAttendanceById,
-  getAttendanceByGroupAndCourse,
-  getStudentsByGroup,
-  getStudentAttendanceReport,
-  getStudentOverallAttendance,
+	markGroupAttendance,
+	getGroupAttendancePage,
+	updateAttendance,
+	getAttendanceById,
+	getAttendanceByGroupAndCourse,
+	getStudentsByGroup,
+	getCourseStudentsForFaculty,
+	getStudentAttendanceReport,
+	getStudentOverallAttendance,
 } from "../controllers/attendanceController.js";
 import {
   getInvigilatorAdmitCards,
@@ -33,6 +34,19 @@ import {
   getCourseContents,
   createCourseContent,
 } from "../controllers/facultyCourseContentController.js";
+import {
+  getFacultyCourseSyllabus,
+  upsertFacultyCourseSyllabus,
+} from "../controllers/facultySyllabusController.js";
+import {
+  getFacultyCourseQuestions,
+  replyToCourseQuestion,
+} from "../controllers/courseQuestionController.js";
+import {
+  getFacultyAssignmentSubmissions,
+  gradeAssignmentSubmission,
+  markMissingAssignmentSubmission,
+} from "../controllers/assignmentSubmissionController.js";
 import isAuth from "../middlewares/isAuth.js";
 import isFacultyOrAdmin from "../middlewares/isFacultyOrAdmin.js";
 
@@ -90,6 +104,29 @@ router.post("/course-content", isFacultyOrAdmin, (req, res, next) => {
     return next();
   });
 }, createCourseContent);
+
+/* Course Syllabus Routes (Faculty) */
+router.get("/course-syllabus", isFacultyOrAdmin, getFacultyCourseSyllabus);
+router.post("/course-syllabus", isFacultyOrAdmin, (req, res, next) => {
+  courseContentUpload.single("file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "File upload failed" });
+    }
+    return next();
+  });
+}, upsertFacultyCourseSyllabus);
+
+/* Course Question Routes (Faculty) */
+router.get("/course-questions", isFacultyOrAdmin, getFacultyCourseQuestions);
+router.post("/course-questions/:id/reply", isFacultyOrAdmin, replyToCourseQuestion);
+
+/* Assignment Submission Routes (Faculty) */
+router.get("/assignment-submissions", isFacultyOrAdmin, getFacultyAssignmentSubmissions);
+router.post("/assignment-submissions/:id/grade", isFacultyOrAdmin, gradeAssignmentSubmission);
+router.post("/assignment-submissions/missing", isFacultyOrAdmin, markMissingAssignmentSubmission);
+
+/* Course Students (Faculty/Admin helper) */
+router.get("/courses/:courseId/students", isFacultyOrAdmin, getCourseStudentsForFaculty);
 
 /* Attendance Routes (Faculty) */
 router.get("/attendance/:groupId", isFacultyOrAdmin, getGroupAttendancePage);

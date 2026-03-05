@@ -1,231 +1,340 @@
 .assignment-page {
-  background: #f5f7fb;
-  min-height: 100vh;
-  padding: 20px;
-  font-family: "Plus Jakarta Sans", "Segoe UI", sans-serif;
+  --da-surface: rgba(255, 255, 255, 0.88);
+  --da-surface-strong: rgba(255, 255, 255, 0.96);
+  --da-muted: rgba(71, 85, 105, 0.92);
+  --da-ink: rgba(15, 23, 42, 0.92);
+  --da-line: rgba(15, 23, 42, 0.12);
+  --da-shadow-sm: var(--student-shadow-sm, 0 6px 16px rgba(15, 23, 42, 0.08));
+  --da-shadow-md: var(--student-shadow-md, 0 14px 34px rgba(15, 23, 42, 0.12));
+  --da-brand: var(--student-brand, #2563eb);
+  --da-brand-strong: var(--student-brand-strong, #1d4ed8);
+
+  background: transparent;
+  min-height: unset;
+  padding: 0;
+  font-family: "Sora", "Manrope", "Plus Jakarta Sans", "Segoe UI", sans-serif;
 }
 
-.container {
-  max-width: 1020px;
+.assignment-page .container {
+  max-width: 1100px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
 }
 
-.top-nav {
+.assignment-page .top-nav {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #ffffff;
+  background: var(--da-surface);
   padding: 12px 16px;
-  border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+  border-radius: 20px;
+  border: 1px solid var(--da-line);
+  box-shadow: var(--da-shadow-sm);
 }
 
-.nav-left {
+.assignment-page .nav-left {
   display: flex;
   align-items: center;
   gap: 12px;
 }
 
-.nav-left h1 {
+.assignment-page .nav-left h1 {
   margin: 0;
-  font-size: 1.75rem;
-  color: #1d4ed8;
+  font-size: 1.1rem;
+  color: var(--da-ink);
+  font-weight: 900;
+  letter-spacing: -0.02em;
 }
 
-.icon-btn {
+.assignment-page .icon-btn {
   width: 44px;
   height: 44px;
-  border-radius: 14px;
-  border: 1px solid #e2e8f0;
-  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid var(--da-line);
+  background: var(--da-surface-strong);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
   cursor: pointer;
-  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.08);
+  box-shadow: var(--da-shadow-sm);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
 }
 
-.overview-card {
-  background: #ffffff;
+.assignment-page .icon-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--da-shadow-md);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+.assignment-page .icon-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16), var(--da-shadow-md);
+  border-color: rgba(37, 99, 235, 0.45);
+}
+
+.assignment-page .overview-card {
+  background:
+    radial-gradient(720px 240px at 0% 0%, rgba(37, 99, 235, 0.14), transparent 62%),
+    linear-gradient(180deg, var(--da-surface-strong), rgba(248, 250, 252, 0.9));
   border-radius: 22px;
-  padding: 20px 26px;
-  border: 1px solid #e7eaf1;
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+  padding: 18px 18px;
+  border: 1px solid var(--da-line);
+  box-shadow: var(--da-shadow-md);
   display: grid;
-  gap: 14px;
-}
-
-.status-pill {
-  display: inline-flex;
-  padding: 6px 18px;
-  border-radius: 999px;
-  background: #fde68a;
-  color: #92400e;
-  font-weight: 700;
-  font-size: 0.8rem;
-  letter-spacing: 0.05em;
-  text-transform: capitalize;
-}
-
-.overview-card h2 {
-  margin: 0;
-  font-size: 1.9rem;
-}
-
-.subtitle {
-  margin: 0;
-  color: #5b6c88;
-  font-size: 1rem;
-}
-
-.timeline {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0,1fr));
   gap: 12px;
-  color: #475569;
-  font-size: 0.95rem;
 }
 
-.timeline-item {
+.assignment-page .status-pill {
+  display: inline-flex;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.12);
+  color: rgba(51, 65, 85, 0.95);
+  font-weight: 900;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+}
+
+.assignment-page .status-pill[data-status="pending"] {
+  background: rgba(245, 158, 11, 0.14);
+  border-color: rgba(245, 158, 11, 0.22);
+  color: rgba(180, 83, 9, 0.95);
+}
+
+.assignment-page .status-pill[data-status="submitted"] {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.2);
+  color: rgba(29, 78, 216, 0.95);
+}
+
+.assignment-page .status-pill[data-status="graded"] {
+  background: rgba(22, 163, 74, 0.12);
+  border-color: rgba(22, 163, 74, 0.2);
+  color: rgba(21, 128, 61, 1);
+}
+
+.assignment-page .overview-card h2 {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.4vw, 1.6rem);
+  color: var(--da-ink);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.assignment-page .subtitle {
+  margin: 0;
+  color: var(--da-muted);
+  font-size: 0.92rem;
+  font-weight: 650;
+  line-height: 1.55;
+}
+
+.assignment-page .timeline {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  color: var(--da-muted);
+  font-size: 0.9rem;
+}
+
+.assignment-page .timeline-item {
   display: flex;
   align-items: center;
   gap: 10px;
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid var(--da-line);
+  border-radius: 16px;
+  padding: 10px 12px;
 }
 
-.timeline-icon {
+.assignment-page .timeline-icon {
   width: 38px;
   height: 38px;
-  border-radius: 12px;
-  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  border: 1px solid var(--da-line);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  color: #9ca3af;
+  color: rgba(100, 116, 139, 0.9);
+  background: rgba(248, 250, 252, 0.9);
 }
 
-.timeline-icon.success {
-  background: #dcfce7;
-  color: #166534;
-  border-color: transparent;
+.assignment-page .timeline-icon.success {
+  background: rgba(22, 163, 74, 0.12);
+  color: rgba(21, 128, 61, 1);
+  border-color: rgba(22, 163, 74, 0.2);
 }
 
-.score-card {
-  display: flex;
+.assignment-page .score-card {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: center;
-  justify-content: space-between;
-  background: #f5f6fb;
-  border: 1px solid #e0e7ff;
-  border-radius: 16px;
-  padding: 16px 22px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  gap: 12px;
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid var(--da-line);
+  border-radius: 18px;
+  padding: 14px 14px;
 }
 
-.score-card small {
+.assignment-page .score-card small {
   display: block;
-  font-size: 0.65rem;
-  color: #64748b;
+  font-size: 0.72rem;
+  color: rgba(100, 116, 139, 0.95);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 900;
 }
 
-.score-card strong {
-  font-size: 1.9rem;
-  color: #047857;
+.assignment-page .score-card strong {
+  font-size: clamp(1.25rem, 2.8vw, 1.8rem);
+  color: rgba(15, 23, 42, 0.92);
+  line-height: 1.1;
 }
 
-.divider {
-  width: 1px;
-  height: 48px;
-  background: #dbe4f0;
+.assignment-page .score-card strong.muted {
+  color: rgba(100, 116, 139, 0.95);
+  font-size: 1.05rem;
+  text-transform: none;
 }
 
-.section {
+.assignment-page .score-metric {
+  display: grid;
+  gap: 6px;
+}
+
+.assignment-page .score-metric-grade {
+  justify-items: end;
+  text-align: right;
+}
+
+.assignment-page .score-metric-grade strong {
+  color: rgba(22, 163, 74, 1);
+}
+
+.assignment-page .divider {
+  display: none;
+}
+
+.assignment-page .score-note {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--da-muted);
+  font-weight: 650;
+}
+
+.assignment-page .section {
   display: grid;
   gap: 12px;
 }
 
-.section h3 {
+.assignment-page .section h3 {
   margin: 0;
-  font-size: 1.15rem;
-  color: #0b1f44;
+  font-size: 1.05rem;
+  color: var(--da-ink);
+  font-weight: 900;
 }
 
-.file-card {
-  background: #ffffff;
-  border: 1px solid #e5edf6;
-  border-radius: 16px;
-  padding: 12px 16px;
+.assignment-page .file-card {
+  background: var(--da-surface);
+  border: 1px solid var(--da-line);
+  border-radius: 18px;
+  padding: 14px 14px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: var(--da-shadow-sm);
 }
 
-.file-meta {
+.assignment-page .file-meta {
   display: flex;
   align-items: center;
   gap: 14px;
   flex: 1;
 }
 
-.file-icon {
+.assignment-page .file-icon {
   width: 50px;
   height: 50px;
-  border-radius: 16px;
-  background: #fee2e2;
-  color: #b91c1c;
+  border-radius: 18px;
+  background: rgba(37, 99, 235, 0.12);
+  color: rgba(29, 78, 216, 1);
+  border: 1px solid rgba(37, 99, 235, 0.18);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 1.3rem;
 }
 
-.file-meta h4 {
+.assignment-page .file-meta h4 {
   margin: 0;
   font-size: 1rem;
+  color: var(--da-ink);
+  font-weight: 850;
+  overflow-wrap: anywhere;
 }
 
-.file-meta p {
+.assignment-page .file-meta p {
   margin: 2px 0 0;
-  font-size: 0.85rem;
-  color: #5b6c88;
+  font-size: 0.84rem;
+  color: var(--da-muted);
+  font-weight: 650;
 }
 
-.actions {
+.assignment-page .actions {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
-.actions button {
-  border: 1px solid #d0d7e4;
+.assignment-page .actions button,
+.assignment-page .actions a {
+  border: 1px solid var(--da-line);
   border-radius: 999px;
-  padding: 8px 18px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  background: #fff;
+  padding: 9px 14px;
+  font-size: 0.84rem;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.8);
   cursor: pointer;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
 
-.actions button:hover {
+.assignment-page .actions button:hover,
+.assignment-page .actions a:hover {
   transform: translateY(-1px);
-  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.15);
+  box-shadow: var(--da-shadow-md);
+  border-color: rgba(37, 99, 235, 0.22);
+  background: rgba(255, 255, 255, 0.92);
 }
 
-.actions .primary {
-  border-color: #2563eb;
-  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+.assignment-page .actions button:disabled,
+.assignment-page .actions a:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.assignment-page .actions .primary {
+  border-color: rgba(29, 78, 216, 0.7);
+  background: linear-gradient(135deg, var(--da-brand), var(--da-brand-strong));
   color: #fff;
-  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35);
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.22);
 }
 
-.details-status-pill {
+.assignment-page .details-status-pill {
   border-radius: 999px;
   background: #dcfce7;
   color: #166534;
@@ -234,42 +343,199 @@
   font-size: 0.78rem;
 }
 
-.instructions {
-  border-radius: 16px;
-  border: 1px dashed #cfd8e6;
-  padding: 12px 16px;
-  background: #fdfefe;
+.assignment-page .instructions {
+  border-radius: 18px;
+  border: 1px dashed rgba(15, 23, 42, 0.18);
+  padding: 14px 14px;
+  background: rgba(248, 250, 252, 0.9);
   font-size: 0.9rem;
-  color: #475569;
+  color: var(--da-muted);
+  line-height: 1.6;
+  font-weight: 650;
+}
+
+.assignment-page .submission-card {
+  background: var(--da-surface);
+  border: 1px solid var(--da-line);
+  border-radius: 18px;
+  padding: 14px 14px;
+  display: grid;
+  gap: 10px;
+  box-shadow: var(--da-shadow-sm);
+}
+
+.assignment-page .submission-meta p {
+  margin: 0;
+  font-size: 0.88rem;
+  color: rgba(15, 23, 42, 0.82);
+  font-weight: 650;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.assignment-page .submission-file-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.assignment-page .submission-file-actions button {
+  border: 1px solid var(--da-line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.86rem;
+  font-weight: 900;
+  background: rgba(255, 255, 255, 0.8);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.assignment-page .submission-file-actions button.primary {
+  border-color: rgba(29, 78, 216, 0.7);
+  background: linear-gradient(135deg, var(--da-brand), var(--da-brand-strong));
+  color: #fff;
+}
+
+.assignment-page .submission-file-actions button:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--da-shadow-md);
+}
+
+.assignment-page .submission-file-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.assignment-page .submission-file-input {
+  position: absolute;
+  left: -9999px;
+}
+
+.assignment-page .submission-file-label {
+  border: 1px dashed rgba(15, 23, 42, 0.22);
+  border-radius: 16px;
+  padding: 11px 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: rgba(15, 23, 42, 0.86);
+  font-weight: 800;
+  cursor: pointer;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: rgba(248, 250, 252, 0.9);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.assignment-page .submission-file-label:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--da-shadow-sm);
+  border-color: rgba(37, 99, 235, 0.28);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.assignment-page .submission-file-label.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.assignment-page .submission-remarks-input {
+  border: 1px solid var(--da-line);
+  border-radius: 16px;
+  padding: 11px 12px;
+  font-size: 0.9rem;
+  color: rgba(15, 23, 42, 0.9);
+  resize: vertical;
+  min-height: 80px;
+  background: rgba(255, 255, 255, 0.92);
+  outline: none;
+}
+
+.assignment-page .submission-remarks-input:focus {
+  border-color: rgba(37, 99, 235, 0.4);
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+}
+
+.assignment-page .submission-submit-btn {
+  border: 0;
+  border-radius: 16px;
+  padding: 11px 14px;
+  font-size: 0.9rem;
+  font-weight: 950;
+  color: #ffffff;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 1), rgba(29, 78, 216, 1));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  width: fit-content;
+  box-shadow: 0 18px 40px rgba(37, 99, 235, 0.22);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+}
+
+.assignment-page .submission-submit-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 22px 48px rgba(37, 99, 235, 0.26);
+  filter: saturate(1.04) brightness(1.02);
+}
+
+.assignment-page .submission-submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.assignment-page .submission-graded-note {
+  margin: 0;
+  font-size: 0.86rem;
+  color: rgba(29, 78, 216, 0.95);
+  font-weight: 700;
 }
 
 @media (max-width: 768px) {
-  .top-nav {
+  .assignment-page .top-nav {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .overview-card,
-  .file-card {
+  .assignment-page .overview-card,
+  .assignment-page .file-card {
     padding: 16px;
   }
 
-  .timeline,
-  .score-card {
+  .assignment-page .timeline,
+  .assignment-page .score-card {
     grid-template-columns: 1fr;
   }
 
-  .file-card {
+  .assignment-page .file-card {
     flex-direction: column;
     align-items: flex-start;
   }
 
-  .actions {
+  .assignment-page .actions {
     width: 100%;
     flex-wrap: wrap;
   }
 
-  .assignment-page {
-    padding: 12px;
+  .assignment-page .submission-file-label,
+  .assignment-page .submission-submit-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .assignment-page .score-metric-grade {
+    justify-items: start;
+    text-align: left;
+  }
+
+  .assignment-page .container {
+    gap: 12px;
   }
 }

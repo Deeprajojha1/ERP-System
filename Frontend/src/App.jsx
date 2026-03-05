@@ -14,6 +14,9 @@ import RoomManagement from "./components/wardenDashboard/RoomManagement";
 import StudentManagement from "./components/wardenDashboard/StudentManagement";
 import OutpassManagement from "./components/wardenDashboard/OutpassManagement";
 import ComplaintManagement from "./components/wardenDashboard/ComplaintManagement";
+import FoodMenu from "./components/wardenDashboard/FoodMenu";
+import WardenSupport from "./components/wardenDashboard/WardenSupport";
+import StudentMessages from "./components/wardenDashboard/StudentMessages";
 import AdminHome from "./Admin/AdminHome";
 import useGetCurrentUser from "./components/customHooks/getCurrentUser";
 import Department from "./Admin/Department";
@@ -54,6 +57,7 @@ import SubjectAttendance from "./Admin/Subjectattendance";
 import TeachingLoad from "./Admin/Teachingload";
 import Assignment from "./Admin/Assignment";
 import Alerts from "./Admin/Alert";
+import WardenSupportTickets from "./Admin/WardenSupportTickets";
 import Classrooms from "./Admin/Classrooms";
 import ExamBlueprints from "./Admin/ExamBlueprints";
 import ExternalJobs from "./Admin/ExternalJobs";
@@ -310,6 +314,36 @@ function App() {
             )
           }
         />
+        <Route
+          path="/warden-menu/*"
+          element={
+            userData?.user?.role === "warden" ? (
+              <FoodMenu />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/warden-support/*"
+          element={
+            userData?.user?.role === "warden" ? (
+              <WardenSupport />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+        <Route
+          path="/warden-student-messages/*"
+          element={
+            userData?.user?.role === "warden" ? (
+              <StudentMessages />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
 
         <Route
           path="/admin/*"
@@ -356,6 +390,7 @@ function App() {
           <Route path="fees/academic-calendar" element={<AcademicCalendar />} />
           <Route path="fees/discounts" element={<FeesDiscounts />} />
           <Route path="alerts" element={<Alerts />} />
+          <Route path="warden-support-tickets" element={<WardenSupportTickets />} />
           <Route path="alert" element={<Navigate to="/admin/alerts" replace />} />
           <Route path="general-support" element={<GeneralSupport />} />
           <Route path="library" element={<Library />} />

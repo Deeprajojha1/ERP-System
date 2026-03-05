@@ -1,6 +1,8 @@
 import bcrypt from "bcryptjs";
 import validator from "validator";
 import User from "../models/userModel.js";
+import Hostel from "../models/hostelModel.js";
+import { bumpNamespaceVersion } from "../utils/cacheNamespace.js";
 
 const { isEmail } = validator;
 
@@ -92,6 +94,37 @@ export const addWarden = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Failed to add warden",
+    });
+  }
+};
+
+export const deleteWarden = async (req, res) => {
+  try {
+    const wardenId = String(req.params?.id || "").trim();
+    if (!wardenId) {
+      return res.status(400).json({ message: "Warden id is required" });
+    }
+
+    const warden = await User.findById(wardenId).select("_id role email name");
+    if (!warden?._id) {
+      return res.status(404).json({ message: "Warden not found" });
+    }
+
+    if (String(warden.role || "").toLowerCase() !== "warden") {
+      return res.status(400).json({ message: "Only warden users can be deleted here" });
+    }
+
+    await Hostel.updateMany({ wardens: warden._id }, { $pull: { wardens: warden._id } });
+    await warden.deleteOne();
+    await bumpNamespaceVersion("hostels");
+
+    return res.status(200).json({
+      message: "Warden deleted successfully",
+      wardenId: warden._id,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to delete warden",
     });
   }
 };

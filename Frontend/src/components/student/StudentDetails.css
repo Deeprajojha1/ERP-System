@@ -1,11 +1,11 @@
 .student-details-container {
   --student-admin-card-gradient: linear-gradient(145deg, #ffffff 0%, #f8fbff 48%, #f3f7ff 100%);
   --student-admin-soft-chip-gradient: linear-gradient(135deg, #ffffff 0%, #f1f5fb 100%);
-  background: var(--student-admin-card-gradient);
-  border: 1px solid #dbeafe;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 16px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-  padding: 18px;
+  box-shadow: var(--student-shadow-sm, 0 6px 16px rgba(15, 23, 42, 0.08));
+  padding: clamp(14px, 2vw, 18px);
 }
 
 .student-header {

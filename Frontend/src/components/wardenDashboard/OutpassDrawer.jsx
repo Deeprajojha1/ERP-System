@@ -2,10 +2,11 @@ import { useEffect, useState } from "react";
 import {
   X,
   FileText,
-  Calendar,
-  MapPin,
-  Phone,
-  User,
+	  Calendar,
+	  Tag,
+	  MapPin,
+	  Phone,
+	  User,
   Clock,
   CheckCircle,
   XCircle,
@@ -179,21 +180,31 @@ function OutpassDrawer({ outpass, isOpen, onClose, onStatusChange }) {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-3">
-                  <MapPin className="mt-0.5 h-5 w-5 text-gray-600" aria-hidden="true" />
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-600">Destination</p>
-                    <p className="text-sm font-semibold text-gray-900">{outpass.destination}</p>
-                  </div>
-                </div>
+	                <div className="flex items-start gap-3">
+	                  <Tag className="mt-0.5 h-5 w-5 text-gray-600" aria-hidden="true" />
+	                  <div className="flex-1">
+	                    <p className="text-xs text-gray-600">Purpose</p>
+	                    <p className="text-sm font-semibold text-gray-900">{outpass.category || "—"}</p>
+	                  </div>
+	                </div>
+
+	                <div className="flex items-start gap-3">
+	                  <MapPin className="mt-0.5 h-5 w-5 text-gray-600" aria-hidden="true" />
+	                  <div className="flex-1">
+	                    <p className="text-xs text-gray-600">Destination</p>
+	                    <p className="text-sm font-semibold text-gray-900">
+	                      {outpass.destination || "Not provided"}
+	                    </p>
+	                  </div>
+	                </div>
 
                 <div className="flex items-start gap-3">
-                  <FileText className="mt-0.5 h-5 w-5 text-gray-600" aria-hidden="true" />
-                  <div className="flex-1">
-                    <p className="text-xs text-gray-600">Reason</p>
-                    <p className="text-sm text-gray-900">{outpass.reason}</p>
-                  </div>
-                </div>
+	                  <FileText className="mt-0.5 h-5 w-5 text-gray-600" aria-hidden="true" />
+	                  <div className="flex-1">
+	                    <p className="text-xs text-gray-600">Reason</p>
+	                    <p className="text-sm text-gray-900">{outpass.reason || "—"}</p>
+	                  </div>
+	                </div>
               </div>
             </section>
 

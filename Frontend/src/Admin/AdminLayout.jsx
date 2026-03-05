@@ -27,6 +27,7 @@ import {
   FiCreditCard,
   FiCalendar,
   FiBriefcase,
+  FiLifeBuoy,
 } from "react-icons/fi";
 import { useDispatch } from "react-redux";
 import axios from "../utils/axiosInstance";
@@ -681,6 +682,17 @@ const AdminLayout = () => {
               >
                 <FiBell />
                 <span className="sidebar-text">Alerts</span>
+              </button>
+
+              <button
+                type="button"
+                className={`sidebar-btn ${isActive("/admin/warden-support-tickets") ? "active" : ""}`}
+                onClick={() => {
+                  navigate("/admin/warden-support-tickets");
+                }}
+              >
+                <FiLifeBuoy />
+                <span className="sidebar-text">Warden Support</span>
               </button>
 
               <button

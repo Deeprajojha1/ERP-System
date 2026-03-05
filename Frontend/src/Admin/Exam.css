@@ -127,6 +127,23 @@
   padding: 16px;
 }
 
+.exam-card-admit {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.exam-admit-sticky-top {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-bottom: 6px;
+  background: #ffffff;
+}
+
 .exam-card-head {
   display: flex;
   align-items: center;
@@ -163,6 +180,55 @@
   background: #ffffff;
   border-radius: 10px;
   box-shadow: 0 1px 0 rgba(15, 23, 42, 0.03);
+}
+
+.exam-admit-head {
+  margin-bottom: 0;
+  flex-wrap: wrap;
+}
+
+.exam-admit-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  color: #475569;
+  font-size: 13px;
+}
+
+.exam-load-chip {
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #334155;
+  text-transform: uppercase;
+}
+
+.exam-load-chip.initial {
+  border-color: #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+}
+
+.exam-load-chip.pending {
+  border-color: #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.exam-load-chip.success {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.exam-load-chip.failure {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
 }
 
 .exam-card-title {
@@ -330,6 +396,18 @@
   color: #0f172a;
 }
 
+.exam-admit-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.exam-admit-refresh-btn {
+  min-width: 110px;
+  justify-content: center;
+}
+
 .exam-select,
 .exam-date {
   display: flex;
@@ -355,6 +433,25 @@
   box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
   width: 100%;
   overflow-x: auto;
+}
+
+.exam-admit-table-wrap {
+  overflow: auto;
+  min-height: 240px;
+  max-height: calc(100vh - 335px);
+}
+
+.exam-admit-table-wrap .exam-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.exam-admit-loading {
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .exam-table {
@@ -607,6 +704,18 @@
   .exam-filters {
     grid-template-columns: 1fr 1fr;
   }
+
+  .exam-admit-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .exam-admit-meta {
+    margin-left: 0;
+  }
+
+  .exam-admit-table-wrap {
+    max-height: calc(100vh - 390px);
+  }
 }
 
 @media (max-width: 640px) {
@@ -665,6 +774,15 @@
 
   .exam-card-title {
     font-size: 18px;
+  }
+
+  .exam-admit-head {
+    gap: 10px;
+  }
+
+  .exam-admit-meta {
+    width: 100%;
+    justify-content: space-between;
   }
 
   .exam-header {

@@ -1,18 +1,27 @@
-import React, { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Sidebar from "./Sidebar";
 import TopNavbar from "./TopNavbar";
 import StudentStats from "./StudentStats";
 import StudentFilters from "./StudentFilters";
 import StudentTable from "./StudentTable";
 import StudentDrawer from "./StudentDrawer";
-import { studentsData, getStudentStats } from "./studentMockData";
-import { profile, sidebarItems } from "./mockData";
+import { getStudentStats } from "./studentMockData";
+import { sidebarItems } from "./mockData";
+import "./wardenScope.css";
+import { useDispatch, useSelector } from "react-redux";
+import { fetchWardenProfile } from "../../redux/wardenSlice";
+import { getWardenStudentsApi } from "./constants/wardenApi";
 
 function StudentManagement() {
+  const dispatch = useDispatch();
+  const profileState = useSelector((state) => state.warden.profile);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -33,12 +42,11 @@ function StudentManagement() {
     []
   );
 
-  // Get statistics
-  const stats = useMemo(() => getStudentStats(studentsData), []);
+  const stats = useMemo(() => getStudentStats(students), [students]);
 
   // Filter students
   const filteredStudents = useMemo(() => {
-    let filtered = [...studentsData];
+    let filtered = [...students];
 
     // Search filter
     if (searchQuery) {
@@ -70,7 +78,57 @@ function StudentManagement() {
     }
 
     return filtered;
-  }, [searchQuery, selectedFloor, selectedRoom, selectedOutpass, selectedFeeStatus]);
+  }, [students, searchQuery, selectedFloor, selectedRoom, selectedOutpass, selectedFeeStatus]);
+
+  const profile = useMemo(
+    () => ({
+      name: profileState?.name || "Warden",
+      role: profileState?.role || "warden",
+    }),
+    [profileState]
+  );
+
+  useEffect(() => {
+    dispatch(fetchWardenProfile());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const fetchStudents = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const payload = await getWardenStudentsApi();
+        const list = Array.isArray(payload?.students) ? payload.students : [];
+        setStudents(
+          list.map((s) => ({
+            // keep the table contract
+            _id: s.id,
+            id: s.enrollmentNumber || String(s.id || ""),
+            name: s.name || "",
+            email: s.email || "",
+            hostel: "",
+            room: s.room || "",
+            floor: Number(s.floor || 0),
+            outpassStatus: s.outpassStatus || "No Outpass",
+            complaintCount: 0,
+            pendingComplaints: 0,
+            disciplinaryFlag: false,
+            feeStatus: "Paid",
+            dueAmount: 0,
+            guardianName: "",
+            guardianPhone: "",
+            phone: "",
+          }))
+        );
+      } catch (err) {
+        setError(err?.response?.data?.message || "Failed to load students.");
+        setStudents([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStudents();
+  }, []);
 
   // Handle view details
   const handleViewDetails = (student) => {
@@ -96,7 +154,7 @@ function StudentManagement() {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
+    <div className="warden-scope flex min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
       {/* Desktop Sidebar */}
       <Sidebar
         isCollapsed={isSidebarCollapsed}
@@ -126,11 +184,11 @@ function StudentManagement() {
 
       {/* Main Content */}
       <div className="min-h-screen flex-1">
-        <TopNavbar
-          currentDate={currentDate}
-          profile={profile}
-          onMobileMenuToggle={() => setIsMobileSidebarOpen((prev) => !prev)}
-        />
+          <TopNavbar
+            currentDate={currentDate}
+            profile={profile}
+            onMobileMenuToggle={() => setIsMobileSidebarOpen((prev) => !prev)}
+          />
 
         <main className="p-6">
           {/* Page Header */}
@@ -157,17 +215,27 @@ function StudentManagement() {
             selectedFeeStatus={selectedFeeStatus}
             setSelectedFeeStatus={setSelectedFeeStatus}
             onReset={handleResetFilters}
-            students={studentsData}
+            students={students}
           />
 
           {/* Results Count */}
           <div className="mb-4 text-sm text-gray-600">
             Found <span className="font-semibold text-gray-900">{filteredStudents.length}</span> of{" "}
-            <span className="font-semibold text-gray-900">{studentsData.length}</span> students
+            <span className="font-semibold text-gray-900">{students.length}</span> students
           </div>
 
           {/* Students Table */}
-          {filteredStudents.length > 0 ? (
+          {error && (
+            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="rounded-lg border border-dashed border-gray-300 bg-blue-50/40 p-12 text-center text-sm text-gray-600">
+              Loading students...
+            </div>
+          ) : filteredStudents.length > 0 ? (
             <StudentTable students={filteredStudents} onViewDetails={handleViewDetails} />
           ) : (
             <div className="rounded-lg border border-gray-200 bg-white p-12 text-center">

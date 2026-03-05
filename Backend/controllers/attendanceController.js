@@ -3,7 +3,45 @@ import Group from "../models/Group.js";
 import Student from "../models/Student.js";
 import Faculty from "../models/Faculty.js";
 import Course from "../models/Course.js";
+import Enrollment from "../models/Enrollment.js";
 import User from "../models/userModel.js";
+
+const normalizeId = (value) => String(value || "").trim();
+
+const resolveGroupStudentIdsForCourse = async ({ group, courseId }) => {
+  const groupStudentIds = Array.isArray(group?.studentIds)
+    ? group.studentIds.map((id) => normalizeId(id)).filter(Boolean)
+    : [];
+
+  const courseIdValue = normalizeId(courseId);
+  if (!courseIdValue) return groupStudentIds;
+
+  const enrollmentRows = await Enrollment.find({
+    course: courseIdValue,
+    status: "active",
+    student: { $in: groupStudentIds },
+  })
+    .select("student")
+    .lean();
+
+  const enrolledStudentIds = enrollmentRows
+    .map((row) => normalizeId(row?.student))
+    .filter(Boolean);
+
+  if (enrolledStudentIds.length > 0) {
+    return [...new Set(enrolledStudentIds)];
+  }
+
+  const groupCourseIds = Array.isArray(group?.courseIds)
+    ? group.courseIds.map((id) => normalizeId(id)).filter(Boolean)
+    : [];
+
+  if (groupCourseIds.includes(courseIdValue)) {
+    return groupStudentIds;
+  }
+
+  return groupStudentIds;
+};
 
 /* ================================================================
    1. GET GROUP ATTENDANCE PAGE  (Faculty)
@@ -32,8 +70,10 @@ export const getGroupAttendancePage = async (req, res) => {
       }
     }
 
-    /* Fetch all students in the group with required fields */
-    const students = await Student.find({ _id: { $in: group.studentIds } })
+    const studentIds = await resolveGroupStudentIdsForCourse({ group, courseId });
+
+    /* Fetch students in the group (filtered by course when possible) */
+    const students = await Student.find({ _id: { $in: studentIds } })
       .populate("user", "name phoneNumber")
       .select("enrollmentNumber fatherName user");
 
@@ -76,6 +116,88 @@ export const getGroupAttendancePage = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================================================================
+   X. GET STUDENT LIST FOR A COURSE (Faculty/Admin helper)
+   GET  /api/faculty/courses/:courseId/students
+   Returns all students enrolled in this course for groups assigned to the faculty.
+   Falls back to group student list if Enrollment is not configured.
+   ================================================================ */
+export const getCourseStudentsForFaculty = async (req, res) => {
+  try {
+    const courseId = normalizeId(req.params.courseId);
+    if (!courseId) return res.status(400).json({ message: "courseId is required" });
+
+    const courseExists = await Course.exists({ _id: courseId });
+    if (!courseExists) return res.status(404).json({ message: "Course not found" });
+
+    let groups = [];
+    if (req.role === "faculty") {
+      const facultyDoc = await Faculty.findOne({ user: req.userId }).select("_id");
+      if (!facultyDoc) return res.status(404).json({ message: "Faculty profile not found" });
+
+      groups = await Group.find({
+        courseFaculty: { $elemMatch: { course: courseId, faculty: facultyDoc._id } },
+      })
+        .select("studentIds courseIds")
+        .lean();
+    } else {
+      groups = await Group.find({ courseIds: courseId }).select("studentIds courseIds").lean();
+    }
+
+    const groupStudentIds = [
+      ...new Set(
+        groups
+          .flatMap((g) => (Array.isArray(g?.studentIds) ? g.studentIds : []))
+          .map((id) => normalizeId(id))
+          .filter(Boolean)
+      ),
+    ];
+
+    if (groupStudentIds.length === 0) {
+      return res.json({ message: "Students fetched", count: 0, students: [] });
+    }
+
+    const enrollmentRows = await Enrollment.find({
+      course: courseId,
+      status: "active",
+      student: { $in: groupStudentIds },
+    })
+      .select("student")
+      .lean();
+
+    const enrolledStudentIds = enrollmentRows
+      .map((row) => normalizeId(row?.student))
+      .filter(Boolean);
+
+    const useIds = enrolledStudentIds.length > 0 ? enrolledStudentIds : groupStudentIds;
+
+    const students = await Student.find({ _id: { $in: useIds } })
+      .populate("user", "name email")
+      .select("enrollmentNumber user")
+      .lean();
+
+    const mapped = students
+      .map((row) => ({
+        id: normalizeId(row?.user?._id),
+        studentId: normalizeId(row?._id),
+        name: row?.user?.name || "",
+        email: row?.user?.email || "",
+        enrollmentNumber: row?.enrollmentNumber || "",
+      }))
+      .filter((row) => row.id);
+
+    mapped.sort((a, b) => a.name.localeCompare(b.name));
+
+    return res.json({
+      message: "Students fetched",
+      count: mapped.length,
+      students: mapped,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };
 
@@ -342,10 +464,25 @@ export const hardDeleteAttendance = async (req, res) => {
    ================================================================ */
 export const getStudentsByGroup = async (req, res) => {
   try {
+    const courseId = normalizeId(req.query?.courseId);
     const group = await Group.findById(req.params.groupId);
     if (!group) return res.status(404).json({ message: "Group not found" });
 
-    const students = await Student.find({ _id: { $in: group.studentIds } })
+    if (req.role === "faculty") {
+      const facultyDoc = await Faculty.findOne({ user: req.userId }).select("_id");
+      if (!facultyDoc) return res.status(404).json({ message: "Faculty profile not found" });
+
+      const isAssigned = group.courseFaculty.some(
+        (cf) => cf.faculty.toString() === facultyDoc._id.toString()
+      );
+      if (!isAssigned) {
+        return res.status(403).json({ message: "You are not assigned to this group" });
+      }
+    }
+
+    const studentIds = await resolveGroupStudentIdsForCourse({ group, courseId });
+
+    const students = await Student.find({ _id: { $in: studentIds } })
       .populate("user", "name email")
       .select("enrollmentNumber user");
 

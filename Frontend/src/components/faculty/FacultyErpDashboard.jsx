@@ -98,7 +98,7 @@ export default function FacultyErpDashboard() {
       {!isSidebarOpen && (
         <button
           type="button"
-          className="fixed left-0 top-[74px] z-[95] inline-flex h-10 w-10 items-center justify-center rounded-r-lg border border-white/20 bg-[#0b2d6b] text-white transition-colors duration-200 hover:bg-[#10398a]"
+          className="fixed left-0 top-[74px] z-[95] inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-r-lg border border-white/20 bg-[#0b2d6b] text-white transition-colors duration-200 hover:bg-[#10398a]"
           onClick={() => dispatch(toggleSidebar())}
           aria-label="Open sidebar"
           aria-expanded={isSidebarOpen}

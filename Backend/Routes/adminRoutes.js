@@ -116,7 +116,7 @@ import {
   deleteLibrarian,
   hardDeleteLibrarian,
 } from "../controllers/librarianController.js";
-import { addWarden } from "../controllers/wardenController.js";
+import { addWarden, deleteWarden } from "../controllers/wardenController.js";
 import { changePassword } from "../controllers/userController.js";
 import { getTeachingLoad } from "../controllers/teachingLoadController.js";
 
@@ -133,6 +133,10 @@ import {
   updateAlertAdmin,
   deleteAlertAdmin,
 } from "../controllers/alertController.js";
+import {
+  getAllWardenSupportTicketsAdmin,
+  updateWardenSupportTicketStatusAdmin,
+} from "../controllers/wardenSupportTicketController.js";
 
 import { addClassroom, getClassrooms } from "../controllers/classroomController.js";
 import {
@@ -308,7 +312,8 @@ router.post("/librarian", isAdmin, addLibrarian);
 router.put("/librarian/:id", isAdmin, updateLibrarian);
 router.patch("/librarian/:id/delete", isAdmin, deleteLibrarian);
 router.delete("/librarian/:id", isAdmin, hardDeleteLibrarian);
-router.post("/warden", isAdmin, addWarden);
+	router.post("/warden", isAdmin, addWarden);
+	router.delete("/warden/:id", isAdmin, deleteWarden);
 
 router.get("/library/statistics", getStatistics);
 
@@ -349,6 +354,9 @@ router.post("/alerts", isAdmin, createAlert);
 router.get("/alerts", isAdmin, getAllAlertsAdmin);
 router.put("/alerts/:id", isAdmin, updateAlertAdmin);
 router.delete("/alerts/:id", isAdmin, deleteAlertAdmin);
+
+router.get("/warden-support-tickets", isAdmin, getAllWardenSupportTicketsAdmin);
+router.patch("/warden-support-tickets/:id", isAdmin, updateWardenSupportTicketStatusAdmin);
 
 // Classrooms
 router.post("/classroom", isAdmin, addClassroom);

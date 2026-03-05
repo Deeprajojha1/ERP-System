@@ -2,6 +2,7 @@ import HostelAllocation from "../models/hostelAllocationModel.js";
 import Room from "../models/roomModel.js";
 import Hostel from "../models/hostelModel.js";
 import Student from "../models/Student.js";
+import { bumpNamespaceVersion } from "../utils/cacheNamespace.js";
 
 /**
  * ALLOCATE STUDENT TO ROOM
@@ -65,6 +66,8 @@ export const allocateStudent = async (req, res) => {
       room: roomId,
     });
 
+    await bumpNamespaceVersion("hostels");
+
     res.status(201).json({
       message: "Student allocated successfully",
       allocation,
@@ -111,6 +114,8 @@ export const vacateStudent = async (req, res) => {
     allocation.status = "Vacated";
     allocation.vacatedAt = new Date();
     await allocation.save();
+
+    await bumpNamespaceVersion("hostels");
 
     res.status(200).json({
       message: "Student vacated successfully",

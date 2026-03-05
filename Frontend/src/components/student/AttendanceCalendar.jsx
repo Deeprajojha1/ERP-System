@@ -11,7 +11,7 @@ import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 import './AttendanceCalendar.css';
 
-const AttendanceCalendar = ({ attendanceData, coursesData, onClose, selectedCourse }) => {
+const AttendanceCalendar = ({ attendanceData, onClose, selectedCourse }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const formatDate = (date) => {

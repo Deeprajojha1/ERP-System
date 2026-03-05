@@ -16,17 +16,49 @@ const submissionSchema = new mongoose.Schema(
     },
     fileUrl: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
+    },
+    fileName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    originalFileName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    fileMime: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    fileSize: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     fileType: {
       type: String,
       default: null,
       trim: true,
     },
+    remarks: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 2000,
+    },
     marks: {
       type: Number,
       default: null,
+    },
+    grade: {
+      type: String,
+      default: "",
+      trim: true,
+      maxlength: 20,
     },
     feedback: {
       type: String,

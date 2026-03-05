@@ -10,11 +10,11 @@ import {
   FiSearch,
   FiTrash2,
 } from "react-icons/fi";
-import { Oval, TailSpin } from "react-loader-spinner";
+import { TailSpin, ThreeDots } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import { useSelector, useDispatch } from "react-redux";
 import "./Exam.css";
-import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
@@ -29,10 +29,8 @@ import {
   selectExamCourses,
   selectExamGroups,
   selectExamFaculty,
-  selectExamLoading,
   selectCreateLoading,
   selectUpdateLoading,
-  selectDeleteLoading,
 } from "../redux/examSlice";
 
 const pad2 = (value) => String(value).padStart(2, "0");
@@ -89,16 +87,15 @@ const Exam = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [editingExamId, setEditingExamId] = useState(null);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
+  const [admitSearch, setAdmitSearch] = useState("");
 
   // Redux state (with safe fallbacks for initial render)
   const exams = useSelector(selectExams) || [];
   const courses = useSelector(selectExamCourses) || [];
   const groups = useSelector(selectExamGroups) || [];
   const faculty = useSelector(selectExamFaculty) || [];
-  const reduxLoading = useSelector(selectExamLoading);
   const createLoading = useSelector(selectCreateLoading);
   const updateLoading = useSelector(selectUpdateLoading);
-  const reduxDeleteLoading = useSelector(selectDeleteLoading);
 
   // Derived loading state for form submission
   const submitting = createLoading || updateLoading;
@@ -313,6 +310,29 @@ const Exam = () => {
       })),
     [exams]
   );
+
+  const admitCardsLoadState = useMemo(() => {
+    if (loadState === ADMIN_LOAD_STATES.PENDING) return ADMIN_LOAD_STATES.PENDING;
+    if (loadState === ADMIN_LOAD_STATES.FAILURE) return ADMIN_LOAD_STATES.FAILURE;
+    return ADMIN_LOAD_STATES.SUCCESS;
+  }, [loadState]);
+
+  const admitCardsLoadStateText =
+    ADMIN_LOAD_STATE_OPTIONS.find((option) => option.id === admitCardsLoadState)?.text || "Unknown";
+
+  const filteredAdmitCards = useMemo(() => {
+    const query = String(admitSearch || "")
+      .trim()
+      .toLowerCase();
+
+    if (!query) return normalizedAdmitCards;
+
+    return normalizedAdmitCards.filter((item) => {
+      const haystack = `${item.examName} ${item.session} ${item.semester} ${item.date} ${item.issued}`
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [admitSearch, normalizedAdmitCards]);
 
   const resetForm = () => {
     setFormData({
@@ -785,17 +805,14 @@ const Exam = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
       return (
         <div className="exam-state pending app-loader-state">
-          <Oval
-            height={64}
-            width={64}
-            color="#2563eb"
-            secondaryColor="#bfdbfe"
-            strokeWidth={4}
-            strokeWidthSecondary={4}
-            ariaLabel="Loading"
+          <ThreeDots
             visible
+            height={52}
+            width={84}
+            color="#2563eb"
+            radius={8}
+            ariaLabel="exam-loading"
           />
-          <p>Loading exams...</p>
         </div>
       );
     }
@@ -1241,40 +1258,105 @@ const Exam = () => {
           )}
 
           {activeSection === "admitCards" && (
-            <section className="exam-card">
-              {renderSectionHeader("Issued Admit Card")}
-              <div className="exam-table-wrap">
-                <table className="exam-table">
-                  <thead>
-                    <tr>
-                      <th className="exam-cell-serial">S. No</th>
-                      <th>EXAM NAME</th>
-                      <th>SESSION</th>
-                      <th>SEM</th>
-                      <th>DATE</th>
-                      <th>ADMIT CARD ISSUED</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {normalizedAdmitCards.map((item, index) => (
-                      <tr key={`${item._id || item.examName}-${index}`}>
-                        <td className="exam-serial-cell">{index + 1}</td>
-                        <td className="exam-name">{item.examName}</td>
-                        <td>{item.session}</td>
-                        <td>{item.semester}</td>
-                        <td>{item.date}</td>
-                        <td>{item.issued}</td>
-                      </tr>
-                    ))}
-                    {normalizedAdmitCards.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="exam-empty">
-                          No admit card records found.
-                        </td>
-                      </tr>
+            <section className="exam-card exam-card-admit">
+              <div className="exam-admit-sticky-top">
+                <div className="exam-card-head exam-card-head-left exam-admit-head">
+                  <button
+                    type="button"
+                    className="exam-back-btn"
+                    onClick={() => setActiveSection("")}
+                  >
+                    <FiArrowLeft />
+                    Back
+                  </button>
+                  <h2 className="exam-card-title exam-card-title-box">Issued Admit Card</h2>
+                  <div className="exam-admit-meta">
+                    <span className={`exam-load-chip ${admitCardsLoadState}`}>
+                      {admitCardsLoadStateText}
+                    </span>
+                    <span>{filteredAdmitCards.length} record(s)</span>
+                  </div>
+                </div>
+
+                <div className="exam-admit-toolbar">
+                  <label className="exam-search">
+                    <span className="exam-search-icon" aria-hidden="true">
+                      <FiSearch />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search by exam name, session, semester, date..."
+                      value={admitSearch}
+                      onChange={(event) => setAdmitSearch(event.target.value)}
+                    />
+                  </label>
+
+                  <button
+                    className="exam-download-all-btn admin-btn-with-loader exam-admit-refresh-btn"
+                    type="button"
+                    onClick={fetchAll}
+                    disabled={admitCardsLoadState === ADMIN_LOAD_STATES.PENDING}
+                  >
+                    {admitCardsLoadState === ADMIN_LOAD_STATES.PENDING ? (
+                      <ClipLoader
+                        size={15}
+                        color="#1d4ed8"
+                        trackColor="rgba(29, 78, 216, 0.25)"
+                      />
+                    ) : (
+                      "Refresh"
                     )}
-                  </tbody>
-                </table>
+                  </button>
+                </div>
+              </div>
+
+              <div className="exam-table-wrap exam-admit-table-wrap">
+                {admitCardsLoadState === ADMIN_LOAD_STATES.PENDING ? (
+                  <div className="exam-master-state exam-admit-loading">
+                    <ThreeDots
+                      visible
+                      height={44}
+                      width={74}
+                      color="#2563eb"
+                      radius={8}
+                      ariaLabel="admit-cards-loading"
+                    />
+                  </div>
+                ) : admitCardsLoadState === ADMIN_LOAD_STATES.FAILURE ? (
+                  <div className="exam-master-state">Failed to load admit card records.</div>
+                ) : (
+                  <table className="exam-table">
+                    <thead>
+                      <tr>
+                        <th className="exam-cell-serial">S. No</th>
+                        <th>EXAM NAME</th>
+                        <th>SESSION</th>
+                        <th>SEM</th>
+                        <th>DATE</th>
+                        <th>ADMIT CARD ISSUED</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredAdmitCards.map((item, index) => (
+                        <tr key={`${item._id || item.examName}-${index}`}>
+                          <td className="exam-serial-cell">{index + 1}</td>
+                          <td className="exam-name">{item.examName}</td>
+                          <td>{item.session}</td>
+                          <td>{item.semester}</td>
+                          <td>{item.date}</td>
+                          <td>{item.issued}</td>
+                        </tr>
+                      ))}
+                      {filteredAdmitCards.length === 0 && (
+                        <tr>
+                          <td colSpan={6} className="exam-empty">
+                            No admit card records found.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </section>
           )}

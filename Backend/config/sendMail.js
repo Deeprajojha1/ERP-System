@@ -88,6 +88,9 @@ const sendEmail = async (to, otp) => {
       /authorization grant is invalid|unauthorized|invalid api key|revoked|expired/i.test(
         String(providerMessage)
       );
+    const isSenderUnverified =
+      statusCode === 403 &&
+      /verified sender identity|sender identity/i.test(String(providerMessage));
 
     console.error("Email Send Error:", providerMessage);
     if (error.response && error.response.body) {
@@ -98,9 +101,15 @@ const sendEmail = async (to, otp) => {
 
     return {
       ok: false,
-      code: isUnauthorized ? "SENDGRID_AUTH_FAILED" : "SENDGRID_SEND_FAILED",
+      code: isUnauthorized
+        ? "SENDGRID_AUTH_FAILED"
+        : isSenderUnverified
+          ? "SENDGRID_SENDER_UNVERIFIED"
+          : "SENDGRID_SEND_FAILED",
       message: isUnauthorized
         ? "SendGrid authentication failed. API key is invalid, expired, or revoked."
+        : isSenderUnverified
+          ? "SendGrid sender identity is not verified. Verify SENDGRID_FROM_EMAIL in SendGrid."
         : providerMessage,
       statusCode,
     };

@@ -38,6 +38,11 @@ const AUDIENCE_OPTIONS = [
     description: "Visible to all student users",
   },
   {
+    value: "warden",
+    label: "Wardens",
+    description: "Visible to all hostel wardens",
+  },
+  {
     value: "faculty",
     label: "Faculty",
     description: "Visible to all faculty users",

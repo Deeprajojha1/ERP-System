@@ -19,6 +19,7 @@ dns.setServers(["1.1.1.1","8.8.8.8"])
 import hostelRoutes from "./Routes/hostelRoutes.js";
 import roomRoutes from "./Routes/roomRoutes.js";
 import hostelAllocationRoutes from "./Routes/hostelAllocationRoutes.js";
+import wardenRoutes from "./Routes/wardenRoutes.js";
 
 dotenv.config();
 
@@ -109,6 +110,7 @@ app.use("/api/external-jobs", externalJobRoutes);
 app.use("/api/hostels", hostelRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/hostel-allocation", hostelAllocationRoutes);
+app.use("/api/warden", wardenRoutes);
 // Handle malformed JSON payloads from clients.
 app.use((err, req, res, next) => {
   console.error("[Server Error Handler]", err);

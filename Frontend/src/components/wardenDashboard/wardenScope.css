@@ -1,0 +1,12 @@
+.warden-scope button:not(:disabled) {
+  cursor: pointer;
+}
+
+.warden-scope button:disabled {
+  cursor: not-allowed;
+}
+
+.warden-scope [role="button"] {
+  cursor: pointer;
+}
+

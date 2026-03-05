@@ -1,10 +1,16 @@
 import mongoose from "mongoose";
 
-const ALERT_AUDIENCE = ["student", "faculty"];
+const ALERT_AUDIENCE = ["student", "faculty", "warden"];
 const ALERT_PRIORITY = ["info", "warning", "urgent"];
 
 const alertSchema = new mongoose.Schema(
   {
+    hostel: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Hostel",
+      default: null,
+      index: true,
+    },
     title: {
       type: String,
       required: true,

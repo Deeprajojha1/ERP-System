@@ -76,6 +76,44 @@ const resolveStudentDisciplineForLogin = async (studentDetails) => {
   return { allowed: false, message };
 };
 
+const verifyPasswordForLogin = async (passwordInput, passwordHash) => {
+  const rawPassword = String(passwordInput ?? "");
+  const hash = String(passwordHash ?? "");
+
+  if (!rawPassword || !hash) return false;
+
+  try {
+    if (await bcrypt.compare(rawPassword, hash)) {
+      return true;
+    }
+  } catch (_) {
+    // Continue to fallback below.
+  }
+
+  const trimmedPassword = rawPassword.trim();
+  if (trimmedPassword && trimmedPassword !== rawPassword) {
+    try {
+      return await bcrypt.compare(trimmedPassword, hash);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  return false;
+};
+
+const resolveStudentUserByLoginEmail = async (normalizedEmail) => {
+  const directUser = await User.findOne({ email: normalizedEmail });
+  if (directUser) return directUser;
+
+  const studentByCollegeEmail = await Student.findOne({
+    collegeEmail: normalizedEmail,
+  }).select("user");
+
+  if (!studentByCollegeEmail?.user) return null;
+  return User.findById(studentByCollegeEmail.user);
+};
+
 /* ================= STUDENT LOGIN ================= */
 
 export const studentLogin = async (req, res) => {
@@ -96,11 +134,18 @@ export const studentLogin = async (req, res) => {
     }
 
     /* Find user */
-    const user = await User.findOne({ email: normalizedEmail });
+    const user = await resolveStudentUserByLoginEmail(normalizedEmail);
 
     if (!user) {
       return res.status(404).json({
         message: "User not found",
+      });
+    }
+
+    if (!String(user.passwordHash || "").trim()) {
+      return res.status(401).json({
+        message:
+          "Password is not set for this account. Please contact admin to reset your password.",
       });
     }
 
@@ -112,7 +157,7 @@ export const studentLogin = async (req, res) => {
     }
 
     /* Compare password */
-    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    const isMatch = await verifyPasswordForLogin(password, user.passwordHash);
 
     if (!isMatch) {
       return res.status(401).json({

@@ -1,7 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import { FiSearch } from "react-icons/fi";
+import { ThreeDots } from "react-loader-spinner";
 import axios from "../utils/axiosInstance";
+import ClipLoader from "./components/ClipLoader";
+import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import "./StudentDisciplineCenter.css";
 
 const normalizeStudent = (student) => ({
@@ -25,15 +29,18 @@ const StudentDisciplineCenter = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
   const [students, setStudents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [hasFetchedOnce, setHasFetchedOnce] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [savingId, setSavingId] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [forms, setForms] = useState({});
 
-  const fetchStudents = async () => {
+  const fetchStudents = useCallback(async () => {
     if (!apiBase) return;
     try {
       setLoading(true);
+      setLoadError("");
       const response = await axios.get(`${apiBase}/admin/student`, {
         params: { full: "true" },
         withCredentials: true,
@@ -56,15 +63,18 @@ const StudentDisciplineCenter = () => {
         )
       );
     } catch (error) {
-      toast.error(error.response?.data?.message || "Failed to load student records");
+      const message = error.response?.data?.message || "Failed to load student records";
+      setLoadError(message);
+      toast.error(message);
     } finally {
       setLoading(false);
+      setHasFetchedOnce(true);
     }
-  };
+  }, [apiBase]);
 
   useEffect(() => {
     fetchStudents();
-  }, [apiBase]);
+  }, [fetchStudents]);
 
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -79,6 +89,16 @@ const StudentDisciplineCenter = () => {
       return matchesSearch && matchesStatus;
     });
   }, [students, search, statusFilter]);
+
+  const loadState = useMemo(() => {
+    if (!hasFetchedOnce && !loading) return ADMIN_LOAD_STATES.INITIAL;
+    if (loading) return ADMIN_LOAD_STATES.PENDING;
+    if (loadError) return ADMIN_LOAD_STATES.FAILURE;
+    return ADMIN_LOAD_STATES.SUCCESS;
+  }, [hasFetchedOnce, loading, loadError]);
+
+  const loadStateText =
+    ADMIN_LOAD_STATE_OPTIONS.find((option) => option.id === loadState)?.text || "Unknown";
 
   const updateForm = (studentId, key, value) => {
     setForms((prev) => ({
@@ -135,20 +155,28 @@ const StudentDisciplineCenter = () => {
 
   return (
     <div className="student-discipline-page">
+      <div className="sdc-sticky-top">
       <header className="sdc-header">
         <div>
           <h1>Student Suspension / Detention</h1>
           <p>Manage disciplinary status as a dedicated module.</p>
         </div>
+        <div className="sdc-header-meta">
+          <span className={`sdc-load-chip ${loadState}`}>{loadStateText}</span>
+          <span>{filtered.length} record(s)</span>
+        </div>
       </header>
 
       <section className="sdc-toolbar">
-        <input
-          type="text"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search by name, enrollment, department"
-        />
+        <label className="sdc-search">
+          <FiSearch />
+          <input
+            type="text"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by name, enrollment, department"
+          />
+        </label>
         <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
           <option value="all">All Status</option>
           <option value="clear">Clear</option>
@@ -156,13 +184,25 @@ const StudentDisciplineCenter = () => {
           <option value="detained">Detained</option>
         </select>
         <button type="button" onClick={fetchStudents} disabled={loading}>
-          Refresh
+          {loading ? <ClipLoader size={14} /> : "Refresh"}
         </button>
       </section>
+      </div>
 
       <section className="sdc-table-wrap">
-        {loading ? (
-          <div className="sdc-state">Loading student records...</div>
+        {loadState === ADMIN_LOAD_STATES.PENDING ? (
+          <div className="sdc-state sdc-state-loading">
+            <ThreeDots
+              visible
+              height={36}
+              width={60}
+              color="#2563eb"
+              radius={8}
+              ariaLabel="student-discipline-loading"
+            />
+          </div>
+        ) : loadState === ADMIN_LOAD_STATES.FAILURE ? (
+          <div className="sdc-state">{loadError || "Failed to load student records."}</div>
         ) : filtered.length === 0 ? (
           <div className="sdc-state">No students found for current filters.</div>
         ) : (
@@ -239,7 +279,7 @@ const StudentDisciplineCenter = () => {
                         onClick={() => handleSaveDiscipline(student._id)}
                         disabled={savingId === student._id}
                       >
-                        {savingId === student._id ? "Saving..." : "Save"}
+                        {savingId === student._id ? <ClipLoader size={14} /> : "Save"}
                       </button>
                     </td>
                   </tr>

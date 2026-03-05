@@ -1,7 +1,10 @@
 import Alert from "../models/Alert.js";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
+import Hostel from "../models/hostelModel.js";
+import Student from "../models/Student.js";
+import HostelAllocation from "../models/hostelAllocationModel.js";
 
-const ALERT_AUDIENCE = new Set(["student", "faculty"]);
+const ALERT_AUDIENCE = new Set(["student", "faculty", "warden"]);
 const ALERT_PRIORITY = new Set(["info", "warning", "urgent"]);
 
 const normalizeAudience = (input) => {
@@ -29,6 +32,7 @@ const clearAlertsCache = async () => {
   await redisClient.del("admin:alerts:all");
   await redisClient.del("faculty:alerts:all");
   await redisClient.del("student:alerts:all");
+  await redisClient.del("warden:alerts:all");
 };
 
 export const createAlert = async (req, res) => {
@@ -49,7 +53,7 @@ export const createAlert = async (req, res) => {
 
     if (audience.length === 0) {
       return res.status(400).json({
-        message: "At least one audience is required (student/faculty)",
+        message: "At least one audience is required (student/faculty/warden)",
       });
     }
 
@@ -180,7 +184,7 @@ export const updateAlertAdmin = async (req, res) => {
       const audience = normalizeAudience(req.body.audience);
       if (!audience.length) {
         return res.status(400).json({
-          message: "At least one audience is required (student/faculty)",
+          message: "At least one audience is required (student/faculty/warden)",
         });
       }
       updateData.audience = audience;
@@ -303,8 +307,45 @@ export const getFacultyAlerts = async (req, res) => {
 
 export const getStudentAlerts = async (req, res) => {
   try {
+    // Hostel-scoped alerts: show global alerts (hostel=null) + hostel-specific alerts
+    // Note: No Redis cache here because the result depends on student's hostel allocation.
+    const studentProfile = await Student.findOne({ user: req.userId }).select("_id").lean();
+    const allocation = studentProfile?._id
+      ? await HostelAllocation.findOne({ student: studentProfile._id, status: "Active" })
+          .select("hostel")
+          .lean()
+      : null;
+
+    const hostelId = allocation?.hostel || null;
+    const now = new Date();
+    const expiryClause = { $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }] };
+    const hostelClause = hostelId ? { $or: [{ hostel: null }, { hostel: hostelId }] } : { hostel: null };
+
+    const alerts = await Alert.find({
+      isDeleted: { $ne: true },
+      isActive: true,
+      audience: { $in: ["student"] },
+      $and: [expiryClause, hostelClause],
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({
+      message: "Alerts fetched successfully",
+      count: alerts.length,
+      alerts,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to fetch alerts",
+    });
+  }
+};
+
+export const getWardenAlerts = async (req, res) => {
+  try {
     const payload = await getAudienceAlertsPayload({
-      audience: "student",
+      audience: "warden",
       noCache: req.query.noCache === "true",
     });
     return res.json(payload);
@@ -312,6 +353,78 @@ export const getStudentAlerts = async (req, res) => {
     return res.status(500).json({
       message: error.message || "Failed to fetch alerts",
     });
+  }
+};
+
+const getWardenHostelIds = async (userId) => {
+  const hostels = await Hostel.find({ wardens: userId }).select("_id").lean();
+  return hostels.map((h) => h?._id).filter(Boolean);
+};
+
+export const createWardenStudentAlert = async (req, res) => {
+  try {
+    const title = String(req.body?.title || "").trim();
+    const message = String(req.body?.message || "").trim();
+    const priority = normalizePriority(req.body?.priority);
+    const expiresAt = normalizeExpiry(req.body?.expiresAt);
+    const requestedHostelId = String(req.body?.hostelId || "").trim();
+
+    if (!title) return res.status(400).json({ message: "Title is required" });
+    if (!message) return res.status(400).json({ message: "Message is required" });
+    if (title.length > 120) return res.status(400).json({ message: "Title cannot exceed 120 characters" });
+    if (message.length > 2000) return res.status(400).json({ message: "Message cannot exceed 2000 characters" });
+
+    const hostelIds = await getWardenHostelIds(req.userId);
+    if (!hostelIds.length) {
+      return res.status(400).json({ message: "No hostels assigned to this warden." });
+    }
+
+    let hostelIdToUse = hostelIds[0];
+    if (requestedHostelId) {
+      const allowed = hostelIds.some((id) => String(id) === requestedHostelId);
+      if (!allowed) return res.status(403).json({ message: "Invalid hostel selection." });
+      hostelIdToUse = requestedHostelId;
+    }
+
+    const alert = await Alert.create({
+      hostel: hostelIdToUse,
+      title,
+      message,
+      audience: ["student"],
+      priority,
+      isActive: true,
+      expiresAt,
+      createdBy: req.userId || null,
+    });
+
+    try {
+      await clearAlertsCache();
+    } catch (cacheError) {
+      console.error("[Redis] createWardenStudentAlert cache clear failed:", cacheError.message || cacheError);
+    }
+
+    return res.status(201).json({ message: "Message sent to students.", alert });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to send message." });
+  }
+};
+
+export const getMyWardenStudentAlerts = async (req, res) => {
+  try {
+    const hostelIds = await getWardenHostelIds(req.userId);
+    const alerts = await Alert.find({
+      isDeleted: { $ne: true },
+      createdBy: req.userId || null,
+      audience: { $in: ["student"] },
+      hostel: { $in: hostelIds },
+    })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean();
+
+    return res.status(200).json({ message: "Messages fetched successfully", count: alerts.length, alerts });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to fetch messages." });
   }
 };
 

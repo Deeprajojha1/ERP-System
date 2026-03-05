@@ -9,13 +9,49 @@ const escapeHtml = (value = "") =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 
+const getRequestBaseUrl = (req) => {
+  const forwardedProto = String(req.headers["x-forwarded-proto"] || "")
+    .split(",")[0]
+    .trim();
+  const protocol = forwardedProto || req.protocol || "http";
+  const host = req.headers["x-forwarded-host"] || req.get("host");
+  return `${protocol}://${host}`;
+};
+
+const encodeUrlPath = (pathValue = "") =>
+  String(pathValue)
+    .split("/")
+    .filter(Boolean)
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+
 const resolveProfileImageUrl = (req, profileImage) => {
-  const value = String(profileImage || "").trim();
-  if (!value) return "";
-  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
-  const base = `${req.protocol}://${req.get("host")}`;
-  if (value.startsWith("/")) return `${base}${value}`;
-  return `${base}/uploads/profile-images/${encodeURIComponent(value)}`;
+  const rawValue = String(profileImage || "").trim();
+  if (!rawValue) return "";
+
+  // Already absolute / embeddable formats.
+  if (/^https?:\/\//i.test(rawValue) || rawValue.startsWith("data:")) return rawValue;
+
+  const base = getRequestBaseUrl(req);
+  const normalized = rawValue.replace(/\\/g, "/").replace(/^\.\//, "");
+
+  // Handle all common relative variants persisted in DB.
+  if (normalized.startsWith("/uploads/")) {
+    return `${base}/${encodeUrlPath(normalized)}`;
+  }
+  if (normalized.startsWith("uploads/")) {
+    return `${base}/${encodeUrlPath(normalized)}`;
+  }
+  if (normalized.startsWith("/profile-images/")) {
+    return `${base}/uploads/${encodeUrlPath(normalized)}`;
+  }
+  if (normalized.startsWith("profile-images/")) {
+    return `${base}/uploads/${encodeUrlPath(normalized)}`;
+  }
+
+  const fileName = normalized.split("/").filter(Boolean).pop() || "";
+  if (!fileName) return "";
+  return `${base}/uploads/profile-images/${encodeURIComponent(fileName)}`;
 };
 
 const formatDate = (value) => {
@@ -47,7 +83,10 @@ const buildCardData = (req, studentDoc) => {
     academicYear: studentDoc?.academicYear || "N/A",
     group: group?.name || "N/A",
     status: discipline?.currentStatus || "clear",
-    profileImageUrl: resolveProfileImageUrl(req, user?.profileImage),
+    profileImageUrl: resolveProfileImageUrl(
+      req,
+      user?.profileImageUrl || user?.profileImage || studentDoc?.profileImage
+    ),
   };
 };
 

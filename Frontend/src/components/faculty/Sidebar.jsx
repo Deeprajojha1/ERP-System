@@ -139,7 +139,7 @@ export default function Sidebar({ facultyData, isSidebarOpen }) {
           </div>
         </div>
         <button
-          className="hidden h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 transition-colors duration-200 hover:from-blue-100 hover:to-blue-200 max-[1023px]:inline-flex"
+          className="hidden h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-xl border border-blue-200 bg-gradient-to-br from-blue-50 to-blue-100 text-blue-700 transition-colors duration-200 hover:from-blue-100 hover:to-blue-200 max-[1023px]:inline-flex"
           type="button"
           onClick={closeSidebar}
           aria-label="Close sidebar"
@@ -178,7 +178,7 @@ export default function Sidebar({ facultyData, isSidebarOpen }) {
                   key={item.id}
                   type="button"
                   onClick={() => handleMenuClick(item.id)}
-                  className={`w-full rounded-xl bg-transparent px-3.5 py-3 text-left text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 ${
+                  className={`w-full cursor-pointer rounded-xl bg-transparent px-3.5 py-3 text-left text-sm font-medium transition duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 ${
                     isActive
                       ? "bg-blue-50 text-blue-700"
                       : "text-slate-900 hover:bg-slate-100 hover:text-slate-800"

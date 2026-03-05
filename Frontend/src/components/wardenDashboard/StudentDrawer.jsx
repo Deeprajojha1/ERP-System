@@ -1,8 +1,12 @@
-import React, { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { X, Phone, Mail, MapPin, Calendar, AlertCircle, History, FileText, DollarSign } from "lucide-react";
 import { getOutpassHistory, getComplaintHistory } from "./studentMockData";
 
 function StudentDrawer({ student, isOpen, onClose }) {
+  const [outpassHistory, setOutpassHistory] = useState([]);
+  const [complaintHistory, setComplaintHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
@@ -14,10 +18,36 @@ function StudentDrawer({ student, isOpen, onClose }) {
     };
   }, [isOpen]);
 
-  if (!student) return null;
+  useEffect(() => {
+    if (!isOpen || !student) return;
+    let isMounted = true;
+    const fetchHistory = async () => {
+      try {
+        setHistoryLoading(true);
+        const studentId = student?._id || student?.id;
+        const [outpasses, complaints] = await Promise.all([
+          getOutpassHistory(studentId),
+          getComplaintHistory(studentId),
+        ]);
+        if (!isMounted) return;
+        setOutpassHistory(Array.isArray(outpasses) ? outpasses : []);
+        setComplaintHistory(Array.isArray(complaints) ? complaints : []);
+      } catch (error) {
+        void error;
+        if (!isMounted) return;
+        setOutpassHistory([]);
+        setComplaintHistory([]);
+      } finally {
+        if (isMounted) setHistoryLoading(false);
+      }
+    };
+    fetchHistory();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, student]);
 
-  const outpassHistory = getOutpassHistory(student.id);
-  const complaintHistory = getComplaintHistory(student.id);
+  if (!student) return null;
 
   return (
     <>
@@ -138,22 +168,34 @@ function StudentDrawer({ student, isOpen, onClose }) {
               }`}>
                 {student.outpassStatus}
               </span>
-            </div>
-            <div className="space-y-2">
-              {outpassHistory.slice(0, 3).map((record) => (
-                <div key={record.id} className="rounded-lg bg-gray-50 p-3 text-sm">
-                  <div className="flex items-center justify-between">
-                    <p className="font-medium text-gray-900">{record.date}</p>
-                    <span className={`rounded-full px-2 py-1 text-xs font-semibold ${
-                      record.status === "Returned" ? "bg-green-100 text-green-800" : "bg-blue-100 text-blue-800"
-                    }`}>
-                      {record.status}
-                    </span>
-                  </div>
-                  {record.returnTime && <p className="mt-1 text-gray-600">Returned: {record.returnTime}</p>}
-                </div>
-              ))}
-            </div>
+	            </div>
+	            <div className="space-y-2">
+	              {historyLoading ? (
+	                <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
+	                  Loading outpass history…
+	                </div>
+	              ) : (
+	                outpassHistory.slice(0, 3).map((record) => (
+	                  <div key={record.id} className="rounded-lg bg-gray-50 p-3 text-sm">
+	                    <div className="flex items-center justify-between">
+	                      <p className="font-medium text-gray-900">{record.date}</p>
+	                      <span
+	                        className={`rounded-full px-2 py-1 text-xs font-semibold ${
+	                          record.status === "Returned"
+	                            ? "bg-green-100 text-green-800"
+	                            : "bg-blue-100 text-blue-800"
+	                        }`}
+	                      >
+	                        {record.status}
+	                      </span>
+	                    </div>
+	                    {record.returnTime && (
+	                      <p className="mt-1 text-gray-600">Returned: {record.returnTime}</p>
+	                    )}
+	                  </div>
+	                ))
+	              )}
+	            </div>
             <button
               type="button"
               className="w-full rounded-lg border border-blue-600 bg-white px-4 py-2 text-sm font-medium text-blue-600 transition-colors hover:bg-blue-50"

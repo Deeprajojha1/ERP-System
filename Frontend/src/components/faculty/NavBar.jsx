@@ -59,7 +59,7 @@ export default function NavBar({ facultyData }) {
         <button
           type="button"
           onClick={handleLogout}
-          className="rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white transition-colors duration-200 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 max-[768px]:px-3 max-[768px]:py-[7px] max-[768px]:text-[13px]"
+          className="cursor-pointer rounded-xl bg-rose-600 px-4 py-2 font-semibold text-white transition-colors duration-200 hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60 max-[768px]:px-3 max-[768px]:py-[7px] max-[768px]:text-[13px]"
           disabled={loggingOut}
         >
           {loggingOut ? (

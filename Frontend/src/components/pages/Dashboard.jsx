@@ -24,7 +24,6 @@ import { useSelector } from 'react-redux';
 import axios from '../../utils/axiosInstance';
 import { clearUserData, setUserData } from '../../redux/userSlice';
 import { useNavigate } from 'react-router-dom';
-import ClipLoader from '../../Admin/components/ClipLoader';
 import { ADMIN_LOAD_STATES } from '../../Admin/constants/loadStates';
 
 // Import child components
@@ -57,6 +56,13 @@ const Dashboard = () => {
     return ADMIN_LOAD_STATES.INITIAL;
   }, [userLoading, userData, userError]);
 
+  const dashboardFailureMessage = useMemo(
+    () =>
+      String(userError || '').trim() ||
+      'Unable to load student dashboard right now. Please try again.',
+    [userError]
+  );
+
   /**
    * STATE: showCalendar
    * Controls visibility of the attendance calendar modal
@@ -64,6 +70,7 @@ const Dashboard = () => {
    */
   const [showCalendar, setShowCalendar] = useState(false);
   const [studentCoursesFromApi, setStudentCoursesFromApi] = useState([]);
+  const [courseContentByCourse, setCourseContentByCourse] = useState({});
 
   /**
    * STATE: selectedCourse
@@ -210,6 +217,40 @@ const Dashboard = () => {
     };
   }, [apiBase, user?.role]);
 
+  useEffect(() => {
+    const shouldFetchCourseContent = apiBase && user?.role === "student";
+    if (!shouldFetchCourseContent) {
+      setCourseContentByCourse({});
+      return;
+    }
+
+    let isMounted = true;
+    const fetchStudentCourseContent = async () => {
+      try {
+        const res = await axios.get(`${apiBase}/student/course-content`, {
+          withCredentials: true,
+        });
+        const contentMap = res?.data?.contentByCourse;
+        if (isMounted) {
+          setCourseContentByCourse(
+            contentMap && typeof contentMap === "object" ? contentMap : {}
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Failed to fetch student course content from /student/course-content:",
+          error.response?.data || error.message
+        );
+        if (isMounted) setCourseContentByCourse({});
+      }
+    };
+
+    fetchStudentCourseContent();
+    return () => {
+      isMounted = false;
+    };
+  }, [apiBase, user?.role]);
+
   const effectiveEnrolledCourses = useMemo(() => {
     if (Array.isArray(studentCoursesFromApi) && studentCoursesFromApi.length > 0) {
       return studentCoursesFromApi;
@@ -226,6 +267,19 @@ const Dashboard = () => {
   const coursesData = useMemo(() => {
     return effectiveEnrolledCourses.map((course) => {
       const courseId = String(course?._id || course?.id || "");
+      const contentBucket = courseId ? courseContentByCourse?.[courseId] : null;
+      const assignmentItems = Array.isArray(contentBucket?.combinedAssignments)
+        ? contentBucket.combinedAssignments
+        : Array.isArray(course?.assignments)
+        ? course.assignments
+        : [];
+      const materialItems = Array.isArray(contentBucket?.materials)
+        ? contentBucket.materials
+        : Array.isArray(course?.materials)
+        ? course.materials
+        : Array.isArray(course?.resources)
+        ? course.resources
+        : [];
       const attendance = attendanceData.find(
         (item) => {
           const attendanceCourseId = String(item?.course?._id || item?.course || "");
@@ -249,16 +303,27 @@ const Dashboard = () => {
         semester: course?.semester ?? roleDetails?.semester ?? null,
         academicYear: course?.academicYear ?? roleDetails?.academicYear ?? null,
         courseType: course?.type || course?.courseType || null,
-        status: course?.status || null,
-        instructor: 'N/A',
+        status: course?.status || "active",
+        instructor:
+          contentBucket?.facultyName ||
+          course?.instructor ||
+          course?.facultyName ||
+          "N/A",
         schedule: 'N/A',
         room: roleDetails?.group?.roomNo || 'N/A',
         totalClasses,
         attendedClasses,
         attendancePercentage: percentage,
+        assignments: assignmentItems,
+        assignmentsCount:
+          Number(contentBucket?.counts?.combinedAssignments) ||
+          Number(course?.assignmentsCount) ||
+          assignmentItems.length,
+        materials: materialItems,
+        resources: materialItems,
       };
     });
-  }, [effectiveEnrolledCourses, attendanceData, roleDetails]);
+  }, [effectiveEnrolledCourses, attendanceData, roleDetails, courseContentByCourse]);
 
   const totalSessions = attendanceData.reduce(
     (total, item) => total + (item?.totalSessions || 0),
@@ -285,29 +350,25 @@ const Dashboard = () => {
    */
   if (dashboardLoadState === ADMIN_LOAD_STATES.PENDING) {
     return (
-      <div
-        className="student-dashboard-page"
-        style={{
-          minHeight: "40vh",
-          display: "grid",
-          placeItems: "center",
-        }}
-      >
-        <div
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: "10px",
-            color: "#334155",
-            fontWeight: 600,
-          }}
-        >
-          <ClipLoader
-            size={18}
-            color="#0284c7"
-            trackColor="rgba(2, 132, 199, 0.22)"
-          />
-          <span>Loading dashboard...</span>
+      <div className="student-dashboard-page student-dashboard-state-wrap">
+        <div className="student-dashboard-state-card" role="status" aria-live="polite">
+          <div className="student-dashboard-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+          <span className="student-dashboard-state-text">Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (dashboardLoadState === ADMIN_LOAD_STATES.FAILURE) {
+    return (
+      <div className="student-dashboard-page student-dashboard-state-wrap">
+        <div className="student-dashboard-state-card student-dashboard-state-card-error">
+          <p className="student-dashboard-error-title">Failed To Load Dashboard</p>
+          <p className="student-dashboard-error-message">{dashboardFailureMessage}</p>
         </div>
       </div>
     );
@@ -338,7 +399,6 @@ const Dashboard = () => {
       {showCalendar && (
         <AttendanceCalendar
           attendanceData={attendanceData}
-          coursesData={coursesData}
           selectedCourse={selectedCourse}
           onClose={handleCloseCalendar}
         />

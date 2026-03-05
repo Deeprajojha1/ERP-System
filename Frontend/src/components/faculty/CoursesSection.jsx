@@ -71,7 +71,7 @@ export default function CoursesSection({ facultyData }) {
               key={course._id}
               type="button"
               onClick={() => handleOpenCourse(course)}
-              className="group relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-[0_8px_20px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:border-cyan-200 hover:shadow-[0_14px_28px_rgba(15,23,42,0.12)] min-h-[188px]"
+              className="group relative cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 text-left shadow-[0_8px_20px_rgba(15,23,42,0.08)] transition duration-300 hover:-translate-y-1 hover:border-cyan-200 hover:shadow-[0_14px_28px_rgba(15,23,42,0.12)] min-h-[188px]"
             >
               <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 opacity-80" />
               <div className="mb-3 flex items-start justify-between gap-3">

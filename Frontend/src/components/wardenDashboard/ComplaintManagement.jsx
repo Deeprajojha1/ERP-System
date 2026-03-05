@@ -1,23 +1,107 @@
-import React, { useState, useMemo } from 'react';
 import { FileText, AlertTriangle, Loader, CheckCircle2 } from 'lucide-react';
+import { useDispatch, useSelector } from "react-redux";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Sidebar from './Sidebar';
 import TopNavbar from './TopNavbar';
 import StatCard from './StatCard';
 import ComplaintTable from './ComplaintTable';
 import ComplaintDrawer from './ComplaintDrawer';
-import { complaintsMock, currentStudent, getComplaintStats } from './complaintMockData';
-import { mockData, sidebarItems } from './mockData';
+import { getComplaintStats } from './complaintMockData';
+import { sidebarItems } from './mockData';
+import { fetchWardenProfile } from "../../redux/wardenSlice";
+import { getWardenComplaintsApi, updateWardenComplaintApi } from "./constants/wardenApi";
+import "./wardenScope.css";
 
 const ComplaintManagement = () => {
+  const dispatch = useDispatch();
+  const profileState = useSelector((state) => state.warden.profile);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [complaints, setComplaints] = useState(complaintsMock);
+  const [complaints, setComplaints] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [selectedComplaint, setSelectedComplaint] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Get profile and date from mock data
-  const profile = mockData.profile;
-  const currentDate = mockData.currentDate;
+  const profile = useMemo(
+    () => ({
+      name: profileState?.name || "Warden",
+      role: profileState?.role || "warden",
+    }),
+    [profileState]
+  );
+
+  useEffect(() => {
+    dispatch(fetchWardenProfile());
+  }, [dispatch]);
+
+  const currentDate = useMemo(
+    () =>
+      new Date().toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      }),
+    []
+  );
+
+  const normalizeComplaint = (doc) => {
+    const statusRaw = String(doc?.status || "").toLowerCase();
+    const status =
+      statusRaw === "in-progress" ? "In Progress" :
+      statusRaw === "resolved" ? "Resolved" :
+      statusRaw === "rejected" ? "Rejected" :
+      "Pending";
+
+    return {
+      id: doc?._id,
+      studentId: doc?.student?._id || "",
+      studentName: doc?.student?.user?.name || "",
+      room: doc?.room?.roomNumber ? `Room ${doc.room.roomNumber}` : "",
+      issueType: doc?.issueType || "Other",
+      description: doc?.description || "",
+      status,
+      imageUrl: doc?.imageUrl || null,
+      createdAt: doc?.createdAt || null,
+      updatedAt: doc?.updatedAt || null,
+      remarks: doc?.remarks || "",
+      timeline: Array.isArray(doc?.timeline)
+        ? doc.timeline.map((t) => ({
+            status:
+              String(t?.status || "").toLowerCase() === "in-progress"
+                ? "In Progress"
+                : String(t?.status || "").toLowerCase() === "resolved"
+                ? "Resolved"
+                : String(t?.status || "").toLowerCase() === "rejected"
+                ? "Rejected"
+                : "Pending",
+            timestamp: t?.changedAt || t?.timestamp || null,
+            note: t?.note || "",
+          }))
+        : [],
+      _raw: doc,
+    };
+  };
+
+  const fetchComplaints = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+      const payload = await getWardenComplaintsApi();
+      const list = Array.isArray(payload?.complaints) ? payload.complaints : [];
+      setComplaints(list.map(normalizeComplaint));
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to load complaints.");
+      setComplaints([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchComplaints();
+  }, [fetchComplaints]);
 
   // Calculate stats
   const stats = useMemo(() => getComplaintStats(complaints), [complaints]);
@@ -66,53 +150,24 @@ const ComplaintManagement = () => {
 
   // Handle status change
   const handleStatusChange = (complaintId, newStatus, remarks) => {
-    // TODO: API Integration - PATCH /api/warden/complaints/:id
-    // Make API call: updateComplaint(complaintId, { status: newStatus, remarks, updatedAt: new Date() })
-    
-    setComplaints((prevComplaints) =>
-      prevComplaints.map((complaint) => {
-        if (complaint.id === complaintId) {
-          const newTimeline = [
-            ...complaint.timeline,
-            {
-              status: newStatus,
-              timestamp: new Date().toISOString(),
-              note: remarks || `Status updated to ${newStatus}`,
-            },
-          ];
-          return {
-            ...complaint,
-            status: newStatus,
-            remarks: remarks || complaint.remarks,
-            updatedAt: new Date().toISOString(),
-            timeline: newTimeline,
-          };
-        }
-        return complaint;
-      })
-    );
-    
-    // Update selected complaint to show changes immediately
-    setSelectedComplaint((prevComplaint) => {
-      if (prevComplaint && prevComplaint.id === complaintId) {
-        const newTimeline = [
-          ...prevComplaint.timeline,
-          {
-            status: newStatus,
-            timestamp: new Date().toISOString(),
-            note: remarks || `Status updated to ${newStatus}`,
-          },
-        ];
-        return {
-          ...prevComplaint,
-          status: newStatus,
-          remarks: remarks || prevComplaint.remarks,
-          updatedAt: new Date().toISOString(),
-          timeline: newTimeline,
-        };
+    const apiStatus =
+      newStatus === "In Progress" ? "in-progress" :
+      newStatus === "Resolved" ? "resolved" :
+      newStatus === "Rejected" ? "rejected" :
+      "pending";
+
+    (async () => {
+      try {
+        const response = await updateWardenComplaintApi(complaintId, { status: apiStatus, remarks });
+        const updatedRaw = response?.complaint;
+        if (!updatedRaw?._id) return;
+        const updated = normalizeComplaint(updatedRaw);
+        setComplaints((prev) => prev.map((c) => (c.id === updated.id ? updated : c)));
+        setSelectedComplaint((prevSelected) => (prevSelected?.id === updated.id ? updated : prevSelected));
+      } catch (err) {
+        alert(err?.response?.data?.message || "Failed to update complaint status.");
       }
-      return prevComplaint;
-    });
+    })();
   };
 
   // Close drawer
@@ -124,7 +179,7 @@ const ComplaintManagement = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
+    <div className="warden-scope flex min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
       {/* Desktop Sidebar */}
       <Sidebar
         isCollapsed={isSidebarCollapsed}
@@ -160,7 +215,7 @@ const ComplaintManagement = () => {
           onMobileMenuToggle={() => setIsMobileSidebarOpen((prev) => !prev)}
         />
 
-        <main className="p-6">
+          <main className="p-6">
           {/* Header */}
           <header className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Complaint Management</h1>
@@ -176,13 +231,21 @@ const ComplaintManagement = () => {
             </div>
           </section>
 
-          {/* Complaint History */}
-          <section aria-label="Complaint History">
-            <ComplaintTable
-              complaints={complaints}
-              onViewDetails={handleViewDetails}
-            />
-          </section>
+            {/* Complaint History */}
+            <section aria-label="Complaint History">
+              {error && (
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+              {loading ? (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-blue-50/40 p-8 text-center text-sm text-gray-600">
+                  Loading complaints...
+                </div>
+              ) : (
+                <ComplaintTable complaints={complaints} onViewDetails={handleViewDetails} />
+              )}
+            </section>
         </main>
       </div>
 

@@ -23,7 +23,10 @@ function RoomCard({ room, onClick }) {
   const statusBadgeStyle = STATUS_BADGE_STYLES[room.status] || "bg-gray-100 text-gray-700";
   const typeBadgeStyle = TYPE_BADGE_STYLES[room.type] || "bg-gray-100 text-gray-700";
 
-  const occupancyPercentage = (room.occupied / room.capacity) * 100;
+  const capacity = Number(room.capacity || 0);
+  const occupied = Number(room.occupied || 0);
+  const occupancyPercentage = capacity > 0 ? (occupied / capacity) * 100 : 0;
+  const baseFee = Number(room.baseFee || 0);
 
   return (
     <article
@@ -65,15 +68,15 @@ function RoomCard({ room, onClick }) {
 
       {/* Occupancy Bar */}
       <div className="mb-3">
-        <div className="mb-1 flex items-center justify-between text-xs">
+	        <div className="mb-1 flex items-center justify-between text-xs">
           <span className="flex items-center gap-1 font-medium text-gray-700">
             <Users className="h-3.5 w-3.5" aria-hidden="true" />
             Occupancy
           </span>
-          <span className="font-semibold text-gray-900">
-            {room.occupied} / {room.capacity}
-          </span>
-        </div>
+	          <span className="font-semibold text-gray-900">
+	            {occupied} / {capacity}
+	          </span>
+	        </div>
         <div className="h-2 overflow-hidden rounded-full bg-gray-200">
           <div
             className={`h-full rounded-full transition-all ${
@@ -83,21 +86,21 @@ function RoomCard({ room, onClick }) {
                 ? "bg-yellow-500"
                 : "bg-green-500"
             }`}
-            style={{ width: `${occupancyPercentage}%` }}
-            role="progressbar"
-            aria-valuenow={room.occupied}
-            aria-valuemin={0}
-            aria-valuemax={room.capacity}
-          />
+	            style={{ width: `${occupancyPercentage}%` }}
+	            role="progressbar"
+	            aria-valuenow={occupied}
+	            aria-valuemin={0}
+	            aria-valuemax={capacity}
+	          />
         </div>
       </div>
 
       {/* Base Fee */}
-      <div className="mb-3 flex items-center gap-1 text-sm text-gray-700">
-        <IndianRupee className="h-4 w-4" aria-hidden="true" />
-        <span className="font-semibold">{room.baseFee.toLocaleString("en-IN")}</span>
-        <span className="text-xs text-gray-500">/ semester</span>
-      </div>
+	      <div className="mb-3 flex items-center gap-1 text-sm text-gray-700">
+	        <IndianRupee className="h-4 w-4" aria-hidden="true" />
+	        <span className="font-semibold">{baseFee.toLocaleString("en-IN")}</span>
+	        <span className="text-xs text-gray-500">/ semester</span>
+	      </div>
 
       {/* Status Badge */}
       <div className="flex items-center justify-between">

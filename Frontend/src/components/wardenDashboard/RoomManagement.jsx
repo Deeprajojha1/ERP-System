@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
   Building2,
   BedDouble,
@@ -14,14 +15,22 @@ import TopNavbar from "./TopNavbar";
 import StatCard from "./StatCard";
 import FloorSection from "./FloorSection";
 import RoomDrawer from "./RoomDrawer";
-import { roomsData, getRoomsSummary } from "./roomMockData";
-import { profile, sidebarItems } from "./mockData";
+import "./wardenScope.css";
+import { getRoomsSummary } from "./roomMockData";
+import { sidebarItems } from "./mockData";
+import { fetchWardenProfile } from "../../redux/wardenSlice";
+import { getWardenRoomsApi } from "./constants/wardenApi";
 
 function RoomManagement() {
+  const dispatch = useDispatch();
+  const profileState = useSelector((state) => state.warden.profile);
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   // Filter states
   const [selectedFloor, setSelectedFloor] = useState("all");
@@ -42,7 +51,7 @@ function RoomManagement() {
 
   // Filter and sort rooms
   const filteredRooms = useMemo(() => {
-    let filtered = [...roomsData];
+    let filtered = [...rooms];
 
     // Filter by floor
     if (selectedFloor !== "all") {
@@ -74,7 +83,7 @@ function RoomManagement() {
     });
 
     return filtered;
-  }, [selectedFloor, selectedStatus, searchQuery, sortBy]);
+  }, [rooms, selectedFloor, selectedStatus, searchQuery, sortBy]);
 
   // Group rooms by floor
   const roomsByFloor = useMemo(() => {
@@ -90,8 +99,36 @@ function RoomManagement() {
 
   const floors = Object.keys(roomsByFloor).sort((a, b) => parseInt(a) - parseInt(b));
 
-  // Calculate summary
-  const summary = useMemo(() => getRoomsSummary(roomsData), []);
+  const summary = useMemo(() => getRoomsSummary(rooms), [rooms]);
+
+  const profile = useMemo(
+    () => ({
+      name: profileState?.name || "Warden",
+      role: profileState?.role || "warden",
+    }),
+    [profileState]
+  );
+
+  useEffect(() => {
+    dispatch(fetchWardenProfile());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        setLoading(true);
+        setError("");
+        const payload = await getWardenRoomsApi();
+        setRooms(Array.isArray(payload?.rooms) ? payload.rooms : []);
+      } catch (err) {
+        setError(err?.response?.data?.message || "Failed to load rooms.");
+        setRooms([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRooms();
+  }, []);
 
   const summaryCards = [
     {
@@ -142,7 +179,7 @@ function RoomManagement() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
+    <div className="warden-scope min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
       <div className="flex">
         <Sidebar
           isCollapsed={isSidebarCollapsed}
@@ -191,6 +228,12 @@ function RoomManagement() {
                 ))}
               </div>
             </section>
+
+            {error && (
+              <div className="mb-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                {error}
+              </div>
+            )}
 
             {/* Filters Section */}
             <section
@@ -318,7 +361,12 @@ function RoomManagement() {
             </section>
 
             {/* Rooms by Floor */}
-            {floors.length > 0 ? (
+            {loading ? (
+              <div className="rounded-xl border border-dashed border-gray-300 bg-blue-50/40 p-12 text-center">
+                <Building2 className="mx-auto mb-3 h-12 w-12 text-gray-300" aria-hidden="true" />
+                <p className="text-sm font-semibold text-gray-600">Loading rooms...</p>
+              </div>
+            ) : floors.length > 0 ? (
               <section aria-label="Rooms by Floor">
                 {floors.map((floor) => (
                   <FloorSection

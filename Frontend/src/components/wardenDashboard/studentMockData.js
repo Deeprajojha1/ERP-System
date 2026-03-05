@@ -6,6 +6,11 @@
 // - GET /api/warden/students/:id/outpass (Fetch student outpass history)
 // - GET /api/warden/students/:id/complaints (Fetch student complaints)
 
+import {
+  getWardenStudentOutpassHistoryApi,
+  getWardenStudentComplaintHistoryApi,
+} from "./constants/wardenApi";
+
 export const studentsData = [
   {
     id: "STU001",
@@ -179,56 +184,26 @@ export const getStudentStats = (students = studentsData) => {
   };
 };
 
-export const getOutpassHistory = (studentId) => {
-  // TODO: Replace with actual API call to GET /api/warden/students/:id/outpass
-  return [
-    {
-      id: `OP-${studentId}-1`,
-      date: "2026-02-20",
-      status: "Returned",
-      returnTime: "21:30",
-      approvedBy: "Dr. Priya Menon",
-    },
-    {
-      id: `OP-${studentId}-2`,
-      date: "2026-02-18",
-      status: "Returned",
-      returnTime: "20:15",
-      approvedBy: "Dr. Priya Menon",
-    },
-    {
-      id: `OP-${studentId}-3`,
-      date: "2026-02-15",
-      status: "Approved",
-      returnTime: null,
-      approvedBy: "Dr. Priya Menon",
-    },
-  ];
+export const getOutpassHistory = async (studentId) => {
+  const payload = await getWardenStudentOutpassHistoryApi(studentId);
+  const list = Array.isArray(payload?.outpasses) ? payload.outpasses : [];
+  return list.map((item) => ({
+    id: item.id,
+    date: item.fromDate ? new Date(item.fromDate).toISOString().split("T")[0] : "",
+    status: item.status || "Pending",
+    returnTime: item.entryTime ? new Date(item.entryTime).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }) : null,
+    approvedBy: item.approvedBy || "",
+  }));
 };
 
-export const getComplaintHistory = (studentId) => {
-  // TODO: Replace with actual API call to GET /api/warden/students/:id/complaints
-  return [
-    {
-      id: `CMP-${studentId}-1`,
-      issueType: "Electricity",
-      status: "Resolved",
-      createdAt: "2026-02-20",
-      resolvedAt: "2026-02-22",
-    },
-    {
-      id: `CMP-${studentId}-2`,
-      issueType: "Water Supply",
-      status: "In Progress",
-      createdAt: "2026-02-18",
-      resolvedAt: null,
-    },
-    {
-      id: `CMP-${studentId}-3`,
-      issueType: "Maintenance",
-      status: "Pending",
-      createdAt: "2026-02-15",
-      resolvedAt: null,
-    },
-  ];
+export const getComplaintHistory = async (studentId) => {
+  const payload = await getWardenStudentComplaintHistoryApi(studentId);
+  const list = Array.isArray(payload?.complaints) ? payload.complaints : [];
+  return list.map((doc) => ({
+    id: doc?._id,
+    issueType: doc?.issueType || "Other",
+    status: String(doc?.status || "").toLowerCase() === "in-progress" ? "In Progress" : String(doc?.status || "").toLowerCase() === "resolved" ? "Resolved" : "Pending",
+    createdAt: doc?.createdAt ? new Date(doc.createdAt).toISOString().split("T")[0] : "",
+    resolvedAt: doc?.handledAt ? new Date(doc.handledAt).toISOString().split("T")[0] : null,
+  }));
 };
