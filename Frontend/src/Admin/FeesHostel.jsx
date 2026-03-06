@@ -131,8 +131,3 @@ const FeesHostel = () => {
 };
 
 export default FeesHostel;
-    </div>
-  );
-};
-
-export default FeesHostel;

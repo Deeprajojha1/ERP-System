@@ -133,8 +133,3 @@ const FeesBackpapers = () => {
 };
 
 export default FeesBackpapers;
-    </div>
-  );
-};
-
-export default FeesBackpapers;

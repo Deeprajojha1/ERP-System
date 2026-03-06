@@ -131,8 +131,3 @@ const FeesTransport = () => {
 };
 
 export default FeesTransport;
-    </div>
-  );
-};
-
-export default FeesTransport;
