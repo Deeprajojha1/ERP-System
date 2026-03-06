@@ -304,6 +304,62 @@
   color: #0f172a;
 }
 
+/* Controls: search + filters row */
+.fee-discounts-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: center;
+}
+
+.fee-discounts-search {
+  flex: 1;
+  min-width: 260px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fee-discounts-search input {
+  border: none;
+  flex: 1;
+  font-size: 0.95rem;
+  background: transparent;
+}
+
+.fee-discounts-search input:focus {
+  outline: none;
+}
+
+/* Edit button in table */
+.fee-discounts-edit-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: none;
+  border-radius: 10px;
+  padding: 6px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  background: #eef2ff;
+  color: #4338ca;
+  transition: background 0.15s ease;
+}
+
+.fee-discounts-edit-btn:hover {
+  background: #dbeafe;
+}
+
+.fee-discounts-edit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .fee-rule-components {
   display: flex;
   gap: 8px;

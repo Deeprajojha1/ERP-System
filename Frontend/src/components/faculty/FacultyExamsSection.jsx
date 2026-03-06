@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import axios from "axios";
 import {
   FileText,
   CheckCircle,
@@ -12,6 +13,7 @@ import {
   ClipboardCheck,
   CalendarDays,
   BookOpen,
+  Download,
 } from "lucide-react";
 import { ClipLoader } from "react-spinners";
 import toast from "react-hot-toast";
@@ -97,6 +99,7 @@ const parseSyllabusText = (text) => {
 export default function FacultyExamsSection() {
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
+  const [downloadingScores, setDownloadingScores] = useState(null);
   const blueprints = useSelector(selectExamBlueprints);
   const loadState = useSelector(selectBlueprintsLoadState);
   const activeBlueprint = useSelector(selectActiveBlueprint);
@@ -460,9 +463,69 @@ export default function FacultyExamsSection() {
                   </div>
 
                   <div className="rounded-lg border border-slate-200 bg-white/80 p-3">
-                    <h4 className="m-0 mb-2 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800">
-                      <BarChart3 size={16} /> Student Scores
-                    </h4>
+                    <div className="mb-2 flex items-center justify-between">
+                      <h4 className="m-0 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-800">
+                        <BarChart3 size={16} /> Student Scores
+                      </h4>
+                      {activeScores.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-md border border-green-300 bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700 transition hover:bg-green-100 disabled:opacity-50"
+                            disabled={!!downloadingScores}
+                            onClick={async () => {
+                              setDownloadingScores("xlsx");
+                              try {
+                                const res = await axios.get(
+                                  `${apiBase}/faculty/exam-blueprint/${selectedBlueprintId}/scores/download`,
+                                  { withCredentials: true, responseType: "blob", params: { format: "xlsx" } }
+                                );
+                                const disposition = res.headers?.["content-disposition"] || "";
+                                const match = disposition.match(/filename="?([^"]+)"?/i);
+                                const fileName = match?.[1] || "exam-scores.xlsx";
+                                const url = URL.createObjectURL(res.data);
+                                const a = document.createElement("a");
+                                a.href = url; a.download = fileName;
+                                document.body.appendChild(a); a.click();
+                                document.body.removeChild(a); URL.revokeObjectURL(url);
+                                toast.success("Excel downloaded");
+                              } catch { toast.error("Failed to download Excel"); }
+                              finally { setDownloadingScores(null); }
+                            }}
+                          >
+                            {downloadingScores === "xlsx" ? <ClipLoader size={12} color="#15803d" /> : <Download size={13} />}
+                            Excel
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-md border border-red-300 bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700 transition hover:bg-red-100 disabled:opacity-50"
+                            disabled={!!downloadingScores}
+                            onClick={async () => {
+                              setDownloadingScores("pdf");
+                              try {
+                                const res = await axios.get(
+                                  `${apiBase}/faculty/exam-blueprint/${selectedBlueprintId}/scores/download`,
+                                  { withCredentials: true, responseType: "blob", params: { format: "pdf" } }
+                                );
+                                const disposition = res.headers?.["content-disposition"] || "";
+                                const match = disposition.match(/filename="?([^"]+)"?/i);
+                                const fileName = match?.[1] || "exam-scores.pdf";
+                                const url = URL.createObjectURL(res.data);
+                                const a = document.createElement("a");
+                                a.href = url; a.download = fileName;
+                                document.body.appendChild(a); a.click();
+                                document.body.removeChild(a); URL.revokeObjectURL(url);
+                                toast.success("PDF downloaded");
+                              } catch { toast.error("Failed to download PDF"); }
+                              finally { setDownloadingScores(null); }
+                            }}
+                          >
+                            {downloadingScores === "pdf" ? <ClipLoader size={12} color="#b91c1c" /> : <Download size={13} />}
+                            PDF
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     {isScoresLoading ? (
                       <div className="flex min-h-32 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white/70">
                         <ClipLoader size={18} color="#0284c7" />

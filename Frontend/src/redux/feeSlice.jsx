@@ -4,6 +4,8 @@ import axios from "../utils/axiosInstance";
 const extractDataArray = (responseData) =>
   Array.isArray(responseData?.data) ? responseData.data : [];
 
+const extractDataObject = (responseData) => responseData?.data || null;
+
 export const fetchFeePrograms = createAsyncThunk(
   "fee/fetchPrograms",
   async (_, { getState, rejectWithValue }) => {
@@ -215,12 +217,155 @@ export const updateFeePaymentStatus = createAsyncThunk(
   }
 );
 
+/* ─── NEW THUNKS ─── */
+
+export const fetchFeeBatches = createAsyncThunk(
+  "fee/fetchBatches",
+  async (query = {}, { getState, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const response = await axios.get(`${apiBase}/admin/fee/batch`, {
+        params: query,
+        withCredentials: true,
+      });
+      return extractDataArray(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch batches"
+      );
+    }
+  }
+);
+
+export const fetchStudentFeeDetails = createAsyncThunk(
+  "fee/fetchStudentFeeDetails",
+  async (query = {}, { getState, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const response = await axios.get(`${apiBase}/admin/fee/student-details`, {
+        params: query,
+        withCredentials: true,
+      });
+      return extractDataArray(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch student fee details"
+      );
+    }
+  }
+);
+
+export const updateStudentBenefits = createAsyncThunk(
+  "fee/updateStudentBenefits",
+  async ({ id, scholarship, discount }, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const body = {};
+      if (scholarship) body.scholarship = scholarship;
+      if (discount) body.discount = discount;
+      const response = await axios.patch(
+        `${apiBase}/admin/fee/student-details/${id}/benefits`,
+        body,
+        { withCredentials: true }
+      );
+      await dispatch(fetchStudentFeeDetails()).unwrap();
+      return extractDataObject(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to update student benefits"
+      );
+    }
+  }
+);
+
+export const generateFeeDemandFromProfile = createAsyncThunk(
+  "fee/generateDemandFromProfile",
+  async (payload, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const response = await axios.post(
+        `${apiBase}/admin/fee/demand/generate`,
+        payload,
+        { withCredentials: true }
+      );
+      await dispatch(fetchFeeDemands()).unwrap();
+      return extractDataObject(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to generate fee demand"
+      );
+    }
+  }
+);
+
+export const fetchDemandRequests = createAsyncThunk(
+  "fee/fetchDemandRequests",
+  async (query = {}, { getState, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const response = await axios.get(`${apiBase}/admin/fee/demand-request`, {
+        params: query,
+        withCredentials: true,
+      });
+      return extractDataArray(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to fetch demand requests"
+      );
+    }
+  }
+);
+
+export const approveDemandRequest = createAsyncThunk(
+  "fee/approveDemandRequest",
+  async ({ id, dueDate }, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const body = dueDate ? { dueDate } : {};
+      const response = await axios.patch(
+        `${apiBase}/admin/fee/demand-request/${id}/approve`,
+        body,
+        { withCredentials: true }
+      );
+      await dispatch(fetchDemandRequests()).unwrap();
+      return extractDataObject(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to approve demand request"
+      );
+    }
+  }
+);
+
+export const rejectDemandRequest = createAsyncThunk(
+  "fee/rejectDemandRequest",
+  async ({ id }, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const response = await axios.patch(
+        `${apiBase}/admin/fee/demand-request/${id}/reject`,
+        {},
+        { withCredentials: true }
+      );
+      await dispatch(fetchDemandRequests()).unwrap();
+      return extractDataObject(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to reject demand request"
+      );
+    }
+  }
+);
+
 const feeSlice = createSlice({
   name: "fee",
   initialState: {
     programs: [],
+    batches: [],
     demands: [],
     payments: [],
+    studentDetails: [],
+    demandRequests: [],
     loading: false,
     actionLoading: false,
     error: null,
@@ -233,8 +378,11 @@ const feeSlice = createSlice({
     },
     clearFeeState: (state) => {
       state.programs = [];
+      state.batches = [];
       state.demands = [];
       state.payments = [];
+      state.studentDetails = [];
+      state.demandRequests = [];
       state.loading = false;
       state.actionLoading = false;
       state.error = null;
@@ -371,6 +519,87 @@ const feeSlice = createSlice({
         state.actionLoading = false;
         state.actionError =
           action.payload || "Failed to update payment status";
+      })
+      /* ─── NEW REDUCERS ─── */
+      .addCase(fetchFeeBatches.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchFeeBatches.fulfilled, (state, action) => {
+        state.loading = false;
+        state.batches = action.payload || [];
+      })
+      .addCase(fetchFeeBatches.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch batches";
+      })
+      .addCase(fetchStudentFeeDetails.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchStudentFeeDetails.fulfilled, (state, action) => {
+        state.loading = false;
+        state.studentDetails = action.payload || [];
+      })
+      .addCase(fetchStudentFeeDetails.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch student fee details";
+      })
+      .addCase(updateStudentBenefits.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(updateStudentBenefits.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(updateStudentBenefits.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload || "Failed to update benefits";
+      })
+      .addCase(generateFeeDemandFromProfile.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(generateFeeDemandFromProfile.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(generateFeeDemandFromProfile.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload || "Failed to generate demand";
+      })
+      .addCase(fetchDemandRequests.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchDemandRequests.fulfilled, (state, action) => {
+        state.loading = false;
+        state.demandRequests = action.payload || [];
+      })
+      .addCase(fetchDemandRequests.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload || "Failed to fetch demand requests";
+      })
+      .addCase(approveDemandRequest.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(approveDemandRequest.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(approveDemandRequest.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload || "Failed to approve request";
+      })
+      .addCase(rejectDemandRequest.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(rejectDemandRequest.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(rejectDemandRequest.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload || "Failed to reject request";
       });
   },
 });
@@ -378,8 +607,11 @@ const feeSlice = createSlice({
 export const { clearFeeError, clearFeeState } = feeSlice.actions;
 
 export const selectFeePrograms = (state) => state.fee.programs;
+export const selectFeeBatches = (state) => state.fee.batches;
 export const selectFeeDemands = (state) => state.fee.demands;
 export const selectFeePayments = (state) => state.fee.payments;
+export const selectStudentFeeDetails = (state) => state.fee.studentDetails;
+export const selectDemandRequests = (state) => state.fee.demandRequests;
 export const selectFeeLoading = (state) => state.fee.loading;
 export const selectFeeActionLoading = (state) => state.fee.actionLoading;
 export const selectFeeError = (state) => state.fee.error;

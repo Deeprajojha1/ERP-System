@@ -12,6 +12,7 @@ import {
 	getAttendanceByGroupAndCourse,
 	getStudentsByGroup,
 	getCourseStudentsForFaculty,
+	getCourseGroupsForFaculty,
 	getStudentAttendanceReport,
 	getStudentOverallAttendance,
 } from "../controllers/attendanceController.js";
@@ -27,6 +28,7 @@ import {
   getExamPaper,
   reviewExamPaper,
   getExamStudentScores,
+  downloadExamScoresReport,
 } from "../controllers/aiExamController.js";
 import { getFacultyAlerts } from "../controllers/alertController.js";
 import courseContentUpload from "../config/courseContentMulter.js";
@@ -46,6 +48,7 @@ import {
   getFacultyAssignmentSubmissions,
   gradeAssignmentSubmission,
   markMissingAssignmentSubmission,
+  downloadUnitAwardSheet,
 } from "../controllers/assignmentSubmissionController.js";
 import isAuth from "../middlewares/isAuth.js";
 import isFacultyOrAdmin from "../middlewares/isFacultyOrAdmin.js";
@@ -122,11 +125,13 @@ router.post("/course-questions/:id/reply", isFacultyOrAdmin, replyToCourseQuesti
 
 /* Assignment Submission Routes (Faculty) */
 router.get("/assignment-submissions", isFacultyOrAdmin, getFacultyAssignmentSubmissions);
+router.get("/assignment-reports/unit-award-sheet", isFacultyOrAdmin, downloadUnitAwardSheet);
 router.post("/assignment-submissions/:id/grade", isFacultyOrAdmin, gradeAssignmentSubmission);
 router.post("/assignment-submissions/missing", isFacultyOrAdmin, markMissingAssignmentSubmission);
 
 /* Course Students (Faculty/Admin helper) */
 router.get("/courses/:courseId/students", isFacultyOrAdmin, getCourseStudentsForFaculty);
+router.get("/courses/:courseId/groups", isFacultyOrAdmin, getCourseGroupsForFaculty);
 
 /* Attendance Routes (Faculty) */
 router.get("/attendance/:groupId", isFacultyOrAdmin, getGroupAttendancePage);
@@ -150,5 +155,6 @@ router.post("/exam-blueprint/:id/generate-paper", isFacultyOrAdmin, generateExam
 router.get("/exam-blueprint/:id/paper", isFacultyOrAdmin, getExamPaper);
 router.put("/exam-paper/:paperId/review", isFacultyOrAdmin, reviewExamPaper);
 router.get("/exam-blueprint/:id/scores", isFacultyOrAdmin, getExamStudentScores);
+router.get("/exam-blueprint/:id/scores/download", isFacultyOrAdmin, downloadExamScoresReport);
 
 export default router;

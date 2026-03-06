@@ -1,440 +1,381 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import {
-  FiPlus,
   FiUsers,
   FiDollarSign,
   FiEdit2,
-  FiTrash2,
   FiTag,
+  FiSearch,
+  FiRefreshCw,
 } from "react-icons/fi";
-import { MdOutlineToggleOn, MdOutlineToggleOff } from "react-icons/md";
+import toast from "react-hot-toast";
 import ClipLoader from "./components/ClipLoader";
+import {
+  fetchStudentFeeDetails,
+  updateStudentBenefits,
+  selectStudentFeeDetails,
+  selectFeeLoading,
+  selectFeeActionLoading,
+} from "../redux/feeSlice";
 import "./FeesDiscounts.css";
 
-const FILTERS = [
-  { key: "all", label: "All Rules", count: 7 },
-  { key: "scholarship", label: "Scholarships", count: 5 },
-  { key: "concession", label: "Concessions", count: 2 },
-  { key: "special", label: "Special", count: 0 },
-];
+const BENEFIT_TYPES = ["NONE", "PERCENT", "FIXED"];
 
-const PRIORITY_OPTIONS = ["Priority 1", "Priority 2", "Priority 3"];
-const RULE_TYPES = ["Rank Based", "Merit Based", "Attendance Based", "Income Based", "Performance"];
-const CATEGORY_OPTIONS = ["Scholarship", "Concession", "Special"];
-const DISCOUNT_TYPES = ["Percentage", "Amount"];
-const ACADEMIC_YEARS = ["2024-2025", "2023-2024", "2022-2023"];
-
-const DEFAULT_RULES = [
-  {
-    id: "r1",
-    name: "Merit Scholarship - Top 10",
-    category: "Scholarship",
-    ruleType: "Rank Based",
-    priority: "Priority 1",
-    academicYear: "2024-2025",
-    tags: ["Scholarship", "Rank-Based", "Priority 1"],
-    discountType: "Percentage",
-    value: 100,
-    eligible: 1,
-    totalDiscount: "₹1.22L",
-    status: "active",
-    conditions: [
-      { label: "Rank From", value: "1" },
-      { label: "Rank To", value: "10" },
-      { label: "Entrance Exam", value: "JEE Main" },
-    ],
-    components: ["All"],
-  },
-  {
-    id: "r2",
-    name: "Need-Based Concession",
-    category: "Concession",
-    ruleType: "Income Based",
-    priority: "Priority 2",
-    academicYear: "2024-2025",
-    tags: ["Concession", "Income", "Priority 2"],
-    discountType: "Amount",
-    value: 25000,
-    eligible: 42,
-    totalDiscount: "₹10.5L",
-    status: "active",
-    conditions: [
-      { label: "Family Income", value: "< ₹3L" },
-      { label: "Attendance", value: ">= 85%" },
-    ],
-    components: ["Tuition", "Lab"],
-  },
-  {
-    id: "r3",
-    name: "Sports Excellence",
-    category: "Special",
-    ruleType: "Performance",
-    priority: "Priority 3",
-    academicYear: "2024-2025",
-    tags: ["Special", "Sports", "Priority 3"],
-    discountType: "Percentage",
-    value: 50,
-    eligible: 17,
-    totalDiscount: "₹3.4L",
-    status: "inactive",
-    conditions: [
-      { label: "National Level", value: "Medalist" },
-      { label: "Attendance", value: ">= 80%" },
-    ],
-    components: ["Tuition"],
-  },
-];
-
-const DEFAULT_FORM = {
-  name: "",
-  ruleType: RULE_TYPES[0],
-  category: CATEGORY_OPTIONS[0],
-  discountType: DISCOUNT_TYPES[0],
-  value: 0,
-  priority: PRIORITY_OPTIONS[0],
-  academicYear: ACADEMIC_YEARS[0],
-  conditionDetails: "",
-};
-
-const StatsCard = ({ icon, label, value, subtitle }) => {
-  const IconComponent = icon;
-  return (
-    <article className="fee-discount-stat">
-      <div className="fee-discount-stat-icon">
-        <IconComponent />
-      </div>
-      <div>
-        <p>{label}</p>
-        <strong>{value}</strong>
-        <span>{subtitle}</span>
-      </div>
-    </article>
-  );
-};
+const formatCurrency = (value = 0) =>
+  `₹${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
 const FeesDiscounts = () => {
+  const dispatch = useDispatch();
+  const studentDetails = useSelector(selectStudentFeeDetails);
+  const loading = useSelector(selectFeeLoading);
+  const actionLoading = useSelector(selectFeeActionLoading);
+
+  const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [rules] = useState(DEFAULT_RULES);
-  const [modalMode, setModalMode] = useState(null);
-  const [formValues, setFormValues] = useState(DEFAULT_FORM);
-  const [editingRule, setEditingRule] = useState(null);
-  const [isSubmittingRule, setIsSubmittingRule] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState({
+    scholarshipType: "NONE",
+    scholarshipValue: 0,
+    discountType: "NONE",
+    discountValue: 0,
+  });
 
-  const filteredRules = useMemo(() => {
-    if (filter === "all") return rules;
-    return rules.filter((rule) => rule.category.toLowerCase() === filter);
-  }, [filter, rules]);
+  useEffect(() => {
+    dispatch(fetchStudentFeeDetails());
+  }, [dispatch]);
 
-  const openCreateModal = () => {
-    setFormValues(DEFAULT_FORM);
-    setEditingRule(null);
-    setModalMode("create");
-  };
+  const studentsWithBenefits = useMemo(
+    () =>
+      studentDetails.filter(
+        (s) =>
+          (s.scholarship?.type && s.scholarship.type !== "NONE") ||
+          (s.discount?.type && s.discount.type !== "NONE")
+      ),
+    [studentDetails]
+  );
 
-  const openEditModal = (rule) => {
-    setFormValues({
-      name: rule.name,
-      ruleType: rule.ruleType,
-      category: rule.category,
-      discountType: rule.discountType,
-      value: rule.value,
-      priority: rule.priority,
-      academicYear: rule.academicYear || ACADEMIC_YEARS[0],
-      conditionDetails: JSON.stringify(rule.conditions, null, 2),
+  const stats = useMemo(() => {
+    let totalScholarship = 0;
+    let totalDiscount = 0;
+    studentsWithBenefits.forEach((s) => {
+      totalScholarship += Number(s.feeSummary?.scholarshipAmount || 0);
+      totalDiscount += Number(s.feeSummary?.discountAmount || 0);
     });
-    setEditingRule(rule);
-    setModalMode("edit");
-  };
+    return {
+      totalStudents: studentDetails.length,
+      withBenefits: studentsWithBenefits.length,
+      totalScholarship,
+      totalDiscount,
+      totalBenefits: totalScholarship + totalDiscount,
+    };
+  }, [studentDetails, studentsWithBenefits]);
 
-  const closeModal = () => {
-    if (isSubmittingRule) return;
-    setModalMode(null);
-    setEditingRule(null);
-  };
-
-  const toggleRule = (ruleId) => {
-    console.log("Toggle rule", ruleId);
-  };
-
-  const handleSubmit = async () => {
-    if (isSubmittingRule) return;
-    setIsSubmittingRule(true);
-    try {
-      await new Promise((resolve) => window.setTimeout(resolve, 350));
-      if (modalMode === "edit") {
-        console.log("Update rule", editingRule?.id, formValues);
-      } else {
-        console.log("Create rule", formValues);
-      }
-      setModalMode(null);
-      setEditingRule(null);
-    } finally {
-      setIsSubmittingRule(false);
+  const filtered = useMemo(() => {
+    let list = studentDetails;
+    if (filter === "scholarship") {
+      list = list.filter((s) => s.scholarship?.type && s.scholarship.type !== "NONE");
+    } else if (filter === "discount") {
+      list = list.filter((s) => s.discount?.type && s.discount.type !== "NONE");
+    } else if (filter === "none") {
+      list = list.filter(
+        (s) =>
+          (!s.scholarship?.type || s.scholarship.type === "NONE") &&
+          (!s.discount?.type || s.discount.type === "NONE")
+      );
     }
+    if (search.trim()) {
+      const needle = search.trim().toLowerCase();
+      list = list.filter(
+        (s) =>
+          String(s.studentId || "").toLowerCase().includes(needle) ||
+          String(s.userId?.name || "").toLowerCase().includes(needle)
+      );
+    }
+    return list;
+  }, [studentDetails, filter, search]);
+
+  const openEdit = (student) => {
+    setEditingId(student._id);
+    setEditForm({
+      scholarshipType: student.scholarship?.type || "NONE",
+      scholarshipValue: student.scholarship?.value || 0,
+      discountType: student.discount?.type || "NONE",
+      discountValue: student.discount?.value || 0,
+    });
   };
 
-  const stats = [
-    {
-      icon: FiTag,
-      label: "Total Discount Rules",
-      value: "7",
-      subtitle: "7 active",
-    },
-    {
-      icon: FiUsers,
-      label: "Students With Discounts",
-      value: "175",
-      subtitle: "Across all rules",
-    },
-    {
-      icon: FiDollarSign,
-      label: "Total Discount Amount",
-      value: "₹0.57Cr",
-      subtitle: "Current academic year",
-    },
-  ];
-
-  const handleFormChange = (field, value) => {
-    setFormValues((prev) => ({ ...prev, [field]: value }));
+  const handleSave = async () => {
+    if (!editingId) return;
+    try {
+      await dispatch(
+        updateStudentBenefits({
+          id: editingId,
+          scholarship: {
+            type: editForm.scholarshipType,
+            value: Number(editForm.scholarshipValue || 0),
+          },
+          discount: {
+            type: editForm.discountType,
+            value: Number(editForm.discountValue || 0),
+          },
+        })
+      ).unwrap();
+      toast.success("Benefits updated successfully");
+      setEditingId(null);
+    } catch (error) {
+      toast.error(error || "Failed to update benefits");
+    }
   };
 
   return (
     <div className="fees-page fees-discounts-page">
       <header className="fee-discounts-header">
         <div>
-          <h1>Discount & Scholarship Rule Engine</h1>
-          <p>Configure automatic discount rules based on merit, rank, GPA, and other criteria.</p>
+          <h1>Scholarships & Discounts</h1>
+          <p>View and manage student scholarship and discount benefits from fee profiles.</p>
         </div>
-        <button type="button" className="fee-discounts-add-btn" onClick={openCreateModal}>
-          <span className="fee-discounts-add-btn-icon" aria-hidden="true">
-            <FiPlus />
-          </span>
-          <span>Add Discount Rule</span>
+        <button
+          type="button"
+          className="fee-export-btn"
+          onClick={() => dispatch(fetchStudentFeeDetails())}
+          disabled={loading}
+        >
+          <FiRefreshCw />
+          <span>{loading ? "Refreshing..." : "Refresh"}</span>
         </button>
       </header>
 
       <section className="fee-discounts-stats">
-        {stats.map((card) => (
-          <StatsCard key={card.label} {...card} />
-        ))}
+        <article className="fee-discount-stat">
+          <div className="fee-discount-stat-icon"><FiUsers /></div>
+          <div>
+            <p>Total Students</p>
+            <strong>{stats.totalStudents}</strong>
+            <span>With fee profiles</span>
+          </div>
+        </article>
+        <article className="fee-discount-stat">
+          <div className="fee-discount-stat-icon"><FiTag /></div>
+          <div>
+            <p>Students With Benefits</p>
+            <strong>{stats.withBenefits}</strong>
+            <span>Scholarship or discount applied</span>
+          </div>
+        </article>
+        <article className="fee-discount-stat">
+          <div className="fee-discount-stat-icon"><FiDollarSign /></div>
+          <div>
+            <p>Total Benefit Amount</p>
+            <strong>{formatCurrency(stats.totalBenefits)}</strong>
+            <span>
+              Scholarship: {formatCurrency(stats.totalScholarship)} | Discount:{" "}
+              {formatCurrency(stats.totalDiscount)}
+            </span>
+          </div>
+        </article>
       </section>
 
-      <div className="fee-discounts-filters">
-        {FILTERS.map((pill) => (
-          <button
-            key={pill.key}
-            type="button"
-            className={`fee-discounts-filter ${filter === pill.key ? "is-active" : ""}`}
-            onClick={() => setFilter(pill.key)}
-          >
-            {pill.label} ({pill.count})
-          </button>
-        ))}
+      <div className="fee-discounts-controls">
+        <div className="fee-discounts-search">
+          <FiSearch />
+          <input
+            type="search"
+            placeholder="Search by student ID or name..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <div className="fee-discounts-filters">
+          {[
+            { key: "all", label: "All" },
+            { key: "scholarship", label: "Scholarship" },
+            { key: "discount", label: "Discount" },
+            { key: "none", label: "No Benefits" },
+          ].map((f) => (
+            <button
+              key={f.key}
+              type="button"
+              className={`fee-discounts-filter ${filter === f.key ? "is-active" : ""}`}
+              onClick={() => setFilter(f.key)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
       </div>
 
-      <section className="fee-discounts-rules">
-        {filteredRules.map((rule) => (
-          <article className="fee-rule-card" key={rule.id}>
-            <div className="fee-rule-head">
-              <div>
-                <h2>{rule.name}</h2>
-                <div className="fee-rule-tags">
-                  {rule.tags.map((tag) => (
-                    <span key={tag}>{tag}</span>
-                  ))}
-                </div>
-              </div>
-              <button type="button" className="fee-rule-toggle" onClick={() => toggleRule(rule.id)}>
-                {rule.status === "active" ? (
-                  <>
-                    <MdOutlineToggleOn /> Active
-                  </>
-                ) : (
-                  <>
-                    <MdOutlineToggleOff /> Inactive
-                  </>
-                )}
-              </button>
-            </div>
-
-            <div className="fee-rule-body">
-              <div className="fee-rule-highlight">
-                <span className="fee-rule-highlight-icon">%</span>
-                <div>
-                  <p>{rule.discountType}</p>
-                  <strong>
-                    {rule.discountType === "Percentage" ? `${rule.value}%` : `₹${rule.value.toLocaleString("en-IN")}`}
-                  </strong>
-                </div>
-              </div>
-              <div className="fee-rule-summary">
-                <div>
-                  <p>Eligible Students</p>
-                  <strong>{rule.eligible}</strong>
-                </div>
-                <div>
-                  <p>Total Discount</p>
-                  <strong>{rule.totalDiscount}</strong>
-                </div>
-              </div>
-            </div>
-
-            <div className="fee-rule-conditions">
-              <p>Conditions:</p>
-              <ul>
-                {rule.conditions.map((condition) => (
-                  <li key={`${rule.id}-${condition.label}`}>
-                    <span>{condition.label}:</span>
-                    <span>{condition.value}</span>
-                  </li>
-                ))}
-              </ul>
-              <div className="fee-rule-components">
-                <p>Applicable Components:</p>
-                <span>{rule.components.join(", ")}</span>
-              </div>
-            </div>
-
-            <div className="fee-rule-actions">
-              <button type="button" onClick={() => openEditModal(rule)}>
-                <FiEdit2 /> Edit
-              </button>
-              <button type="button">
-                <FiTrash2 /> Delete
-              </button>
-            </div>
-          </article>
-        ))}
+      <section className="fee-table-section">
+        <div className="fee-table-head">
+          <h2 className="fee-table-title">Student Fee Benefits</h2>
+        </div>
+        <div className="fees-table-wrap">
+          <table className="fees-table">
+            <thead>
+              <tr>
+                <th>Student ID</th>
+                <th>Name</th>
+                <th>Program</th>
+                <th>Scholarship</th>
+                <th>Discount</th>
+                <th>Gross Fee</th>
+                <th>Net Fee</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((s) => (
+                <tr key={s._id}>
+                  <td className="fees-name">{s.studentId}</td>
+                  <td>{s.userId?.name || "N/A"}</td>
+                  <td>{s.programId?.programName || "N/A"}</td>
+                  <td>
+                    {s.scholarship?.type === "PERCENT"
+                      ? `${s.scholarship.value}%`
+                      : s.scholarship?.type === "FIXED"
+                      ? formatCurrency(s.scholarship.value)
+                      : "None"}
+                    {s.feeSummary?.scholarshipAmount > 0 && (
+                      <span style={{ color: "#16a34a", fontSize: "0.75rem", display: "block" }}>
+                        (-{formatCurrency(s.feeSummary.scholarshipAmount)})
+                      </span>
+                    )}
+                  </td>
+                  <td>
+                    {s.discount?.type === "PERCENT"
+                      ? `${s.discount.value}%`
+                      : s.discount?.type === "FIXED"
+                      ? formatCurrency(s.discount.value)
+                      : "None"}
+                    {s.feeSummary?.discountAmount > 0 && (
+                      <span style={{ color: "#16a34a", fontSize: "0.75rem", display: "block" }}>
+                        (-{formatCurrency(s.feeSummary.discountAmount)})
+                      </span>
+                    )}
+                  </td>
+                  <td>{formatCurrency(s.feeSummary?.courseGrossFee)}</td>
+                  <td>{formatCurrency(s.feeSummary?.courseNetFee)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="fee-discounts-edit-btn"
+                      onClick={() => openEdit(s)}
+                    >
+                      <FiEdit2 /> Edit
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr>
+                  <td colSpan={8}>No student fee details found</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </section>
 
-      {modalMode && (
-        <div className="fee-discounts-modal-overlay" onClick={closeModal}>
+      {editingId && (
+        <div className="fee-discounts-modal-overlay" onClick={() => !actionLoading && setEditingId(null)}>
           <div
             className="fee-discounts-modal"
             role="dialog"
             aria-modal="true"
-            onClick={(event) => event.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="fee-discounts-modal-head">
-              <h2>{modalMode === "edit" ? "Edit Discount Rule" : "Add Discount Rule"}</h2>
-              <button type="button" onClick={closeModal}>
-                ×
-              </button>
+              <h2>Edit Student Benefits</h2>
+              <button type="button" onClick={() => !actionLoading && setEditingId(null)}>×</button>
             </div>
 
             <div className="fee-discounts-modal-section">
-              <p className="fee-discounts-modal-label">Basic Information</p>
+              <p className="fee-discounts-modal-label">Scholarship</p>
               <div className="fee-discounts-modal-grid">
                 <label>
-                  Rule Name *
-                  <input
-                    placeholder="e.g., Merit Scholarship - Top 10"
-                    value={formValues.name}
-                    onChange={(event) => handleFormChange("name", event.target.value)}
-                  />
-                </label>
-                <label>
-                  Rule Type *
+                  Type
                   <select
-                    value={formValues.ruleType}
-                    onChange={(event) => handleFormChange("ruleType", event.target.value)}
+                    value={editForm.scholarshipType}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, scholarshipType: e.target.value }))
+                    }
                   >
-                    {RULE_TYPES.map((option) => (
-                      <option key={option}>{option}</option>
+                    {BENEFIT_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
                 </label>
                 <label>
-                  Category *
-                  <select
-                    value={formValues.category}
-                    onChange={(event) => handleFormChange("category", event.target.value)}
-                  >
-                    {CATEGORY_OPTIONS.map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Discount Type *
-                  <select
-                    value={formValues.discountType}
-                    onChange={(event) => handleFormChange("discountType", event.target.value)}
-                  >
-                    {DISCOUNT_TYPES.map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Value *
+                  Value
                   <input
                     type="number"
                     min="0"
-                    value={formValues.value}
-                    onChange={(event) => handleFormChange("value", Number(event.target.value) || 0)}
+                    value={editForm.scholarshipValue}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        scholarshipValue: Number(e.target.value) || 0,
+                      }))
+                    }
                   />
-                </label>
-                <label>
-                  Priority *
-                  <select
-                    value={formValues.priority}
-                    onChange={(event) => handleFormChange("priority", event.target.value)}
-                  >
-                    {PRIORITY_OPTIONS.map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>
-                  Academic Year *
-                  <select
-                    value={formValues.academicYear}
-                    onChange={(event) => handleFormChange("academicYear", event.target.value)}
-                  >
-                    {ACADEMIC_YEARS.map((option) => (
-                      <option key={option}>{option}</option>
-                    ))}
-                  </select>
                 </label>
               </div>
             </div>
 
             <div className="fee-discounts-modal-section">
-              <p className="fee-discounts-modal-label">Conditions</p>
-              <label>
-                Condition Details
-                <textarea
-                  rows={4}
-                  placeholder="Provide JSON or plain text describing the condition logic"
-                  value={formValues.conditionDetails}
-                  onChange={(event) => handleFormChange("conditionDetails", event.target.value)}
-                />
-              </label>
+              <p className="fee-discounts-modal-label">Discount</p>
+              <div className="fee-discounts-modal-grid">
+                <label>
+                  Type
+                  <select
+                    value={editForm.discountType}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({ ...prev, discountType: e.target.value }))
+                    }
+                  >
+                    {BENEFIT_TYPES.map((t) => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  Value
+                  <input
+                    type="number"
+                    min="0"
+                    value={editForm.discountValue}
+                    onChange={(e) =>
+                      setEditForm((prev) => ({
+                        ...prev,
+                        discountValue: Number(e.target.value) || 0,
+                      }))
+                    }
+                  />
+                </label>
+              </div>
             </div>
 
             <div className="fee-discounts-modal-actions">
               <button
                 type="button"
                 className="fee-discounts-modal-secondary"
-                onClick={closeModal}
-                disabled={isSubmittingRule}
+                onClick={() => setEditingId(null)}
+                disabled={actionLoading}
               >
                 Cancel
               </button>
               <button
                 type="button"
                 className="fee-discounts-modal-primary admin-btn-with-loader"
-                onClick={handleSubmit}
-                disabled={isSubmittingRule}
+                onClick={handleSave}
+                disabled={actionLoading}
               >
-                {isSubmittingRule ? (
+                {actionLoading ? (
                   <>
                     <ClipLoader size={15} />
-                    <span>{modalMode === "edit" ? "Updating..." : "Creating..."}</span>
+                    <span>Saving...</span>
                   </>
                 ) : (
-                  modalMode === "edit" ? "Update Rule" : "Create Rule"
+                  "Save Changes"
                 )}
               </button>
             </div>

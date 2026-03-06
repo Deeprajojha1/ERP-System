@@ -18,7 +18,7 @@
  * Note: React 18+ with new JSX transform - no need to import React
  */
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
 import axios from '../../utils/axiosInstance';
@@ -264,6 +264,68 @@ const Dashboard = () => {
     return enrolledCourses;
   }, [studentCoursesFromApi, enrolledCourses, roleDetails]);
 
+  const normalizeScheduleText = useCallback((value) => {
+    const text = String(value || "").trim();
+    if (!text) return "";
+    const lowered = text.toLowerCase();
+    if (["n/a", "na", "none", "not available", "schedule not available", "-"].includes(lowered)) {
+      return "";
+    }
+    return text;
+  }, []);
+
+  const resolveCourseSchedule = useCallback((course) => {
+    const directSchedule = normalizeScheduleText(
+      course?.schedule ||
+      course?.time ||
+      course?.timeSlot ||
+      course?.slot ||
+      course?.lectureTime ||
+      course?.timing
+    );
+    if (directSchedule) return directSchedule;
+
+    const todayScheduleList = Array.isArray(userData?.todaySchedule)
+      ? userData.todaySchedule
+      : Array.isArray(roleDetails?.todaySchedule)
+      ? roleDetails.todaySchedule
+      : [];
+
+    const courseId = String(course?._id || course?.id || "");
+    const courseCode = String(course?.code || course?.courseCode || "").trim().toLowerCase();
+    const courseName = String(course?.courseName || course?.name || "").trim().toLowerCase();
+
+    const todayMatch = todayScheduleList.find((item) => {
+      const itemCourse = item?.course || {};
+      const itemCourseId = String(itemCourse?._id || item?.courseId || "");
+      const itemCourseCode = String(itemCourse?.code || item?.courseCode || "").trim().toLowerCase();
+      const itemCourseName = String(itemCourse?.courseName || item?.courseName || "").trim().toLowerCase();
+      return (
+        (courseId && itemCourseId && itemCourseId === courseId) ||
+        (courseCode && itemCourseCode && itemCourseCode === courseCode) ||
+        (courseName && itemCourseName && itemCourseName === courseName)
+      );
+    });
+
+    if (todayMatch) {
+      const timeText = normalizeScheduleText(
+        todayMatch?.time ||
+        todayMatch?.timeSlot ||
+        todayMatch?.slot ||
+        todayMatch?.lectureTime ||
+        todayMatch?.timing
+      );
+      if (timeText) return timeText;
+      const lectureNumber = Number(todayMatch?.lectureNumber);
+      if (Number.isFinite(lectureNumber) && lectureNumber > 0) {
+        return `Lecture ${lectureNumber} (Today)`;
+      }
+      return "Scheduled Today";
+    }
+
+    return "N/A";
+  }, [normalizeScheduleText, roleDetails?.todaySchedule, userData?.todaySchedule]);
+
   const coursesData = useMemo(() => {
     return effectiveEnrolledCourses.map((course) => {
       const courseId = String(course?._id || course?.id || "");
@@ -309,7 +371,7 @@ const Dashboard = () => {
           course?.instructor ||
           course?.facultyName ||
           "N/A",
-        schedule: 'N/A',
+        schedule: resolveCourseSchedule(course),
         room: roleDetails?.group?.roomNo || 'N/A',
         totalClasses,
         attendedClasses,
@@ -323,7 +385,7 @@ const Dashboard = () => {
         resources: materialItems,
       };
     });
-  }, [effectiveEnrolledCourses, attendanceData, roleDetails, courseContentByCourse]);
+  }, [effectiveEnrolledCourses, attendanceData, roleDetails, courseContentByCourse, resolveCourseSchedule]);
 
   const totalSessions = attendanceData.reduce(
     (total, item) => total + (item?.totalSessions || 0),

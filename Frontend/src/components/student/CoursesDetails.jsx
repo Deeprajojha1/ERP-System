@@ -9,6 +9,7 @@ import emptyStateIllustration from "../../assets/empty-state.svg";
 import {
   FiArrowLeft,
   FiArrowRight,
+  FiBookOpen,
   FiCheck,
   FiChevronDown,
   FiClock,
@@ -43,14 +44,58 @@ const formatDateTime = (value) => {
   });
 };
 
-const resolveResourceUrl = (resource) =>
-  String(
+const resolveApiOrigin = (apiBase) => {
+  const base = String(apiBase || "").trim();
+  if (!base) return "";
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    return base.replace(/\/api\/?$/i, "").replace(/\/+$/, "");
+  }
+  return "";
+};
+
+const resolveResourceUrl = (resource, apiBase = "") => {
+  const candidate =
     resource?.fileUrl ||
-      resource?.url ||
-      resource?.link ||
-      resource?.href ||
-      ""
-  ).trim();
+    resource?.quizUrl ||
+    resource?.url ||
+    resource?.link ||
+    resource?.href ||
+    resource?.attachments?.[0]?.url ||
+    "";
+
+  const normalized = String(candidate || "").trim();
+  if (!normalized) return "";
+
+  const invalidValues = new Set(["n/a", "na", "none", "null", "undefined", "-"]);
+  if (invalidValues.has(normalized.toLowerCase())) return "";
+
+  if (
+    /^https?:\/\//i.test(normalized) ||
+    normalized.startsWith("blob:") ||
+    normalized.startsWith("data:")
+  ) {
+    return normalized;
+  }
+
+  if (normalized.startsWith("/")) {
+    const origin = resolveApiOrigin(apiBase);
+    return origin ? `${origin}${normalized}` : normalized;
+  }
+
+  if (normalized.startsWith("uploads/")) {
+    const origin = resolveApiOrigin(apiBase);
+    return origin ? `${origin}/${normalized}` : `/${normalized}`;
+  }
+
+  return normalized;
+};
+
+const isQuizItem = (item = {}) => {
+  const typeText = `${item?.type || ""} ${item?.category || ""} ${item?.cta || ""} ${item?.title || ""} ${item?.name || ""}`
+    .trim()
+    .toLowerCase();
+  return typeText.includes("quiz");
+};
 
 const resolveSyllabusResource = (raw = {}) => {
   const syllabusItems = Array.isArray(raw?.syllabus) ? raw.syllabus : [];
@@ -111,6 +156,28 @@ const downloadFileDirect = async (fileUrl, fileName = "resource") => {
     return true;
   } catch (error) {
     console.error("Direct resource download failed:", error?.message || error);
+    return false;
+  }
+};
+
+const canAccessResource = async (fileUrl) => {
+  if (!fileUrl) return false;
+  try {
+    const headResponse = await fetch(fileUrl, {
+      method: "HEAD",
+      credentials: "include",
+    });
+    if (headResponse.ok) return true;
+
+    if (headResponse.status === 405) {
+      const getResponse = await fetch(fileUrl, {
+        method: "GET",
+        credentials: "include",
+      });
+      return getResponse.ok;
+    }
+    return false;
+  } catch {
     return false;
   }
 };
@@ -201,19 +268,38 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
 
   const handleQuizClick = () => setActiveQuizDetail(true);
 
-  const handleOpenResource = (resource, resourceId) => {
-    const fileUrl = resolveResourceUrl(resource);
-    if (!fileUrl) return;
+  const handleOpenResource = async (resource, resourceId) => {
+    const fileUrl = resolveResourceUrl(resource, apiBase);
+    if (!fileUrl) {
+      toast.error("No file is attached for this quiz.");
+      return;
+    }
+
+    const exists = await canAccessResource(fileUrl);
+    if (!exists) {
+      toast.error("File not found on server. Please ask faculty to re-upload.");
+      return;
+    }
+
     setResourceLoading({ resourceId, action: "view" });
     openFileInNewTab(fileUrl);
     setResourceLoading({ resourceId: "", action: "" });
   };
 
   const handleDownloadResource = async (resource, resourceId) => {
-    const fileUrl = resolveResourceUrl(resource);
-    if (!fileUrl) return;
+    const fileUrl = resolveResourceUrl(resource, apiBase);
+    if (!fileUrl) {
+      toast.error("No file is available to download.");
+      return;
+    }
 
     setResourceLoading({ resourceId, action: "download" });
+    const exists = await canAccessResource(fileUrl);
+    if (!exists) {
+      setResourceLoading({ resourceId: "", action: "" });
+      toast.error("File not found on server. Please ask faculty to re-upload.");
+      return;
+    }
     const fileName =
       resource?.originalFileName ||
       resource?.fileName ||
@@ -222,13 +308,13 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
       "resource";
     const downloaded = await downloadFileDirect(fileUrl, fileName);
     if (!downloaded) {
-      triggerBrowserDownload(fileUrl, fileName);
+      toast.error("Failed to download file. Please try again.");
     }
     setResourceLoading({ resourceId: "", action: "" });
   };
 
   const handleDownloadSyllabus = async (syllabusResource) => {
-    const fileUrl = resolveResourceUrl(syllabusResource);
+    const fileUrl = resolveResourceUrl(syllabusResource, apiBase);
     if (!fileUrl) return;
 
     setSyllabusActionLoading("download");
@@ -247,7 +333,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
   };
 
   const handleViewSyllabus = (syllabusResource) => {
-    const fileUrl = resolveResourceUrl(syllabusResource);
+    const fileUrl = resolveResourceUrl(syllabusResource, apiBase);
     if (!fileUrl) return;
 
     setSyllabusActionLoading("view");
@@ -276,12 +362,6 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
   });
 
   const handleAssignmentClick = (item) => {
-    const label = item?.cta?.toLowerCase() || "";
-    if (label.includes("quiz")) {
-      handleQuizClick();
-      return;
-    }
-
     setActiveAssignmentDetail(toAssignmentDetail(item));
   };
 
@@ -464,7 +544,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
           courseName: course.courseName || "Course",
           semester: course.semester ? `Sem ${course.semester}` : "N/A",
           credits: course.credits !== undefined ? `${course.credits} Credits` : "N/A",
-          courseType: course.courseType || "N/A",
+          // courseType: course.courseType || "N/A",
           faculty: course.instructor || "N/A",
           schedule: course.schedule || "Schedule Not Available",
           room: course.room || "Room N/A",
@@ -546,6 +626,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
         };
       })
       .filter((item) => {
+        if (isQuizItem(item)) return false;
         const statusMatch = item.status === selectedStatus;
         if (!activeAssignmentCourse) return statusMatch;
         return (
@@ -566,6 +647,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
   const assignmentStatusCounts = useMemo(() => {
     const counters = { pending: 0, submitted: 0, graded: 0 };
     (activeAssignmentCourse?.assignmentItems || []).forEach((item) => {
+      if (isQuizItem(item)) return;
       const status = String(item?.status || "pending").toLowerCase();
       if (Object.prototype.hasOwnProperty.call(counters, status)) {
         counters[status] += 1;
@@ -590,6 +672,21 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
       : Array.isArray(activeCourseDetail.assignmentItems)
       ? activeCourseDetail.assignmentItems
       : [];
+    const quizItems = assignmentItems
+      .filter((item) => isQuizItem(item))
+      .map((item, index) => ({
+        id: item?._id || item?.id || `quiz-${index + 1}`,
+        title: item?.title || item?.name || "Quiz",
+        postedAt: item?.postedAt || item?.createdAt || null,
+        dueAt: item?.dueDate || item?.dueAt || null,
+        status: String(item?.status || "pending").toLowerCase(),
+        fileUrl: item?.fileUrl || "",
+        quizUrl: item?.quizUrl || "",
+        url: item?.url || "",
+        link: item?.link || "",
+        href: item?.href || "",
+        originalFileName: item?.originalFileName || item?.fileName || item?.title || "quiz",
+      }));
 
     const isAssignmentCompleted = (item = {}) => {
       const status = String(item?.status || "").trim().toLowerCase();
@@ -670,6 +767,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
       progress: progressValue,
       progressNote,
       tasks: taskItems,
+      quizzes: quizItems,
     };
   }, [activeCourseDetail]);
 
@@ -688,7 +786,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
   }
 
   if (activeCourseDetail && detailData) {
-    const syllabusFileUrl = resolveResourceUrl(detailData.syllabusResource);
+    const syllabusFileUrl = resolveResourceUrl(detailData.syllabusResource, apiBase);
     const isSyllabusAvailable = Boolean(syllabusFileUrl);
     const isDownloadingSyllabus = syllabusActionLoading === "download";
     const isViewingSyllabus = syllabusActionLoading === "view";
@@ -761,7 +859,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
                   <p className="no-courses">No question bank files available from API.</p>
                 ) : (
                   detailData.questionBanks.map((questionBank, index) => {
-                    const isFileAvailable = Boolean(resolveResourceUrl(questionBank));
+                    const isFileAvailable = Boolean(resolveResourceUrl(questionBank, apiBase));
                     const itemId = `question-bank-${String(questionBank?._id || questionBank?.id || index)}`;
                     const isViewing =
                       resourceLoading.resourceId === itemId &&
@@ -864,7 +962,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
                   <p className="no-courses">No resources available from API.</p>
                 ) : (
                   detailData.resources.map((resource, index) => {
-                    const isFileAvailable = Boolean(resolveResourceUrl(resource));
+                    const isFileAvailable = Boolean(resolveResourceUrl(resource, apiBase));
                     const resourceId = String(resource?._id || resource?.id || index);
                     const isViewingResource =
                       resourceLoading.resourceId === resourceId &&
@@ -913,6 +1011,72 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
                                 color="#0f4e98"
                                 trackColor="rgba(15, 78, 152, 0.2)"
                               />
+                            ) : (
+                              <FiDownload />
+                            )}
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })
+                )}
+              </div>
+            </section>
+
+            <section className="course-detail-card course-detail-card-quizzes">
+              <h4><FiSliders /> Quizzes</h4>
+              <div className="course-resource-list">
+                {detailData.quizzes.length === 0 ? (
+                  <p className="no-courses">No quizzes available.</p>
+                ) : (
+                  detailData.quizzes.map((quiz, index) => {
+                    const quizFileUrl = resolveResourceUrl(quiz, apiBase);
+                    const quizId = String(quiz?.id || index);
+                    const isViewingQuiz =
+                      resourceLoading.resourceId === `quiz-${quizId}` &&
+                      resourceLoading.action === "view";
+                    const isDownloadingQuiz =
+                      resourceLoading.resourceId === `quiz-${quizId}` &&
+                      resourceLoading.action === "download";
+                    const isQuizBusy = isViewingQuiz || isDownloadingQuiz;
+
+                    return (
+                      <article key={quiz.id || `quiz-${index + 1}`} className="course-resource-item">
+                        <div>
+                          <strong>{quiz.title}</strong>
+                          <small>
+                            Posted: {formatDateTime(quiz.postedAt)} | Due: {formatDateTime(quiz.dueAt)}
+                          </small>
+                        </div>
+                        <div className="course-resource-actions">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (quizFileUrl) {
+                                handleOpenResource(quiz, `quiz-${quizId}`);
+                              } else {
+                                handleQuizClick();
+                              }
+                            }}
+                            disabled={isQuizBusy}
+                            title={quizFileUrl ? "Open quiz" : "Open quiz details"}
+                          >
+                            {isViewingQuiz ? (
+                              <ClipLoader size={12} color="#0f4e98" trackColor="rgba(15, 78, 152, 0.2)" />
+                            ) : (
+                              <FiEye />
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleDownloadResource(quiz, `quiz-${quizId}`);
+                            }}
+                            disabled={!quizFileUrl || isQuizBusy}
+                            title={quizFileUrl ? "Download quiz file" : "File not available"}
+                          >
+                            {isDownloadingQuiz ? (
+                              <ClipLoader size={12} color="#0f4e98" trackColor="rgba(15, 78, 152, 0.2)" />
                             ) : (
                               <FiDownload />
                             )}
@@ -1078,7 +1242,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
 
           <div className="assignment-header-copy">
             <h3>{activeCourseName}</h3>
-            <p>Assignments - Quizzes</p>
+            <p>Assignments</p>
           </div>
 
           <div className="assignment-filter-wrap">
@@ -1271,13 +1435,22 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
                   <span className="course-status-chip">{course.status}</span>
                 </div>
 
-                <div className="course-chip-row" aria-label="Course metadata">
-                  {[course.semester, course.credits, course.courseType].map((badge, index) => (
-                    <span key={`${course.id}-chip-${index}`} className="course-chip">
-                      {String(badge || "N/A")}
-                    </span>
-                  ))}
-                </div>
+	                <div className="course-chip-row" aria-label="Course metadata">
+	                  {[course.semester, course.credits, course.courseType]
+	                    .map((badge) => String(badge || "").trim())
+	                    .filter(
+	                      (badge) =>
+	                        badge &&
+	                        !["n/a", "na", "none", "-", "null", "undefined"].includes(
+	                          badge.toLowerCase()
+	                        )
+	                    )
+	                    .map((badge, index) => (
+	                      <span key={`${course.id}-chip-${index}`} className="course-chip">
+	                        {badge}
+	                      </span>
+	                    ))}
+	                </div>
 
                 <div className="course-card-kv">
                   <div className="course-kv">
@@ -1332,7 +1505,11 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
                       <>
                         <FiFileText />
                         <span>Assignments</span>
-                        <span className="course-btn-count">{course.assignments}</span>
+                        <span className="course-btn-count">
+                          {Array.isArray(course.assignmentItems)
+                            ? course.assignmentItems.filter((item) => !isQuizItem(item)).length
+                            : course.assignments}
+                        </span>
                       </>
                     )}
                   </button>

@@ -49,6 +49,7 @@ import StudentRecords from "./Admin/StudentRecords";
 import BulkOperations from "./Admin/BulkOperations";
 import PaymentMethods from "./Admin/PaymentMethods";
 import AcademicCalendar from "./Admin/AcademicCalendar";
+import FeeDemandRequests from "./Admin/FeeDemandRequests";
 import GeneralSupport from "./Admin/GeneralSupport";
 import Library from "./Admin/Library";
 import Settings from "./Admin/Settings";
@@ -389,6 +390,7 @@ function App() {
           <Route path="fees/payment-methods" element={<PaymentMethods />} />
           <Route path="fees/academic-calendar" element={<AcademicCalendar />} />
           <Route path="fees/discounts" element={<FeesDiscounts />} />
+          <Route path="fees/demand-requests" element={<FeeDemandRequests />} />
           <Route path="alerts" element={<Alerts />} />
           <Route path="warden-support-tickets" element={<WardenSupportTickets />} />
           <Route path="alert" element={<Navigate to="/admin/alerts" replace />} />

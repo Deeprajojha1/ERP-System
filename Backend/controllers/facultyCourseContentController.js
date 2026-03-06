@@ -37,6 +37,9 @@ const mapContent = (item) => ({
   title: item.title,
   description: item.description || "",
   dueDate: item.dueDate || null,
+  group: item.group || null,
+  groupId: item.group?._id || item.group || null,
+  groupName: item.group?.name || null,
   questionCount: item.questionCount || null,
   fileUrl: item.fileUrl || "",
   fileName: item.fileName || "",
@@ -108,6 +111,7 @@ export const getCourseContents = async (req, res) => {
     }
 
     const items = await FacultyCourseContent.find(query)
+      .populate("group", "_id name")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -132,6 +136,7 @@ export const createCourseContent = async (req, res) => {
     const description = String(req.body?.description || "").trim();
     const dueDateRaw = String(req.body?.dueDate || "").trim();
     const questionCountRaw = String(req.body?.questions || req.body?.questionCount || "").trim();
+    const groupIdRaw = String(req.body?.groupId || "").trim();
 
     if (!mongoose.Types.ObjectId.isValid(courseId)) {
       await removeUploadedFile(req.file?.path);
@@ -191,6 +196,23 @@ export const createCourseContent = async (req, res) => {
       return res.status(access.status).json({ message: access.message });
     }
 
+    // Validate groupId if provided (optional for all content types)
+    let groupIdValue = null;
+    if (groupIdRaw && mongoose.Types.ObjectId.isValid(groupIdRaw)) {
+      const groupExists = await Group.exists({
+        _id: groupIdRaw,
+        courseFaculty: {
+          $elemMatch: {
+            course: access.course._id,
+            faculty: access.faculty._id,
+          },
+        },
+      });
+      if (groupExists) {
+        groupIdValue = groupIdRaw;
+      }
+    }
+
     const payload = {
       course: access.course._id,
       faculty: access.faculty._id,
@@ -198,6 +220,7 @@ export const createCourseContent = async (req, res) => {
       title,
       description,
       dueDate: dueDateValue,
+      group: groupIdValue,
       questionCount: questionCountValue,
       fileUrl: req.file ? toPublicFileUrl(req, req.file.filename) : "",
       fileName: req.file?.filename || "",

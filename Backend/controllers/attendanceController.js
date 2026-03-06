@@ -202,6 +202,77 @@ export const getCourseStudentsForFaculty = async (req, res) => {
 };
 
 /* ================================================================
+   X. GET GROUPS FOR A COURSE (Faculty/Admin helper)
+   GET  /api/faculty/courses/:courseId/groups
+   Returns groups that the faculty teaches for this course.
+   ================================================================ */
+export const getCourseGroupsForFaculty = async (req, res) => {
+  try {
+    const courseId = normalizeId(req.params.courseId);
+    if (!courseId) return res.status(400).json({ message: "courseId is required" });
+
+    const courseExists = await Course.exists({ _id: courseId });
+    if (!courseExists) return res.status(404).json({ message: "Course not found" });
+
+    let groups = [];
+    if (req.role === "faculty") {
+      const facultyDoc = await Faculty.findOne({ user: req.userId }).select("_id");
+      if (!facultyDoc) return res.status(404).json({ message: "Faculty profile not found" });
+
+      groups = await Group.find({
+        courseFaculty: { $elemMatch: { course: courseId, faculty: facultyDoc._id } },
+      })
+        .select("_id name studentIds")
+        .populate({
+          path: "studentIds",
+          select: "_id user",
+        })
+        .lean();
+    } else {
+      groups = await Group.find({ courseIds: courseId })
+        .select("_id name studentIds")
+        .populate({
+          path: "studentIds",
+          select: "_id user",
+        })
+        .lean();
+    }
+
+    const mapped = groups.map((g) => {
+      const studentModelIds = [];
+      const userIds = [];
+      
+      if (Array.isArray(g.studentIds)) {
+        g.studentIds.forEach((student) => {
+          const studentId = normalizeId(student?._id);
+          const userId = normalizeId(student?.user);
+          if (studentId) studentModelIds.push(studentId);
+          if (userId) userIds.push(userId);
+        });
+      }
+      
+      return {
+        id: normalizeId(g._id),
+        name: g.name || "Group",
+        studentCount: studentModelIds.length,
+        studentIds: studentModelIds,
+        userIds: userIds,
+      };
+    });
+
+    mapped.sort((a, b) => a.name.localeCompare(b.name));
+
+    return res.json({
+      message: "Groups fetched",
+      count: mapped.length,
+      groups: mapped,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
+/* ================================================================
    2. MARK / SUBMIT ATTENDANCE FOR A GROUP  (Faculty)
    POST  /api/faculty/attendance/:groupId
    body: { courseId, date?, records: [{ student, status }] }
