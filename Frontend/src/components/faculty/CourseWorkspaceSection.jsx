@@ -11,6 +11,7 @@ import {
   Plus,
   Loader2,
   ExternalLink,
+  Download,
   Send,
   Upload,
   AlertTriangle,
@@ -18,6 +19,7 @@ import {
 import toast from "react-hot-toast";
 import axios from "../../utils/axiosInstance";
 import { facultyUi } from "./uiTokens";
+import ClipLoader from "../../Admin/components/ClipLoader";
 
 const TABS = [
   { id: "materials", label: "Materials", icon: FileText },
@@ -66,6 +68,7 @@ const INITIAL_FORM_STATE = {
   description: "",
   dueDate: "",
   questions: "",
+  groupId: "",
   file: null,
 };
 
@@ -138,8 +141,13 @@ export default function CourseWorkspaceSection({ course, onBack }) {
   const [assignmentSubmissionFilter, setAssignmentSubmissionFilter] = useState("all"); // all | graded | missing
   const [courseStudents, setCourseStudents] = useState([]);
   const [courseStudentsLoading, setCourseStudentsLoading] = useState(false);
+  const [courseGroups, setCourseGroups] = useState([]);
+  const [courseGroupsLoading, setCourseGroupsLoading] = useState(false);
+  const [selectedAssignmentGroupId, setSelectedAssignmentGroupId] = useState("all");
+  const [selectedContentGroupId, setSelectedContentGroupId] = useState("all");
   const [gradeDrafts, setGradeDrafts] = useState({});
   const [gradingSubmissionId, setGradingSubmissionId] = useState("");
+  const [isDownloadingUnitReport, setIsDownloadingUnitReport] = useState(false);
 
   const courseId = useMemo(() => String(course?._id || ""), [course?._id]);
   const isActiveTabLoading = Boolean(tabLoading[activeTab]);
@@ -201,6 +209,23 @@ export default function CourseWorkspaceSection({ course, onBack }) {
       toast.error(buildMessageFromError(error, "Failed to load course students"));
     } finally {
       setCourseStudentsLoading(false);
+    }
+  }, [apiBase, courseId]);
+
+  const loadCourseGroups = useCallback(async () => {
+    if (!apiBase || !courseId) return;
+    setCourseGroupsLoading(true);
+    try {
+      const response = await axios.get(`${apiBase}/faculty/courses/${courseId}/groups`, {
+        withCredentials: true,
+      });
+      const groups = Array.isArray(response?.data?.groups) ? response.data.groups : [];
+      setCourseGroups(groups);
+    } catch (error) {
+      setCourseGroups([]);
+      toast.error(buildMessageFromError(error, "Failed to load course groups"));
+    } finally {
+      setCourseGroupsLoading(false);
     }
   }, [apiBase, courseId]);
 
@@ -271,9 +296,13 @@ export default function CourseWorkspaceSection({ course, onBack }) {
     setAssignmentSubmissionsLoading(false);
     setSelectedAssignmentStudentId("all");
     setSelectedAssignmentUnit("all");
+    setSelectedAssignmentGroupId("all");
+    setSelectedContentGroupId("all");
     setAssignmentSubmissionFilter("all");
     setCourseStudents([]);
     setCourseStudentsLoading(false);
+    setCourseGroups([]);
+    setCourseGroupsLoading(false);
     setGradeDrafts({});
     setGradingSubmissionId("");
   }, [courseId]);
@@ -281,7 +310,8 @@ export default function CourseWorkspaceSection({ course, onBack }) {
   useEffect(() => {
     if (!courseId) return;
     void loadCourseStudents();
-  }, [courseId, loadCourseStudents]);
+    void loadCourseGroups();
+  }, [courseId, loadCourseStudents, loadCourseGroups]);
 
   useEffect(() => {
     if (!tabsLoaded[activeTab]) {
@@ -299,27 +329,73 @@ export default function CourseWorkspaceSection({ course, onBack }) {
     });
     return Array.from(units.values()).sort((a, b) => a.localeCompare(b));
   }, [activeTab, currentItems]);
-  const assignmentStudents = useMemo(() => {
-    if (Array.isArray(courseStudents) && courseStudents.length > 0) {
-      return [...courseStudents].sort((a, b) =>
-        String(a?.name || "").localeCompare(String(b?.name || ""))
-      );
+
+  // Get the selected group's student IDs for filtering
+  const selectedGroupStudentIds = useMemo(() => {
+    if (selectedAssignmentGroupId === "all") return null;
+    const selectedGroup = courseGroups.find((g) => g.id === selectedAssignmentGroupId);
+    if (!selectedGroup) return null;
+    // Use studentIds (Student model IDs) for filtering students dropdown
+    if (Array.isArray(selectedGroup.studentIds) && selectedGroup.studentIds.length > 0) {
+      return new Set(selectedGroup.studentIds);
     }
-    const map = new Map();
-    Object.values(assignmentSubmissionsByAssignment).forEach((rows) => {
-      if (!Array.isArray(rows)) return;
-      rows.forEach((submission) => {
-        const studentId = toStudentId(submission);
-        if (!studentId || map.has(studentId)) return;
-        map.set(studentId, {
-          id: studentId,
-          name: submission?.student?.name || "Student",
-          email: submission?.student?.email || "",
+    return null;
+  }, [courseGroups, selectedAssignmentGroupId]);
+
+  // Get the selected group's user IDs for filtering submissions
+  const selectedGroupUserIds = useMemo(() => {
+    if (selectedAssignmentGroupId === "all") return null;
+    const selectedGroup = courseGroups.find((g) => g.id === selectedAssignmentGroupId);
+    if (!selectedGroup) return null;
+    // Use userIds for filtering submissions (since submission.student is User ID)
+    if (Array.isArray(selectedGroup.userIds) && selectedGroup.userIds.length > 0) {
+      return new Set(selectedGroup.userIds);
+    }
+    return null;
+  }, [courseGroups, selectedAssignmentGroupId]);
+
+  const assignmentStudents = useMemo(() => {
+    let students = [];
+    let useStudentModelIdForFilter = false;
+
+    if (Array.isArray(courseStudents) && courseStudents.length > 0) {
+      students = [...courseStudents];
+      useStudentModelIdForFilter = true; // courseStudents has studentId (Student model ID)
+    } else {
+      const map = new Map();
+      Object.values(assignmentSubmissionsByAssignment).forEach((rows) => {
+        if (!Array.isArray(rows)) return;
+        rows.forEach((submission) => {
+          const studentId = toStudentId(submission);
+          if (!studentId || map.has(studentId)) return;
+          map.set(studentId, {
+            id: studentId,
+            name: submission?.student?.name || "Student",
+            email: submission?.student?.email || "",
+          });
         });
       });
-    });
-    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [assignmentSubmissionsByAssignment, courseStudents]);
+      students = Array.from(map.values());
+      useStudentModelIdForFilter = false; // Fallback students only have User ID
+    }
+
+    // Filter by selected group if one is selected
+    if (useStudentModelIdForFilter && selectedGroupStudentIds) {
+      // Use Student model IDs for filtering (courseStudents case)
+      students = students.filter((student) => {
+        const studentModelId = student?.studentId || "";
+        return selectedGroupStudentIds.has(studentModelId);
+      });
+    } else if (!useStudentModelIdForFilter && selectedGroupUserIds) {
+      // Use User IDs for filtering (fallback case)
+      students = students.filter((student) => {
+        const userId = student?.id || "";
+        return selectedGroupUserIds.has(userId);
+      });
+    }
+
+    return students.sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+  }, [assignmentSubmissionsByAssignment, courseStudents, selectedGroupStudentIds, selectedGroupUserIds]);
   const assignmentStudentStatusByUnit = useMemo(() => {
     if (activeTab !== "assignments" || selectedAssignmentUnit === "all") return new Map();
 
@@ -382,6 +458,14 @@ export default function CourseWorkspaceSection({ course, onBack }) {
   ]);
   const matchesAssignmentSubmissionFilters = useCallback(
     (submission) => {
+      // Filter by group - check if student belongs to selected group (using User ID)
+      if (selectedGroupUserIds) {
+        const submissionUserId = toStudentId(submission); // This returns the User ID
+        if (!selectedGroupUserIds.has(submissionUserId)) {
+          return false;
+        }
+      }
+
       if (
         selectedAssignmentStudentId !== "all" &&
         toStudentId(submission) !== selectedAssignmentStudentId
@@ -397,7 +481,7 @@ export default function CourseWorkspaceSection({ course, onBack }) {
       }
       return true;
     },
-    [assignmentSubmissionFilter, selectedAssignmentStudentId]
+    [assignmentSubmissionFilter, selectedAssignmentStudentId, selectedGroupUserIds]
   );
   const getMissingStudentsForAssignment = useCallback(
     (assignmentItem) => {
@@ -420,7 +504,13 @@ export default function CourseWorkspaceSection({ course, onBack }) {
   );
   const visibleItems = useMemo(() => {
     if (activeTab !== "assignments") {
-      return currentItems;
+      // For non-assignment tabs, filter by selected content group
+      if (selectedContentGroupId === "all") return currentItems;
+      return currentItems.filter((item) => {
+        const itemGroupId = String(item?.groupId || item?.group?._id || item?.group || "").trim();
+        // Show items that belong to the selected group OR have no group (shared with all)
+        return !itemGroupId || itemGroupId === selectedContentGroupId;
+      });
     }
 
     const byUnit =
@@ -428,15 +518,31 @@ export default function CourseWorkspaceSection({ course, onBack }) {
         ? currentItems
         : currentItems.filter((item) => deriveUnitKey(item) === selectedAssignmentUnit);
 
-    if (selectedAssignmentStudentId === "all" && assignmentSubmissionFilter === "all") {
+    // If no filters are active (including group filter), return all items
+    if (
+      selectedAssignmentStudentId === "all" &&
+      assignmentSubmissionFilter === "all" &&
+      selectedAssignmentGroupId === "all"
+    ) {
       return byUnit;
     }
 
     return byUnit.filter((item) => {
       const assignmentId = toAssignmentId(item);
       const rows = assignmentSubmissionsByAssignment[assignmentId] || [];
+
+      // When assignment-level group filter is active, also filter by item's group tag
+      if (selectedAssignmentGroupId !== "all") {
+        const itemGroupId = String(item?.groupId || item?.group?._id || item?.group || "").trim();
+        if (itemGroupId && itemGroupId !== selectedAssignmentGroupId) return false;
+      }
+
       if (assignmentSubmissionFilter === "missing") {
         return getMissingStudentsForAssignment(item).length > 0;
+      }
+      // When only group filter is active (no student/status filter), check if any submission matches
+      if (selectedAssignmentStudentId === "all" && assignmentSubmissionFilter === "all" && selectedGroupUserIds) {
+        return rows.some((row) => selectedGroupUserIds.has(toStudentId(row)));
       }
       return rows.some(matchesAssignmentSubmissionFilters);
     });
@@ -447,17 +553,88 @@ export default function CourseWorkspaceSection({ course, onBack }) {
     currentItems,
     getMissingStudentsForAssignment,
     matchesAssignmentSubmissionFilters,
+    selectedAssignmentGroupId,
+    selectedContentGroupId,
+    selectedGroupUserIds,
     selectedAssignmentUnit,
     selectedAssignmentStudentId,
   ]);
-  const isAssignmentFilteredEmpty =
-    activeTab === "assignments" &&
-    (selectedAssignmentStudentId !== "all" ||
-      assignmentSubmissionFilter !== "all" ||
-      selectedAssignmentUnit !== "all") &&
+  const isFilteredEmpty =
     currentItems.length > 0 &&
-    visibleItems.length === 0;
+    visibleItems.length === 0 &&
+    (activeTab === "assignments"
+      ? selectedAssignmentStudentId !== "all" ||
+        assignmentSubmissionFilter !== "all" ||
+        selectedAssignmentUnit !== "all" ||
+        selectedAssignmentGroupId !== "all"
+      : selectedContentGroupId !== "all");
   const activeTabLabel = TABS.find((tab) => tab.id === activeTab)?.label || activeTab;
+
+  const handleDownloadUnitReport = useCallback(async () => {
+    if (selectedAssignmentUnit === "all") {
+      toast.error("Please select a specific unit before downloading the report.");
+      return;
+    }
+    setIsDownloadingUnitReport(true);
+    try {
+      const response = await axios.get(
+        `${apiBase}/faculty/assignment-reports/unit-award-sheet`,
+        {
+          withCredentials: true,
+          responseType: "blob",
+          params: {
+            courseId,
+            unit: selectedAssignmentUnit,
+            groupId:
+              selectedAssignmentGroupId !== "all" ? selectedAssignmentGroupId : undefined,
+            studentId:
+              selectedAssignmentStudentId !== "all" ? selectedAssignmentStudentId : undefined,
+            status:
+              assignmentSubmissionFilter !== "all" ? assignmentSubmissionFilter : undefined,
+          },
+        }
+      );
+
+      const disposition =
+        response.headers?.["content-disposition"] ||
+        response.headers?.["Content-Disposition"] ||
+        "";
+      const fileNameMatch = disposition.match(/filename="?([^"]+)"?/i);
+      const fileName = fileNameMatch?.[1] || `${course?.code || "course"}-award-sheet.xlsx`;
+
+      const objectUrl = URL.createObjectURL(response.data);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      document.body.removeChild(anchor);
+      URL.revokeObjectURL(objectUrl);
+      toast.success("Report downloaded");
+    } catch (error) {
+      let message = buildMessageFromError(error, "Failed to download unit report");
+      try {
+        const rawText = await error?.response?.data?.text?.();
+        if (rawText) {
+          const parsed = JSON.parse(rawText);
+          if (parsed?.message) message = parsed.message;
+        }
+      } catch {
+        // ignore JSON parse fallback failures
+      }
+      toast.error(message);
+    } finally {
+      setIsDownloadingUnitReport(false);
+    }
+  }, [
+    apiBase,
+    assignmentSubmissionFilter,
+    course?.code,
+    courseId,
+    selectedAssignmentGroupId,
+    selectedAssignmentStudentId,
+    selectedAssignmentUnit,
+  ]);
 
   useEffect(() => {
     if (selectedAssignmentStudentId === "all") return;
@@ -560,6 +737,10 @@ export default function CourseWorkspaceSection({ course, onBack }) {
 
     if (formState.dueDate) {
       formData.append("dueDate", formState.dueDate);
+    }
+
+    if (formState.groupId) {
+      formData.append("groupId", formState.groupId);
     }
 
     if (activeTab === "quizzes" && formState.questions) {
@@ -895,6 +1076,33 @@ export default function CourseWorkspaceSection({ course, onBack }) {
               </div>
             )}
 
+            {activeTab !== "queries" && (
+              <div className="flex flex-col gap-1.5">
+                <label htmlFor="content-groupid" className="text-sm font-semibold text-slate-700">
+                  Assign to Group
+                </label>
+                <select
+                  id="content-groupid"
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
+                  value={formState.groupId}
+                  onChange={(e) =>
+                    setFormState((prev) => ({ ...prev, groupId: e.target.value }))
+                  }
+                  disabled={isCreating || courseGroupsLoading}
+                >
+                  <option value="">All Groups (No Restriction)</option>
+                  {courseGroups.map((group) => (
+                    <option key={group.id} value={group.id}>
+                      {group.name} ({group.studentCount} students)
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-slate-500">
+                  Leave empty for all groups, or select a specific group.
+                </p>
+              </div>
+            )}
+
             {activeTab === "quizzes" && (
               <div className="flex flex-col gap-1.5">
                 <label htmlFor="content-questions" className="text-sm font-semibold text-slate-700">
@@ -1080,6 +1288,26 @@ export default function CourseWorkspaceSection({ course, onBack }) {
           </select>
 
           <label
+            htmlFor="assignment-group-filter"
+            className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+          >
+            Group
+          </label>
+          <select
+            id="assignment-group-filter"
+            className="min-w-40 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
+            value={selectedAssignmentGroupId}
+            onChange={(e) => setSelectedAssignmentGroupId(e.target.value)}
+          >
+            <option value="all">All groups</option>
+            {courseGroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name} ({group.studentCount} students)
+              </option>
+            ))}
+          </select>
+
+          <label
             htmlFor="assignment-student-filter"
             className="text-xs font-semibold uppercase tracking-wide text-slate-500"
           >
@@ -1126,6 +1354,52 @@ export default function CourseWorkspaceSection({ course, onBack }) {
           <span className="text-xs text-slate-500">
             {courseStudentsLoading ? "Loading students..." : `${assignmentStudents.length} students`}
           </span>
+          <button
+            type="button"
+            className="ml-auto inline-flex cursor-pointer items-center gap-2 rounded-lg border border-cyan-200 bg-cyan-50 px-3 py-2 text-xs font-semibold text-cyan-700 transition hover:bg-cyan-100 disabled:cursor-not-allowed disabled:opacity-60"
+            onClick={handleDownloadUnitReport}
+            disabled={
+              selectedAssignmentUnit === "all" ||
+              isDownloadingUnitReport
+            }
+          >
+            {isDownloadingUnitReport ? (
+              <>
+                <ClipLoader size={14} color="#0e7490" trackColor="rgba(14,116,144,0.2)" />
+                <span>Downloading...</span>
+              </>
+            ) : (
+              <>
+                <Download size={14} />
+                <span>Download Unit Report</span>
+              </>
+            )}
+          </button>
+        </div>
+      ) : activeTab !== "queries" ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
+          <label
+            htmlFor="content-group-filter"
+            className="text-xs font-semibold uppercase tracking-wide text-slate-500"
+          >
+            Group
+          </label>
+          <select
+            id="content-group-filter"
+            className="min-w-40 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
+            value={selectedContentGroupId}
+            onChange={(e) => setSelectedContentGroupId(e.target.value)}
+          >
+            <option value="all">All groups</option>
+            {courseGroups.map((group) => (
+              <option key={group.id} value={group.id}>
+                {group.name} ({group.studentCount} students)
+              </option>
+            ))}
+          </select>
+          <span className="text-xs text-slate-500">
+            {courseGroupsLoading ? "Loading groups..." : `${courseGroups.length} groups`}
+          </span>
         </div>
       ) : null}
 
@@ -1139,16 +1413,16 @@ export default function CourseWorkspaceSection({ course, onBack }) {
             <p className="mt-3 text-sm text-slate-600">Loading {activeTabLabel}...</p>
           </div>
         ) : visibleItems.length === 0 ? (
-          isAssignmentFilteredEmpty ? (
+          isFilteredEmpty ? (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-12 text-center">
               <div className="mx-auto inline-flex h-16 w-16 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-500 shadow-sm">
                 <ClipboardList size={30} strokeWidth={2.1} />
               </div>
               <p className="m-0 mt-4 text-base font-semibold text-slate-700">
-                No submissions for selected filters
+                No items for selected filters
               </p>
               <p className="mt-1 text-sm text-slate-500">
-                Change Student/Status filters to review and grade submissions.
+                Change the group or other filters to see content.
               </p>
             </div>
           ) : (
@@ -1269,8 +1543,13 @@ export default function CourseWorkspaceSection({ course, onBack }) {
                   <span className="pointer-events-none absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-cyan-500 to-blue-600 opacity-0 transition group-hover:opacity-100" />
 
                   <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex items-center gap-2 flex-wrap">
                       <h4 className="m-0 text-lg font-semibold text-slate-900">{item.title}</h4>
+                      {(item.groupName || item.group?.name) ? (
+                        <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
+                          {item.groupName || item.group?.name}
+                        </span>
+                      ) : null}
                     </div>
                     <span className="shrink-0 text-xs font-medium text-slate-500">{formatDateTime(item.createdAt)}</span>
                   </div>

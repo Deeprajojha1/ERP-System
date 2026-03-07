@@ -101,6 +101,12 @@ const FEE_MENU_SECTIONS = [
         Icon: FiBookOpen,
       },
       {
+        label: "Demand Requests",
+        paths: ["/admin/fees/demand-requests"],
+        matchChildren: false,
+        Icon: FiFileText,
+      },
+      {
         label: "Bulk Operations",
         paths: ["/admin/fees/bulk"],
         matchChildren: false,

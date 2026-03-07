@@ -5,8 +5,10 @@ import axios from "../utils/axiosInstance";
 import {
   createStudentFeeDetails,
   fetchFeePrograms,
+  fetchFeeBatches,
   selectFeeActionLoading,
   selectFeePrograms,
+  selectFeeBatches,
 } from "../redux/feeSlice";
 import "./StudentFeeMapping.css";
 
@@ -30,12 +32,14 @@ const StudentFeeMapping = () => {
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
   const programs = useSelector(selectFeePrograms);
+  const batches = useSelector(selectFeeBatches);
   const submitting = useSelector(selectFeeActionLoading);
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState(defaultForm);
 
   useEffect(() => {
     dispatch(fetchFeePrograms());
+    dispatch(fetchFeeBatches());
   }, [dispatch]);
 
   useEffect(() => {
@@ -157,7 +161,7 @@ const StudentFeeMapping = () => {
             <p className="sfm-detail-eyebrow">Create Mapping</p>
             <h2>Student Fee Details</h2>
             <p className="sfm-supporting">
-              Note: <code>batchId</code> is required by backend and must be provided.
+              Select the student and fill in the mapping details below.
             </p>
           </div>
         </div>
@@ -202,16 +206,21 @@ const StudentFeeMapping = () => {
             />
           </label>
           <label className="sfm-form-field">
-            <span>Batch id (Mongo ObjectId)</span>
-            <input
-              type="text"
-              placeholder="Batch id"
+            <span>Batch</span>
+            <select
               value={form.batchId}
               onChange={(event) =>
                 setForm((prev) => ({ ...prev, batchId: event.target.value }))
               }
               required
-            />
+            >
+              <option value="">Select batch</option>
+              {batches.map((batch) => (
+                <option key={batch._id} value={batch._id}>
+                  {batch.batchYear} {batch.departmentId?.name || ""}
+                </option>
+              ))}
+            </select>
           </label>
           <label className="sfm-form-field">
             <span>Program</span>
