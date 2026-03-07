@@ -9,7 +9,9 @@ import {
   updateWardenRoomStatus,
   getWardenStudents,
   getWardenOutpasses,
+  getWardenTodayOutpasses,
   updateWardenOutpassStatus,
+  scanWardenOutpassQr,
   getWardenComplaints,
   updateWardenComplaintStatus,
 } from "../controllers/wardenDashboardController.js";
@@ -33,6 +35,8 @@ router.patch("/rooms/:roomId/status", isAuth, isWarden, updateWardenRoomStatus);
 router.get("/students", isAuth, isWarden, getWardenStudents);
 
 router.get("/outpasses", isAuth, isWarden, getWardenOutpasses);
+router.get("/outpasses/today", isAuth, isWarden, getWardenTodayOutpasses);
+router.post("/outpasses/scan", isAuth, isWarden, scanWardenOutpassQr);
 router.patch("/outpasses/:id", isAuth, isWarden, updateWardenOutpassStatus);
 
 router.get("/complaints", isAuth, isWarden, getWardenComplaints);

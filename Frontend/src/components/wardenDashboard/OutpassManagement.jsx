@@ -7,7 +7,11 @@ import {
   Eye,
   Filter,
   Calendar as CalendarIcon,
+  ScanLine,
+  Camera,
+  X,
 } from "lucide-react";
+import { Html5Qrcode } from "html5-qrcode";
 import Sidebar from "./Sidebar";
 import TopNavbar from "./TopNavbar";
 import StatCard from "./StatCard";
@@ -18,8 +22,33 @@ import { sidebarItems } from "./mockData";
 import "./wardenScope.css";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
+import { useRef } from "react";
 import { fetchWardenProfile } from "../../redux/wardenSlice";
-import { getWardenOutpassesApi, updateWardenOutpassApi } from "./constants/wardenApi";
+import {
+  getWardenOutpassesApi,
+  getWardenTodayOutpassesApi,
+  scanWardenOutpassQrApi,
+  updateWardenOutpassApi,
+} from "./constants/wardenApi";
+
+const normalizeScannedToken = (decodedText) => {
+  const raw = String(decodedText || "").trim();
+  if (!raw) return "";
+
+  const compact = raw.replace(/\s+/g, "");
+  try {
+    const parsed = new URL(compact);
+    const wrapped =
+      parsed.searchParams.get("token") ||
+      parsed.searchParams.get("qrToken") ||
+      parsed.searchParams.get("data");
+    if (wrapped) return String(wrapped).trim();
+  } catch (_error) {
+    // Ignore parse errors for non-URL QR payloads.
+  }
+
+  return compact;
+};
 
 function OutpassManagement() {
   const dispatch = useDispatch();
@@ -29,8 +58,17 @@ function OutpassManagement() {
   const [selectedOutpass, setSelectedOutpass] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [outpasses, setOutpasses] = useState([]);
+  const [todayOutpassMap, setTodayOutpassMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanResult, setScanResult] = useState(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [cameraError, setCameraError] = useState("");
+  const [isDetectingQr, setIsDetectingQr] = useState(false);
+  const html5QrcodeRef = useRef(null);
+  const scanProcessingRef = useRef(false);
+  const scannerRegionId = "warden-outpass-qr-reader";
 
   // Filter states
   const [statusFilter, setStatusFilter] = useState("all");
@@ -65,11 +103,22 @@ function OutpassManagement() {
     try {
       setLoading(true);
       setError("");
-      const payload = await getWardenOutpassesApi();
-      setOutpasses(Array.isArray(payload?.outpasses) ? payload.outpasses : []);
+      const [payload, todayPayload] = await Promise.all([
+        getWardenOutpassesApi(),
+        getWardenTodayOutpassesApi(),
+      ]);
+      const list = Array.isArray(payload?.outpasses) ? payload.outpasses : [];
+      const todayList = Array.isArray(todayPayload?.outpasses) ? todayPayload.outpasses : [];
+      const todayMap = todayList.reduce((acc, item) => {
+        acc[item.id] = item?.comingStatus || "";
+        return acc;
+      }, {});
+      setOutpasses(list);
+      setTodayOutpassMap(todayMap);
     } catch (err) {
       setError(err?.response?.data?.message || "Failed to load outpasses.");
       setOutpasses([]);
+      setTodayOutpassMap({});
     } finally {
       setLoading(false);
     }
@@ -129,11 +178,115 @@ function OutpassManagement() {
         if (!updated?.id) return;
         setOutpasses((prev) => prev.map((op) => (op.id === updated.id ? updated : op)));
         setSelectedOutpass((prevSelected) => (prevSelected?.id === updated.id ? updated : prevSelected));
+        await fetchOutpasses();
       } catch (err) {
         alert(err?.response?.data?.message || "Failed to update outpass status.");
       }
     })();
   };
+
+  const stopCameraScanner = () => {
+    const toPromise = (value) =>
+      value && typeof value.then === "function" ? value : Promise.resolve();
+
+    const scanner = html5QrcodeRef.current;
+    if (!scanner) {
+      setIsDetectingQr(false);
+      return Promise.resolve();
+    }
+    return (async () => {
+      try {
+        await toPromise(scanner.stop?.());
+      } catch (_error) {
+        // Ignore scanner stop errors to avoid blocking scan submission flow.
+      }
+      try {
+        await toPromise(scanner.clear?.());
+      } catch (_error) {
+        // Ignore scanner clear errors.
+      } finally {
+        html5QrcodeRef.current = null;
+        setIsDetectingQr(false);
+      }
+    })();
+  };
+
+  const verifyTokenDirect = async (token) => {
+    if (scanProcessingRef.current) return;
+    const normalizedToken = normalizeScannedToken(token);
+    if (!normalizedToken) {
+      setScanResult({
+        ok: false,
+        message: "Scanned QR does not contain a valid token",
+        phase: "",
+        outpass: null,
+      });
+      return;
+    }
+    scanProcessingRef.current = true;
+    try {
+      setScanLoading(true);
+      const payload = await scanWardenOutpassQrApi({ token: normalizedToken });
+      setScanResult({
+        ok: true,
+        message: payload?.message || "Verification successful",
+        phase: payload?.phase || "",
+        outpass: payload?.outpassDocument || payload?.outpass || null,
+      });
+      await fetchOutpasses();
+    } catch (err) {
+      setScanResult({
+        ok: false,
+        message: err?.response?.data?.message || "Failed to verify QR token",
+        phase: "",
+        outpass: null,
+      });
+    } finally {
+      setScanLoading(false);
+      scanProcessingRef.current = false;
+    }
+  };
+
+  const startCameraScanner = async () => {
+    try {
+      setCameraError("");
+      await stopCameraScanner();
+
+      const scanner = new Html5Qrcode(scannerRegionId);
+      html5QrcodeRef.current = scanner;
+      setIsDetectingQr(true);
+
+      await scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 260, height: 260 } },
+        async (decodedText) => {
+          if (scanProcessingRef.current) return;
+          const token = normalizeScannedToken(decodedText);
+          if (!token) return;
+          setIsCameraOpen(false);
+          void stopCameraScanner();
+          await verifyTokenDirect(token);
+        },
+        () => {
+          // Ignore frame-level decode misses.
+        }
+      );
+    } catch (_error) {
+      setCameraError("Camera access denied or unavailable.");
+      await stopCameraScanner();
+    }
+  };
+
+  useEffect(() => {
+    if (!isCameraOpen) {
+      void stopCameraScanner();
+      return;
+    }
+    void startCameraScanner();
+    return () => {
+      void stopCameraScanner();
+    };
+  }, [isCameraOpen]);
 
   // Filter outpasses
   const filteredOutpasses = useMemo(() => {
@@ -164,6 +317,49 @@ function OutpassManagement() {
   const handleCloseDrawer = () => {
     setIsDrawerOpen(false);
     setTimeout(() => setSelectedOutpass(null), 300);
+  };
+
+  const getFirstNonEmpty = (...values) => {
+    for (const value of values) {
+      if (value !== null && value !== undefined && String(value).trim() !== "") {
+        return value;
+      }
+    }
+    return "";
+  };
+
+  const getScannedOutpassView = (doc) => ({
+    id: getFirstNonEmpty(doc?.id, doc?._id, "N/A"),
+    studentName: getFirstNonEmpty(doc?.student?.name, doc?.student?.user?.name, doc?.studentName, "N/A"),
+    enrollment: getFirstNonEmpty(doc?.student?.enrollmentNumber, "N/A"),
+    branchName: getFirstNonEmpty(doc?.branchName, doc?.programName, "N/A"),
+    status: getFirstNonEmpty(doc?.status, "N/A"),
+    category: getFirstNonEmpty(doc?.category, "N/A"),
+    destination: getFirstNonEmpty(doc?.destination, "N/A"),
+    reason: getFirstNonEmpty(doc?.reason, "N/A"),
+    emergencyContact: getFirstNonEmpty(doc?.emergencyContact, "N/A"),
+    parentContact: getFirstNonEmpty(doc?.parentContact, "N/A"),
+    fromDate: getFirstNonEmpty(doc?.fromDate, doc?.dateFrom, null),
+    toDate: getFirstNonEmpty(doc?.toDate, doc?.dateTo, null),
+    exitTime: getFirstNonEmpty(doc?.exitTime, null),
+    entryTime: getFirstNonEmpty(doc?.entryTime, null),
+    hostel: getFirstNonEmpty(doc?.hostel?.name, "N/A"),
+    room: getFirstNonEmpty(doc?.roomNumber, doc?.room?.roomNumber, "N/A"),
+    scanCount: Number(doc?.qr?.scanCount || 0),
+    maxScans: Number(doc?.qr?.maxScans || 2),
+    qrActive: Boolean(doc?.qr?.active),
+  });
+
+  const formatDatePart = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleDateString("en-IN");
+  };
+
+  const formatTimePart = (value) => {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "N/A";
+    return date.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
   };
 
   return (
@@ -214,6 +410,89 @@ function OutpassManagement() {
                 {summaryCards.map((card) => (
                   <StatCard key={card.id} {...card} />
                 ))}
+              </div>
+            </section>
+
+            <section aria-label="QR Verification" className="mb-6">
+              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 flex items-center gap-2">
+                  <ScanLine className="h-5 w-5 text-blue-600" />
+                  <h3 className="text-lg font-semibold text-gray-900">Gate QR Verification</h3>
+                </div>
+                <p className="mb-3 text-sm text-gray-600">Use camera scan to verify student exit/entry QR.</p>
+                <div className="flex flex-col gap-3 md:flex-row">
+                  <button
+                    type="button"
+                    onClick={() => setIsCameraOpen(true)}
+                    disabled={scanLoading}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Camera className="h-4 w-4" />
+                    {scanLoading ? "Verifying..." : "Scan Camera"}
+                  </button>
+                </div>
+                {scanResult?.message ? (
+                  <div className={`mt-3 rounded-lg border px-3 py-2 text-sm ${scanResult.ok ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700"}`}>
+                    {scanResult.message}
+                    {scanResult.phase ? ` (${scanResult.phase})` : ""}
+                  </div>
+                ) : null}
+                {scanResult?.ok && scanResult?.outpass ? (
+                  <details className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                    <summary className="cursor-pointer text-sm font-semibold text-gray-800">
+                      View scanned outpass document
+                    </summary>
+                    {(() => {
+                      const view = getScannedOutpassView(scanResult.outpass);
+                      return (
+                        <div className="mt-3 rounded-lg border border-amber-300 bg-[#f8f2e2] p-4 text-[#2b2114]">
+                          <div className="border-b border-dashed border-amber-700 pb-2 text-center">
+                            <p className="text-2xl font-black tracking-wide">HARIDWAR UNIVERSITY</p>
+                            <p className="mt-1 text-lg font-bold">STUDENT LEAVE / OUT PASS</p>
+                            <p className="text-sm font-semibold">SECURITY GATE COPY</p>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-1 gap-250 text-sm sm:grid-cols-2">
+                            <p className="flex flex-row">
+                              <span className="font-semibold pr-2">Sl.No:</span> {view.id}
+                            </p>
+                            <p>
+                              <span className="font-semibold">Dated:</span> {view.fromDate ? formatDatePart(view.fromDate) : "N/A"}
+                            </p>
+                          </div>
+
+                          <div className="mt-3 space-y-2 text-sm">
+                            <p><span className="font-semibold">Name of Student:</span> {view.studentName}</p>
+                            <p><span className="font-semibold">Enrollment:</span> {view.enrollment} | <span className="font-semibold">Branch:</span> {view.branchName}</p>
+                            <p><span className="font-semibold">Room No:</span> {view.room} | <span className="font-semibold">Hostel:</span> {view.hostel}</p>
+                            <p><span className="font-semibold">Purpose:</span> {view.category} | <span className="font-semibold">Destination:</span> {view.destination}</p>
+                            <p>
+                              <span className="font-semibold">From:</span> {view.fromDate ? `${formatTimePart(view.fromDate)} on ${formatDatePart(view.fromDate)}` : "N/A"}
+                              {"  "}
+                              <span className="font-semibold">To:</span> {view.toDate ? `${formatTimePart(view.toDate)} on ${formatDatePart(view.toDate)}` : "N/A"}
+                            </p>
+                            <p><span className="font-semibold">Return by:</span> {view.toDate ? `${formatTimePart(view.toDate)} on ${formatDatePart(view.toDate)}` : "N/A"}</p>
+                            <p><span className="font-semibold">Parent/Emergency Consent Contact:</span> {view.parentContact !== "N/A" ? view.parentContact : view.emergencyContact}</p>
+                            <p><span className="font-semibold">Contact No. during outpass:</span> {view.emergencyContact}</p>
+                            <p><span className="font-semibold">Address During Leave/Out Pass:</span> {view.destination}</p>
+                            <p><span className="font-semibold">Reason:</span> {view.reason}</p>
+                          </div>
+
+                          <div className="mt-3 border-t border-dashed border-amber-700 pt-2 text-sm">
+                            <p><span className="font-semibold">Actual Time of Departure:</span> {view.exitTime ? formatDateTime(view.exitTime) : "Pending first scan"}</p>
+                            <p><span className="font-semibold">Actual Time of Arrival:</span> {view.entryTime ? formatDateTime(view.entryTime) : "Pending second scan"}</p>
+                          </div>
+
+                        </div>
+                      );
+                    })()}
+                  </details>
+                ) : null}
+                {cameraError ? (
+                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {cameraError}
+                  </div>
+                ) : null}
               </div>
             </section>
 
@@ -290,6 +569,9 @@ function OutpassManagement() {
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                           Status
                         </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Coming Status
+                        </th>
                         <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-600">
                           Action
                         </th>
@@ -307,6 +589,9 @@ function OutpassManagement() {
 	                          <td className="px-4 py-3 text-sm text-gray-900">{outpass.destination || "—"}</td>
                           <td className="px-4 py-3">
                             <StatusBadge status={outpass.status} />
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-700">
+                            {todayOutpassMap[outpass.id] || "—"}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <button
@@ -351,6 +636,30 @@ function OutpassManagement() {
         onClose={handleCloseDrawer}
         onStatusChange={handleStatusChange}
       />
+
+      {isCameraOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-2xl rounded-xl bg-white p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900">Scan Student QR</h3>
+              <button
+                type="button"
+                onClick={() => setIsCameraOpen(false)}
+                className="rounded-md p-1 text-gray-600 hover:bg-gray-100"
+                aria-label="Close scanner"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
+              <div id={scannerRegionId} className="min-h-[420px] w-full" />
+            </div>
+            <p className="mt-3 text-sm text-gray-600">
+              {isDetectingQr ? "Point camera at student QR code..." : "Starting camera..."}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

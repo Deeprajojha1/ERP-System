@@ -9,6 +9,22 @@ const toNumberOrNull = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const toDateOrNull = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const normalizeGender = (value = "") => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return "";
+  if (normalized === "MALE") return "MALE";
+  if (normalized === "FEMALE") return "FEMALE";
+  if (normalized === "TRANSGENDER") return "TRANSGENDER";
+  if (normalized === "OTHER") return "OTHER";
+  return "";
+};
+
 const buildDefaultSubjects = (exam) => {
   if (!exam) return [];
   if (!exam.subjectCode && !exam.subjectName) return [];
@@ -31,18 +47,28 @@ const buildRegistrationPayload = ({ body, student, exam }) => {
     rejectionReason: String(body.rejectionReason || "").trim(),
 
     candidateName: String(body.candidateName || student.user?.name || "").trim(),
+    studentNameHindi: String(body.studentNameHindi || "").trim(),
     rollNo: String(body.rollNo || student.enrollmentNumber || "").trim(),
     enrollmentNumber: String(body.enrollmentNumber || student.enrollmentNumber || "").trim(),
+    formSerialNumber: String(body.formSerialNumber || "").trim(),
     fatherName: String(body.fatherName || student.fatherName || "").trim(),
     motherName: String(body.motherName || "").trim(),
+    studentEmail: String(body.studentEmail || student.user?.email || student.collegeEmail || "").trim().toLowerCase(),
+    mobileNumber: String(body.mobileNumber || student.user?.phoneNumber || "").trim(),
+    gender: normalizeGender(body.gender || student.user?.gender || ""),
+    dateOfBirth: toDateOrNull(body.dateOfBirth || student.user?.DOB),
     fatherPhoneNumber: String(body.fatherPhoneNumber || student.fatherPhoneNumber || "").trim(),
     motherPhoneNumber: String(body.motherPhoneNumber || "").trim(),
     fatherOccupation: String(body.fatherOccupation || "").trim(),
     motherOccupation: String(body.motherOccupation || "").trim(),
 
     aadharNumber: String(body.aadharNumber || student.user?.aadharNumber || "").trim(),
+    academicBankCreditId: String(body.academicBankCreditId || "").trim(),
     apaarId: String(body.apaarId || "").trim(),
     digilockerId: String(body.digilockerId || "").trim(),
+    addressLine: String(body.addressLine || "").trim(),
+    district: String(body.district || "").trim(),
+    pinCode: String(body.pinCode || "").trim(),
 
     tenthMarksPercent: toNumberOrNull(body.tenthMarksPercent),
     twelfthMarksPercent: toNumberOrNull(body.twelfthMarksPercent),
@@ -56,6 +82,12 @@ const buildRegistrationPayload = ({ body, student, exam }) => {
     groupName: String(body.groupName || exam.group?.name || student.group?.name || "").trim(),
     examinationCentre: String(body.examinationCentre || exam.block || "").trim(),
     photoUrl: String(body.photoUrl || "").trim(),
+    thumbImpressionUrl: String(body.thumbImpressionUrl || "").trim(),
+    studentSignatureUrl: String(body.studentSignatureUrl || "").trim(),
+    declarationAccepted: Boolean(body.declarationAccepted),
+    declarationAcceptedAt: body.declarationAccepted
+      ? toDateOrNull(body.declarationAcceptedAt) || new Date()
+      : null,
 
     subjects: Array.isArray(body.subjects) && body.subjects.length
       ? body.subjects
@@ -71,7 +103,7 @@ const buildRegistrationPayload = ({ body, student, exam }) => {
 
 const getCurrentStudent = async (userId) => {
   return Student.findOne({ user: userId, isDeleted: { $ne: true } })
-    .populate("user", "name aadharNumber phoneNumber")
+    .populate("user", "name email aadharNumber phoneNumber gender DOB")
     .populate("group", "name");
 };
 

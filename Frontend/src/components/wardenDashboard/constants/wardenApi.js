@@ -10,6 +10,16 @@ export const updateWardenOutpassApi = async (id, payload) => {
   return response.data;
 };
 
+export const getWardenTodayOutpassesApi = async () => {
+  const response = await axiosInstance.get("/api/warden/outpasses/today");
+  return response.data;
+};
+
+export const scanWardenOutpassQrApi = async (payload) => {
+  const response = await axiosInstance.post("/api/warden/outpasses/scan", payload);
+  return response.data;
+};
+
 export const getWardenComplaintsApi = async (params = {}) => {
   const response = await axiosInstance.get("/api/warden/complaints", { params });
   return response.data;

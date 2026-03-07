@@ -15,7 +15,7 @@ import emptyStateImg from "../assets/empty-state.svg";
 import { useSelector, useDispatch } from "react-redux";
 import "./Exam.css";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
-import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import { downloadPdfFromHtml, openPdfFromHtml } from "../utils/pdfDownload";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 import ClipLoader from "./components/ClipLoader";
@@ -88,6 +88,9 @@ const Exam = () => {
   const [editingExamId, setEditingExamId] = useState(null);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [admitSearch, setAdmitSearch] = useState("");
+  const [registrationSearch, setRegistrationSearch] = useState("");
+  const [registrationRows, setRegistrationRows] = useState([]);
+  const [admitCardRows, setAdmitCardRows] = useState([]);
 
   // Redux state (with safe fallbacks for initial render)
   const exams = useSelector(selectExams) || [];
@@ -106,6 +109,15 @@ const Exam = () => {
     id: "",
     action: "",
   });
+  const [registrationActionLoading, setRegistrationActionLoading] = useState({
+    id: "",
+    action: "",
+  });
+  const [admitCardActionLoading, setAdmitCardActionLoading] = useState({
+    id: "",
+    action: "",
+  });
+  const [selectedAdmitCard, setSelectedAdmitCard] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
 
   const [formData, setFormData] = useState({
@@ -130,6 +142,22 @@ const Exam = () => {
 
   const apiBase = useSelector((state) => state.config.apiBase);
 
+  const fetchExamRegistrations = useCallback(async () => {
+    const response = await axios.get(`${apiBase}/admin/exam-registration`, {
+      withCredentials: true,
+      params: { noCache: "true" },
+    });
+    setRegistrationRows(response.data?.registrations || []);
+  }, [apiBase]);
+
+  const fetchAdmitCards = useCallback(async () => {
+    const response = await axios.get(`${apiBase}/admin/admit-card`, {
+      withCredentials: true,
+      params: { noCache: "true" },
+    });
+    setAdmitCardRows(response.data?.admitCards || []);
+  }, [apiBase]);
+
   const fetchAll = useCallback(async () => {
     if (!apiBase) return;
     try {
@@ -137,13 +165,15 @@ const Exam = () => {
       await Promise.all([
         dispatch(fetchExams({ apiBase })).unwrap(),
         dispatch(fetchExamSupportData({ apiBase })).unwrap(),
+        fetchExamRegistrations(),
+        fetchAdmitCards(),
       ]);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       setLoadState(ADMIN_LOAD_STATES.FAILURE);
       toast.error(error || "Failed to load exams");
     }
-  }, [apiBase, dispatch]);
+  }, [apiBase, dispatch, fetchExamRegistrations, fetchAdmitCards]);
 
   useEffect(() => {
     fetchAll();
@@ -214,6 +244,20 @@ const Exam = () => {
     examActionLoading.id === getExamActionKey(exam) &&
     examActionLoading.action === action;
 
+  const getRegistrationActionKey = (registration) =>
+    String(registration?._id || "").trim();
+
+  const isRegistrationActionLoading = (registration, action) =>
+    registrationActionLoading.id === getRegistrationActionKey(registration) &&
+    registrationActionLoading.action === action;
+
+  const getAdmitCardActionKey = (card) =>
+    String(card?._id || "").trim();
+
+  const isAdmitCardActionLoading = (card, action) =>
+    admitCardActionLoading.id === getAdmitCardActionKey(card) &&
+    admitCardActionLoading.action === action;
+
   const selectedCourse = useMemo(
     () => courses.find((course) => String(course?.id || course?._id || "") === formData.course),
     [courses, formData.course]
@@ -281,34 +325,74 @@ const Exam = () => {
     [masterReportRows, groupStrengthMap]
   );
 
+  const admitCardByRegistrationId = useMemo(() => {
+    const map = new Map();
+    admitCardRows.forEach((card) => {
+      const registrationId = String(card?.registration?._id || card?.registration || "");
+      if (!registrationId) return;
+      map.set(registrationId, card);
+    });
+    return map;
+  }, [admitCardRows]);
+
   const normalizedRegistration = useMemo(
     () =>
-      exams.map((exam) => ({
-        _id: exam?._id,
-        examName: exam?.examName || "-",
-        subject:
-          exam?.subjectCode && exam?.subjectName
-            ? `${exam.subjectCode} - ${exam.subjectName}`
-            : exam?.subjectName || exam?.course?.courseName || "-",
-        session: exam?.session || "-",
-        semester: exam?.semester ?? "-",
-        date: formatDate(exam?.examDate),
-        status: String(exam?.status || "SCHEDULED").toUpperCase(),
-      })),
-    [exams]
+      registrationRows.map((registration) => {
+        const linkedCard = admitCardByRegistrationId.get(String(registration?._id || ""));
+        const registrationStatus = String(registration?.registrationStatus || "DRAFT").toUpperCase();
+        const admitCardStatus = String(linkedCard?.issueStatus || "NOT_ISSUED").toUpperCase();
+
+        return {
+          _id: registration?._id,
+          examName: registration?.exam?.examName || registration?.courseName || "-",
+          subject:
+            registration?.subjects?.[0]?.subjectCode && registration?.subjects?.[0]?.subjectName
+              ? `${registration.subjects[0].subjectCode} - ${registration.subjects[0].subjectName}`
+              : registration?.exam?.subjectName ||
+                registration?.courseName ||
+                registration?.exam?.course?.courseName ||
+                "-",
+          session: registration?.exam?.session || registration?.academicSession || "-",
+          semester: registration?.semester ?? registration?.exam?.semester ?? "-",
+          date: formatDate(registration?.exam?.examDate || registration?.createdAt),
+          status: registrationStatus,
+          candidateName: registration?.candidateName || registration?.student?.user?.name || "-",
+          rollNo: registration?.rollNo || "-",
+          enrollmentNumber: registration?.enrollmentNumber || registration?.student?.enrollmentNumber || "-",
+          rejectionReason: registration?.rejectionReason || "",
+          admitCardStatus,
+          hasIssuedAdmitCard: admitCardStatus === "ISSUED",
+          raw: registration,
+        };
+      }),
+    [registrationRows, admitCardByRegistrationId]
   );
+
+  const filteredRegistrations = useMemo(() => {
+    const query = String(registrationSearch || "").trim().toLowerCase();
+    if (!query) return normalizedRegistration;
+    return normalizedRegistration.filter((item) => {
+      const haystack = `${item.examName} ${item.subject} ${item.session} ${item.semester} ${item.candidateName} ${item.rollNo} ${item.enrollmentNumber} ${item.status} ${item.admitCardStatus}`
+        .toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [registrationSearch, normalizedRegistration]);
 
   const normalizedAdmitCards = useMemo(
     () =>
-      exams.map((exam) => ({
-        _id: exam?._id,
-        examName: exam?.examName || "-",
-        session: exam?.session || "-",
-        semester: exam?.semester ?? "-",
-        date: formatDate(exam?.examDate),
-        issued: String(exam?.status || "").toUpperCase() === "CANCELLED" ? "NO" : "YES",
+      admitCardRows.map((card) => ({
+        _id: card?._id,
+        admitCardNo: card?.admitCardNo || "-",
+        examName: card?.exam?.examName || "-",
+        candidateName: card?.snapshot?.candidateName || card?.registration?.candidateName || "-",
+        rollNo: card?.snapshot?.rollNo || card?.registration?.rollNo || "-",
+        session: card?.exam?.session || "-",
+        semester: card?.snapshot?.semester ?? card?.exam?.semester ?? "-",
+        date: formatDate(card?.exam?.examDate),
+        issueStatus: String(card?.issueStatus || "").toUpperCase() || "PENDING",
+        raw: card,
       })),
-    [exams]
+    [admitCardRows]
   );
 
   const admitCardsLoadState = useMemo(() => {
@@ -328,7 +412,7 @@ const Exam = () => {
     if (!query) return normalizedAdmitCards;
 
     return normalizedAdmitCards.filter((item) => {
-      const haystack = `${item.examName} ${item.session} ${item.semester} ${item.date} ${item.issued}`
+      const haystack = `${item.admitCardNo} ${item.examName} ${item.candidateName} ${item.rollNo} ${item.session} ${item.semester} ${item.date} ${item.issueStatus}`
         .toLowerCase();
       return haystack.includes(query);
     });
@@ -520,6 +604,406 @@ const Exam = () => {
     } finally {
       setDeletingId(null);
     }
+  };
+
+  const refreshRegistrationAndAdmit = useCallback(async () => {
+    await Promise.all([fetchExamRegistrations(), fetchAdmitCards()]);
+  }, [fetchExamRegistrations, fetchAdmitCards]);
+
+  const withRegistrationAction = async (registration, action, runner) => {
+    const actionKey = getRegistrationActionKey(registration);
+    if (!actionKey) return;
+    setRegistrationActionLoading({ id: actionKey, action });
+    try {
+      await runner();
+      await refreshRegistrationAndAdmit();
+    } finally {
+      setRegistrationActionLoading({ id: "", action: "" });
+    }
+  };
+
+  const handleVerifyRegistration = async (registration) => {
+    if (!registration?._id) return;
+    await withRegistrationAction(registration, "verify", async () => {
+      await axios.put(
+        `${apiBase}/admin/exam-registration/${registration._id}`,
+        { registrationStatus: "VERIFIED", rejectionReason: "" },
+        { withCredentials: true }
+      );
+      toast.success("Registration verified");
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || "Failed to verify registration");
+    });
+  };
+
+  const handleRejectRegistration = async (registration) => {
+    if (!registration?._id) return;
+    const reason = window.prompt(
+      "Enter rejection reason",
+      registration?.rejectionReason || ""
+    );
+    if (reason === null) return;
+    if (!String(reason).trim()) {
+      toast.error("Rejection reason is required");
+      return;
+    }
+    await withRegistrationAction(registration, "reject", async () => {
+      await axios.put(
+        `${apiBase}/admin/exam-registration/${registration._id}`,
+        { registrationStatus: "REJECTED", rejectionReason: String(reason).trim() },
+        { withCredentials: true }
+      );
+      toast.success("Registration rejected");
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || "Failed to reject registration");
+    });
+  };
+
+  const handleEditRegistration = async (registration) => {
+    if (!registration?._id) return;
+    const nextCandidateName = window.prompt(
+      "Candidate name",
+      registration?.candidateName || ""
+    );
+    if (nextCandidateName === null) return;
+
+    const nextMobile = window.prompt(
+      "Mobile number (10 digits)",
+      registration?.raw?.mobileNumber || ""
+    );
+    if (nextMobile === null) return;
+
+    const nextCentre = window.prompt(
+      "Examination centre",
+      registration?.raw?.examinationCentre || ""
+    );
+    if (nextCentre === null) return;
+
+    await withRegistrationAction(registration, "edit", async () => {
+      await axios.put(
+        `${apiBase}/admin/exam-registration/${registration._id}`,
+        {
+          candidateName: String(nextCandidateName || "").trim(),
+          mobileNumber: String(nextMobile || "").trim(),
+          examinationCentre: String(nextCentre || "").trim(),
+        },
+        { withCredentials: true }
+      );
+      toast.success("Registration updated");
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || "Failed to update registration");
+    });
+  };
+
+  const handleDeleteRegistration = async (registration) => {
+    if (!registration?._id) return;
+    const ok = window.confirm(
+      `Delete registration for ${registration?.candidateName || "this student"}?`
+    );
+    if (!ok) return;
+    await withRegistrationAction(registration, "delete", async () => {
+      await axios.patch(
+        `${apiBase}/admin/exam-registration/${registration._id}/delete`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success("Registration deleted");
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || "Failed to delete registration");
+    });
+  };
+
+  const handleIssueAdmitCard = async (registration) => {
+    if (!registration?._id) return;
+    if (registration?.status !== "VERIFIED") {
+      toast.error("Only verified registrations can be issued admit cards");
+      return;
+    }
+    await withRegistrationAction(registration, "issue", async () => {
+      await axios.post(
+        `${apiBase}/admin/admit-card/issue/${registration._id}`,
+        {
+          isEligible: true,
+          paidPercent: 100,
+          thresholdPercent: 75,
+          source: "MANUAL",
+        },
+        { withCredentials: true }
+      );
+      toast.success("Admit card issued successfully");
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || "Failed to issue admit card");
+    });
+  };
+
+  const refreshAdmitCardsOnly = useCallback(async () => {
+    await fetchAdmitCards();
+  }, [fetchAdmitCards]);
+
+  const withAdmitCardAction = async (card, action, runner) => {
+    const actionKey = getAdmitCardActionKey(card);
+    if (!actionKey) return;
+    setAdmitCardActionLoading({ id: actionKey, action });
+    try {
+      await runner();
+      await refreshAdmitCardsOnly();
+    } finally {
+      setAdmitCardActionLoading({ id: "", action: "" });
+    }
+  };
+
+  const handleViewAdmitCard = async (card) => {
+    if (!card?._id) return;
+    await withAdmitCardAction(card, "view", async () => {
+      const response = await axios.get(`${apiBase}/admin/admit-card/${card._id}`, {
+        withCredentials: true,
+      });
+      const admitCard = response.data?.admitCard || null;
+      if (!admitCard) {
+        throw new Error("Admit card not found");
+      }
+
+      const snapshot = admitCard?.snapshot || {};
+      const exam = admitCard?.exam || {};
+      const sessionLabel = String(snapshot?.examSession || exam?.session || "").trim();
+      const semesterLabel = String(snapshot?.semester ?? "").trim();
+      const semesterHeading = semesterLabel ? `${semesterLabel} SEMESTER` : "SEMESTER";
+      const photoUrl = String(
+        admitCard?.registration?.photoUrl || snapshot?.photoUrl || ""
+      ).trim();
+      const subjectRows = Array.isArray(snapshot?.subjects)
+        ? snapshot.subjects
+            .map(
+              (subject) => `
+                <tr>
+                  <td>${escapeHtml(subject?.subjectName || "-")}</td>
+                  <td>${escapeHtml(subject?.subjectCode || "-")}</td>
+                </tr>
+              `
+            )
+            .join("")
+        : "";
+
+      const html = `
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <title>Admit Card</title>
+            <style>
+              * { box-sizing: border-box; }
+              body { font-family: Arial, sans-serif; color: #0f172a; margin: 0; padding: 8px; }
+              .admit-wrap { border: 2px solid #94a3b8; max-width: 1180px; margin: 0 auto; }
+              .hu-title {
+                font-size: 38px;
+                line-height: 1;
+                letter-spacing: 1px;
+                text-align: center;
+                color: #16a8d9;
+                font-weight: 700;
+                padding: 8px 8px 4px;
+                border-bottom: 2px solid #94a3b8;
+              }
+              .hu-subtitle {
+                text-align: center;
+                padding: 4px 8px 6px;
+                border-bottom: 2px solid #94a3b8;
+              }
+              .hu-subtitle .line1 { font-size: 24px; font-weight: 700; color: #f39c34; }
+              .hu-subtitle .line2 { font-size: 16px; font-weight: 700; color: #9ca327; margin-top: 1px; }
+              table { width: 100%; border-collapse: collapse; }
+              .grid td, .grid th {
+                border: 2px solid #94a3b8;
+                padding: 4px 6px;
+                vertical-align: top;
+                font-size: 12px;
+                color: #1e293b;
+              }
+              .lbl { color: #6b7280; font-weight: 700; margin-right: 4px; }
+              .val { color: #0e7490; font-weight: 700; }
+              .photo-box {
+                width: 100%;
+                min-height: 180px;
+                border: 2px solid #6b7280;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                background: #ffffff;
+              }
+              .photo-box img { width: 100%; height: 180px; object-fit: cover; }
+              .photo-placeholder { font-size: 11px; color: #64748b; text-align: center; }
+              .subject-head { font-weight: 700; color: #0e7490; text-align: center; }
+              .subject-table td, .subject-table th { border: 2px solid #94a3b8; padding: 4px 6px; font-size: 11px; }
+              .subject-table th { color: #0e7490; font-weight: 700; background: #f8fafc; }
+              .signature-area {
+                min-height: 70px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: #64748b;
+                font-size: 11px;
+                border-bottom: 2px solid #94a3b8;
+              }
+              .controller { text-align: center; font-size: 12px; color: #0e7490; font-weight: 700; padding: 6px; }
+              .small { font-size: 11px; color: #64748b; line-height: 1.3; }
+            </style>
+          </head>
+          <body>
+            <div class="admit-wrap">
+              <div class="hu-title">HARIDWAR UNIVERSITY, ROORKEE</div>
+              <div class="hu-subtitle">
+                <div class="line1">ADMIT CARD</div>
+                <div class="line2">${escapeHtml(`${semesterHeading} EXAMINATION (SESSION - ${sessionLabel || "-"})`)}</div>
+              </div>
+
+              <table class="grid">
+                <tr>
+                  <td style="width:43%;">
+                    <span class="lbl">Name of the Candidate :</span>
+                    <span class="val">${escapeHtml(snapshot?.candidateName || "-")}</span>
+                  </td>
+                  <td style="width:37%;">
+                    <span class="lbl">Father's Name :</span>
+                    <span class="val">${escapeHtml(snapshot?.fatherName || "-")}</span>
+                  </td>
+                  <td rowspan="5" style="width:21%;">
+                    <div class="photo-box">
+                      ${
+                        photoUrl
+                          ? `<img src="${escapeHtml(photoUrl)}" alt="Student" />`
+                          : `<div class="photo-placeholder">Photo not available</div>`
+                      }
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="lbl">Course :</span>
+                    <span class="val">${escapeHtml(`${snapshot?.courseName || "-"} (Semester ${snapshot?.semester ?? "-"})`)}</span>
+                  </td>
+                  <td>
+                    <span class="lbl">Roll No:</span>
+                    <span class="val">${escapeHtml(snapshot?.rollNo || "-")}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="lbl">Branch :</span>
+                    <span class="val">${escapeHtml(snapshot?.branchName || "-")}</span>
+                  </td>
+                  <td>
+                    <span class="lbl">Year:</span>
+                    <span class="val">${escapeHtml(String(snapshot?.year ?? "-"))}</span>
+                    <span class="lbl" style="margin-left:14px;">Semester:</span>
+                    <span class="val">${escapeHtml(String(snapshot?.semester ?? "-"))}</span>
+                    <span class="lbl" style="margin-left:14px;">Group:</span>
+                    <span class="val">${escapeHtml(snapshot?.groupName || "-")}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>
+                    <span class="lbl">Batch :</span>
+                    <span class="val">${escapeHtml(snapshot?.batchLabel || "-")}</span>
+                  </td>
+                  <td rowspan="2">
+                    <span class="lbl">Examination Centre :</span><br />
+                    <span class="val">${escapeHtml(snapshot?.examinationCentre || "-")}</span>
+                    <div style="height:8px;"></div>
+                    <span class="lbl">Admit Card No :</span>
+                    <span class="val">${escapeHtml(admitCard?.admitCardNo || "-")}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:0;">
+                    <table class="subject-table" style="width:100%; border-collapse: collapse;">
+                      <thead>
+                        <tr>
+                          <th colspan="2" class="subject-head">Subjects</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${subjectRows || '<tr><td colspan="2">No subjects found</td></tr>'}
+                      </tbody>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="2" style="padding:0;">
+                    <div class="signature-area"></div>
+                    <div class="controller">Controller of Examination</div>
+                  </td>
+                  <td>
+                    <div class="small"><strong>Issue Status:</strong> ${escapeHtml(String(admitCard?.issueStatus || "-").toUpperCase())}</div>
+                    <div class="small"><strong>Exam Date:</strong> ${escapeHtml(formatDate(exam?.examDate))}</div>
+                    <div class="small"><strong>Timing:</strong> ${escapeHtml(
+                      exam?.startTime && exam?.endTime
+                        ? `${formatTime12(exam.startTime)} - ${formatTime12(exam.endTime)}`
+                        : formatTime12(exam?.startTime || "")
+                    )}</div>
+                  </td>
+                </tr>
+              </table>
+            </div>
+          </body>
+        </html>
+      `;
+
+      await openPdfFromHtml(apiBase, {
+        html,
+        fileName: `${admitCard?.admitCardNo || "admit-card"}.pdf`,
+      });
+      setSelectedAdmitCard(admitCard);
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || error?.message || "Failed to open admit card");
+    });
+  };
+
+  const handleHoldAdmitCard = async (card) => {
+    if (!card?._id) return;
+    const reason = window.prompt("Enter hold reason (optional)", "");
+    if (reason === null) return;
+    await withAdmitCardAction(card, "hold", async () => {
+      await axios.patch(
+        `${apiBase}/admin/admit-card/${card._id}/hold`,
+        { holdReason: String(reason || "").trim() },
+        { withCredentials: true }
+      );
+      toast.success("Admit card moved to hold");
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || "Failed to hold admit card");
+    });
+  };
+
+  const handleCancelAdmitCard = async (card) => {
+    if (!card?._id) return;
+    const ok = window.confirm(`Cancel admit card ${card?.admitCardNo || ""}?`);
+    if (!ok) return;
+    await withAdmitCardAction(card, "cancel", async () => {
+      await axios.patch(
+        `${apiBase}/admin/admit-card/${card._id}/cancel`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success("Admit card cancelled");
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || "Failed to cancel admit card");
+    });
+  };
+
+  const handleDeleteAdmitCard = async (card) => {
+    if (!card?._id) return;
+    const ok = window.confirm(`Delete admit card ${card?.admitCardNo || ""}?`);
+    if (!ok) return;
+    await withAdmitCardAction(card, "delete", async () => {
+      await axios.patch(
+        `${apiBase}/admin/admit-card/${card._id}/delete`,
+        {},
+        { withCredentials: true }
+      );
+      toast.success("Admit card deleted");
+    }).catch((error) => {
+      toast.error(error?.response?.data?.message || "Failed to delete admit card");
+    });
   };
 
   const printWithHiddenFrame = ({ title, htmlContent, onComplete }) => {
@@ -1218,35 +1702,136 @@ const Exam = () => {
 
           {activeSection === "registration" && (
             <section className="exam-card">
-              {renderSectionHeader("Exam Registration")}
+              <div className="exam-card-head exam-card-head-left exam-admit-head exam-registration-head">
+                <button
+                  type="button"
+                  className="exam-back-btn"
+                  onClick={() => setActiveSection("")}
+                >
+                  <FiArrowLeft />
+                  Back
+                </button>
+                <h2 className="exam-card-title exam-card-title-box">Exam Registration</h2>
+                <div className="exam-admit-meta">
+                  <span className={`exam-load-chip ${admitCardsLoadState}`}>
+                    {admitCardsLoadStateText}
+                  </span>
+                  <span>{filteredRegistrations.length} request(s)</span>
+                </div>
+              </div>
+              <div className="exam-admit-toolbar" style={{ marginBottom: 12 }}>
+                <label className="exam-search">
+                  <span className="exam-search-icon" aria-hidden="true">
+                    <FiSearch />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search by student, roll no, enrollment, exam..."
+                    value={registrationSearch}
+                    onChange={(event) => setRegistrationSearch(event.target.value)}
+                  />
+                </label>
+
+                <button
+                  className="exam-download-all-btn admin-btn-with-loader exam-admit-refresh-btn"
+                  type="button"
+                  onClick={refreshRegistrationAndAdmit}
+                  disabled={admitCardsLoadState === ADMIN_LOAD_STATES.PENDING}
+                >
+                  Refresh
+                </button>
+              </div>
               <div className="exam-table-wrap">
                 <table className="exam-table">
                   <thead>
                     <tr>
                       <th className="exam-cell-serial">S. No</th>
+                      <th>STUDENT</th>
+                      <th>ROLL NO</th>
+                      <th>ENROLLMENT</th>
                       <th>EXAM NAME</th>
                       <th>SUBJECT</th>
                       <th>SESSION</th>
                       <th>SEM</th>
                       <th>DATE</th>
                       <th>STATUS</th>
+                      <th>ADMIT CARD</th>
+                      <th>ACTIONS</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {normalizedRegistration.map((item, index) => (
+                    {filteredRegistrations.map((item, index) => (
                       <tr key={`${item._id || item.examName}-${index}`}>
                         <td className="exam-serial-cell">{index + 1}</td>
+                        <td className="exam-name">{item.candidateName}</td>
+                        <td>{item.rollNo}</td>
+                        <td>{item.enrollmentNumber}</td>
                         <td className="exam-name">{item.examName}</td>
                         <td>{item.subject}</td>
                         <td>{item.session}</td>
                         <td>{item.semester}</td>
                         <td>{item.date}</td>
                         <td>{item.status}</td>
+                        <td>{item.admitCardStatus}</td>
+                        <td>
+                          <div className="exam-actions">
+                            <button
+                              type="button"
+                              className="exam-action-btn export"
+                              onClick={() => handleVerifyRegistration(item)}
+                              disabled={
+                                isRegistrationActionLoading(item, "verify") || item.status === "VERIFIED"
+                              }
+                            >
+                              {isRegistrationActionLoading(item, "verify") ? "Verifying..." : "Verify"}
+                            </button>
+                            <button
+                              type="button"
+                              className="exam-action-btn delete"
+                              onClick={() => handleRejectRegistration(item)}
+                              disabled={isRegistrationActionLoading(item, "reject")}
+                            >
+                              {isRegistrationActionLoading(item, "reject") ? "Rejecting..." : "Reject"}
+                            </button>
+                            <button
+                              type="button"
+                              className="exam-action-btn"
+                              onClick={() => handleEditRegistration(item)}
+                              disabled={isRegistrationActionLoading(item, "edit")}
+                            >
+                              {isRegistrationActionLoading(item, "edit") ? "Updating..." : "Edit"}
+                            </button>
+                            <button
+                              type="button"
+                              className="exam-action-btn export"
+                              onClick={() => handleIssueAdmitCard(item)}
+                              disabled={
+                                isRegistrationActionLoading(item, "issue") ||
+                                item.status !== "VERIFIED" ||
+                                item.hasIssuedAdmitCard
+                              }
+                            >
+                              {isRegistrationActionLoading(item, "issue")
+                                ? "Issuing..."
+                                : item.hasIssuedAdmitCard
+                                  ? "Issued"
+                                  : "Issue Admit"}
+                            </button>
+                            <button
+                              type="button"
+                              className="exam-action-btn delete"
+                              onClick={() => handleDeleteRegistration(item)}
+                              disabled={isRegistrationActionLoading(item, "delete")}
+                            >
+                              {isRegistrationActionLoading(item, "delete") ? "Deleting..." : "Delete"}
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     ))}
-                    {normalizedRegistration.length === 0 && (
+                    {filteredRegistrations.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="exam-empty">
+                        <td colSpan={12} className="exam-empty">
                           No exam registrations found.
                         </td>
                       </tr>
@@ -1294,7 +1879,7 @@ const Exam = () => {
                   <button
                     className="exam-download-all-btn admin-btn-with-loader exam-admit-refresh-btn"
                     type="button"
-                    onClick={fetchAll}
+                    onClick={refreshAdmitCardsOnly}
                     disabled={admitCardsLoadState === ADMIN_LOAD_STATES.PENDING}
                   >
                     {admitCardsLoadState === ADMIN_LOAD_STATES.PENDING ? (
@@ -1329,27 +1914,76 @@ const Exam = () => {
                     <thead>
                       <tr>
                         <th className="exam-cell-serial">S. No</th>
+                        <th>ADMIT CARD NO</th>
+                        <th>STUDENT</th>
+                        <th>ROLL NO</th>
                         <th>EXAM NAME</th>
                         <th>SESSION</th>
                         <th>SEM</th>
                         <th>DATE</th>
-                        <th>ADMIT CARD ISSUED</th>
+                        <th>ISSUE STATUS</th>
+                        <th>ACTIONS</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filteredAdmitCards.map((item, index) => (
                         <tr key={`${item._id || item.examName}-${index}`}>
                           <td className="exam-serial-cell">{index + 1}</td>
+                          <td>{item.admitCardNo}</td>
+                          <td className="exam-name">{item.candidateName}</td>
+                          <td>{item.rollNo}</td>
                           <td className="exam-name">{item.examName}</td>
                           <td>{item.session}</td>
                           <td>{item.semester}</td>
                           <td>{item.date}</td>
-                          <td>{item.issued}</td>
+                          <td>{item.issueStatus}</td>
+                          <td>
+                            <div className="exam-actions">
+                              <button
+                                type="button"
+                                className="exam-action-btn"
+                                onClick={() => handleViewAdmitCard(item)}
+                                disabled={isAdmitCardActionLoading(item, "view")}
+                              >
+                                {isAdmitCardActionLoading(item, "view") ? "Loading..." : "View"}
+                              </button>
+                              <button
+                                type="button"
+                                className="exam-action-btn export"
+                                onClick={() => handleHoldAdmitCard(item)}
+                                disabled={
+                                  isAdmitCardActionLoading(item, "hold") ||
+                                  item.issueStatus === "CANCELLED"
+                                }
+                              >
+                                {isAdmitCardActionLoading(item, "hold") ? "Holding..." : "Hold"}
+                              </button>
+                              <button
+                                type="button"
+                                className="exam-action-btn delete"
+                                onClick={() => handleCancelAdmitCard(item)}
+                                disabled={
+                                  isAdmitCardActionLoading(item, "cancel") ||
+                                  item.issueStatus === "CANCELLED"
+                                }
+                              >
+                                {isAdmitCardActionLoading(item, "cancel") ? "Cancelling..." : "Cancel"}
+                              </button>
+                              <button
+                                type="button"
+                                className="exam-action-btn delete"
+                                onClick={() => handleDeleteAdmitCard(item)}
+                                disabled={isAdmitCardActionLoading(item, "delete")}
+                              >
+                                {isAdmitCardActionLoading(item, "delete") ? "Deleting..." : "Delete"}
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       ))}
                       {filteredAdmitCards.length === 0 && (
                         <tr>
-                          <td colSpan={6} className="exam-empty">
+                          <td colSpan={10} className="exam-empty">
                             No admit card records found.
                           </td>
                         </tr>
@@ -1358,6 +1992,15 @@ const Exam = () => {
                   </table>
                 )}
               </div>
+              {selectedAdmitCard && (
+                <div className="exam-master-state" style={{ marginTop: 12 }}>
+                  <strong>Selected Admit Card:</strong>{" "}
+                  {selectedAdmitCard?.admitCardNo || "-"} |{" "}
+                  {selectedAdmitCard?.snapshot?.candidateName || "-"} |{" "}
+                  {selectedAdmitCard?.snapshot?.rollNo || "-"} |{" "}
+                  {String(selectedAdmitCard?.issueStatus || "").toUpperCase()}
+                </div>
+              )}
             </section>
           )}
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FiAlertCircle, FiHome, FiRefreshCw, FiSend, FiUsers } from "react-icons/fi";
 import axiosInstance from "../../utils/axiosInstance";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "../../Admin/constants/loadStates";
@@ -36,10 +36,22 @@ const complaintStatusClass = (status = "") => {
   return "pending";
 };
 
-const todayInputValue = () => {
+const currentTimeInputValue = () => {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, "0");
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+};
+
+const formatDateTime = (value) => {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 const StudentHostel = () => {
@@ -56,11 +68,16 @@ const StudentHostel = () => {
 	  const [holidayList, setHolidayList] = useState([]);
 	  const [holidayForm, setHolidayForm] = useState(() => ({
 	    category: "Holiday",
-	    dateFrom: todayInputValue(),
-	    dateTo: todayInputValue(),
+	    outingTime: currentTimeInputValue(),
+	    incomingTime: "23:00",
 	    destination: "",
+      emergencyContact: "",
+      parentContact: "",
 	    reason: "",
 	  }));
+  const [activeQrLoading, setActiveQrLoading] = useState(false);
+  const [activeQr, setActiveQr] = useState(null);
+  const activeQrRequestSeqRef = useRef(0);
 
 	  const [complaintLoading, setComplaintLoading] = useState(false);
 	  const [complaintListLoading, setComplaintListLoading] = useState(false);
@@ -141,24 +158,53 @@ const StudentHostel = () => {
 	    }
 	  }, []);
 
+  const fetchActiveQr = useCallback(async () => {
+    const requestSeq = activeQrRequestSeqRef.current + 1;
+    activeQrRequestSeqRef.current = requestSeq;
+    try {
+      setActiveQrLoading(true);
+      const response = await axiosInstance.get("/api/student/hostel/holiday/active-qr");
+      if (requestSeq === activeQrRequestSeqRef.current) {
+        setActiveQr(response?.data || null);
+      }
+    } catch (error) {
+      void error;
+      if (requestSeq === activeQrRequestSeqRef.current) {
+        setActiveQr(null);
+      }
+    } finally {
+      if (requestSeq === activeQrRequestSeqRef.current) {
+        setActiveQrLoading(false);
+      }
+    }
+  }, []);
+
 	  useEffect(() => {
 	    let isMounted = true;
 	    (async () => {
 	      const nextAllocation = await fetchContext();
 	      if (!isMounted) return;
 	      if (nextAllocation?.hostel?.id) {
-	        await Promise.all([fetchMenu(nextAllocation.hostel.id), fetchHolidayList(), fetchComplaintList()]);
+	        await Promise.all([fetchMenu(nextAllocation.hostel.id), fetchHolidayList(), fetchComplaintList(), fetchActiveQr()]);
 	      } else {
 	        setMenu(null);
 	        setHolidayList([]);
 	        setComplaintList([]);
+          setActiveQr(null);
 	      }
 	    })();
 
 	    return () => {
 	      isMounted = false;
 	    };
-	  }, [fetchContext, fetchMenu, fetchHolidayList, fetchComplaintList]);
+	  }, [fetchContext, fetchMenu, fetchHolidayList, fetchComplaintList, fetchActiveQr]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      void fetchHolidayList();
+    }, 10000);
+    return () => clearInterval(timer);
+  }, [fetchHolidayList]);
 
   const menuByDay = useMemo(() => {
     const items = Array.isArray(menu?.foodMenu) ? menu.foodMenu : [];
@@ -187,11 +233,12 @@ const StudentHostel = () => {
 	  const handleRefresh = async () => {
 	    const nextAllocation = await fetchContext();
 	    if (nextAllocation?.hostel?.id) {
-	      await Promise.all([fetchMenu(nextAllocation.hostel.id), fetchHolidayList(), fetchComplaintList()]);
+	      await Promise.all([fetchMenu(nextAllocation.hostel.id), fetchHolidayList(), fetchComplaintList(), fetchActiveQr()]);
 	    } else {
 	      setMenu(null);
 	      setHolidayList([]);
 	      setComplaintList([]);
+        setActiveQr(null);
 	    }
 	  };
 
@@ -201,17 +248,25 @@ const StudentHostel = () => {
 
 	    const payload = {
 	      category: holidayForm.category,
-	      dateFrom: holidayForm.dateFrom,
-	      dateTo: holidayForm.dateTo,
+	      outingTime: holidayForm.outingTime,
+	      incomingTime: holidayForm.incomingTime,
 	      destination: holidayForm.destination,
+        emergencyContact: holidayForm.emergencyContact,
+        parentContact: holidayForm.parentContact,
 	      reason: holidayForm.reason,
 	    };
 
     try {
 	      setHolidayLoading(true);
 	      await axiosInstance.post("/api/student/hostel/holiday", payload);
-	      setHolidayForm((prev) => ({ ...prev, destination: "", reason: "" }));
-	      await fetchHolidayList();
+	      setHolidayForm((prev) => ({
+          ...prev,
+          destination: "",
+          emergencyContact: "",
+          parentContact: "",
+          reason: "",
+        }));
+	      await Promise.all([fetchHolidayList(), fetchActiveQr()]);
 	    } catch (error) {
 	      const message = error?.response?.data?.message || "Failed to submit holiday request.";
 	      alert(message);
@@ -453,19 +508,21 @@ const StudentHostel = () => {
                 </select>
               </label>
               <label>
-                From
+                Outing Time
                 <input
-                  type="date"
-                  value={holidayForm.dateFrom}
-                  onChange={(e) => setHolidayForm((prev) => ({ ...prev, dateFrom: e.target.value }))}
+                  type="time"
+                  value={holidayForm.outingTime}
+                  onChange={(e) => setHolidayForm((prev) => ({ ...prev, outingTime: e.target.value }))}
+                  required
                 />
               </label>
 	              <label>
-	                To
+	                Incoming Time
 	                <input
-	                  type="date"
-	                  value={holidayForm.dateTo}
-	                  onChange={(e) => setHolidayForm((prev) => ({ ...prev, dateTo: e.target.value }))}
+	                  type="time"
+	                  value={holidayForm.incomingTime}
+	                  onChange={(e) => setHolidayForm((prev) => ({ ...prev, incomingTime: e.target.value }))}
+                    required
 	                />
 	              </label>
 	            </div>
@@ -478,6 +535,24 @@ const StudentHostel = () => {
 	                required
 	              />
 	            </label>
+            <div className="student-hostel-form-row">
+              <label>
+                Emergency Contact
+                <input
+                  value={holidayForm.emergencyContact}
+                  onChange={(e) => setHolidayForm((prev) => ({ ...prev, emergencyContact: e.target.value }))}
+                  placeholder="10-digit number"
+                />
+              </label>
+              <label>
+                Parent Contact
+                <input
+                  value={holidayForm.parentContact}
+                  onChange={(e) => setHolidayForm((prev) => ({ ...prev, parentContact: e.target.value }))}
+                  placeholder="10-digit number"
+                />
+              </label>
+            </div>
 	            <label className="student-hostel-form-reason">
 	              Reason (optional)
 	              <textarea
@@ -492,6 +567,29 @@ const StudentHostel = () => {
               {holidayLoading ? "Submitting…" : "Submit Request"}
             </button>
           </form>
+
+          <div className="student-hostel-list-head">
+            <h4>My Active QR</h4>
+            <span className="student-hostel-chip">
+              {activeQrLoading ? "Loading..." : activeQr?.qrToken ? "Available" : "Not Issued"}
+            </span>
+          </div>
+          {activeQr?.qrToken ? (
+            <div className="student-hostel-request">
+              <div className="student-hostel-request-main">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(activeQr.qrToken)}`}
+                  alt="Outpass QR Code"
+                  style={{ width: 220, height: 220, borderRadius: 12, border: "1px solid #dbe6f5" }}
+                />
+                <p className="student-hostel-request-meta" style={{ marginTop: 10 }}>
+                  Expires: {formatDateTime(activeQr?.expiresAt)}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="student-hostel-muted">QR will appear here after warden approval.</p>
+          )}
 
           <div className="student-hostel-list-head">
             <h4>My Requests</h4>
@@ -512,9 +610,16 @@ const StudentHostel = () => {
                       </span>
                     </div>
                     <div className="student-hostel-request-meta">
-                      {formatDate(item.dateFrom)} → {formatDate(item.dateTo)}
+                      {formatDateTime(item.dateFrom)} → {formatDateTime(item.dateTo)}
                       {item?.room?.roomNumber ? ` • Room ${item.room.roomNumber}` : ""}
                     </div>
+                    {(item.exitTime || item.entryTime) ? (
+                      <div className="student-hostel-request-meta">
+                        {item.exitTime ? `Exit: ${formatDateTime(item.exitTime)}` : "Exit: -"}
+                        {" | "}
+                        {item.entryTime ? `Entry: ${formatDateTime(item.entryTime)}` : "Entry: -"}
+                      </div>
+                    ) : null}
 	                    {item.destination ? (
 	                      <p className="student-hostel-request-reason">
 	                        <strong>Destination:</strong> {item.destination}
@@ -620,3 +725,4 @@ const StudentHostel = () => {
 };
 
 export default StudentHostel;
+
