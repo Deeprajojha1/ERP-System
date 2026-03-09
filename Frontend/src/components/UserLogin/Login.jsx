@@ -426,6 +426,11 @@ const Login = () => {
           <span>Don't have an account?</span>{" "}
           <Link to="/register">Register here</Link>
         </div>
+
+        <div className="parent-login-row">
+          <span>Parent/Guardian?</span>{" "}
+          <Link to="/parent/login">Go to Parent Login</Link>
+        </div>
       </div>
     </div>
   );

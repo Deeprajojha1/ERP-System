@@ -20,6 +20,7 @@ import hostelRoutes from "./Routes/hostelRoutes.js";
 import roomRoutes from "./Routes/roomRoutes.js";
 import hostelAllocationRoutes from "./Routes/hostelAllocationRoutes.js";
 import wardenRoutes from "./Routes/wardenRoutes.js";
+import parentRoutes from "./Routes/parentRoutes.js";
 
 dotenv.config();
 const app = express();
@@ -111,6 +112,7 @@ app.use("/api/hostels", hostelRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/hostel-allocation", hostelAllocationRoutes);
 app.use("/api/warden", wardenRoutes);
+app.use("/api/parent", parentRoutes);
 // Handle malformed JSON payloads from clients.
 app.use((err, req, res, next) => {
   console.error("[Server Error Handler]", err);
