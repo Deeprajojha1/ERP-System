@@ -2,11 +2,28 @@ import mongoose from "mongoose";
 import ExamRegistration from "../models/ExamRegistration.js";
 import Student from "../models/Student.js";
 import Exam from "../models/Exam.js";
+import { uploadImageToCloudinary } from "../config/cloudinaryUpload.js";
 
 const toNumberOrNull = (value) => {
   if (value === undefined || value === null || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toDateOrNull = (value) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+};
+
+const normalizeGender = (value = "") => {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!normalized) return "";
+  if (normalized === "MALE") return "MALE";
+  if (normalized === "FEMALE") return "FEMALE";
+  if (normalized === "TRANSGENDER") return "TRANSGENDER";
+  if (normalized === "OTHER") return "OTHER";
+  return "";
 };
 
 const buildDefaultSubjects = (exam) => {
@@ -22,40 +39,56 @@ const buildDefaultSubjects = (exam) => {
 };
 
 const buildRegistrationPayload = ({ body, student, exam }) => {
-  const semester = toNumberOrNull(body.semester) ?? student.semester ?? exam.semester ?? null;
+  const semester = toNumberOrNull(body.semester) ?? student.semester ?? (exam?.semester ?? null);
 
   return {
     student: student._id,
-    exam: exam._id,
+    exam: exam?._id || null,
     registrationStatus: body.registrationStatus || "SUBMITTED",
     rejectionReason: String(body.rejectionReason || "").trim(),
 
     candidateName: String(body.candidateName || student.user?.name || "").trim(),
+    studentNameHindi: String(body.studentNameHindi || "").trim(),
     rollNo: String(body.rollNo || student.enrollmentNumber || "").trim(),
     enrollmentNumber: String(body.enrollmentNumber || student.enrollmentNumber || "").trim(),
+    formSerialNumber: String(body.formSerialNumber || "").trim(),
     fatherName: String(body.fatherName || student.fatherName || "").trim(),
     motherName: String(body.motherName || "").trim(),
+    studentEmail: String(body.studentEmail || student.user?.email || student.collegeEmail || "").trim().toLowerCase(),
+    mobileNumber: String(body.mobileNumber || student.user?.phoneNumber || "").trim(),
+    gender: normalizeGender(body.gender || student.user?.gender || ""),
+    dateOfBirth: toDateOrNull(body.dateOfBirth || student.user?.DOB),
     fatherPhoneNumber: String(body.fatherPhoneNumber || student.fatherPhoneNumber || "").trim(),
     motherPhoneNumber: String(body.motherPhoneNumber || "").trim(),
     fatherOccupation: String(body.fatherOccupation || "").trim(),
     motherOccupation: String(body.motherOccupation || "").trim(),
 
     aadharNumber: String(body.aadharNumber || student.user?.aadharNumber || "").trim(),
+    academicBankCreditId: String(body.academicBankCreditId || "").trim(),
     apaarId: String(body.apaarId || "").trim(),
     digilockerId: String(body.digilockerId || "").trim(),
+    addressLine: String(body.addressLine || "").trim(),
+    district: String(body.district || "").trim(),
+    pinCode: String(body.pinCode || "").trim(),
 
     tenthMarksPercent: toNumberOrNull(body.tenthMarksPercent),
     twelfthMarksPercent: toNumberOrNull(body.twelfthMarksPercent),
 
-    courseName: String(body.courseName || exam.course?.courseName || "").trim(),
-    branchName: String(body.branchName || exam.course?.branch || exam.program || "").trim(),
+    courseName: String(body.courseName || exam?.course?.courseName || "").trim(),
+    branchName: String(body.branchName || exam?.course?.branch || exam?.program || "").trim(),
     batchLabel: String(body.batchLabel || student.academicYear || "").trim(),
-    academicSession: String(body.academicSession || exam.session || "").trim(),
+    academicSession: String(body.academicSession || exam?.session || "").trim(),
     year: toNumberOrNull(body.year) ?? (semester ? Math.ceil(semester / 2) : null),
     semester,
-    groupName: String(body.groupName || exam.group?.name || student.group?.name || "").trim(),
-    examinationCentre: String(body.examinationCentre || exam.block || "").trim(),
+    groupName: String(body.groupName || exam?.group?.name || student.group?.name || "").trim(),
+    examinationCentre: String(body.examinationCentre || exam?.block || "").trim(),
     photoUrl: String(body.photoUrl || "").trim(),
+    thumbImpressionUrl: String(body.thumbImpressionUrl || "").trim(),
+    studentSignatureUrl: String(body.studentSignatureUrl || "").trim(),
+    declarationAccepted: Boolean(body.declarationAccepted),
+    declarationAcceptedAt: body.declarationAccepted
+      ? toDateOrNull(body.declarationAcceptedAt) || new Date()
+      : null,
 
     subjects: Array.isArray(body.subjects) && body.subjects.length
       ? body.subjects
@@ -65,14 +98,61 @@ const buildRegistrationPayload = ({ body, student, exam }) => {
             subjectName: String(item?.subjectName || "").trim(),
           }))
           .filter((item) => item.subjectCode && item.subjectName)
-      : buildDefaultSubjects(exam),
+      : exam ? buildDefaultSubjects(exam) : [],
   };
 };
 
 const getCurrentStudent = async (userId) => {
   return Student.findOne({ user: userId, isDeleted: { $ne: true } })
-    .populate("user", "name aadharNumber phoneNumber")
+    .populate("user", "name email aadharNumber phoneNumber gender DOB")
     .populate("group", "name");
+};
+
+/* ================= UPLOAD EXAM REGISTRATION IMAGE ================= */
+export const uploadExamRegistrationImage = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    const userId = req.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
+
+    const fieldType = String(req.body.fieldType || "photo").trim();
+    const allowedFields = ["photo", "signature", "thumbImpression"];
+    if (!allowedFields.includes(fieldType)) {
+      return res.status(400).json({ success: false, message: "Invalid field type" });
+    }
+
+    const mime = req.file.mimetype;
+    const base64 = req.file.buffer.toString("base64");
+    const dataUri = `data:${mime};base64,${base64}`;
+
+    const timestamp = Date.now();
+    const publicId = `exam_reg_${fieldType}_${userId}_${timestamp}`;
+
+    const result = await uploadImageToCloudinary({
+      file: dataUri,
+      folder: "hu-erp/exam-registration",
+      publicId,
+    });
+
+    const imageUrl = result?.secure_url || result?.url || result;
+
+    return res.status(200).json({
+      success: true,
+      message: "Image uploaded successfully",
+      imageUrl,
+    });
+  } catch (error) {
+    console.error("uploadExamRegistrationImage error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to upload image",
+    });
+  }
 };
 
 /* ================= APPLY / UPSERT EXAM REGISTRATION ================= */
@@ -81,22 +161,19 @@ export const applyExamRegistration = async (req, res) => {
     const payload = req.body || {};
     const { exam: examId } = payload;
 
-    if (!examId) {
-      return res.status(400).json({ message: "exam is required" });
-    }
-
-    const [student, exam] = await Promise.all([
-      getCurrentStudent(req.userId),
-      Exam.findOne({ _id: examId, isDeleted: { $ne: true } })
-        .populate("course", "code courseName branch")
-        .populate("group", "name"),
-    ]);
-
+    const student = await getCurrentStudent(req.userId);
     if (!student) {
       return res.status(404).json({ message: "Student profile not found" });
     }
-    if (!exam) {
-      return res.status(404).json({ message: "Exam not found" });
+
+    let exam = null;
+    if (examId) {
+      exam = await Exam.findOne({ _id: examId, isDeleted: { $ne: true } })
+        .populate("course", "code courseName branch")
+        .populate("group", "name");
+      if (!exam) {
+        return res.status(404).json({ message: "Exam not found" });
+      }
     }
 
     const registrationPayload = buildRegistrationPayload({
@@ -116,11 +193,11 @@ export const applyExamRegistration = async (req, res) => {
       });
     }
 
-    const existing = await ExamRegistration.findOne({
-      student: student._id,
-      exam: exam._id,
-      isDeleted: { $ne: true },
-    });
+    const findQuery = { student: student._id, isDeleted: { $ne: true } };
+    if (exam) findQuery.exam = exam._id;
+    else findQuery.exam = null;
+
+    const existing = await ExamRegistration.findOne(findQuery);
 
     let registration;
     if (existing) {

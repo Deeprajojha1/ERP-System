@@ -29,8 +29,8 @@ function OutpassDrawer({ outpass, isOpen, onClose, onStatusChange }) {
     if (!outpass) return [];
     const statusProgression = {
       "Pending": ["Approved", "Rejected"],
-      "Approved": ["Exited", "Rejected"],
-      "Exited": ["Returned", "Rejected"],
+      "Approved": [],
+      "Exited": [],
       "Rejected": [],
       "Returned": [],
     };
@@ -324,7 +324,9 @@ function OutpassDrawer({ outpass, isOpen, onClose, onStatusChange }) {
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
                     Update Status
                   </h3>
-                  <p className="mt-1 text-xs text-gray-500">Change outpass status and add remarks</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Approve/Reject only. Exit and Return are captured from QR scan at gate.
+                  </p>
                 </div>
                 {!isEditingStatus && getAvailableStatuses().length > 0 && (
                   <button

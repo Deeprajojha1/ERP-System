@@ -5,6 +5,18 @@ const LAST_REDIRECT_AT_KEY = "lastNetworkRedirectAt";
 const REDIRECT_COOLDOWN_MS = 2500;
 const OFFLINE_REDIRECT_DELAY_MS = 1500;
 let pendingOfflineRedirect = null;
+
+const resolveAxiosBaseUrl = () => {
+  const fromEnv = String(import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/+$/, "");
+  if (fromEnv) {
+    // Keep existing call sites that use "/api/..." by using origin as baseURL.
+    return fromEnv.replace(/\/api$/i, "");
+  }
+
+  // Fallback to same-origin (dev proxy or deployed same-host API).
+  return "";
+};
+
 const getStoredAuthToken = () => {
   if (typeof window === "undefined") return "";
   const token =
@@ -63,8 +75,7 @@ const redirectToNetworkError = () => {
  *    browsers that block third-party / cross-site cookies.
  */
 const axiosInstance = axios.create({
-  // Intentionally omit a cross-origin baseURL in dev so that requests like `/api/...`
-  // hit the Vite dev server and are proxied (avoids CORS + cookie issues).
+  baseURL: resolveAxiosBaseUrl() || undefined,
   withCredentials: true, // still send cookies when the browser allows it
   timeout: 20000,
 });

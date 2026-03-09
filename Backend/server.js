@@ -20,9 +20,9 @@ import hostelRoutes from "./Routes/hostelRoutes.js";
 import roomRoutes from "./Routes/roomRoutes.js";
 import hostelAllocationRoutes from "./Routes/hostelAllocationRoutes.js";
 import wardenRoutes from "./Routes/wardenRoutes.js";
+import parentRoutes from "./Routes/parentRoutes.js";
 
 dotenv.config();
-
 const app = express();
 // CORS configuration
 // NOTE: Origin is only scheme + host (+ optional port), no path.
@@ -46,17 +46,18 @@ const isTrustedVercelOrigin = (origin = "") =>
   /^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin);
 
 console.log("[CORS] Allowed origins:", allowedOrigins);
+const isVerboseCors = String(process.env.CORS_VERBOSE || "").toLowerCase() === "true";
 
 app.use(
   cors({
     origin(origin, callback) {
       // Allow requests with no origin (e.g., curl, mobile apps)
       if (!origin) {
-        console.log("[CORS] Request with no origin allowed");
+        if (isVerboseCors) console.log("[CORS] Request with no origin allowed");
         return callback(null, true);
       }
 
-      console.log("[CORS] Incoming origin:", origin);
+      if (isVerboseCors) console.log("[CORS] Incoming origin:", origin);
 
       const normalized = normalizeOrigin(origin);
       const isAllowed =
@@ -71,7 +72,7 @@ app.use(
         return callback(new Error(msg), false);
       }
 
-      console.log("[CORS] Origin allowed:", origin);
+      if (isVerboseCors) console.log("[CORS] Origin allowed:", origin);
       return callback(null, true);
     },
     credentials: true,
@@ -111,6 +112,7 @@ app.use("/api/hostels", hostelRoutes);
 app.use("/api/rooms", roomRoutes);
 app.use("/api/hostel-allocation", hostelAllocationRoutes);
 app.use("/api/warden", wardenRoutes);
+app.use("/api/parent", parentRoutes);
 // Handle malformed JSON payloads from clients.
 app.use((err, req, res, next) => {
   console.error("[Server Error Handler]", err);

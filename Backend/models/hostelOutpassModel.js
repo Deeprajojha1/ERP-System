@@ -1,7 +1,26 @@
 import mongoose from "mongoose";
 
+const counterSchema = new mongoose.Schema(
+  {
+    _id: { type: String, required: true },
+    seq: { type: Number, default: 0 },
+  },
+  { versionKey: false }
+);
+const Counter = mongoose.models.Counter || mongoose.model("Counter", counterSchema, "counters");
+
 const hostelOutpassSchema = new mongoose.Schema(
   {
+    serialNumber: {
+      type: Number,
+      unique: true,
+      index: true,
+      min: 1,
+    },
+    formDate: {
+      type: Date,
+      default: Date.now,
+    },
     student: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Student",
@@ -50,6 +69,18 @@ const hostelOutpassSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+    outingTime: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 5,
+    },
+    incomingTime: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 5,
+    },
     reason: {
       type: String,
       trim: true,
@@ -67,6 +98,36 @@ const hostelOutpassSchema = new mongoose.Schema(
       trim: true,
       default: "",
       maxlength: 1000,
+    },
+    studentName: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 120,
+    },
+    branchName: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 120,
+    },
+    programName: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 40,
+    },
+    roomNumber: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 20,
+    },
+    approvedByName: {
+      type: String,
+      trim: true,
+      default: "",
+      maxlength: 120,
     },
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
@@ -108,10 +169,58 @@ const hostelOutpassSchema = new mongoose.Schema(
         remarks: { type: String, trim: true, default: "" },
       },
     ],
+    qr: {
+      key: {
+        type: String,
+        trim: true,
+        default: "",
+        select: false,
+      },
+      issuedAt: {
+        type: Date,
+        default: null,
+      },
+      expiresAt: {
+        type: Date,
+        default: null,
+      },
+      scanCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      maxScans: {
+        type: Number,
+        default: 2,
+        min: 1,
+      },
+      active: {
+        type: Boolean,
+        default: false,
+      },
+      lastScannedAt: {
+        type: Date,
+        default: null,
+      },
+      destroyedAt: {
+        type: Date,
+        default: null,
+      },
+    },
   },
   { timestamps: true }
 );
 
 hostelOutpassSchema.index({ student: 1, status: 1, dateFrom: -1 });
+
+hostelOutpassSchema.pre("validate", async function assignSerialNumber() {
+  if (!this.isNew || this.serialNumber) return;
+  const counter = await Counter.findByIdAndUpdate(
+    "hostel_outpass_serial",
+    { $inc: { seq: 1 } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  this.serialNumber = Number(counter?.seq || 1);
+});
 
 export default mongoose.model("HostelOutpass", hostelOutpassSchema);

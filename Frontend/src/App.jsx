@@ -65,6 +65,14 @@ import ExternalJobs from "./Admin/ExternalJobs";
 import ExternalJobApplications from "./Admin/ExternalJobApplications";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
+import ParentLogin from "./components/parent/ParentLogin";
+import ParentDashboard from "./components/parent/ParentDashboard";
+import ParentShell from "./components/parent/ParentShell";
+import ParentDailySubjectAttendance from "./components/parent/ParentDailySubjectAttendance";
+import ParentHostelAttendance from "./components/parent/ParentHostelAttendance";
+import ParentAssignments from "./components/parent/ParentAssignments";
+import ParentExams from "./components/parent/ParentExams";
+import ParentFees from "./components/parent/ParentFees";
 
 const LAST_FAILED_ROUTE_KEY = "lastFailedRoute";
 const OFFLINE_REDIRECT_DELAY_MS = 1500;
@@ -96,6 +104,7 @@ function App() {
       savedRoute.startsWith("/login") ||
       savedRoute.startsWith("/reset-password") ||
       savedRoute.startsWith("/register") ||
+      savedRoute.startsWith("/parent") ||
       savedRoute === "/" ||
       (role === "admin" && savedRoute.startsWith("/admin")) ||
       (role === "faculty" && savedRoute.startsWith("/faculty")) ||
@@ -406,6 +415,16 @@ function App() {
           <Route path="external-jobs" element={<ExternalJobs />} />
           <Route path="external-job-applications" element={<ExternalJobApplications />} />
           <Route path="*" element={<Navigate to="/page-not-found" replace />} />
+        </Route>
+
+        <Route path="/parent/login" element={<ParentLogin />} />
+        <Route path="/parent/dashboard/*" element={<ParentShell />}>
+          <Route index element={<ParentDashboard />} />
+          <Route path="daily-subject-attendance" element={<ParentDailySubjectAttendance />} />
+          <Route path="hostel" element={<ParentHostelAttendance />} />
+          <Route path="assignments" element={<ParentAssignments />} />
+          <Route path="exams" element={<ParentExams />} />
+          <Route path="fees" element={<ParentFees />} />
         </Route>
 
         <Route path="/network-error" element={<NetworkError />} />

@@ -38,6 +38,7 @@ import StudentExternalJobs from "./StudentExternalJobs";
 import LinkedinAnalyzer from "./linkedin/LinkedinAnalyzer";
 import StudentHostel from "./StudentHostel";
 import StudentAdmitCard from "./StudentAdmitCard";
+import StudentExamRegistration from "./StudentExamRegistration";
 import axiosInstance from "../../utils/axiosInstance";
 import toast from "react-hot-toast";
 import {
@@ -181,6 +182,7 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/profile")) return "profile";
     if (path.includes("/dashboard/attendance")) return "attendance";
     if (path.includes("/dashboard/courses")) return "courses";
+    if (path.includes("/dashboard/exam-registration")) return "exam-registration";
     if (path.includes("/dashboard/exams")) return "exams";
     if (path.includes("/dashboard/hostel")) return "hostel";
     if (path.includes("/dashboard/fees")) return "fees";
@@ -210,6 +212,7 @@ const StudentDashboardShell = ({
     { id: "attendance", label: "Attendance", path: "/dashboard/attendance", icon: FiActivity },
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
     { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
+    { id: "exam-registration", label: "Exam Registration", path: "/dashboard/exam-registration", icon: FiFileText },
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
     { id: "admit-card", label: "Admit Card", path: "/dashboard/admit-card", icon: FiFileText },
     { id: "jobs", label: "Jobs", path: "/dashboard/jobs", icon: FiBriefcase },
@@ -826,6 +829,9 @@ const StudentDashboardShell = ({
     }
     if (currentSection === "exams") {
       return <StudentExamCenter onExamFocusModeChange={setIsExamFocusMode} />;
+    }
+    if (currentSection === "exam-registration") {
+      return <StudentExamRegistration />;
     }
     if (currentSection === "fees") {
       return renderFees();

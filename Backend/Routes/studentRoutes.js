@@ -19,7 +19,9 @@ import {
   getMyExamRegistrations,
   getMyExamRegistrationById,
   updateMyExamRegistration,
+  uploadExamRegistrationImage,
 } from "../controllers/studentExamRegistrationController.js";
+import upload from "../config/multerConfig.js";
 import {
   getMyAdmitCards,
   getMyAdmitCardById,
@@ -58,6 +60,7 @@ import { getMyIdCard } from "../controllers/studentIdCardController.js";
 	import {
 	  createMyHostelOutpass,
 	  getMyHostelOutpasses,
+    getMyActiveOutpassQr,
 	} from "../controllers/hostelOutpassController.js";
 import linkedinPdfUpload from "../config/linkedinPdfUpload.js";
 import isAuth from "../middlewares/isAuth.js";
@@ -101,8 +104,10 @@ router.get("/attendance", isAuth, isStudent, getStudentAttendanceSummary);
 	router.get("/hostel/complaints", isAuth, isStudent, getMyHostelComplaints);
 	router.post("/hostel/holiday", isAuth, isStudent, createMyHostelOutpass);
 	router.get("/hostel/holiday", isAuth, isStudent, getMyHostelOutpasses);
+  router.get("/hostel/holiday/active-qr", isAuth, isStudent, getMyActiveOutpassQr);
 
 /* Student Exam Registration */
+router.post("/exam-registration/upload-image", isAuth, isStudent, upload.single("image"), uploadExamRegistrationImage);
 router.post("/exam-registration/apply", isAuth, isStudent, applyExamRegistration);
 router.get("/exam-registration", isAuth, isStudent, getMyExamRegistrations);
 router.get("/exam-registration/:id", isAuth, isStudent, getMyExamRegistrationById);

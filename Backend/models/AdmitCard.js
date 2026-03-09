@@ -11,10 +11,26 @@ const admitCardSubjectSchema = new mongoose.Schema(
 const admitCardSnapshotSchema = new mongoose.Schema(
   {
     candidateName: { type: String, trim: true, required: true },
+    studentNameHindi: { type: String, trim: true, default: "" },
     fatherName: { type: String, trim: true, default: "" },
     motherName: { type: String, trim: true, default: "" },
+    studentEmail: { type: String, trim: true, lowercase: true, default: "" },
+    mobileNumber: { type: String, trim: true, default: "" },
+    gender: {
+      type: String,
+      enum: ["MALE", "FEMALE", "TRANSGENDER", "OTHER", ""],
+      default: "",
+    },
+    dateOfBirth: { type: Date, default: null },
+    formSerialNumber: { type: String, trim: true, default: "" },
     rollNo: { type: String, trim: true, required: true },
     enrollmentNumber: { type: String, trim: true, required: true },
+    academicBankCreditId: { type: String, trim: true, default: "" },
+    aadharNumber: { type: String, trim: true, default: "" },
+    digilockerId: { type: String, trim: true, default: "" },
+    addressLine: { type: String, trim: true, default: "" },
+    district: { type: String, trim: true, default: "" },
+    pinCode: { type: String, trim: true, default: "" },
     courseName: { type: String, trim: true, default: "" },
     branchName: { type: String, trim: true, default: "" },
     batchLabel: { type: String, trim: true, default: "" },
@@ -24,6 +40,10 @@ const admitCardSnapshotSchema = new mongoose.Schema(
     examinationCentre: { type: String, trim: true, default: "" },
     examSession: { type: String, trim: true, default: "" },
     photoUrl: { type: String, trim: true, default: "" },
+    thumbImpressionUrl: { type: String, trim: true, default: "" },
+    studentSignatureUrl: { type: String, trim: true, default: "" },
+    declarationAccepted: { type: Boolean, default: false },
+    declarationAcceptedAt: { type: Date, default: null },
     subjects: { type: [admitCardSubjectSchema], default: [] },
   },
   { _id: false }
@@ -44,7 +64,7 @@ const admitCardSchema = new mongoose.Schema(
     exam: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Exam",
-      required: true,
+      default: null,
     },
 
     admitCardNo: {
@@ -147,6 +167,5 @@ admitCardSchema.index(
   }
 );
 admitCardSchema.index({ student: 1, exam: 1, issueStatus: 1, isDeleted: 1 });
-admitCardSchema.index({ admitCardNo: 1 }, { unique: true });
 
 export default mongoose.model("AdmitCard", admitCardSchema);
