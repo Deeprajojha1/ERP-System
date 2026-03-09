@@ -7,6 +7,7 @@ import {
   FiEdit2,
   FiFileText,
   FiPrinter,
+  FiRefreshCw,
   FiSearch,
   FiTrash2,
 } from "react-icons/fi";
@@ -120,6 +121,8 @@ const Exam = () => {
   });
   const [selectedAdmitCard, setSelectedAdmitCard] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [refreshingRegistrations, setRefreshingRegistrations] = useState(false);
+  const [refreshingAdmitCards, setRefreshingAdmitCards] = useState(false);
 
   const [formData, setFormData] = useState({
     examName: "",
@@ -618,7 +621,15 @@ const Exam = () => {
   };
 
   const refreshRegistrationAndAdmit = useCallback(async () => {
-    await Promise.all([fetchExamRegistrations(), fetchAdmitCards()]);
+    setRefreshingRegistrations(true);
+    try {
+      await Promise.all([fetchExamRegistrations(), fetchAdmitCards()]);
+      toast.success("Data refreshed");
+    } catch {
+      toast.error("Failed to refresh data");
+    } finally {
+      setRefreshingRegistrations(false);
+    }
   }, [fetchExamRegistrations, fetchAdmitCards]);
 
   const withRegistrationAction = async (registration, action, runner) => {
@@ -748,7 +759,15 @@ const Exam = () => {
   };
 
   const refreshAdmitCardsOnly = useCallback(async () => {
-    await fetchAdmitCards();
+    setRefreshingAdmitCards(true);
+    try {
+      await fetchAdmitCards();
+      toast.success("Admit cards refreshed");
+    } catch {
+      toast.error("Failed to refresh admit cards");
+    } finally {
+      setRefreshingAdmitCards(false);
+    }
   }, [fetchAdmitCards]);
 
   const withAdmitCardAction = async (card, action, runner) => {
@@ -1703,9 +1722,13 @@ const Exam = () => {
                   className="exam-download-all-btn admin-btn-with-loader exam-admit-refresh-btn"
                   type="button"
                   onClick={refreshRegistrationAndAdmit}
-                  disabled={admitCardsLoadState === ADMIN_LOAD_STATES.PENDING}
+                  disabled={refreshingRegistrations}
                 >
-                  Refresh
+                  {refreshingRegistrations ? (
+                    <ClipLoader size={15} color="#1d4ed8" trackColor="rgba(29, 78, 216, 0.25)" />
+                  ) : (
+                    <><FiRefreshCw size={14} /> Refresh</>
+                  )}
                 </button>
               </div>
               <div className="exam-table-wrap">
@@ -1847,16 +1870,12 @@ const Exam = () => {
                     className="exam-download-all-btn admin-btn-with-loader exam-admit-refresh-btn"
                     type="button"
                     onClick={refreshAdmitCardsOnly}
-                    disabled={admitCardsLoadState === ADMIN_LOAD_STATES.PENDING}
+                    disabled={refreshingAdmitCards}
                   >
-                    {admitCardsLoadState === ADMIN_LOAD_STATES.PENDING ? (
-                      <ClipLoader
-                        size={15}
-                        color="#1d4ed8"
-                        trackColor="rgba(29, 78, 216, 0.25)"
-                      />
+                    {refreshingAdmitCards ? (
+                      <ClipLoader size={15} color="#1d4ed8" trackColor="rgba(29, 78, 216, 0.25)" />
                     ) : (
-                      "Refresh"
+                      <><FiRefreshCw size={14} /> Refresh</>
                     )}
                   </button>
                 </div>
