@@ -131,7 +131,12 @@ import {
   hardDeleteLibrarian,
 } from "../controllers/librarianController.js";
 import { addWarden, deleteWarden } from "../controllers/wardenController.js";
-import { changePassword, createAdminUser } from "../controllers/userController.js";
+import {
+  backfillAdminPermissionMetadata,
+  changePassword,
+  createAdminUser,
+  updateUserPermissionConfig,
+} from "../controllers/userController.js";
 import { getTeachingLoad } from "../controllers/teachingLoadController.js";
 
 import {
@@ -253,6 +258,14 @@ const canSettingsProfile = hasModuleAccess("module.settings.profile");
 router.post("/profile", isAdmin, canSettings, canSettingsProfile, getAdminProfile);
 router.post("/change-password", isAdmin, canSettings, canSettingsSecurity, changePassword);
 router.post("/user", isAdmin, canSettings, canSettingsAdmin, createAdminUser);
+router.post("/user/:id/permissions", isAdmin, canSettings, canSettingsAdmin, updateUserPermissionConfig);
+router.post(
+  "/user/backfill-permissions",
+  isAdmin,
+  canSettings,
+  canSettingsAdmin,
+  backfillAdminPermissionMetadata
+);
 router.post("/profile/upload-image", isAdmin, canSettings, canSettingsProfile, (req, res, next) => {
   console.log("[Admin Route] Upload request received");
   upload.single("profileImage")(req, res, (err) => {
