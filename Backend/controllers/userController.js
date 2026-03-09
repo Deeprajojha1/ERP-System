@@ -628,6 +628,8 @@ export const createAdminUser = async (req, res) => {
     const selectedRoles = Array.isArray(permissionRoles)
       ? [...new Set(permissionRoles.map((role) => String(role || "").trim().toLowerCase()))]
       : [];
+    const assignableRoles = new Set(["hod", "accounts", "exam", "placement"]);
+    const validSelectedRoles = selectedRoles.filter((role) => assignableRoles.has(role));
 
     if (!safeFirstName || !safeLastName || !normalizedEmail || !safePassword) {
       return res.status(400).json({
@@ -645,13 +647,14 @@ export const createAdminUser = async (req, res) => {
       });
     }
 
-    if (!selectedRoles.length) {
+    if (!validSelectedRoles.length) {
       return res.status(400).json({
         message: "Select at least one permission role.",
       });
     }
 
-    const permissions = getPermissionsFromPermissionRoles(selectedRoles);
+    const primaryRole = validSelectedRoles[0];
+    const permissions = getPermissionsFromPermissionRoles(validSelectedRoles);
     if (!permissions.length) {
       return res.status(400).json({
         message: "Selected permission roles are invalid.",
@@ -668,9 +671,9 @@ export const createAdminUser = async (req, res) => {
       name: `${safeFirstName} ${safeLastName}`.trim(),
       email: normalizedEmail,
       passwordHash,
-      role: "admin",
+      role: primaryRole,
       status: "active",
-      permissionRoles: selectedRoles,
+      permissionRoles: validSelectedRoles,
       permissions,
     });
 

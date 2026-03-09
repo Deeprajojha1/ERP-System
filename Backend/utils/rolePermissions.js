@@ -68,21 +68,11 @@ const ROLE_PERMISSIONS = {
     "portal.admin",
     "module.dashboard",
     "module.students",
-    "module.students_write",
-    "module.student_discipline",
-    "module.student_id_cards",
-    "module.courses",
-    "module.groups",
-    "module.classrooms",
-    "module.assignment",
     "module.timetable",
     "module.exams",
     "module.exam_blueprint",
     "module.results",
-    "module.attendance",
     "module.alerts",
-    "module.general_reports",
-    "module.student_attendance",
     "module.settings",
     "module.settings.profile",
     "module.settings.security",
@@ -97,80 +87,21 @@ const ROLE_PERMISSIONS = {
     "module.settings.profile",
     "module.settings.security",
   ],
-  director: [
-    "portal.admin",
-    "module.dashboard",
-    "module.department",
-    "module.faculty",
-    "module.students",
-    "module.students_write",
-    "module.student_discipline",
-    "module.student_id_cards",
-    "module.courses",
-    "module.groups",
-    "module.classrooms",
-    "module.assignment",
-    "module.timetable",
-    "module.exams",
-    "module.exam_blueprint",
-    "module.results",
-    "module.attendance",
-    "module.leaves",
-    "module.hostel",
-    "module.fees",
-    "module.alerts",
-    "module.general_reports",
-    "module.faculty_lecture_report",
-    "module.student_attendance",
-    "module.teaching_load",
-    "module.placement_jobs",
-    "module.placement_applications",
-    "module.warden_support",
-    "module.library",
-    "module.settings",
-    "module.settings.profile",
-    "module.settings.security",
-  ],
-  vc: [
-    "portal.admin",
-    "module.dashboard",
-    "module.department",
-    "module.faculty",
-    "module.students",
-    "module.students_write",
-    "module.student_discipline",
-    "module.student_id_cards",
-    "module.courses",
-    "module.groups",
-    "module.classrooms",
-    "module.assignment",
-    "module.timetable",
-    "module.exams",
-    "module.exam_blueprint",
-    "module.results",
-    "module.attendance",
-    "module.leaves",
-    "module.hostel",
-    "module.fees",
-    "module.alerts",
-    "module.general_reports",
-    "module.faculty_lecture_report",
-    "module.student_attendance",
-    "module.teaching_load",
-    "module.placement_jobs",
-    "module.placement_applications",
-    "module.warden_support",
-    "module.library",
-    "module.settings",
-    "module.settings.profile",
-    "module.settings.security",
-  ],
+  director: ["*"],
+  vc: ["*"],
   faculty: [],
   student: [],
   warden: [],
   librarian: [],
   parent: [],
 };
+
+const CUSTOM_PERMISSION_ROLES = new Set([
+  "accounts",
+  "hod",
+  "exam",
+  "placement",
+]);
 
 const PERMISSION_ROLE_ALIASES = {
   exam_department: "exam",
@@ -233,15 +164,17 @@ export const getPermissionsFromPermissionRoles = (permissionRoles = []) => {
 };
 
 export const resolvePermissionsForUser = (user = {}) => {
+  const normalizedRole = normalizePermissionRole(user?.role);
+
   const explicitPermissions = Array.isArray(user?.permissions)
     ? user.permissions
         .map((permission) => normalizePermissionKey(permission))
         .filter(Boolean)
     : [];
 
-  if (explicitPermissions.length) {
+  if (CUSTOM_PERMISSION_ROLES.has(normalizedRole) && explicitPermissions.length) {
     return [...new Set(explicitPermissions)];
   }
 
-  return getPermissionsByRole(user?.role);
+  return getPermissionsByRole(normalizedRole);
 };

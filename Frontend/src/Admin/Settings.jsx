@@ -362,8 +362,8 @@ const Settings = () => {
   const toggleAdminPermissionRole = (roleId) => {
     setAdminForm((prev) => {
       const nextRoles = prev.permissionRoles.includes(roleId)
-        ? prev.permissionRoles.filter((role) => role !== roleId)
-        : [...prev.permissionRoles, roleId];
+        ? []
+        : [roleId];
       return { ...prev, permissionRoles: nextRoles };
     });
     if (adminError) setAdminError("");

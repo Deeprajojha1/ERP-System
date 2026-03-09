@@ -285,8 +285,8 @@ router.delete("/department/:id", isAdmin, canDepartment, hardDeleteDepartment);
 /* =========================
    FACULTY
 ========================= */
-router.get("/faculty", isAdmin, canFaculty, getAllFaculty);
-router.get("/faculty/:id", isAdmin, canFaculty, getFacultyById);
+router.get("/faculty", isAdmin, hasModuleAccess("module.faculty", ["exam"]), getAllFaculty);
+router.get("/faculty/:id", isAdmin, hasModuleAccess("module.faculty", ["exam"]), getFacultyById);
 router.post("/faculty", isAdmin, canFaculty, addFaculty);
 router.put("/faculty/:id", isAdmin, canFaculty, updateFaculty);
 router.patch("/faculty/:id/delete", isAdmin, canFaculty, deleteFaculty);
@@ -316,8 +316,8 @@ router.post("/student/id-card/bulk", isAdmin, canStudentIdCards, bulkDownloadStu
 /* =========================
    COURSES
 ========================= */
-router.get("/course", isAdmin, canCourses, getAllCourses);
-router.get("/course/:id", isAdmin, canCourses, getCourseById);
+router.get("/course", isAdmin, hasModuleAccess("module.courses", ["exam"]), getAllCourses);
+router.get("/course/:id", isAdmin, hasModuleAccess("module.courses", ["exam"]), getCourseById);
 router.post("/course", isAdmin, canCourses, addCourse);
 router.put("/course/:id", isAdmin, canCourses, updateCourse);
 router.patch("/course/:id/delete", isAdmin, canCourses, deleteCourse);
@@ -326,8 +326,8 @@ router.delete("/course/:id", isAdmin, canCourses, hardDeleteCourse);
 /* =========================
    GROUPS
 ========================= */
-router.get("/group", isAdmin, canGroups, getAllGroups);
-router.get("/group/:id", isAdmin, canGroups, getGroupById);
+router.get("/group", isAdmin, hasModuleAccess("module.groups", ["exam"]), getAllGroups);
+router.get("/group/:id", isAdmin, hasModuleAccess("module.groups", ["exam"]), getGroupById);
 router.post("/group", isAdmin, canGroups, addGroup);
 router.put("/group/:id", isAdmin, canGroups, updateGroup);
 router.patch("/group/:id/delete", isAdmin, canGroups, deleteGroup);
