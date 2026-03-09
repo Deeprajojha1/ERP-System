@@ -750,7 +750,7 @@
   margin: 6px 0 0;
   color: #4c6184;
   font-size: 0.78rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -761,7 +761,7 @@
   color: #0f2d5c;
   font-size: clamp(1.05rem, 2.1vw, 1.54rem);
   line-height: 1.18;
-  font-weight: 800;
+  font-weight: 600;
 }
 
 .student-summary-card:hover {

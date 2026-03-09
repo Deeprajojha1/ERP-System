@@ -37,6 +37,7 @@ import {
   getMyFeeProfile,
   getMyFeeDemands,
   getMyPaymentHistory,
+  getMyFeeDemandRequests,
   createMyFeeDemandRequest,
   createMyPayment,
   createMyRazorpayOrder,
@@ -125,6 +126,7 @@ router.get("/attempt/:attemptId/result", isAuth, isStudent, getMyExamResult);
 router.get("/fee/me/profile", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeProfile);
 router.get("/fee/me/demand", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeDemands);
 router.get("/fee/me/payment", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyPaymentHistory);
+router.get("/fee/me/demand-request", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeDemandRequests);
 router.post("/fee/me/demand-request", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyFeeDemandRequest);
 router.post("/fee/me/payment/razorpay/order", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyRazorpayOrder);
 router.post("/fee/me/payment/razorpay/verify", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, verifyMyRazorpayPayment);

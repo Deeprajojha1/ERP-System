@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axios from "../utils/axiosInstance";
 
-// Async thunks
+// ─── Exam Thunks ───
 export const fetchExams = createAsyncThunk(
   "exam/fetchExams",
   async ({ apiBase }, { rejectWithValue }) => {
@@ -84,6 +84,128 @@ export const deleteExam = createAsyncThunk(
   }
 );
 
+// ─── Exam Registration Thunks ───
+export const fetchExamRegistrations = createAsyncThunk(
+  "exam/fetchExamRegistrations",
+  async ({ apiBase, query = {} }, { rejectWithValue }) => {
+    try {
+      const res = await axios.get(`${apiBase}/admin/exam-registration`, {
+        withCredentials: true,
+        params: query,
+      });
+      return res.data?.registrations || [];
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch registrations");
+    }
+  }
+);
+
+export const updateExamRegistration = createAsyncThunk(
+  "exam/updateExamRegistration",
+  async ({ apiBase, id, payload }, { rejectWithValue }) => {
+    try {
+      const res = await axios.put(`${apiBase}/admin/exam-registration/${id}`, payload, {
+        withCredentials: true,
+      });
+      return { id, data: res.data?.registration || res.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to update registration");
+    }
+  }
+);
+
+export const deleteExamRegistration = createAsyncThunk(
+  "exam/deleteExamRegistration",
+  async ({ apiBase, id }, { rejectWithValue }) => {
+    try {
+      await axios.delete(`${apiBase}/admin/exam-registration/${id}`, {
+        withCredentials: true,
+      });
+      return id;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to delete registration");
+    }
+  }
+);
+
+// ─── Admit Card Thunks ───
+export const fetchAdmitCards = createAsyncThunk(
+  "exam/fetchAdmitCards",
+  async ({ apiBase, query = {} }, { rejectWithValue }) => {
+    try {
+      const res = await axios.get(`${apiBase}/admin/admit-card`, {
+        withCredentials: true,
+        params: query,
+      });
+      return res.data?.admitCards || [];
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to fetch admit cards");
+    }
+  }
+);
+
+export const issueAdmitCard = createAsyncThunk(
+  "exam/issueAdmitCard",
+  async ({ apiBase, registrationId, payload = {} }, { rejectWithValue }) => {
+    try {
+      const res = await axios.post(
+        `${apiBase}/admin/admit-card/${registrationId}/issue`,
+        payload,
+        { withCredentials: true }
+      );
+      return res.data?.admitCard || res.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to issue admit card");
+    }
+  }
+);
+
+export const holdAdmitCard = createAsyncThunk(
+  "exam/holdAdmitCard",
+  async ({ apiBase, id, holdReason = "" }, { rejectWithValue }) => {
+    try {
+      const res = await axios.patch(
+        `${apiBase}/admin/admit-card/${id}/hold`,
+        { holdReason },
+        { withCredentials: true }
+      );
+      return { id, data: res.data?.admitCard || res.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to hold admit card");
+    }
+  }
+);
+
+export const cancelAdmitCard = createAsyncThunk(
+  "exam/cancelAdmitCard",
+  async ({ apiBase, id }, { rejectWithValue }) => {
+    try {
+      const res = await axios.patch(
+        `${apiBase}/admin/admit-card/${id}/cancel`,
+        {},
+        { withCredentials: true }
+      );
+      return { id, data: res.data?.admitCard || res.data };
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to cancel admit card");
+    }
+  }
+);
+
+export const deleteAdmitCard = createAsyncThunk(
+  "exam/deleteAdmitCard",
+  async ({ apiBase, id }, { rejectWithValue }) => {
+    try {
+      await axios.delete(`${apiBase}/admin/admit-card/${id}`, {
+        withCredentials: true,
+      });
+      return id;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || "Failed to delete admit card");
+    }
+  }
+);
+
 const examSlice = createSlice({
   name: "exam",
   initialState: {
@@ -97,6 +219,14 @@ const examSlice = createSlice({
     updateLoading: false,
     deleteLoading: false,
     error: null,
+    // Exam registrations
+    registrations: [],
+    registrationsLoading: false,
+    registrationActionLoading: false,
+    // Admit cards
+    admitCards: [],
+    admitCardsLoading: false,
+    admitCardActionLoading: false,
   },
   reducers: {
     clearError: (state) => {
@@ -196,6 +326,112 @@ const examSlice = createSlice({
       .addCase(deleteExam.rejected, (state, action) => {
         state.deleteLoading = false;
         state.error = action.payload;
+      })
+      // ─── Exam Registrations ───
+      .addCase(fetchExamRegistrations.pending, (state) => {
+        state.registrationsLoading = true;
+      })
+      .addCase(fetchExamRegistrations.fulfilled, (state, action) => {
+        state.registrationsLoading = false;
+        state.registrations = action.payload;
+      })
+      .addCase(fetchExamRegistrations.rejected, (state, action) => {
+        state.registrationsLoading = false;
+        state.error = action.payload;
+      })
+      .addCase(updateExamRegistration.pending, (state) => {
+        state.registrationActionLoading = true;
+      })
+      .addCase(updateExamRegistration.fulfilled, (state, action) => {
+        state.registrationActionLoading = false;
+        const idx = state.registrations.findIndex((r) => r._id === action.payload.id);
+        if (idx !== -1 && action.payload.data) {
+          state.registrations[idx] = { ...state.registrations[idx], ...action.payload.data };
+        }
+      })
+      .addCase(updateExamRegistration.rejected, (state, action) => {
+        state.registrationActionLoading = false;
+        state.error = action.payload;
+      })
+      .addCase(deleteExamRegistration.pending, (state) => {
+        state.registrationActionLoading = true;
+      })
+      .addCase(deleteExamRegistration.fulfilled, (state, action) => {
+        state.registrationActionLoading = false;
+        state.registrations = state.registrations.filter((r) => r._id !== action.payload);
+      })
+      .addCase(deleteExamRegistration.rejected, (state, action) => {
+        state.registrationActionLoading = false;
+        state.error = action.payload;
+      })
+      // ─── Admit Cards ───
+      .addCase(fetchAdmitCards.pending, (state) => {
+        state.admitCardsLoading = true;
+      })
+      .addCase(fetchAdmitCards.fulfilled, (state, action) => {
+        state.admitCardsLoading = false;
+        state.admitCards = action.payload;
+      })
+      .addCase(fetchAdmitCards.rejected, (state, action) => {
+        state.admitCardsLoading = false;
+        state.error = action.payload;
+      })
+      .addCase(issueAdmitCard.pending, (state) => {
+        state.admitCardActionLoading = true;
+      })
+      .addCase(issueAdmitCard.fulfilled, (state, action) => {
+        state.admitCardActionLoading = false;
+        if (action.payload) {
+          const idx = state.admitCards.findIndex((c) => c._id === action.payload._id);
+          if (idx !== -1) {
+            state.admitCards[idx] = action.payload;
+          } else {
+            state.admitCards.unshift(action.payload);
+          }
+        }
+      })
+      .addCase(issueAdmitCard.rejected, (state, action) => {
+        state.admitCardActionLoading = false;
+        state.error = action.payload;
+      })
+      .addCase(holdAdmitCard.pending, (state) => {
+        state.admitCardActionLoading = true;
+      })
+      .addCase(holdAdmitCard.fulfilled, (state, action) => {
+        state.admitCardActionLoading = false;
+        const idx = state.admitCards.findIndex((c) => c._id === action.payload.id);
+        if (idx !== -1 && action.payload.data) {
+          state.admitCards[idx] = { ...state.admitCards[idx], ...action.payload.data };
+        }
+      })
+      .addCase(holdAdmitCard.rejected, (state, action) => {
+        state.admitCardActionLoading = false;
+        state.error = action.payload;
+      })
+      .addCase(cancelAdmitCard.pending, (state) => {
+        state.admitCardActionLoading = true;
+      })
+      .addCase(cancelAdmitCard.fulfilled, (state, action) => {
+        state.admitCardActionLoading = false;
+        const idx = state.admitCards.findIndex((c) => c._id === action.payload.id);
+        if (idx !== -1 && action.payload.data) {
+          state.admitCards[idx] = { ...state.admitCards[idx], ...action.payload.data };
+        }
+      })
+      .addCase(cancelAdmitCard.rejected, (state, action) => {
+        state.admitCardActionLoading = false;
+        state.error = action.payload;
+      })
+      .addCase(deleteAdmitCard.pending, (state) => {
+        state.admitCardActionLoading = true;
+      })
+      .addCase(deleteAdmitCard.fulfilled, (state, action) => {
+        state.admitCardActionLoading = false;
+        state.admitCards = state.admitCards.filter((c) => c._id !== action.payload);
+      })
+      .addCase(deleteAdmitCard.rejected, (state, action) => {
+        state.admitCardActionLoading = false;
+        state.error = action.payload;
       });
   },
 });
@@ -219,5 +455,13 @@ export const selectCreateLoading = (state) => state.exam?.createLoading ?? false
 export const selectUpdateLoading = (state) => state.exam?.updateLoading ?? false;
 export const selectDeleteLoading = (state) => state.exam?.deleteLoading ?? false;
 export const selectExamError = (state) => state.exam?.error ?? null;
+// Registration selectors
+export const selectExamRegistrations = (state) => state.exam?.registrations ?? [];
+export const selectRegistrationsLoading = (state) => state.exam?.registrationsLoading ?? false;
+export const selectRegistrationActionLoading = (state) => state.exam?.registrationActionLoading ?? false;
+// Admit card selectors
+export const selectAdmitCards = (state) => state.exam?.admitCards ?? [];
+export const selectAdmitCardsLoading = (state) => state.exam?.admitCardsLoading ?? false;
+export const selectAdmitCardActionLoading = (state) => state.exam?.admitCardActionLoading ?? false;
 
 export default examSlice.reducer;

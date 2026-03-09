@@ -533,6 +533,99 @@
   align-items: flex-start;
 }
 
+/* Action button variants for registration & admit card sections */
+.exam-action-verify {
+  background: #dcfce7;
+  color: #15803d;
+}
+.exam-action-verify:hover:not(:disabled) {
+  background: #bbf7d0;
+}
+
+.exam-action-reject {
+  background: #fee2e2;
+  color: #dc2626;
+}
+.exam-action-reject:hover:not(:disabled) {
+  background: #fecaca;
+}
+
+.exam-action-issue {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.exam-action-issue:hover:not(:disabled) {
+  background: #bfdbfe;
+}
+
+.exam-action-hold {
+  background: #fef3c7;
+  color: #d97706;
+}
+.exam-action-hold:hover:not(:disabled) {
+  background: #fde68a;
+}
+
+.exam-action-delete {
+  background: #fef2f2;
+  color: #ef4444;
+}
+.exam-action-delete:hover:not(:disabled) {
+  background: #fecaca;
+}
+
+/* Status badges */
+.exam-status-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.exam-status-submitted {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.exam-status-verified {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.exam-status-rejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.exam-status-draft {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.exam-status-issued {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.exam-status-pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.exam-status-hold {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.exam-status-cancelled {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
 .exam-empty {
   text-align: center;
   padding: 20px;

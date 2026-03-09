@@ -1031,11 +1031,16 @@ export const approveFeeDemandRequest = async (req, res) => {
       const profile = await ensureStudentFeeProfileForEnrollment(safeStudentId);
       if (!profile) throw new Error("PROFILE_NOT_FOUND");
 
-      const branch = await Branch.findById(profile.branchId).select("semesterBaseFees");
+      const branch = await Branch.findById(profile.branchId).select("semesterBaseFees branchName");
+      if (!branch) throw new Error("BRANCH_NOT_FOUND");
       const semesterRow = (Array.isArray(branch?.semesterBaseFees) ? branch.semesterBaseFees : []).find(
         (row) => Number(row?.semesterNo) === Number(request.semesterNo)
       );
-      if (!semesterRow) throw new Error("SEMESTER_FEE_NOT_CONFIGURED");
+      if (!semesterRow) {
+        const err = new Error("SEMESTER_FEE_NOT_CONFIGURED");
+        err.details = { branchName: branch.branchName || "Unknown", semesterNo: request.semesterNo };
+        throw err;
+      }
 
       const grossSemesterFee = round2(Number(semesterRow.baseFee || 0));
       const courseGross = round2(
@@ -1095,8 +1100,13 @@ export const approveFeeDemandRequest = async (req, res) => {
     return res.status(200).json({ message: "Demand request approved and demand generated", data: request });
   } catch (error) {
     if (error.message === "PROFILE_NOT_FOUND") return res.status(404).json({ message: "Student fee profile not found" });
+    if (error.message === "BRANCH_NOT_FOUND") {
+      return res.status(400).json({ message: "Fee branch linked to student profile no longer exists. Please update the student fee profile." });
+    }
     if (error.message === "SEMESTER_FEE_NOT_CONFIGURED") {
-      return res.status(400).json({ message: "Semester base fee is not configured for selected student profile" });
+      const branchName = error.details?.branchName || "Unknown";
+      const semNo = error.details?.semesterNo || "?";
+      return res.status(400).json({ message: `Semester ${semNo} base fee is not configured for branch "${branchName}". Please configure semester fees in Fee Management before approving.` });
     }
     if (error?.code === 11000) return res.status(409).json({ message: "Demand already exists for this student/semester/year" });
     return res.status(500).json({ message: sanitizeError(error) });
@@ -1530,6 +1540,33 @@ export const createMyPayment = async (req, res) => {
   }
 };
 
+export const getMyFeeDemandRequests = async (req, res) => {
+  try {
+    const current = await getCurrentStudentFeeProfile(req.userId);
+    if (!current || !current.profile) {
+      return res.status(404).json({ message: "Student fee profile not found" });
+    }
+
+    const { status } = req.query || {};
+    const query = { studentMongoId: current.profile._id };
+    if (status) query.status = String(status).toUpperCase();
+
+    const rawLimit = Number(req.query?.limit || 100);
+    const limit = Number.isFinite(rawLimit)
+      ? Math.max(1, Math.min(200, Math.floor(rawLimit)))
+      : 100;
+
+    const rows = await FeeDemandRequest.find(query)
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate("linkedDemandId", "academicYear semesterNo totalAmount dueAmount status");
+
+    return res.status(200).json({ message: "My demand requests retrieved", data: rows });
+  } catch (error) {
+    return res.status(500).json({ message: sanitizeError(error) });
+  }
+};
+
 export const createMyFeeDemandRequest = async (req, res) => {
   try {
     const current = await getCurrentStudentFeeProfile(req.userId);
@@ -1547,6 +1584,18 @@ export const createMyFeeDemandRequest = async (req, res) => {
     if (Number.isNaN(semester) || semester < 1 || semester > 20) {
       return res.status(400).json({ message: "Invalid semesterNo" });
     }
+
+    const branch = await Branch.findById(current.profile.branchId).select("semesterBaseFees");
+    if (!branch) {
+      return res.status(400).json({ message: "Fee branch is not configured for your profile. Please contact administration." });
+    }
+    const semesterRow = (Array.isArray(branch.semesterBaseFees) ? branch.semesterBaseFees : []).find(
+      (row) => Number(row?.semesterNo) === Number(semester)
+    );
+    if (!semesterRow) {
+      return res.status(400).json({ message: `Semester ${semester} base fee is not configured for your branch. Please contact administration.` });
+    }
+
     const dueDateObj = dueDate ? new Date(dueDate) : null;
     if (dueDate && Number.isNaN(dueDateObj.getTime())) {
       return res.status(400).json({ message: "Invalid dueDate" });

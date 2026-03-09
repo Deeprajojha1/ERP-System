@@ -25,7 +25,6 @@ import {
   FiClock,
   FiTrendingUp,
   FiCreditCard,
-  FiCalendar,
   FiBriefcase,
   FiLifeBuoy,
 } from "react-icons/fi";
@@ -78,11 +77,6 @@ const FEE_MENU_SECTIONS = [
         paths: ["/admin/fees/payment-methods"],
         Icon: FiCreditCard,
       },
-      {
-        label: "Academic Calendar",
-        paths: ["/admin/fees/academic-calendar"],
-        Icon: FiCalendar,
-      },
     ],
   },
   {
@@ -106,12 +100,6 @@ const FEE_MENU_SECTIONS = [
         matchChildren: false,
         Icon: FiFileText,
       },
-      {
-        label: "Bulk Operations",
-        paths: ["/admin/fees/bulk"],
-        matchChildren: false,
-        Icon: LuBadgeIndianRupee,
-      },
     ],
   },
   {
@@ -126,11 +114,6 @@ const FEE_MENU_SECTIONS = [
         label: "Financial Analytics",
         paths: ["/admin/fees/financial"],
         Icon: FiClock,
-      },
-      {
-        label: "Student Analytics",
-        paths: ["/admin/fees/student-analytics"],
-        Icon: FiTrendingUp,
       },
     ],
   },
