@@ -167,6 +167,5 @@ admitCardSchema.index(
   }
 );
 admitCardSchema.index({ student: 1, exam: 1, issueStatus: 1, isDeleted: 1 });
-admitCardSchema.index({ admitCardNo: 1 }, { unique: true });
 
 export default mongoose.model("AdmitCard", admitCardSchema);
