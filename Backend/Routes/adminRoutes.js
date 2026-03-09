@@ -171,6 +171,28 @@ import {
   updatePaymentStatus,
   getPaymentHistory,
   handleRazorpayWebhook,
+  getFeeBulkTemplate,
+  uploadFeeBulkFile,
+  getFeeBulkJobs,
+  getFeeBulkJobById,
+  retryFeeBulkJob,
+  createFeeReportExport,
+  getFeeReportExports,
+  getFeeReportExportById,
+  downloadFeeReportExport,
+  shareFeeReportExport,
+  getFinancialSummary,
+  getFinancialProgramBreakup,
+  getFinancialCashflow,
+  getStudentAnalyticsOverview,
+  getStudentStatusDistribution,
+  getStudentSegments,
+  getStudentAnalyticsList,
+  createFeeCalendarEvent,
+  getFeeCalendarEvents,
+  updateFeeCalendarEvent,
+  deleteFeeCalendarEvent,
+  signFeePaymentRequest,
 } from "../controllers/feeController.js";
 
 
@@ -418,6 +440,44 @@ router.get("/fee/demand", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeDeman
 router.post("/fee/payment", isAdmin, feeSecurityHeaders, feeRateLimit, verifyGatewaySignature, createPayment);
 router.patch("/fee/payment/:paymentId/status", isAdmin, feeSecurityHeaders, feeRateLimit, updatePaymentStatus);
 router.get("/fee/payment", isAdmin, feeSecurityHeaders, feeRateLimit, getPaymentHistory);
+router.post("/fee/payment/sign", isAdmin, feeSecurityHeaders, feeRateLimit, signFeePaymentRequest);
 router.post("/fee/razorpay/webhook", feeSecurityHeaders, handleRazorpayWebhook);
+
+/* =========================
+   FEES - BULK OPS (ADMIN)
+========================= */
+router.get("/fee/bulk/template", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeBulkTemplate);
+router.post("/fee/bulk/upload", isAdmin, feeSecurityHeaders, feeRateLimit, uploadFeeBulkFile);
+router.get("/fee/bulk/jobs", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeBulkJobs);
+router.get("/fee/bulk/jobs/:jobId", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeBulkJobById);
+router.post("/fee/bulk/jobs/:jobId/retry", isAdmin, feeSecurityHeaders, feeRateLimit, retryFeeBulkJob);
+
+/* =========================
+   FEES - REPORTS (ADMIN)
+========================= */
+router.post("/fee/reports/export", isAdmin, feeSecurityHeaders, feeRateLimit, createFeeReportExport);
+router.get("/fee/reports/export", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeReportExports);
+router.get("/fee/reports/export/:exportId", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeReportExportById);
+router.get("/fee/reports/export/:exportId/download", isAdmin, feeSecurityHeaders, feeRateLimit, downloadFeeReportExport);
+router.post("/fee/reports/export/:exportId/share", isAdmin, feeSecurityHeaders, feeRateLimit, shareFeeReportExport);
+
+/* =========================
+   FEES - ANALYTICS (ADMIN)
+========================= */
+router.get("/fee/analytics/financial/summary", isAdmin, feeSecurityHeaders, feeRateLimit, getFinancialSummary);
+router.get("/fee/analytics/financial/program-breakup", isAdmin, feeSecurityHeaders, feeRateLimit, getFinancialProgramBreakup);
+router.get("/fee/analytics/financial/cashflow", isAdmin, feeSecurityHeaders, feeRateLimit, getFinancialCashflow);
+router.get("/fee/analytics/students/overview", isAdmin, feeSecurityHeaders, feeRateLimit, getStudentAnalyticsOverview);
+router.get("/fee/analytics/students/status-distribution", isAdmin, feeSecurityHeaders, feeRateLimit, getStudentStatusDistribution);
+router.get("/fee/analytics/students/segments", isAdmin, feeSecurityHeaders, feeRateLimit, getStudentSegments);
+router.get("/fee/analytics/students/list", isAdmin, feeSecurityHeaders, feeRateLimit, getStudentAnalyticsList);
+
+/* =========================
+   FEES - CALENDAR (ADMIN)
+========================= */
+router.post("/fee/calendar", isAdmin, feeSecurityHeaders, feeRateLimit, createFeeCalendarEvent);
+router.get("/fee/calendar", isAdmin, feeSecurityHeaders, feeRateLimit, getFeeCalendarEvents);
+router.put("/fee/calendar/:id", isAdmin, feeSecurityHeaders, feeRateLimit, updateFeeCalendarEvent);
+router.patch("/fee/calendar/:id/delete", isAdmin, feeSecurityHeaders, feeRateLimit, deleteFeeCalendarEvent);
 
 export default router;

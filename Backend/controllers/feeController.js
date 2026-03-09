@@ -1877,3 +1877,76 @@ export const handleRazorpayWebhook = async (req, res) => {
     session.endSession();
   }
 };
+
+/* ================= ADMIN V2 STUBS (BULK/REPORTS/ANALYTICS/CALENDAR) ================= */
+const respondNotImplemented = (res, feature) =>
+  res.status(501).json({
+    message: `${feature} is not implemented yet`,
+    data: null,
+  });
+
+export const getFeeBulkTemplate = async (req, res) =>
+  respondNotImplemented(res, "Fee bulk template API");
+
+export const uploadFeeBulkFile = async (req, res) =>
+  respondNotImplemented(res, "Fee bulk upload API");
+
+export const getFeeBulkJobs = async (req, res) =>
+  respondNotImplemented(res, "Fee bulk jobs list API");
+
+export const getFeeBulkJobById = async (req, res) =>
+  respondNotImplemented(res, "Fee bulk job details API");
+
+export const retryFeeBulkJob = async (req, res) =>
+  respondNotImplemented(res, "Fee bulk retry API");
+
+export const createFeeReportExport = async (req, res) =>
+  respondNotImplemented(res, "Fee report export create API");
+
+export const getFeeReportExports = async (req, res) =>
+  respondNotImplemented(res, "Fee report exports list API");
+
+export const getFeeReportExportById = async (req, res) =>
+  respondNotImplemented(res, "Fee report export details API");
+
+export const downloadFeeReportExport = async (req, res) =>
+  respondNotImplemented(res, "Fee report export download API");
+
+export const shareFeeReportExport = async (req, res) =>
+  respondNotImplemented(res, "Fee report export share API");
+
+export const getFinancialSummary = async (req, res) =>
+  respondNotImplemented(res, "Financial summary analytics API");
+
+export const getFinancialProgramBreakup = async (req, res) =>
+  respondNotImplemented(res, "Financial program breakup analytics API");
+
+export const getFinancialCashflow = async (req, res) =>
+  respondNotImplemented(res, "Financial cashflow analytics API");
+
+export const getStudentAnalyticsOverview = async (req, res) =>
+  respondNotImplemented(res, "Student analytics overview API");
+
+export const getStudentStatusDistribution = async (req, res) =>
+  respondNotImplemented(res, "Student status distribution API");
+
+export const getStudentSegments = async (req, res) =>
+  respondNotImplemented(res, "Student segments analytics API");
+
+export const getStudentAnalyticsList = async (req, res) =>
+  respondNotImplemented(res, "Student analytics list API");
+
+export const createFeeCalendarEvent = async (req, res) =>
+  respondNotImplemented(res, "Fee calendar create API");
+
+export const getFeeCalendarEvents = async (req, res) =>
+  respondNotImplemented(res, "Fee calendar list API");
+
+export const updateFeeCalendarEvent = async (req, res) =>
+  respondNotImplemented(res, "Fee calendar update API");
+
+export const deleteFeeCalendarEvent = async (req, res) =>
+  respondNotImplemented(res, "Fee calendar delete API");
+
+export const signFeePaymentRequest = async (req, res) =>
+  respondNotImplemented(res, "Fee payment sign API");
