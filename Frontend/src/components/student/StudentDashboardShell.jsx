@@ -23,6 +23,7 @@ import {
   FiClock,
   FiAlertCircle,
   FiPercent,
+  FiArrowLeft,
 } from "react-icons/fi";
 import { HiOutlineAcademicCap, HiOutlineBuildingOffice } from "react-icons/hi2";
 import { FaLinkedin } from "react-icons/fa";
@@ -123,6 +124,7 @@ const StudentDashboardShell = ({
     "";
   const enrolledCoursesCount = Array.isArray(coursesData) ? coursesData.length : 0;
   const attendancePercent = Number(overallAttendance?.percentage || 0);
+  const attendanceSubjectRoutePrefix = "/dashboard/attendance/subject/";
 
   const [hostelAllocation, setHostelAllocation] = useState(null);
   const isHostelStudent = Boolean(hostelAllocation?.hostel?.id && hostelAllocation?.room?.id);
@@ -260,23 +262,6 @@ const StudentDashboardShell = ({
       maximumFractionDigits: 0,
     }).format(Number(value) || 0);
 
-  const dateWiseAttendance = useMemo(() => {
-    const rows = [];
-    (attendanceData || []).forEach((entry) => {
-      const course = entry.course || {};
-      (entry.recentSessions || []).forEach((session) => {
-        rows.push({
-          date: session.date,
-          courseCode: course.code || "N/A",
-          courseName: course.courseName || "Course",
-          status: session.status || "no-data",
-        });
-      });
-    });
-    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return rows;
-  }, [attendanceData]);
-
   const handleMenuClick = (item) => {
     navigate(item.path);
     if (window.innerWidth < 769) {
@@ -371,64 +356,251 @@ const StudentDashboardShell = ({
     </div>
   );
 
-  const renderDateWiseAttendance = () => (
-    <section className="student-attendance-table-card rounded-2xl border border-gray-100 bg-white shadow-md">
-      <h3>Date-wise Attendance</h3>
-      {dateWiseAttendance.length === 0 ? (
-        <p className="student-empty-state">No date-wise attendance data available.</p>
-      ) : (
-        <div className="student-attendance-table-wrap">
-          <table className="student-attendance-table border-separate [border-spacing:0_0.75rem]">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Course</th>
-                <th>Subject</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dateWiseAttendance.map((row, idx) => (
-                <tr
-                  key={`${row.date}-${row.courseCode}-${idx}`}
-                  className="group transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-sm"
-                >
-                  <td className="rounded-l-xl border-y border-l border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
-                    {Number.isNaN(new Date(row.date).getTime())
-                      ? "N/A"
-                      : new Date(row.date).toLocaleDateString("en-IN")}
-                  </td>
-                  <td className="border-y border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
-                    {row.courseCode}
-                  </td>
-                  <td className="border-y border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
-                    {row.courseName}
-                  </td>
-                  <td className="rounded-r-xl border-y border-r border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
-                    <span
-                      className={`inline-flex rounded-lg px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-all duration-200 ease-in-out ${
-                        row.status === "present"
-                          ? "bg-emerald-600 hover:bg-emerald-700"
-                          : row.status === "absent"
-                          ? "bg-red-600 hover:bg-red-700"
-                          : "bg-gray-500 hover:bg-gray-600"
-                      }`}
-                    >
-                      {row.status === "present"
-                        ? "Present"
-                        : row.status === "absent"
-                        ? "Absent"
-                        : "No Data"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+  const renderAttendancePage = () => {
+    const totalClasses = overallAttendance?.totalSessions || 0;
+    const attended = overallAttendance?.presentCount || 0;
+    const missed = totalClasses - attended;
+    const percentage = totalClasses > 0
+      ? Number(((attended / totalClasses) * 100).toFixed(1))
+      : 0;
+
+    const getColor = (pct) => {
+      if (pct >= 90) return "#e8590c";
+      if (pct >= 75) return "#e8590c";
+      return "#ef4444";
+    };
+
+    const subjectData = (attendanceData || []).map((entry) => {
+      const course = entry.course || {};
+      const total = entry.totalSessions || 0;
+      const present = entry.presentCount || 0;
+      const pct = total > 0 ? Number(((present / total) * 100).toFixed(0)) : 0;
+      const routeId = String(course._id || course.code || course.courseName || "subject")
+        .trim()
+        .replace(/\s+/g, "-")
+        .toLowerCase();
+      const sessions = Array.isArray(entry.recentSessions)
+        ? [...entry.recentSessions]
+            .map((session) => ({
+              date: session?.date,
+              status: String(session?.status || "no-data").toLowerCase(),
+            }))
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+        : [];
+      return {
+        name: course.courseName || course.code || "Course",
+        code: course.code || "",
+        routeId,
+        totalSessions: total,
+        presentCount: present,
+        percentage: pct,
+        sessions,
+      };
+    });
+
+    const selectedRouteId = decodeURIComponent(
+      String(location.pathname || "")
+        .replace(attendanceSubjectRoutePrefix, "")
+        .split("/")[0]
+        .trim()
+    );
+    const selectedSubject = subjectData.find((item) => item.routeId === selectedRouteId);
+
+    const lowestSubject = subjectData.length > 0
+      ? subjectData.reduce((low, s) => (s.percentage < low.percentage ? s : low), subjectData[0])
+      : null;
+    const tipSubject = lowestSubject && lowestSubject.percentage < 75 ? lowestSubject : null;
+    let classesNeeded = 0;
+    if (tipSubject) {
+      let needed = 0;
+      let t = tipSubject.totalSessions;
+      let p = tipSubject.presentCount;
+      while (t < 999 && (p / t) * 100 < 75) { t++; p++; needed++; }
+      classesNeeded = needed;
+    }
+
+    if (selectedRouteId) {
+      return (
+        <section className="stu-att-page">
+          <div className="stu-att-detail-card">
+            <button
+              type="button"
+              className="stu-att-detail-back"
+              onClick={() => navigate("/dashboard/attendance")}
+            >
+              <FiArrowLeft size={14} />
+              Back to Attendance
+            </button>
+            <div className="stu-att-detail-head">
+              <div>
+                <h3 className="stu-att-detail-name">{selectedSubject?.name || "Subject Attendance"}</h3>
+                {selectedSubject?.code && (
+                  <span className="stu-att-detail-code">{selectedSubject.code}</span>
+                )}
+              </div>
+              {selectedSubject && (
+                <div className="stu-att-detail-summary">
+                  <span className="stu-att-detail-chip stu-att-detail-chip--pct">{selectedSubject.percentage}%</span>
+                  <span className="stu-att-detail-chip stu-att-detail-chip--present">{selectedSubject.presentCount} Present</span>
+                  <span className="stu-att-detail-chip stu-att-detail-chip--absent">
+                    {Math.max(selectedSubject.totalSessions - selectedSubject.presentCount, 0)} Absent
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {!selectedSubject ? (
+              <p className="stu-att-detail-empty">Subject attendance not found.</p>
+            ) : selectedSubject.sessions.length === 0 ? (
+              <p className="stu-att-detail-empty">No session records available for this subject.</p>
+            ) : (
+              <div className="stu-att-detail-list">
+                {selectedSubject.sessions.map((session, index) => {
+                  const dateObj = new Date(session.date);
+                  const dateText = Number.isNaN(dateObj.getTime())
+                    ? "N/A"
+                    : dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+                  const dayText = Number.isNaN(dateObj.getTime())
+                    ? ""
+                    : dateObj.toLocaleDateString("en-IN", { weekday: "short" });
+                  const status = session.status === "present"
+                    ? "present"
+                    : session.status === "absent"
+                    ? "absent"
+                    : "no-data";
+                  return (
+                    <div key={`${selectedSubject.routeId}-${session.date || "na"}-${index}`} className="stu-att-detail-row">
+                      <div className="stu-att-detail-date">
+                        <span className="stu-att-detail-date-main">{dateText}</span>
+                        <span className="stu-att-detail-date-day">{dayText}</span>
+                      </div>
+                      <span className={`stu-att-detail-badge stu-att-detail-badge--${status}`}>
+                        {status === "present" ? "Present" : status === "absent" ? "Absent" : "No Data"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      );
+    }
+
+    return (
+      <section className="stu-att-page">
+        {/* Overall Attendance Card */}
+        <div className="stu-att-overall-card">
+          <h3 className="stu-att-overall-title">Overall Attendance</h3>
+          <div className="stu-att-circle-wrap">
+            <svg viewBox="0 0 140 140" className="stu-att-circle-svg">
+              <circle cx="70" cy="70" r="58" fill="none" stroke="#f1f5f9" strokeWidth="11" />
+              <circle
+                cx="70" cy="70" r="58"
+                fill="none"
+                stroke={getColor(percentage)}
+                strokeWidth="11"
+                strokeLinecap="round"
+                strokeDasharray={`${(percentage / 100) * 364.42} 364.42`}
+                transform="rotate(-90 70 70)"
+                style={{ transition: "stroke-dasharray 0.8s ease" }}
+              />
+            </svg>
+            <div className="stu-att-circle-text">
+              <span className="stu-att-circle-pct">{percentage}%</span>
+              <span className="stu-att-circle-label">PRESENT</span>
+            </div>
+          </div>
+          <div className="stu-att-stats-row">
+            <div className="stu-att-stat">
+              <span className="stu-att-stat-label">TOTAL</span>
+              <span className="stu-att-stat-value">{totalClasses}</span>
+            </div>
+            <div className="stu-att-stat-divider" />
+            <div className="stu-att-stat">
+              <span className="stu-att-stat-label stu-att-stat-label--attended">ATTENDED</span>
+              <span className="stu-att-stat-value stu-att-stat-value--attended">{attended}</span>
+            </div>
+            <div className="stu-att-stat-divider" />
+            <div className="stu-att-stat">
+              <span className="stu-att-stat-label stu-att-stat-label--missed">MISSED</span>
+              <span className="stu-att-stat-value stu-att-stat-value--missed">{missed}</span>
+            </div>
+          </div>
         </div>
-      )}
-    </section>
-  );
+
+        {/* Subject-wise Analysis */}
+        {subjectData.length > 0 && (
+          <div className="stu-att-subject-card">
+            <div className="stu-att-subject-header">
+              <h3 className="stu-att-subject-title">Subject-wise Analysis</h3>
+            </div>
+            <div className="stu-att-subject-list">
+              {subjectData.map((sub, idx) => {
+                const barColor = sub.percentage >= 75 ? "#e8590c" : "#ef4444";
+                const isLow = sub.percentage < 75;
+                return (
+                  <div
+                    key={idx}
+                    className="stu-att-subject-item stu-att-subject-item--clickable"
+                    onClick={() =>
+                      navigate(`${attendanceSubjectRoutePrefix}${encodeURIComponent(sub.routeId)}`)
+                    }
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        navigate(`${attendanceSubjectRoutePrefix}${encodeURIComponent(sub.routeId)}`);
+                      }
+                    }}
+                  >
+                    <div className="stu-att-subject-row">
+                      <div className="stu-att-subject-info">
+                        <span className="stu-att-subject-name">{sub.name}</span>
+                        <span className="stu-att-subject-hint">Tap to view all dates</span>
+                      </div>
+                      <div className="stu-att-subject-nums">
+                        <span className="stu-att-subject-pct" style={{ color: barColor }}>{sub.percentage}%</span>
+                        <span className="stu-att-subject-count">{sub.presentCount} / {sub.totalSessions} classes</span>
+                      </div>
+                    </div>
+                    <div className="stu-att-bar-track">
+                      <div
+                        className="stu-att-bar-fill"
+                        style={{
+                          width: `${Math.min(sub.percentage, 100)}%`,
+                          background: barColor,
+                          transition: "width 0.6s ease",
+                        }}
+                      />
+                    </div>
+                    {isLow && (
+                      <span className="stu-att-below-threshold">Below threshold (75%)</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Attendance Tip */}
+        {tipSubject && classesNeeded > 0 && (
+          <div className="stu-att-tip-card">
+            <div className="stu-att-tip-icon">
+              <FiAlertCircle size={22} />
+            </div>
+            <div className="stu-att-tip-body">
+              <span className="stu-att-tip-title">Attendance Tip</span>
+              <span className="stu-att-tip-text">
+                Attend the next {classesNeeded} {tipSubject.name} classes to reach the 75% goal.
+              </span>
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  };
 
   const renderFees = () => {
     const demandsList = myDemands || [];
@@ -816,7 +988,7 @@ const StudentDashboardShell = ({
       return <StudentDetails studentData={resolvedStudentData} />;
     }
     if (currentSection === "attendance") {
-      return renderDateWiseAttendance();
+      return renderAttendancePage();
     }
     if (currentSection === "courses") {
       return (
@@ -1006,6 +1178,3 @@ const StudentDashboardShell = ({
 };
 
 export default StudentDashboardShell;
-
-
-
