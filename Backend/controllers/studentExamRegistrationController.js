@@ -107,7 +107,7 @@ const getCurrentStudent = async (userId) => {
     .populate("group", "name");
 };
 
-/* ================= APPLY / UPSERT EXAM REGISTRATION ================= */
+/* ================= APPLY EXAM REGISTRATION ================= */
 export const applyExamRegistration = async (req, res) => {
   try {
     const payload = req.body || {};
@@ -148,41 +148,15 @@ export const applyExamRegistration = async (req, res) => {
       });
     }
 
-    const existing = await ExamRegistration.findOne({
-      student: student._id,
-      exam: exam._id,
-      isDeleted: { $ne: true },
+    let registration = await ExamRegistration.create({
+      ...registrationPayload,
+      registrationStatus: "SUBMITTED",
+      verifiedBy: null,
+      verifiedAt: null,
     });
-
-    let registration;
-    if (existing) {
-      if (existing.registrationStatus === "VERIFIED") {
-        return res.status(400).json({
-          message: "Registration is already verified and cannot be edited by student",
-        });
-      }
-
-      registration = await ExamRegistration.findByIdAndUpdate(
-        existing._id,
-        {
-          ...registrationPayload,
-          registrationStatus: "SUBMITTED",
-          verifiedBy: null,
-          verifiedAt: null,
-        },
-        { new: true, runValidators: true }
-      )
-        .populate("exam", "examName session examDate startTime endTime block")
-        .populate("student", "enrollmentNumber semester academicYear");
-    } else {
-      registration = await ExamRegistration.create({
-        ...registrationPayload,
-        registrationStatus: "SUBMITTED",
-      });
-      registration = await ExamRegistration.findById(registration._id)
-        .populate("exam", "examName session examDate startTime endTime block")
-        .populate("student", "enrollmentNumber semester academicYear");
-    }
+    registration = await ExamRegistration.findById(registration._id)
+      .populate("exam", "examName session examDate startTime endTime block")
+      .populate("student", "enrollmentNumber semester academicYear");
 
     return res.status(201).json({
       message: "Exam registration submitted successfully",

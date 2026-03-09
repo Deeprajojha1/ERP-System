@@ -148,7 +148,6 @@ const examRegistrationSchema = new mongoose.Schema(
 examRegistrationSchema.index(
   { student: 1, exam: 1 },
   {
-    unique: true,
     partialFilterExpression: { isDeleted: false },
   }
 );
