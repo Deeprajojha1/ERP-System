@@ -16,6 +16,7 @@ import { useSelector, useDispatch } from "react-redux";
 import "./Exam.css";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import { downloadPdfFromHtml, openPdfFromHtml } from "../utils/pdfDownload";
+import { buildUniversityPdfHtml } from "../utils/universityPdfLayout";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 import ClipLoader from "./components/ClipLoader";
@@ -165,8 +166,8 @@ const Exam = () => {
       await Promise.all([
         dispatch(fetchExams({ apiBase })).unwrap(),
         dispatch(fetchExamSupportData({ apiBase })).unwrap(),
-        fetchExamRegistrations().catch(() => {}),
-        fetchAdmitCards().catch(() => {}),
+        fetchExamRegistrations(),
+        fetchAdmitCards(),
       ]);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
@@ -211,6 +212,11 @@ const Exam = () => {
         duration: exam?.durationMinutes ? `${exam.durationMinutes} mins` : "-",
         status: String(exam?.status || "SCHEDULED").toUpperCase(),
         roomNo: exam?.roomNo || "-",
+        departmentName: exam?.department?.name || exam?.departmentName || "-",
+        courseLine:
+          exam?.course?.courseName && exam?.semester
+            ? `${exam.course.courseName} / Semester ${exam.semester}`
+            : exam?.course?.courseName || exam?.program || "-",
       })),
     [exams]
   );
@@ -321,6 +327,11 @@ const Exam = () => {
             : formatTime12(exam?.startTime),
         duration: exam?.durationMinutes ? `${exam.durationMinutes} mins` : "-",
         status: String(exam?.status || "SCHEDULED").toUpperCase(),
+        departmentName: exam?.department?.name || "-",
+        courseLine:
+          exam?.course?.courseName && exam?.semester
+            ? `${exam.course.courseName} / Semester ${exam.semester}`
+            : exam?.course?.courseName || exam?.program || "-",
       })),
     [masterReportRows, groupStrengthMap]
   );
@@ -344,7 +355,7 @@ const Exam = () => {
 
         return {
           _id: registration?._id,
-          examName: registration?.exam?.examName || registration?.courseName || "All Exams",
+          examName: registration?.exam?.examName || registration?.courseName || "-",
           subject:
             registration?.subjects?.[0]?.subjectCode && registration?.subjects?.[0]?.subjectName
               ? `${registration.subjects[0].subjectCode} - ${registration.subjects[0].subjectName}`
@@ -1098,28 +1109,23 @@ const Exam = () => {
     if (!actionKey || isExamActionLoading(exam, "download")) return;
 
     setExamActionLoading({ id: actionKey, action: "download" });
-    const html = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
-            h1 { margin: 0 0 12px; font-size: 24px; }
-            .row { margin: 8px 0; }
-            .label { font-weight: 700; width: 100px; display: inline-block; }
-          </style>
-        </head>
-        <body>
-          <h1>Exam Sheet</h1>
-          <div class="row"><span class="label">Name:</span> ${escapeHtml(exam.name)}</div>
-          <div class="row"><span class="label">Subject:</span> ${escapeHtml(exam.subject)}</div>
-          <div class="row"><span class="label">Date:</span> ${escapeHtml(exam.date)}</div>
-          <div class="row"><span class="label">Time:</span> ${escapeHtml(exam.timeLabel)}</div>
-          <div class="row"><span class="label">Duration:</span> ${escapeHtml(exam.duration)}</div>
-          <div class="row"><span class="label">Room:</span> ${escapeHtml(exam.roomNo)}</div>
-          <div class="row"><span class="label">Status:</span> ${escapeHtml(exam.status)}</div>
-        </body>
-      </html>
-    `;
+    const html = buildUniversityPdfHtml({
+      reportTitle: "Exam Sheet",
+      departmentName:
+        exam.departmentName && exam.departmentName !== "-"
+          ? `Department of ${exam.departmentName}`
+          : "Department - N/A",
+      courseLine:
+        exam.courseLine && exam.courseLine !== "-" ? `Course - ${exam.courseLine}` : "Course - N/A",
+      details: [
+        { label: "Subject Name with Code", value: exam.subjectCode !== "-" ? `${exam.subjectCode} - ${exam.subject}` : exam.subject },
+        { label: "Faculty Name", value: "-" },
+        { label: "Exam", value: exam.name },
+        { label: "Total Marks", value: "-" },
+      ],
+      headers: ["S. No", "Exam Name", "Subject", "Date", "Time", "Duration", "Room", "Status"],
+      rows: [[1, exam.name, exam.subject, exam.date, exam.timeLabel || "-", exam.duration, exam.roomNo, exam.status]],
+    });
 
     try {
       await downloadPdfFromHtml(apiBase, {
@@ -1140,54 +1146,28 @@ const Exam = () => {
       return;
     }
 
-    const rows = filtered
-      .map(
-        (exam, index) => `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(exam.name)}</td>
-            <td>${escapeHtml(exam.subjectCode !== "-" ? `${exam.subjectCode} - ${exam.subject}` : exam.subject)}</td>
-            <td>${escapeHtml(exam.date)}</td>
-            <td>${escapeHtml(exam.timeLabel || "-")}</td>
-            <td>${escapeHtml(exam.duration)}</td>
-            <td>${escapeHtml(exam.status)}</td>
-          </tr>
-        `
-      )
-      .join("");
-
-    const html = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
-            h1 { margin: 0 0 4px; font-size: 24px; }
-            .meta { margin: 0 0 14px; color: #475569; font-size: 12px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; text-align: left; vertical-align: top; }
-            th { background: #f1f5f9; font-weight: 700; }
-          </style>
-        </head>
-        <body>
-          <h1>Exam Schedule (Cumulative)</h1>
-          <p class="meta">Total Exams: ${filtered.length}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>S. No</th>
-                <th>Exam Name</th>
-                <th>Subject</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Duration</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </body>
-      </html>
-    `;
+    const html = buildUniversityPdfHtml({
+      reportTitle: "Exam Schedule Award Sheet",
+      departmentName: "Department - Filtered Data",
+      courseLine:
+        subject !== "All Subjects" ? `Course - ${subject}` : "Course - Filtered Schedule",
+      details: [
+        { label: "Subject Name with Code", value: "All Subjects" },
+        { label: "Faculty Name", value: "-" },
+        { label: "Exam", value: "Cumulative Exam Schedule" },
+        { label: "Total Marks", value: filtered.length },
+      ],
+      headers: ["S. No", "Exam Name", "Subject", "Date", "Time", "Duration", "Status"],
+      rows: filtered.map((exam, index) => [
+        index + 1,
+        exam.name,
+        exam.subjectCode !== "-" ? `${exam.subjectCode} - ${exam.subject}` : exam.subject,
+        exam.date,
+        exam.timeLabel || "-",
+        exam.duration,
+        exam.status,
+      ]),
+    });
 
     try {
       setBulkDownloadLoading(true);
@@ -1209,68 +1189,55 @@ const Exam = () => {
       return;
     }
 
-    const rows = normalizedMasterReport
-      .map(
-        (item, index) => `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(item.examName)}</td>
-            <td>${escapeHtml(item.subject)}</td>
-            <td>${escapeHtml(item.examType)}</td>
-            <td>${escapeHtml(item.session)}</td>
-            <td>${escapeHtml(item.semester)}</td>
-            <td>${escapeHtml(item.block)}</td>
-            <td>${escapeHtml(item.invigilatorName)}</td>
-            <td>${escapeHtml(item.roomNo)}</td>
-            <td>${escapeHtml(item.strength)}</td>
-            <td>${escapeHtml(item.date)}</td>
-            <td>${escapeHtml(item.time)}</td>
-            <td>${escapeHtml(item.duration)}</td>
-            <td>${escapeHtml(item.status)}</td>
-          </tr>
-        `
-      )
-      .join("");
-
-    const html = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
-            h1 { margin: 0 0 4px; font-size: 24px; }
-            .meta { margin: 0 0 14px; color: #475569; font-size: 12px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-            th, td { border: 1px solid #cbd5e1; padding: 8px; font-size: 12px; text-align: left; vertical-align: top; }
-            th { background: #f1f5f9; font-weight: 700; }
-          </style>
-        </head>
-        <body>
-          <h1>Exam Master Report</h1>
-          <p class="meta">Total Records: ${normalizedMasterReport.length}</p>
-          <table>
-            <thead>
-              <tr>
-                <th>S. No</th>
-                <th>Exam Name</th>
-                <th>Subject</th>
-                <th>Type</th>
-                <th>Session</th>
-                <th>Semester</th>
-                <th>Block</th>
-                <th>Invigilator Name</th>
-                <th>Room No</th>
-                <th>Strength</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Duration</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </body>
-      </html>
-    `;
+    const html = buildUniversityPdfHtml({
+      reportTitle: "Exam Master Award Sheet",
+      departmentName:
+        normalizedMasterReport[0]?.departmentName && normalizedMasterReport[0].departmentName !== "-"
+          ? `Department of ${normalizedMasterReport[0].departmentName}`
+          : "Department - Filtered Data",
+      courseLine:
+        normalizedMasterReport[0]?.courseLine && normalizedMasterReport[0].courseLine !== "-"
+          ? `Course - ${normalizedMasterReport[0].courseLine}`
+          : "Course - Master Report",
+      details: [
+        { label: "Subject Name with Code", value: "All Subjects" },
+        { label: "Faculty Name", value: "All Invigilators" },
+        { label: "Exam", value: "Exam Master Report" },
+        { label: "Total Marks", value: normalizedMasterReport.length },
+      ],
+      headers: [
+        "S. No",
+        "Exam Name",
+        "Subject",
+        "Type",
+        "Session",
+        "Semester",
+        "Block",
+        "Invigilator Name",
+        "Room No",
+        "Strength",
+        "Date",
+        "Time",
+        "Duration",
+        "Status",
+      ],
+      rows: normalizedMasterReport.map((item, index) => [
+        index + 1,
+        item.examName,
+        item.subject,
+        item.examType,
+        item.session,
+        item.semester,
+        item.block,
+        item.invigilatorName,
+        item.roomNo,
+        item.strength,
+        item.date,
+        item.time,
+        item.duration,
+        item.status,
+      ]),
+    });
 
     try {
       setMasterReportDownloadLoading(true);
@@ -1766,8 +1733,8 @@ const Exam = () => {
                         <td className="exam-name">{item.candidateName}</td>
                         <td>{item.rollNo}</td>
                         <td>{item.enrollmentNumber}</td>
-                        <td className="exam-name">{item.examName === "-" ? "All Exams" : item.examName}</td>
-                        <td>{item.subject === "-" ? "All Exams" : item.subject}</td>
+                        <td className="exam-name">{item.examName}</td>
+                        <td>{item.subject}</td>
                         <td>{item.session}</td>
                         <td>{item.semester}</td>
                         <td>{item.date}</td>
@@ -2260,3 +2227,4 @@ const Exam = () => {
 };
 
 export default Exam;
+
