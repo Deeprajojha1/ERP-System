@@ -11,6 +11,10 @@ import jwt from "jsonwebtoken";
 import validator from "validator";
 import sendEmail from "../config/sendMail.js";
 import { uploadImageToCloudinary } from "../config/cloudinaryUpload.js";
+import {
+  getPermissionsFromPermissionRoles,
+  resolvePermissionsForUser,
+} from "../utils/rolePermissions.js";
 
 const { isEmail } = validator;
 
@@ -538,6 +542,7 @@ export const login = async (req, res) => {
 
     res.json({
       message: "Login successful",
+      permissions: resolvePermissionsForUser(user),
       user: {
         id: user._id,
         name: user.name,
@@ -547,6 +552,7 @@ export const login = async (req, res) => {
         DOB: user.DOB,
         profileImage: user.profileImage || "",
         role: user.role,
+        permissionRoles: Array.isArray(user.permissionRoles) ? user.permissionRoles : [],
         status: user.status,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -601,6 +607,89 @@ export const register = async (req, res) => {
   } catch (err) {
     res.status(500).json({
       message: err.message,
+    });
+  }
+};
+
+export const createAdminUser = async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      permissionRoles = [],
+    } = req.body || {};
+
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const safeFirstName = String(firstName || "").trim();
+    const safeLastName = String(lastName || "").trim();
+    const safePassword = String(password || "");
+    const selectedRoles = Array.isArray(permissionRoles)
+      ? [...new Set(permissionRoles.map((role) => String(role || "").trim().toLowerCase()))]
+      : [];
+
+    if (!safeFirstName || !safeLastName || !normalizedEmail || !safePassword) {
+      return res.status(400).json({
+        message: "First name, last name, email, and password are required.",
+      });
+    }
+
+    if (!isEmail(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format." });
+    }
+
+    if (safePassword.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    if (!selectedRoles.length) {
+      return res.status(400).json({
+        message: "Select at least one permission role.",
+      });
+    }
+
+    const permissions = getPermissionsFromPermissionRoles(selectedRoles);
+    if (!permissions.length) {
+      return res.status(400).json({
+        message: "Selected permission roles are invalid.",
+      });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(409).json({ message: "Email already registered." });
+    }
+
+    const passwordHash = await bcrypt.hash(safePassword, 10);
+    const user = await User.create({
+      name: `${safeFirstName} ${safeLastName}`.trim(),
+      email: normalizedEmail,
+      passwordHash,
+      role: "admin",
+      status: "active",
+      permissionRoles: selectedRoles,
+      permissions,
+    });
+
+    return res.status(201).json({
+      message: "Admin user created successfully.",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        permissionRoles: user.permissionRoles || [],
+        permissions: resolvePermissionsForUser(user),
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to create admin user.",
     });
   }
 };
@@ -1238,6 +1327,7 @@ export const getUser = async (req, res) => {
         console.log("User found:", user);
         return res.status(200).json({
             message: "User fetched successfully ",
+            permissions: resolvePermissionsForUser(user),
             user: {
               id: user._id,
               name: user.name,
@@ -1247,6 +1337,7 @@ export const getUser = async (req, res) => {
               DOB: user.DOB,
               profileImage: user.profileImage || "",
               role: user.role,
+              permissionRoles: Array.isArray(user.permissionRoles) ? user.permissionRoles : [],
               status: user.status,
               createdAt: user.createdAt,
               updatedAt: user.updatedAt,

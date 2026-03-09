@@ -99,7 +99,7 @@ const Login = () => {
         navigate("/faculty/faculty-dashboard", { replace: true });
       } else if (res.data.user.role === "student") {
         navigate("/dashboard", { replace: true });
-      } else if (res.data.user.role === "admin") {
+      } else if (["admin", "accounts", "hod", "exam", "placement", "director", "vc"].includes(res.data.user.role)) {
         navigate("/admin/dashboard", { replace: true });
       } else if (res.data.user.role === "warden") {
         navigate("/warden-dashboard", { replace: true });

@@ -18,11 +18,20 @@ import {
   FiX,
 } from "react-icons/fi";
 import ClipLoader from "./components/ClipLoader";
+import { hasPermission, resolvePermissions } from "../utils/permissions";
 import "./Settings.css";
+
+const ADMIN_PERMISSION_OPTIONS = [
+  { id: "hod", label: "HOD" },
+  { id: "accounts", label: "Accounts" },
+  { id: "exam", label: "Exam Department" },
+  { id: "placement", label: "Placement Officer" },
+];
 
 const Settings = () => {
   const userData = useSelector((state) => state.user.userData);
   const user = userData?.user || {};
+  const permissions = resolvePermissions(userData);
   const apiBase = useSelector((state) => state.config.apiBase);
   const dispatch = useDispatch();
 
@@ -49,6 +58,7 @@ const Settings = () => {
     lastName: "",
     email: "",
     password: "",
+    permissionRoles: [],
   });
   const [librarianForm, setLibrarianForm] = useState({
     firstName: "",
@@ -60,6 +70,10 @@ const Settings = () => {
   const fullName = user?.name || "System Administrator";
   const email = user?.email || "admin@huroorkee.ac.in";
   const role = (user?.role || "admin").toUpperCase();
+  const canProfileTab = hasPermission(permissions, "module.settings.profile");
+  const canSecurityTab = hasPermission(permissions, "module.settings.security");
+  const canAdminManagementTab = hasPermission(permissions, "module.settings.admin");
+  const canLibraryManagementTab = hasPermission(permissions, "module.settings.library");
 
   const initials = useMemo(() => {
     return fullName
@@ -244,12 +258,26 @@ const Settings = () => {
     }
   };
 
-  const tabs = [
-    { id: "profile", label: "Profile", icon: <FiUser /> },
-    { id: "security", label: "Security", icon: <FiLock /> },
-    { id: "admin", label: "Admin Management", icon: <FiShield /> },
-    { id: "library", label: "Librarian Management", icon: <FiBookOpen /> },
-  ];
+  const tabs = useMemo(
+    () =>
+      [
+        canProfileTab ? { id: "profile", label: "Profile", icon: <FiUser /> } : null,
+        canSecurityTab ? { id: "security", label: "Security", icon: <FiLock /> } : null,
+        canAdminManagementTab
+          ? { id: "admin", label: "Admin Management", icon: <FiShield /> }
+          : null,
+        canLibraryManagementTab
+          ? { id: "library", label: "Librarian Management", icon: <FiBookOpen /> }
+          : null,
+      ].filter(Boolean),
+    [canAdminManagementTab, canLibraryManagementTab, canProfileTab, canSecurityTab]
+  );
+
+  React.useEffect(() => {
+    if (!tabs.length) return;
+    if (tabs.some((tab) => tab.id === activeTab)) return;
+    setActiveTab(tabs[0].id);
+  }, [activeTab, tabs]);
 
   const renderModal = (content) => {
     if (typeof document === "undefined") return null;
@@ -322,6 +350,7 @@ const Settings = () => {
       lastName: "",
       email: "",
       password: "",
+      permissionRoles: [],
     });
   };
 
@@ -330,9 +359,19 @@ const Settings = () => {
     if (adminError) setAdminError("");
   };
 
+  const toggleAdminPermissionRole = (roleId) => {
+    setAdminForm((prev) => {
+      const nextRoles = prev.permissionRoles.includes(roleId)
+        ? prev.permissionRoles.filter((role) => role !== roleId)
+        : [...prev.permissionRoles, roleId];
+      return { ...prev, permissionRoles: nextRoles };
+    });
+    if (adminError) setAdminError("");
+  };
+
   const handleCreateAdmin = async (e) => {
     e.preventDefault();
-    const { firstName, lastName, email: adminEmail, password } = adminForm;
+    const { firstName, lastName, email: adminEmail, password, permissionRoles } = adminForm;
 
     if (!firstName || !lastName || !adminEmail || !password) {
       setAdminError("All fields are required.");
@@ -347,13 +386,32 @@ const Settings = () => {
       return;
     }
 
-    setAdminSubmitting(true);
-    setTimeout(() => {
-      setAdminSubmitting(false);
-      setAdminError(
-        "Admin creation API is not available in backend routes. Please use database/seed workflow."
+    if (!permissionRoles.length) {
+      setAdminError("Select at least one permission role.");
+      return;
+    }
+
+    if (!apiBase) {
+      setAdminError("Server configuration missing. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      setAdminSubmitting(true);
+      await axios.post(
+        `${apiBase}/admin/user`,
+        { firstName, lastName, email: adminEmail, password, permissionRoles },
+        { withCredentials: true }
       );
-    }, 250);
+      toast.success("Admin created successfully");
+      closeAddAdminModal();
+    } catch (error) {
+      setAdminError(
+        error.response?.data?.message || "Failed to create admin"
+      );
+    } finally {
+      setAdminSubmitting(false);
+    }
   };
 
   const closeAddLibrarianModal = () => {
@@ -777,9 +835,24 @@ const Settings = () => {
                 </div>
               </label>
 
+              <div className="admin-permissions-box">
+                <p className="admin-permissions-title">Permissions</p>
+                <div className="admin-permissions-grid">
+                  {ADMIN_PERMISSION_OPTIONS.map((option) => (
+                    <label key={option.id} className="admin-permission-option">
+                      <input
+                        type="checkbox"
+                        checked={adminForm.permissionRoles.includes(option.id)}
+                        onChange={() => toggleAdminPermissionRole(option.id)}
+                      />
+                      <span>{option.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
               <div className="admin-note-box">
-                The new admin will be able to access all admin features and manage
-                the system.
+                Selected permissions will control which modules are visible to this user.
               </div>
 
               {adminError && <p className="security-error-text">{adminError}</p>}

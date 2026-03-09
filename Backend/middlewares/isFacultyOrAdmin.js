@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import { hasPermissionByRole } from "../utils/rolePermissions.js";
 
 /**
  * Middleware that allows both admin and faculty roles.
@@ -23,12 +24,17 @@ const isFacultyOrAdmin = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (decoded.role !== "admin" && decoded.role !== "faculty") {
+    const role = String(decoded.role || "").toLowerCase();
+    const canAdminPanelHostel =
+      hasPermissionByRole(role, "portal.admin") &&
+      hasPermissionByRole(role, "module.hostel");
+
+    if (role !== "admin" && role !== "faculty" && !canAdminPanelHostel) {
       return res.status(403).json({ message: "Access denied. Faculty or Admin privileges required." });
     }
 
     req.userId = decoded.userId;
-    req.role = decoded.role;
+    req.role = role;
 
     next();
   } catch (error) {

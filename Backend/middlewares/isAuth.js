@@ -1,4 +1,6 @@
 import jwt from "jsonwebtoken";
+import User from "../models/userModel.js";
+import { resolvePermissionsForUser } from "../utils/rolePermissions.js";
 
 const isAuth = async (req, res, next) => {
   try {
@@ -22,8 +24,16 @@ const isAuth = async (req, res, next) => {
     for (const token of candidates) {
       try {
         const verifyToken = jwt.verify(token, process.env.JWT_SECRET);
+        const currentUser = await User.findById(verifyToken.userId).select(
+          "role permissions"
+        );
+
         req.userId = verifyToken.userId;
-        req.role = verifyToken.role;
+        req.role = currentUser?.role || verifyToken.role;
+        req.permissions = resolvePermissionsForUser({
+          role: req.role,
+          permissions: currentUser?.permissions,
+        });
         return next();
       } catch (_) {
         // Try next token candidate.
