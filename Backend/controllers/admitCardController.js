@@ -18,10 +18,22 @@ const generateAdmitCardNo = () => {
 
 const buildSnapshotFromRegistration = (registration) => ({
   candidateName: registration.candidateName || "",
+  studentNameHindi: registration.studentNameHindi || "",
   fatherName: registration.fatherName || "",
   motherName: registration.motherName || "",
+  studentEmail: registration.studentEmail || "",
+  mobileNumber: registration.mobileNumber || "",
+  gender: registration.gender || "",
+  dateOfBirth: registration.dateOfBirth || null,
+  formSerialNumber: registration.formSerialNumber || "",
   rollNo: registration.rollNo || "",
   enrollmentNumber: registration.enrollmentNumber || "",
+  academicBankCreditId: registration.academicBankCreditId || registration.apaarId || "",
+  aadharNumber: registration.aadharNumber || "",
+  digilockerId: registration.digilockerId || "",
+  addressLine: registration.addressLine || "",
+  district: registration.district || "",
+  pinCode: registration.pinCode || "",
   courseName: registration.courseName || "",
   branchName: registration.branchName || "",
   batchLabel: registration.batchLabel || "",
@@ -31,6 +43,10 @@ const buildSnapshotFromRegistration = (registration) => ({
   examinationCentre: registration.examinationCentre || "",
   examSession: registration.academicSession || registration.exam?.session || "",
   photoUrl: registration.photoUrl || "",
+  thumbImpressionUrl: registration.thumbImpressionUrl || "",
+  studentSignatureUrl: registration.studentSignatureUrl || "",
+  declarationAccepted: Boolean(registration.declarationAccepted),
+  declarationAcceptedAt: registration.declarationAcceptedAt || null,
   subjects: Array.isArray(registration.subjects)
     ? registration.subjects.map((item) => ({
         subjectCode: String(item?.subjectCode || "").trim(),

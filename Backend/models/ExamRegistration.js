@@ -36,10 +36,25 @@ const examRegistrationSchema = new mongoose.Schema(
 
     // Identity + academic fields (snapshot/editable for exam office)
     candidateName: { type: String, required: true, trim: true },
+    studentNameHindi: { type: String, trim: true, default: "" },
     rollNo: { type: String, required: true, trim: true },
     enrollmentNumber: { type: String, required: true, trim: true },
+    formSerialNumber: { type: String, trim: true, default: "" },
     fatherName: { type: String, required: true, trim: true },
     motherName: { type: String, trim: true, default: "" },
+    studentEmail: { type: String, trim: true, lowercase: true, default: "" },
+    mobileNumber: {
+      type: String,
+      trim: true,
+      match: [/^\d{10}$/, "Mobile number must be 10 digits"],
+      default: "",
+    },
+    gender: {
+      type: String,
+      enum: ["MALE", "FEMALE", "TRANSGENDER", "OTHER", ""],
+      default: "",
+    },
+    dateOfBirth: { type: Date, default: null },
     fatherPhoneNumber: {
       type: String,
       trim: true,
@@ -61,8 +76,17 @@ const examRegistrationSchema = new mongoose.Schema(
       match: [/^\d{12}$/, "Aadhar number must be 12 digits"],
       default: "",
     },
+    academicBankCreditId: { type: String, trim: true, default: "" },
     apaarId: { type: String, trim: true, default: "" },
     digilockerId: { type: String, trim: true, default: "" },
+    addressLine: { type: String, trim: true, default: "" },
+    district: { type: String, trim: true, default: "" },
+    pinCode: {
+      type: String,
+      trim: true,
+      match: [/^\d{6}$/, "Pin code must be 6 digits"],
+      default: "",
+    },
 
     tenthMarksPercent: { type: Number, min: 0, max: 100, default: null },
     twelfthMarksPercent: { type: Number, min: 0, max: 100, default: null },
@@ -78,6 +102,10 @@ const examRegistrationSchema = new mongoose.Schema(
 
     // Required for admit card layout
     photoUrl: { type: String, trim: true, default: "" },
+    thumbImpressionUrl: { type: String, trim: true, default: "" },
+    studentSignatureUrl: { type: String, trim: true, default: "" },
+    declarationAccepted: { type: Boolean, default: false },
+    declarationAcceptedAt: { type: Date, default: null },
 
     // Subject rows for admit card printing
     subjects: {

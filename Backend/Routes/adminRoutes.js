@@ -76,6 +76,21 @@ import {
   hardDeleteResult,
   getStudentResultSummary,
 } from "../controllers/resultController.js";
+import {
+  getAllExamRegistrations,
+  getExamRegistrationById,
+  addExamRegistration,
+  updateExamRegistration,
+  deleteExamRegistration,
+} from "../controllers/examRegistrationController.js";
+import {
+  getAllAdmitCards,
+  getAdmitCardById,
+  issueAdmitCard,
+  holdAdmitCard,
+  cancelAdmitCard,
+  deleteAdmitCard,
+} from "../controllers/admitCardController.js";
 
 import { 
   getAdminProfile, 
@@ -393,6 +408,25 @@ router.post("/exam", isAdmin, addExam);
 router.put("/exam/:id", isAdmin, updateExam);
 router.patch("/exam/:id/delete", isAdmin, deleteExam);
 router.delete("/exam/:id", isAdmin, hardDeleteExam);
+
+/* =========================
+   EXAM REGISTRATIONS
+========================= */
+router.get("/exam-registration", isAdmin, getAllExamRegistrations);
+router.get("/exam-registration/:id", isAdmin, getExamRegistrationById);
+router.post("/exam-registration", isAdmin, addExamRegistration);
+router.put("/exam-registration/:id", isAdmin, updateExamRegistration);
+router.patch("/exam-registration/:id/delete", isAdmin, deleteExamRegistration);
+
+/* =========================
+   ADMIT CARDS
+========================= */
+router.get("/admit-card", isAdmin, getAllAdmitCards);
+router.get("/admit-card/:id", isAdmin, getAdmitCardById);
+router.post("/admit-card/issue/:registrationId", isAdmin, issueAdmitCard);
+router.patch("/admit-card/:id/hold", isAdmin, holdAdmitCard);
+router.patch("/admit-card/:id/cancel", isAdmin, cancelAdmitCard);
+router.patch("/admit-card/:id/delete", isAdmin, deleteAdmitCard);
 
 /* =========================
    RESULTS

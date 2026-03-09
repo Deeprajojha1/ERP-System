@@ -17,6 +17,18 @@ const triggerBlobDownload = (blobData, fileName) => {
   URL.revokeObjectURL(url);
 };
 
+const openBlobInNewTab = (blobData) => {
+  const blob = new Blob([blobData], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const popup = window.open(url, "_blank", "noopener,noreferrer");
+  if (!popup) {
+    URL.revokeObjectURL(url);
+    return false;
+  }
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  return true;
+};
+
 const readBlobText = async (blobLike) => {
   if (!blobLike) return "";
   if (typeof blobLike.text === "function") {
@@ -64,6 +76,32 @@ export const downloadPdfFromHtml = async (
     );
 
     triggerBlobDownload(res.data, fileName);
+    return;
+  } catch (error) {
+    const message = await extractErrorMessage(error);
+    if (fallbackToPrint && html) {
+      const printed = openPrintFallback(html);
+      if (printed) return;
+    }
+    throw new Error(message);
+  }
+};
+
+export const openPdfFromHtml = async (
+  apiBase,
+  { html, fileName = "report.pdf", options = {}, fallbackToPrint = true },
+) => {
+  try {
+    const res = await axios.post(
+      `${apiBase}/user/pdf/render`,
+      { html, fileName: sanitizeFileName(fileName), options },
+      { withCredentials: true, responseType: "blob" },
+    );
+
+    const opened = openBlobInNewTab(res.data);
+    if (!opened) {
+      triggerBlobDownload(res.data, fileName);
+    }
     return;
   } catch (error) {
     const message = await extractErrorMessage(error);
