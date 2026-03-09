@@ -1,26 +1,41 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { FiLogOut, FiMenu } from "react-icons/fi";
+import { useEffect, useMemo, useState } from "react";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import {
+  FiActivity,
+  FiBookOpen,
+  FiClipboard,
+  FiDollarSign,
+  FiHome,
+  FiLogOut,
+  FiMapPin,
+  FiMenu,
+} from "react-icons/fi";
 import toast from "react-hot-toast";
 import axiosInstance from "../../utils/axiosInstance";
 import "./ParentPortal.css";
 
 const menuItems = [
-  { key: "overview", label: "Overview", path: "/parent/dashboard" },
-  { key: "daily-subject", label: "Daily Subject Attendance", path: "/parent/dashboard/daily-subject-attendance" },
-  { key: "hostel", label: "Hostel Attendance", path: "/parent/dashboard/hostel" },
-  { key: "assignments", label: "Assignments", path: "/parent/dashboard/assignments" },
-  { key: "exams", label: "Exams", path: "/parent/dashboard/exams" },
-  { key: "fees", label: "Fees", path: "/parent/dashboard/fees" },
+  { key: "overview", label: "Overview", path: "/parent/dashboard", icon: FiHome },
+  {
+    key: "daily-subject",
+    label: "Daily Attendance",
+    path: "/parent/dashboard/daily-subject-attendance",
+    icon: FiActivity,
+  },
+  { key: "hostel", label: "Hostel Attendance", path: "/parent/dashboard/hostel", icon: FiMapPin },
+  { key: "assignments", label: "Assignments", path: "/parent/dashboard/assignments", icon: FiBookOpen },
+  { key: "exams", label: "Exams", path: "/parent/dashboard/exams", icon: FiClipboard },
+  { key: "fees", label: "Fees", path: "/parent/dashboard/fees", icon: FiDollarSign },
 ];
 
 const ParentShell = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const menuRef = useRef(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(
+    () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true)
+  );
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const token = String(localStorage.getItem("authToken") || localStorage.getItem("token") || "").trim();
@@ -53,17 +68,19 @@ const ParentShell = () => {
   }, [navigate]);
 
   useEffect(() => {
-    setIsMenuOpen(false);
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
   }, [location.pathname]);
 
   useEffect(() => {
-    const onDocClick = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
-        setIsMenuOpen(false);
+    const onResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsSidebarOpen(true);
       }
     };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   const handleLogout = async () => {
@@ -76,6 +93,33 @@ const ParentShell = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("parentStudent");
     navigate("/parent/login", { replace: true });
+  };
+
+  const todayLabel = useMemo(
+    () =>
+      new Date().toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }),
+    []
+  );
+
+  const studentName = data?.student?.name || "Student";
+  const enrollmentNumber = data?.student?.enrollmentNumber || "N/A";
+  const studentEmail = data?.student?.email || "N/A";
+  const userInitials = studentName
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((word) => word[0]?.toUpperCase())
+    .join("");
+
+  const isMenuActive = (itemPath) => {
+    if (itemPath === "/parent/dashboard") {
+      return location.pathname === "/parent/dashboard";
+    }
+    return location.pathname.startsWith(itemPath);
   };
 
   if (loading) {
@@ -95,47 +139,78 @@ const ParentShell = () => {
   }
 
   return (
-    <div className="parent-portal parent-portal--dashboard">
-      <div className="parent-dashboard-head">
-        <div>
-          <h1>Parent Dashboard</h1>
-          <p>
-            {data?.student?.name || "Student"} ({data?.student?.enrollmentNumber || "N/A"})
-          </p>
-        </div>
-        <div className="parent-head-actions">
-          <div className="parent-feature-menu" ref={menuRef}>
+    <div className="parent-portal parent-portal--dashboard-shell">
+      <header className="parent-dashboard-nav">
+        <div className="parent-dashboard-nav-inner">
+          <div className="parent-dashboard-nav-left">
             <button
               type="button"
-              className="parent-menu-btn"
-              onClick={() => setIsMenuOpen((prev) => !prev)}
-              aria-label="Open features menu"
-              title="Menu"
+              className="parent-dashboard-menu-toggle"
+              onClick={() => setIsSidebarOpen((prev) => !prev)}
+              aria-label="Toggle parent sidebar"
             >
               <FiMenu />
             </button>
-            {isMenuOpen ? (
-              <div className="parent-menu-popover">
-                {menuItems.map((item) => (
-                  <Link
-                    key={item.key}
-                    to={item.path}
-                    className={`parent-menu-link ${location.pathname === item.path ? "active" : ""}`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            ) : null}
+            <div className="parent-dashboard-brand">
+              <h1>Parent Desk</h1>
+              <p>HU ERP PORTAL</p>
+            </div>
           </div>
-          <button type="button" onClick={handleLogout} className="parent-logout-btn">
-            <FiLogOut />
-            Logout
-          </button>
+          <div className="parent-dashboard-nav-right">
+            <div className="parent-dashboard-welcome">
+              <span>Welcome {studentName}</span>
+              <small>{todayLabel}</small>
+            </div>
+            <button type="button" onClick={handleLogout} className="parent-logout-btn">
+              <FiLogOut />
+              Logout
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <Outlet context={{ data }} />
+      <div className={`parent-dashboard-layout ${isSidebarOpen ? "sidebar-open" : "sidebar-collapsed"}`}>
+        {isSidebarOpen ? (
+          <button
+            type="button"
+            className="parent-dashboard-overlay"
+            onClick={() => setIsSidebarOpen(false)}
+            aria-label="Close sidebar overlay"
+          />
+        ) : null}
+
+        <aside className={`parent-dashboard-sidebar ${isSidebarOpen ? "open" : ""}`}>
+          <div className="parent-sidebar-profile">
+            <div className="parent-sidebar-avatar">{userInitials || "ST"}</div>
+            <div className="parent-sidebar-profile-copy">
+              <h2>{studentName}</h2>
+              <p>{studentEmail}</p>
+              <small>Enrollment: {enrollmentNumber}</small>
+            </div>
+          </div>
+          <div className="parent-sidebar-menu">
+            <span className="parent-sidebar-label">PARENT MENU</span>
+            {menuItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  className={`parent-sidebar-btn ${isMenuActive(item.path) ? "active" : ""}`}
+                  onClick={() => navigate(item.path)}
+                >
+                  <Icon />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        </aside>
+
+        <main className="parent-dashboard-content">
+          <Outlet context={{ data }} />
+        </main>
+      </div>
     </div>
   );
 };

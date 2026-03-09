@@ -14,8 +14,59 @@ const ParentDashboard = () => {
     return list.slice(0, 5);
   }, [data]);
 
+  const summaryCards = [
+    {
+      id: "attendance",
+      label: "Attendance",
+      value: `${attendance.percentage ?? 0}%`,
+      accent: "parent-summary-card--attendance",
+    },
+    {
+      id: "present",
+      label: "Present Sessions",
+      value: attendance.present ?? 0,
+      accent: "parent-summary-card--present",
+    },
+    {
+      id: "due",
+      label: "Fee Due",
+      value: feeSummary.totalDue ?? 0,
+      accent: "parent-summary-card--due",
+    },
+    {
+      id: "assignments",
+      label: "Assignments",
+      value: Array.isArray(data?.assignmentMarks) ? data.assignmentMarks.length : 0,
+      accent: "parent-summary-card--assignments",
+    },
+  ];
+
   return (
     <>
+      <section className="parent-home-hero">
+        <div className="parent-home-hero-copy">
+          <h3>Parent Dashboard Overview</h3>
+          <p>
+            Monitor attendance, assignments, exams, hostel updates, and fees for{" "}
+            <strong>{data?.student?.name || "Student"}</strong> from a single dashboard.
+          </p>
+          <div className="parent-home-hero-chips">
+            <span>{data?.student?.academicYear || "N/A"}</span>
+            <span>Semester {data?.student?.semester ?? "N/A"}</span>
+            <span>{hostel?.isHosteller ? "Hosteller" : "Non-Hosteller"}</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="parent-summary-grid">
+        {summaryCards.map((card) => (
+          <article key={card.id} className={`parent-summary-card ${card.accent}`}>
+            <p>{card.label}</p>
+            <strong>{card.value}</strong>
+          </article>
+        ))}
+      </section>
+
       <div className="parent-grid">
         <section className="parent-card">
           <h3>Student Details</h3>
@@ -23,14 +74,7 @@ const ParentDashboard = () => {
           <div className="parent-kv"><span>Email</span><strong>{data?.student?.email || "N/A"}</strong></div>
           <div className="parent-kv"><span>Academic Year</span><strong>{data?.student?.academicYear || "N/A"}</strong></div>
           <div className="parent-kv"><span>Semester</span><strong>{data?.student?.semester ?? "N/A"}</strong></div>
-        </section>
-
-        <section className="parent-card">
-          <h3>Attendance Overview</h3>
-          <div className="parent-kv"><span>Present</span><strong>{attendance.present ?? 0}</strong></div>
-          <div className="parent-kv"><span>Absent</span><strong>{attendance.absent ?? 0}</strong></div>
-          <div className="parent-kv"><span>Total</span><strong>{attendance.total ?? 0}</strong></div>
-          <div className="parent-kv"><span>Percentage</span><strong>{attendance.percentage ?? 0}%</strong></div>
+          <div className="parent-kv"><span>Department</span><strong>{data?.student?.department?.name || "N/A"}</strong></div>
         </section>
 
         <section className="parent-card">
