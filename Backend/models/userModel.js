@@ -35,11 +35,7 @@ const userSchema = new mongoose.Schema(
         "hod",
         "placement",
         "exam",
-        "director",
-        "vc",
-        "warden",
-        "librarian",
-        "parent",
+
       ],
       default: "student",
     },

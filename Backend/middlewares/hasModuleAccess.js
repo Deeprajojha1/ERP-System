@@ -1,6 +1,10 @@
 import { getPermissionsByRole, hasPermission } from "../utils/rolePermissions.js";
 
-const hasModuleAccess = (modulePermission) => (req, res, next) => {
+const hasModuleAccess = (modulePermission, exemptRoles = []) => (req, res, next) => {
+  if (Array.isArray(exemptRoles) && exemptRoles.includes(req.role)) {
+    return next();
+  }
+
   const rolePermissions =
     Array.isArray(req.permissions) && req.permissions.length
       ? req.permissions
@@ -17,4 +21,3 @@ const hasModuleAccess = (modulePermission) => (req, res, next) => {
 };
 
 export default hasModuleAccess;
-
