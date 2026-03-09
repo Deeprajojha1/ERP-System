@@ -13,6 +13,7 @@ import WardenDashboard from "./components/wardenDashboard/WardenDashboard";
 import RoomManagement from "./components/wardenDashboard/RoomManagement";
 import StudentManagement from "./components/wardenDashboard/StudentManagement";
 import OutpassManagement from "./components/wardenDashboard/OutpassManagement";
+import GateSecurityDashboard from "./components/wardenDashboard/GateSecurityDashboard";
 import ComplaintManagement from "./components/wardenDashboard/ComplaintManagement";
 import FoodMenu from "./components/wardenDashboard/FoodMenu";
 import WardenSupport from "./components/wardenDashboard/WardenSupport";
@@ -100,6 +101,7 @@ function App() {
       (role === "admin" && savedRoute.startsWith("/admin")) ||
       (role === "faculty" && savedRoute.startsWith("/faculty")) ||
       (role === "warden" && savedRoute.startsWith("/warden")) ||
+      (role === "gateSecurity" && savedRoute.startsWith("/gate-security")) ||
       (role === "student" && savedRoute.startsWith("/dashboard"));
 
     sessionStorage.removeItem(LAST_FAILED_ROUTE_KEY);
@@ -173,6 +175,8 @@ function App() {
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
+              ) : userData.user?.role === "gateSecurity" ? (
+                <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
               )
@@ -192,6 +196,8 @@ function App() {
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
+              ) : userData.user?.role === "gateSecurity" ? (
+                <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
               )
@@ -211,6 +217,8 @@ function App() {
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
+              ) : userData.user?.role === "gateSecurity" ? (
+                <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
               )
@@ -230,6 +238,8 @@ function App() {
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
+              ) : userData.user?.role === "gateSecurity" ? (
+                <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
               )
@@ -340,6 +350,17 @@ function App() {
           element={
             userData?.user?.role === "warden" ? (
               <StudentMessages />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          }
+        />
+
+        <Route
+          path="/gate-security-dashboard/*"
+          element={
+            userData?.user?.role === "gateSecurity" ? (
+              <GateSecurityDashboard />
             ) : (
               <Navigate to="/" replace />
             )

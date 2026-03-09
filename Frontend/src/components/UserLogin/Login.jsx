@@ -103,6 +103,8 @@ const Login = () => {
         navigate("/admin/dashboard", { replace: true });
       } else if (res.data.user.role === "warden") {
         navigate("/warden-dashboard", { replace: true });
+      } else if (res.data.user.role === "gateSecurity") {
+        navigate("/gate-security-dashboard", { replace: true });
       }
     } catch (error) {
       if (!error.response) {
