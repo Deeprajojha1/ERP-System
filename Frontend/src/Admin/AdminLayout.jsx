@@ -25,7 +25,6 @@ import {
   FiClock,
   FiTrendingUp,
   FiCreditCard,
-  FiCalendar,
   FiBriefcase,
   FiLifeBuoy,
 } from "react-icons/fi";
@@ -48,6 +47,7 @@ import { clearFeeState } from "../redux/feeSlice";
 import collegeLogo from "../assets/college_47233.jpg";
 import "./AdminHome.css";
 import Leaves from "./Leaves";
+import { hasPermission, hasAnyPermission, resolvePermissions } from "../utils/permissions";
 
 const FEE_MENU_SECTIONS = [
   {
@@ -78,11 +78,6 @@ const FEE_MENU_SECTIONS = [
         paths: ["/admin/fees/payment-methods"],
         Icon: FiCreditCard,
       },
-      {
-        label: "Academic Calendar",
-        paths: ["/admin/fees/academic-calendar"],
-        Icon: FiCalendar,
-      },
     ],
   },
   {
@@ -106,12 +101,6 @@ const FEE_MENU_SECTIONS = [
         matchChildren: false,
         Icon: FiFileText,
       },
-      {
-        label: "Bulk Operations",
-        paths: ["/admin/fees/bulk"],
-        matchChildren: false,
-        Icon: LuBadgeIndianRupee,
-      },
     ],
   },
   {
@@ -126,11 +115,6 @@ const FEE_MENU_SECTIONS = [
         label: "Financial Analytics",
         paths: ["/admin/fees/financial"],
         Icon: FiClock,
-      },
-      {
-        label: "Student Analytics",
-        paths: ["/admin/fees/student-analytics"],
-        Icon: FiTrendingUp,
       },
     ],
   },
@@ -181,6 +165,9 @@ const AdminLayout = () => {
     location.pathname === path || location.pathname.startsWith(`${path}/`);
   const userName = userData?.user?.name || "Admin User";
   const userEmail = userData?.user?.email || "admin@university.edu";
+  const permissions = resolvePermissions(userData);
+  const canAccess = (permissionKey) => hasPermission(permissions, permissionKey);
+  const canAnyAccess = (permissionKeys = []) => hasAnyPermission(permissions, permissionKeys);
   const userImg = buildProfileImageUrl(
     apiBase,
     userData?.user?.profileImageUrl,
@@ -205,7 +192,7 @@ const AdminLayout = () => {
   };
 
   useEffect(() => {
-    if (!apiBase || userData?.user?.role !== "admin") return;
+    if (!apiBase || !hasPermission(permissions, "module.leaves")) return;
     if (!location.pathname.startsWith("/admin/leaves")) return;
 
     dispatch(fetchAdminLeaves());
@@ -214,7 +201,7 @@ const AdminLayout = () => {
     }, 60000);
 
     return () => clearInterval(intervalId);
-  }, [apiBase, userData?.user?.role, location.pathname, dispatch]);
+  }, [apiBase, permissions, location.pathname, dispatch]);
 
   useEffect(() => {
     if (isFeeRouteActive) {
@@ -399,22 +386,33 @@ const AdminLayout = () => {
             <div className="sidebar-header">
               <span className="sidebar-title">Menu</span>
             </div>
-            <div className="sidebar-section">
-              <label className="sidebar-label">DASHBOARD</label>
-              <button
-                type="button"
-                className={`sidebar-btn ${isActive("/admin/dashboard") ? "active" : ""}`}
-                onClick={() => {
-                  navigate("/admin/dashboard");
-                }}
-              >
-                <MdDashboardCustomize />
-                <span className="sidebar-text">Dashboard</span>
-              </button>
-            </div>
+            {canAccess("module.dashboard") ? (
+              <div className="sidebar-section">
+                <label className="sidebar-label">DASHBOARD</label>
+                <button
+                  type="button"
+                  className={`sidebar-btn ${isActive("/admin/dashboard") ? "active" : ""}`}
+                  onClick={() => {
+                    navigate("/admin/dashboard");
+                  }}
+                >
+                  <MdDashboardCustomize />
+                  <span className="sidebar-text">Dashboard</span>
+                </button>
+              </div>
+            ) : null}
 
+            {canAnyAccess([
+              "module.department",
+              "module.faculty",
+              "module.students",
+              "module.student_discipline",
+              "module.student_id_cards",
+              "module.hostel",
+            ]) ? (
             <div className="sidebar-section">
               <label className="sidebar-label">MANAGEMENT</label>
+              {canAccess("module.department") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/department") ? "active" : ""}`}
@@ -425,21 +423,27 @@ const AdminLayout = () => {
                 <GoOrganization />
                 <span className="sidebar-text">Department</span>
               </button>
+              ) : null}
 
+              {canAccess("module.faculty") ? (
               <button type="button" className={`sidebar-btn ${isActive("/admin/faculty") ? "active" : ""}`} onClick={() => {
                   navigate("/admin/faculty");
                 }}>
                 <GiTeacher />
                 <span className="sidebar-text">Faculty</span>
               </button>
+              ) : null}
 
+              {canAccess("module.students") ? (
               <button type="button" className={`sidebar-btn ${isActive("/admin/student") ? "active" : ""}`} onClick={() => {
                   navigate("/admin/student");
                 }}>
                 <PiStudentFill />
                 <span className="sidebar-text">Students</span>
               </button>
+              ) : null}
 
+              {canAccess("module.student_discipline") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/student-discipline") ? "active" : ""}`}
@@ -450,7 +454,9 @@ const AdminLayout = () => {
                 <PiStudentFill />
                 <span className="sidebar-text">Student Discipline</span>
               </button>
+              ) : null}
 
+              {canAccess("module.student_id_cards") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/student-id-cards") ? "active" : ""}`}
@@ -461,7 +467,9 @@ const AdminLayout = () => {
                 <PiStudentFill />
                 <span className="sidebar-text">Student ID Cards</span>
               </button>
+              ) : null}
 
+              {canAccess("module.hostel") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/hostel") ? "active" : ""}`}
@@ -472,11 +480,24 @@ const AdminLayout = () => {
                 <FiHome />
                 <span className="sidebar-text">Hostel</span>
               </button>
+              ) : null}
             </div>
+            ) : null}
 
+            {canAnyAccess([
+              "module.courses",
+              "module.groups",
+              "module.classrooms",
+              "module.assignment",
+              "module.timetable",
+              "module.exams",
+              "module.exam_blueprint",
+              "module.results",
+            ]) ? (
             <div className="sidebar-section">
               <label className="sidebar-label">ACADEMICS</label>
 
+              {canAccess("module.courses") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/courses") ? "active" : ""}`}
@@ -487,7 +508,9 @@ const AdminLayout = () => {
                 <MdCastForEducation />
                 <span className="sidebar-text">Courses</span>
               </button>
+              ) : null}
 
+              {canAccess("module.groups") ? (
               <button
                 className={`sidebar-btn ${isActive("/admin/groups") ? "active" : ""}`}
                 type="button"
@@ -498,7 +521,9 @@ const AdminLayout = () => {
                 <GiJusticeStar />
                 <span className="sidebar-text">Groups</span>
               </button>
+              ) : null}
 
+              {canAccess("module.classrooms") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/classrooms") ? "active" : ""}`}
@@ -509,7 +534,9 @@ const AdminLayout = () => {
                 <FiLayers />
                 <span className="sidebar-text">Classrooms</span>
               </button>
+              ) : null}
 
+              {canAccess("module.assignment") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/assignment") ? "active" : ""}`}
@@ -518,9 +545,11 @@ const AdminLayout = () => {
                 }}
               >
                 <MdCastForEducation />
-                <span className="sidebar-text">Assignments</span>
+                <span className="sidebar-text">Assignment</span>
               </button>
+              ) : null}
 
+              {canAccess("module.timetable") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/timetable") ? "active" : ""}`}
@@ -531,7 +560,9 @@ const AdminLayout = () => {
                 <MdOutlineSchedule />
                 <span className="sidebar-text">Timetable</span>
               </button>
+              ) : null}
 
+              {canAccess("module.exams") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/exam") ? "active" : ""}`}
@@ -542,7 +573,9 @@ const AdminLayout = () => {
                 <PiExamFill />
                 <span className="sidebar-text">Exams</span>
               </button>
+              ) : null}
 
+              {canAccess("module.exam_blueprint") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/exam-blueprint") ? "active" : ""}`}
@@ -553,7 +586,9 @@ const AdminLayout = () => {
                 <PiExamFill />
                 <span className="sidebar-text">Exam Blueprint</span>
               </button>
+              ) : null}
 
+              {canAccess("module.results") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/result") ? "active" : ""}`}
@@ -564,11 +599,20 @@ const AdminLayout = () => {
                 <VscOutput />
                 <span className="sidebar-text">Results</span>
               </button>
+              ) : null}
             </div>
+            ) : null}
 
+            {canAnyAccess([
+              "module.attendance",
+              "module.leaves",
+              "module.placement_jobs",
+              "module.placement_applications",
+              "module.fees",
+            ]) ? (
             <div className="sidebar-section">
               <label className="sidebar-label">OPERATIONS</label>
-
+              {canAccess("module.attendance") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/attendance") ? "active" : ""}`}
@@ -579,7 +623,9 @@ const AdminLayout = () => {
                 <MdRecordVoiceOver />
                 <span className="sidebar-text">Attendance</span>
               </button>
+              ) : null}
 
+              {canAccess("module.leaves") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/leaves") ? "active" : ""}`}
@@ -590,7 +636,9 @@ const AdminLayout = () => {
                 <GiKoholintEgg />
                 <span className="sidebar-text">Leaves</span>
               </button>
+              ) : null}
 
+              {canAccess("module.placement_jobs") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${
@@ -605,7 +653,9 @@ const AdminLayout = () => {
                 <FiBriefcase />
                 <span className="sidebar-text">Placement Jobs</span>
               </button>
+              ) : null}
 
+              {canAccess("module.placement_applications") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${
@@ -621,7 +671,9 @@ const AdminLayout = () => {
                 <FiBriefcase />
                 <span className="sidebar-text">Placement Applications</span>
               </button>
+              ) : null}
 
+              {canAccess("module.fees") ? (
               <div
                 className={`sidebar-dropdown ${
                   isFeeRouteActive ? "open" : ""
@@ -674,11 +726,23 @@ const AdminLayout = () => {
                   ))}
                 </div>
               </div>
+              ) : null}
             </div>
+            ) : null}
 
+            {canAnyAccess([
+              "module.alerts",
+              "module.warden_support",
+              "module.general_reports",
+              "module.faculty_lecture_report",
+              "module.student_attendance",
+              "module.teaching_load",
+              "module.library",
+              "module.settings",
+            ]) ? (
             <div className="sidebar-section">
               <label className="sidebar-label">SYSTEM</label>
-
+              {canAccess("module.alerts") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/alerts") ? "active" : ""}`}
@@ -689,7 +753,9 @@ const AdminLayout = () => {
                 <FiBell />
                 <span className="sidebar-text">Alerts</span>
               </button>
+              ) : null}
 
+              {canAccess("module.warden_support") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/warden-support-tickets") ? "active" : ""}`}
@@ -700,7 +766,9 @@ const AdminLayout = () => {
                 <FiLifeBuoy />
                 <span className="sidebar-text">Warden Support</span>
               </button>
+              ) : null}
 
+              {canAccess("module.general_reports") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/general-support") ? "active" : ""}`}
@@ -711,7 +779,9 @@ const AdminLayout = () => {
                 <TbReportSearch />
                 <span className="sidebar-text">General Reports</span>
               </button>
+              ) : null}
 
+              {canAccess("module.faculty_lecture_report") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/faculty-lecture-report") ? "active" : ""}`}
@@ -722,7 +792,9 @@ const AdminLayout = () => {
                 <TbReportSearch />
                 <span className="sidebar-text">Faculty Lecture Report</span>
               </button>
+              ) : null}
 
+              {canAccess("module.student_attendance") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/subject-attendance") ? "active" : ""}`}
@@ -731,9 +803,11 @@ const AdminLayout = () => {
                 }}
               >
                 <TbReportSearch />
-                <span className="sidebar-text">Subject Attendance</span>
+                <span className="sidebar-text">Student Attendance</span>
               </button>
+              ) : null}
 
+              {canAccess("module.teaching_load") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/teaching-load") ? "active" : ""}`}
@@ -744,7 +818,9 @@ const AdminLayout = () => {
                 <TbReportSearch />
                 <span className="sidebar-text">Teaching Load</span>
               </button>
+              ) : null}
 
+              {canAccess("module.library") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/library") ? "active" : ""}`}
@@ -755,7 +831,9 @@ const AdminLayout = () => {
                 <FiBookOpen />
                 <span className="sidebar-text">Library</span>
               </button>
+              ) : null}
 
+              {canAccess("module.settings") ? (
               <button
                 type="button"
                 className={`sidebar-btn ${isActive("/admin/settings") ? "active" : ""}`}
@@ -766,7 +844,9 @@ const AdminLayout = () => {
                 <FiSettings />
                 <span className="sidebar-text">Settings</span>
               </button>
+              ) : null}
             </div>
+            ) : null}
           </div>
 
         </div>

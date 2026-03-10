@@ -19,7 +19,9 @@ import {
   getMyExamRegistrations,
   getMyExamRegistrationById,
   updateMyExamRegistration,
+  uploadExamRegistrationImage,
 } from "../controllers/studentExamRegistrationController.js";
+import upload from "../config/multerConfig.js";
 import {
   getMyAdmitCards,
   getMyAdmitCardById,
@@ -37,6 +39,7 @@ import {
   getMyFeeProfile,
   getMyFeeDemands,
   getMyPaymentHistory,
+  getMyFeeDemandRequests,
   createMyFeeDemandRequest,
   createMyPayment,
   createMyRazorpayOrder,
@@ -104,6 +107,7 @@ router.get("/attendance", isAuth, isStudent, getStudentAttendanceSummary);
   router.get("/hostel/holiday/active-qr", isAuth, isStudent, getMyActiveOutpassQr);
 
 /* Student Exam Registration */
+router.post("/exam-registration/upload-image", isAuth, isStudent, upload.single("image"), uploadExamRegistrationImage);
 router.post("/exam-registration/apply", isAuth, isStudent, applyExamRegistration);
 router.get("/exam-registration", isAuth, isStudent, getMyExamRegistrations);
 router.get("/exam-registration/:id", isAuth, isStudent, getMyExamRegistrationById);
@@ -127,6 +131,7 @@ router.get("/attempt/:attemptId/result", isAuth, isStudent, getMyExamResult);
 router.get("/fee/me/profile", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeProfile);
 router.get("/fee/me/demand", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeDemands);
 router.get("/fee/me/payment", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyPaymentHistory);
+router.get("/fee/me/demand-request", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeDemandRequests);
 router.post("/fee/me/demand-request", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyFeeDemandRequest);
 router.post("/fee/me/payment/razorpay/order", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyRazorpayOrder);
 router.post("/fee/me/payment/razorpay/verify", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, verifyMyRazorpayPayment);

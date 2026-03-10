@@ -36,6 +36,7 @@ const StudentFeeMapping = () => {
   const submitting = useSelector(selectFeeActionLoading);
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState(defaultForm);
+  const [selectedStudentId, setSelectedStudentId] = useState("");
 
   useEffect(() => {
     dispatch(fetchFeePrograms());
@@ -48,7 +49,7 @@ const StudentFeeMapping = () => {
       try {
         const response = await axios.get(`${apiBase}/admin/student`, {
           withCredentials: true,
-          params: { noCache: "true" },
+          params: { noCache: "true", full: "true" },
         });
         setStudents(response.data?.students || []);
       } catch (error) {
@@ -68,12 +69,22 @@ const StudentFeeMapping = () => {
   );
 
   const selectStudent = (student) => {
+    const resolvedUserId =
+      typeof student.user === "object" ? student.user?._id || "" : student.user || "";
+    if (!resolvedUserId) {
+      toast.error("Selected student is missing user id");
+      return;
+    }
+
     setForm((prev) => ({
       ...prev,
       studentMongoId: student._id || "",
-      userId: student.user?._id || "",
-      studentId: student.enrollmentNumber || "",
+      userId: resolvedUserId,
+      studentId: student.enrollmentNumber || student.rollNo || "",
+      currentSemester: String(student.semester || prev.currentSemester || "1"),
     }));
+    setSelectedStudentId(String(student._id || ""));
+    toast.success("Student selected");
   };
 
   const submitMapping = async (event) => {
@@ -117,9 +128,6 @@ const StudentFeeMapping = () => {
         <div>
           <p className="sfm-eyebrow">Student Fee Mapping</p>
           <h1>Create student fee profile</h1>
-          <p className="sfm-supporting">
-            Integrated endpoint: <code>/api/admin/fee/student-details</code>
-          </p>
         </div>
       </header>
 
@@ -136,15 +144,21 @@ const StudentFeeMapping = () => {
           {students.slice(0, 20).map((student) => (
             <article key={student._id} className="sfm-table-row">
               <div className="sfm-student-cell">
-                <p className="sfm-student-name">{student.enrollmentNumber || "N/A"}</p>
+                <p className="sfm-student-name">
+                  {student.enrollmentNumber || student.rollNo || "N/A"}
+                </p>
               </div>
-              <div>{student.user?.name || "N/A"}</div>
-              <div>{student.department?.name || "N/A"}</div>
-              <div>{student.program || "N/A"}</div>
+              <div>{student.user?.name || student.studentName || "N/A"}</div>
+              <div>{student.department?.name || student.department || "N/A"}</div>
+              <div>{student.program || student.programme || "N/A"}</div>
               <div>{student.semester || "N/A"}</div>
               <div>
-                <button type="button" className="sfm-action-btn" onClick={() => selectStudent(student)}>
-                  Use
+                <button
+                  type="button"
+                  className="sfm-action-btn"
+                  onClick={() => selectStudent(student)}
+                >
+                  {String(student._id || "") === selectedStudentId ? "Selected" : "Use"}
                 </button>
               </div>
             </article>

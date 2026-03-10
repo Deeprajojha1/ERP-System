@@ -10,7 +10,7 @@ const examRegistrationSchema = new mongoose.Schema(
     exam: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Exam",
-      required: true,
+      default: null,
     },
 
     // Registration level state
@@ -146,7 +146,7 @@ const examRegistrationSchema = new mongoose.Schema(
 );
 
 examRegistrationSchema.index(
-  { student: 1, exam: 1 },
+  { student: 1, exam: 1, createdAt: -1 },
   {
     partialFilterExpression: { isDeleted: false },
   }

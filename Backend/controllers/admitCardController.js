@@ -208,7 +208,7 @@ export const issueAdmitCard = async (req, res) => {
       admitCard = await AdmitCard.create({
         registration: registration._id,
         student: registration.student,
-        exam: registration.exam,
+        exam: registration.exam || null,
         admitCardNo: generateAdmitCardNo(),
         ...commonUpdate,
       });

@@ -219,8 +219,8 @@ const Exam = () => {
       await Promise.all([
         dispatch(fetchExams({ apiBase })).unwrap(),
         dispatch(fetchExamSupportData({ apiBase })).unwrap(),
-        fetchExamRegistrations(),
-        fetchAdmitCards(),
+        fetchExamRegistrations().catch(() => {}),
+        fetchAdmitCards().catch(() => {}),
       ]);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
@@ -398,7 +398,7 @@ const Exam = () => {
 
         return {
           _id: registration?._id,
-          examName: registration?.exam?.examName || registration?.courseName || "-",
+          examName: registration?.exam?.examName || registration?.courseName || "All Exams",
           subject:
             registration?.subjects?.[0]?.subjectCode && registration?.subjects?.[0]?.subjectName
               ? `${registration.subjects[0].subjectCode} - ${registration.subjects[0].subjectName}`
@@ -1774,8 +1774,8 @@ const Exam = () => {
                         <td className="exam-name">{item.candidateName}</td>
                         <td>{item.rollNo}</td>
                         <td>{item.enrollmentNumber}</td>
-                        <td className="exam-name">{item.examName}</td>
-                        <td>{item.subject}</td>
+                        <td className="exam-name">{item.examName === "-" ? "All Exams" : item.examName}</td>
+                        <td>{item.subject === "-" ? "All Exams" : item.subject}</td>
                         <td>{item.session}</td>
                         <td>{item.semester}</td>
                         <td>{item.date}</td>

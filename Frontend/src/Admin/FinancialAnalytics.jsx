@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { FiTrendingUp, FiArrowUpRight, FiDownload } from "react-icons/fi";
+import { FiTrendingUp, FiDownload } from "react-icons/fi";
 import ClipLoader from "./components/ClipLoader";
 import "./FinancialAnalytics.css";
 
@@ -157,10 +157,6 @@ const FinancialAnalytics = () => {
               </div>
             ))}
           </div>
-          <button type="button" className="fa-link-btn">
-            <FiArrowUpRight />
-            <span>View collection plan</span>
-          </button>
         </article>
       </section>
     </div>
