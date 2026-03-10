@@ -177,6 +177,14 @@ function OutpassManagement({ portalRole = "warden" }) {
     },
   ];
 
+  const sidebarRouteMap = useMemo(() => {
+    if (!isGateSecurity) return {};
+    return {
+      Overview: "/gate-security-dashboard",
+      Outpass: "/gate-security-dashboard",
+    };
+  }, [isGateSecurity]);
+
   const formatDateTime = (dateString) => {
     return new Date(dateString).toLocaleString("en-US", {
       month: "short",
@@ -668,6 +676,8 @@ function OutpassManagement({ portalRole = "warden" }) {
           isCollapsed={isSidebarCollapsed}
           onToggle={() => setIsSidebarCollapsed((prev) => !prev)}
           items={sidebarItems}
+          routeMap={sidebarRouteMap}
+          defaultPath={isGateSecurity ? "/gate-security-dashboard" : "/warden-dashboard"}
         />
 
         {isMobileSidebarOpen && (
@@ -683,6 +693,8 @@ function OutpassManagement({ portalRole = "warden" }) {
                 isCollapsed={false}
                 onToggle={() => setIsMobileSidebarOpen(false)}
                 items={sidebarItems}
+                routeMap={sidebarRouteMap}
+                defaultPath={isGateSecurity ? "/gate-security-dashboard" : "/warden-dashboard"}
                 mobile
               />
             </div>

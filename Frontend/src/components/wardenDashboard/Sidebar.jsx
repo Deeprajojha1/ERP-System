@@ -8,7 +8,7 @@ import { clearFaculty } from "../../redux/facultySlice";
 import { clearLeaves } from "../../redux/leavesSlice";
 import { clearTimetable } from "../../redux/timetableSlice";
 
-function Sidebar({ isCollapsed, onToggle, items, mobile = false }) {
+function Sidebar({ isCollapsed, onToggle, items, mobile = false, routeMap = {}, defaultPath = "/warden-dashboard" }) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,7 +26,7 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false }) {
   };
 
   const getRoutePath = (itemName) => {
-    const routeMap = {
+    const defaultRouteMap = {
       Overview: "/warden-dashboard",
       Rooms: "/warden-rooms",
       "Food Menu": "/warden-menu",
@@ -36,7 +36,11 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false }) {
       Complaints: "/warden-complaints",
       "Admin Support": "/warden-support",
     };
-    return routeMap[itemName] || "/warden-dashboard";
+    const resolvedRouteMap = {
+      ...defaultRouteMap,
+      ...(routeMap || {}),
+    };
+    return resolvedRouteMap[itemName] || defaultPath;
   };
 
   const isActiveRoute = (itemName) => {

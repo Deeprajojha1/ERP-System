@@ -84,6 +84,8 @@ function App() {
 
   const userData = useSelector((state) => state.user.userData);
   const isAdminPanelUser = canAccessAdminPanel(userData);
+  const currentRole = String(userData?.user?.role || "").trim();
+  const isGateSecurityUser = ["gateSecurity", "gate-security", "gate_security"].includes(currentRole);
   console.log("Current User",userData);
   const navigate = useNavigate();
   const location = useLocation();
@@ -112,7 +114,7 @@ function App() {
       (isAdminPanelUser && savedRoute.startsWith("/admin")) ||
       (role === "faculty" && savedRoute.startsWith("/faculty")) ||
       (role === "warden" && savedRoute.startsWith("/warden")) ||
-      (role === "gateSecurity" && savedRoute.startsWith("/gate-security")) ||
+      (["gateSecurity", "gate-security", "gate_security"].includes(role) && savedRoute.startsWith("/gate-security")) ||
       (role === "student" && savedRoute.startsWith("/dashboard"));
 
     sessionStorage.removeItem(LAST_FAILED_ROUTE_KEY);
@@ -186,7 +188,7 @@ function App() {
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
-              ) : userData.user?.role === "gateSecurity" ? (
+              ) : isGateSecurityUser ? (
                 <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
@@ -207,7 +209,7 @@ function App() {
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
-              ) : userData.user?.role === "gateSecurity" ? (
+              ) : isGateSecurityUser ? (
                 <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
@@ -228,7 +230,7 @@ function App() {
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
-              ) : userData.user?.role === "gateSecurity" ? (
+              ) : isGateSecurityUser ? (
                 <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
@@ -249,7 +251,7 @@ function App() {
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
-              ) : userData.user?.role === "gateSecurity" ? (
+              ) : isGateSecurityUser ? (
                 <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
@@ -370,7 +372,7 @@ function App() {
         <Route
           path="/gate-security-dashboard/*"
           element={
-            userData?.user?.role === "gateSecurity" ? (
+            isGateSecurityUser ? (
               <GateSecurityDashboard />
             ) : (
               <Navigate to="/" replace />

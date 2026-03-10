@@ -95,14 +95,20 @@ const Login = () => {
         password: "",
       });
 
-      if (res.data.user.role === "faculty") {
+      const role = String(res.data?.user?.role || "").trim();
+
+      if (role === "faculty") {
         navigate("/faculty/faculty-dashboard", { replace: true });
-      } else if (res.data.user.role === "student") {
+      } else if (role === "student") {
         navigate("/dashboard", { replace: true });
-      } else if (["admin", "accounts", "hod", "exam", "placement", "director", "vc"].includes(res.data.user.role)) {
+      } else if (["admin", "accounts", "hod", "exam", "placement", "director", "vc"].includes(role)) {
         navigate("/admin/dashboard", { replace: true });
-      } else if (res.data.user.role === "warden") {
+      } else if (role === "warden") {
         navigate("/warden-dashboard", { replace: true });
+      } else if (["gateSecurity", "gate-security", "gate_security"].includes(role)) {
+        navigate("/gate-security-dashboard", { replace: true });
+      } else {
+        navigate("/", { replace: true });
       }
     } catch (error) {
       if (!error.response) {
