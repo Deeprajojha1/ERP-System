@@ -168,6 +168,26 @@
   white-space: nowrap;
 }
 
+.courses-view-btn {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: center;
+}
+
+.courses-view-btn:hover {
+  background: #dbeafe;
+}
+
 .courses-edit-btn {
   border: 1px solid #bfdbfe;
   background: #eff6ff;
@@ -318,6 +338,46 @@
   padding: 10px 16px;
   border-radius: 10px;
   cursor: pointer;
+}
+
+.courses-help-text {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.courses-instructor-modal-card {
+  width: min(680px, 92vw);
+}
+
+.courses-instructor-view-body {
+  padding: 18px 20px 12px;
+}
+
+.courses-instructor-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.courses-instructor-table th,
+.courses-instructor-table td {
+  border-bottom: 1px solid #e2e8f0;
+  padding: 10px 8px;
+  text-align: left;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.courses-instructor-table th {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #334155;
+}
+
+.courses-instructor-empty {
+  margin: 0;
+  padding: 8px 0 4px;
+  color: #475569;
 }
 
 @media (max-width: 900px) {

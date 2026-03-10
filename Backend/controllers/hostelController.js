@@ -139,9 +139,12 @@ const ensureValidWardenUsers = async (ids = []) => {
   const found = new Set(users.map((u) => String(u._id)));
   const missing = ids.find((id) => !found.has(String(id)));
   if (missing) return { ok: false, message: "One or more wardens are invalid." };
-  const nonWarden = users.find((u) => String(u.role || "").toLowerCase() !== "warden");
-  if (nonWarden?._id) {
-    return { ok: false, message: "Only users with warden role can be assigned." };
+  const invalidRole = users.find((u) => {
+    const role = String(u.role || "").toLowerCase();
+    return role !== "warden" && role !== "gatesecurity";
+  });
+  if (invalidRole?._id) {
+    return { ok: false, message: "Only warden or gateSecurity users can be assigned." };
   }
   return { ok: true, ids };
 };

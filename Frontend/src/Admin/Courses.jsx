@@ -4,23 +4,40 @@ import axios from "../utils/axiosInstance";
 import "./Courses.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { Oval } from "react-loader-spinner";
-import { FiEdit2, FiLoader, FiSearch } from "react-icons/fi";
+import { FiEdit2, FiEye, FiLoader, FiSearch } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 import toast from "react-hot-toast";
 import { selectTimetableRevision } from "../redux/timetableSlice";
 import ClipLoader from "./components/ClipLoader";
 
 const resolveFacultyMembers = (course = {}) => {
-  if (Array.isArray(course.facultyMembers)) return course.facultyMembers;
-  if (Array.isArray(course.facultyIds)) {
-    return course.facultyIds
-      .map((faculty) => ({
-        _id: faculty?._id || faculty?.id || null,
-        name: faculty?.user?.name || faculty?.name || "Faculty",
-      }))
-      .filter((faculty) => faculty._id);
-  }
-  return [];
+  const normalizeFaculty = (faculty) => {
+    if (!faculty) return null;
+    if (typeof faculty === "string") {
+      return { _id: faculty, name: "Faculty" };
+    }
+    const id = faculty?._id || faculty?.id || null;
+    if (!id) return null;
+    return {
+      _id: id,
+      name: faculty?.user?.name || faculty?.name || faculty?.employeeId || "Faculty",
+    };
+  };
+
+  const merged = [
+    ...(Array.isArray(course.facultyMembers) ? course.facultyMembers : []),
+    ...(Array.isArray(course.facultyIds) ? course.facultyIds : []),
+  ]
+    .map(normalizeFaculty)
+    .filter(Boolean);
+
+  const seen = new Set();
+  return merged.filter((faculty) => {
+    const key = String(faculty._id);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 const normalizeCourseRow = (course = {}, { existingCourse, referenceCourses = [] } = {}) => {
@@ -78,17 +95,19 @@ const Courses = () => {
   const [editingCourseId, setEditingCourseId] = useState("");
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [courses, setCourses] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [facultyList, setFacultyList] = useState([]);
   const [modalDependenciesLoading, setModalDependenciesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [viewInstructorCourse, setViewInstructorCourse] = useState(null);
   const [formData, setFormData] = useState({
     code: "",
     courseName: "",
     department: "",
     semester: "",
     credit: "",
-    facultyId: "",
+    facultyIds: [],
   });
 
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -120,11 +139,28 @@ const Courses = () => {
     if (!apiBase) return;
     try {
       setLoadState(ADMIN_LOAD_STATES.PENDING);
-      const courseRes = await axios.get(`${apiBase}/admin/course`, {
-        withCredentials: true,
-        skipNetworkRedirect: true,
-      });
-      setCourses(courseRes.data?.courses || []);
+      const [courseResult, groupResult] = await Promise.allSettled([
+        axios.get(`${apiBase}/admin/course`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+        }),
+        axios.get(`${apiBase}/admin/group`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+          params: { noCache: "true" },
+        }),
+      ]);
+
+      if (courseResult.status !== "fulfilled") {
+        throw courseResult.reason;
+      }
+
+      setCourses(courseResult.value?.data?.courses || []);
+      if (groupResult.status === "fulfilled") {
+        setGroups(groupResult.value?.data?.groups || []);
+      } else {
+        setGroups([]);
+      }
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
       console.error("Failed to load courses", error.response?.data || error.message);
@@ -144,7 +180,7 @@ const Courses = () => {
       department: "",
       semester: "",
       credit: "",
-      facultyId: "",
+      facultyIds: [],
     });
   };
 
@@ -158,6 +194,11 @@ const Courses = () => {
   const handleFormChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFacultySelection = (e) => {
+    const selectedIds = Array.from(e.target.selectedOptions, (option) => option.value);
+    setFormData((prev) => ({ ...prev, facultyIds: selectedIds }));
   };
 
   const ensureModalDependencies = useCallback(async () => {
@@ -192,7 +233,9 @@ const Courses = () => {
     }
 
     const selectedDepartment = departments.find((d) => d._id === formData.department);
-    const selectedFaculty = facultyList.find((f) => f._id === formData.facultyId);
+    const selectedFacultyMap = new Map(
+      facultyList.map((faculty) => [String(faculty?._id || ""), faculty])
+    );
     const existingCourse = courses.find((course) => String(course.id) === String(editingCourseId));
     const payload = {
       code: formData.code.trim(),
@@ -201,7 +244,7 @@ const Courses = () => {
       semester: Number(formData.semester),
       credit: Number(formData.credit),
       branch: getBranchCode(selectedDepartment?.name || ""),
-      facultyIds: formData.facultyId ? [formData.facultyId] : [],
+      facultyIds: formData.facultyIds,
     };
 
     try {
@@ -230,16 +273,18 @@ const Courses = () => {
         semester: payload.semester,
         credit: payload.credit,
         branch: payload.branch,
-        coordinatorId: formData.facultyId || "",
-        coordinatorName: selectedFaculty?.user?.name || selectedFaculty?.name || null,
-        facultyMembers: formData.facultyId
-          ? [
-              {
-                _id: formData.facultyId,
-                name: selectedFaculty?.user?.name || selectedFaculty?.name || "Faculty",
-              },
-            ]
-          : [],
+        coordinatorId: formData.facultyIds?.[0] || "",
+        coordinatorName: (() => {
+          const firstFaculty = selectedFacultyMap.get(String(formData.facultyIds?.[0] || ""));
+          return firstFaculty?.user?.name || firstFaculty?.name || null;
+        })(),
+        facultyMembers: (formData.facultyIds || []).map((facultyId) => {
+          const selectedFaculty = selectedFacultyMap.get(String(facultyId || ""));
+          return {
+            _id: facultyId,
+            name: selectedFaculty?.user?.name || selectedFaculty?.name || "Faculty",
+          };
+        }),
       };
 
       const responseCourse = response?.data?.course || response?.data?.data?.course || fallbackCourse;
@@ -288,7 +333,7 @@ const Courses = () => {
         department: course.departmentId || "",
         semester: String(course.semester ?? ""),
         credit: String(course.credit ?? ""),
-        facultyId: course.coordinatorId || "",
+        facultyIds: resolveFacultyMembers(course).map((faculty) => String(faculty?._id || "")),
       });
       setIsOpen(true);
     } catch (error) {
@@ -337,6 +382,66 @@ const Courses = () => {
       return matchSearch && matchBranch;
     });
   }, [search, activeBranch, courses]);
+
+  const resolveItemId = (value) => String(value?._id || value?.id || value || "").trim();
+
+  const resolveFacultyName = (faculty = {}) =>
+    faculty?.user?.name ||
+    faculty?.name ||
+    faculty?.employeeId ||
+    "Faculty";
+
+  const instructorAssignmentsByCourse = useMemo(() => {
+    const byCourse = new Map();
+    const seen = new Set();
+
+    const pushAssignment = (courseId, facultyName, groupName = "-") => {
+      const normalizedCourseId = String(courseId || "").trim();
+      const normalizedFacultyName = String(facultyName || "").trim();
+      const normalizedGroupName = String(groupName || "").trim() || "-";
+      if (!normalizedCourseId || !normalizedFacultyName) return;
+
+      const key = `${normalizedCourseId}::${normalizedFacultyName}::${normalizedGroupName}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+
+      const list = byCourse.get(normalizedCourseId) || [];
+      list.push({ facultyName: normalizedFacultyName, groupName: normalizedGroupName });
+      byCourse.set(normalizedCourseId, list);
+    };
+
+    groups.forEach((group) => {
+      const groupName = group?.name || group?.section || group?.code || "-";
+      (group?.courseFaculty || []).forEach((courseFaculty) => {
+        const courseId = resolveItemId(courseFaculty?.course);
+        const facultyName = resolveFacultyName(courseFaculty?.faculty);
+        pushAssignment(courseId, facultyName, groupName);
+      });
+    });
+
+    courses.forEach((course) => {
+      const courseId = resolveItemId(course?.id || course?._id);
+      resolveFacultyMembers(course).forEach((faculty) => {
+        pushAssignment(courseId, resolveFacultyName(faculty), "-");
+      });
+    });
+
+    return byCourse;
+  }, [groups, courses]);
+
+  const openInstructorView = (course) => {
+    setViewInstructorCourse(course);
+  };
+
+  const closeInstructorView = () => {
+    setViewInstructorCourse(null);
+  };
+
+  const selectedInstructorAssignments = useMemo(() => {
+    const courseId = resolveItemId(viewInstructorCourse?.id || viewInstructorCourse?._id);
+    if (!courseId) return [];
+    return instructorAssignmentsByCourse.get(courseId) || [];
+  }, [instructorAssignmentsByCourse, viewInstructorCourse]);
 
 
   const renderState = () => {
@@ -424,6 +529,8 @@ const Courses = () => {
             <tbody>
               {filtered.map((c, index) => {
                 const numericId = (c.code || "").replace(/\D/g, "") || `${index + 1}`;
+                const courseId = resolveItemId(c?.id || c?._id);
+                const instructorCount = instructorAssignmentsByCourse.get(courseId)?.length || 0;
                 return (
                   <tr key={c.id || c.code || numericId}>
                     <td className="courses-serial-cell">{index + 1}</td>
@@ -431,7 +538,18 @@ const Courses = () => {
                     <td>{c.courseName}</td>
                     <td>{c.department}</td>
                     <td>{c.studentsInDepartment}</td>
-                    <td>{c.coordinatorName || "-"}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="courses-view-btn"
+                        onClick={() => openInstructorView(c)}
+                        aria-label={`View instructors for ${c.code}`}
+                        title="View instructor assignments"
+                      >
+                        <FiEye />
+                        {instructorCount > 0 ? `View (${instructorCount})` : "View Instructors"}
+                      </button>
+                    </td>
                     <td className="courses-row-actions">
                       <button
                         type="button"
@@ -566,19 +684,23 @@ const Courses = () => {
                 </label>
               </div>
               <label>
-                Instructor
+                Instructors
                 <select
-                  name="facultyId"
-                  value={formData.facultyId}
-                  onChange={handleFormChange}
+                  name="facultyIds"
+                  value={formData.facultyIds}
+                  onChange={handleFacultySelection}
+                  multiple
+                  size={Math.min(6, Math.max(3, facultyList.length || 3))}
                 >
-                  <option value="">Select an instructor</option>
                   {facultyList.map((f) => (
                     <option key={f._id} value={f._id}>
                       {f.user?.name || f.name || "Faculty"}
                     </option>
                   ))}
                 </select>
+                <small className="courses-help-text">
+                  Hold Ctrl (Windows) or Cmd (Mac) to select multiple instructors.
+                </small>
               </label>
               <div className="courses-modal-actions">
                 <button
@@ -604,6 +726,58 @@ const Courses = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {viewInstructorCourse && (
+        <div className="courses-modal">
+          <div
+            className="courses-modal-backdrop"
+            onClick={closeInstructorView}
+            role="button"
+            tabIndex={0}
+            aria-label="Close"
+          />
+          <div className="courses-modal-card courses-instructor-modal-card">
+            <div className="courses-modal-head">
+              <h2>Instructor Mapping</h2>
+              <p>
+                {viewInstructorCourse?.code || "-"} | {viewInstructorCourse?.courseName || "Course"}
+              </p>
+            </div>
+            <div className="courses-instructor-view-body">
+              {selectedInstructorAssignments.length > 0 ? (
+                <table className="courses-instructor-table">
+                  <thead>
+                    <tr>
+                      <th>Instructor Name</th>
+                      <th>Group / Section</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {selectedInstructorAssignments.map((assignment, idx) => (
+                      <tr key={idx}>
+                        <td>{assignment.facultyName}</td>
+                        <td>{assignment.groupName}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="courses-instructor-empty">
+                  No instructor-group mapping found for this course.
+                </p>
+              )}
+            </div>
+            <div className="courses-modal-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={closeInstructorView}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -24,6 +24,7 @@ export const addWarden = async (req, res) => {
       phoneNumber,
       DOB,
       status,
+      role,
     } = req.body || {};
 
     const fullName = buildName({ firstName, lastName, name });
@@ -63,13 +64,20 @@ export const addWarden = async (req, res) => {
       }
     }
 
+    const normalizedRole = String(role || "warden").trim();
+    if (!["warden", "gateSecurity"].includes(normalizedRole)) {
+      return res.status(400).json({
+        message: "Role must be either warden or gateSecurity",
+      });
+    }
+
     const hashedPassword = await bcrypt.hash(String(password), 10);
 
     const warden = await User.create({
       name: fullName,
       email: normalizedEmail,
       passwordHash: hashedPassword,
-      role: "warden",
+      role: normalizedRole,
       status: status || "active",
       aadharNumber: aadharNumber || undefined,
       phoneNumber: phoneNumber || undefined,
@@ -77,7 +85,7 @@ export const addWarden = async (req, res) => {
     });
 
     return res.status(201).json({
-      message: "Warden added successfully",
+      message: normalizedRole === "gateSecurity" ? "Gate security added successfully" : "Warden added successfully",
       warden: {
         _id: warden._id,
         name: warden.name,
@@ -110,8 +118,9 @@ export const deleteWarden = async (req, res) => {
       return res.status(404).json({ message: "Warden not found" });
     }
 
-    if (String(warden.role || "").toLowerCase() !== "warden") {
-      return res.status(400).json({ message: "Only warden users can be deleted here" });
+    const normalizedRole = String(warden.role || "").toLowerCase();
+    if (normalizedRole !== "warden" && normalizedRole !== "gatesecurity") {
+      return res.status(400).json({ message: "Only warden or gate security users can be deleted here" });
     }
 
     await Hostel.updateMany({ wardens: warden._id }, { $pull: { wardens: warden._id } });
@@ -119,7 +128,7 @@ export const deleteWarden = async (req, res) => {
     await bumpNamespaceVersion("hostels");
 
     return res.status(200).json({
-      message: "Warden deleted successfully",
+      message: normalizedRole === "gatesecurity" ? "Gate security deleted successfully" : "Warden deleted successfully",
       wardenId: warden._id,
     });
   } catch (error) {

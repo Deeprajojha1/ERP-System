@@ -29,6 +29,8 @@ import {
   getWardenTodayOutpassesApi,
   scanWardenOutpassQrApi,
   updateWardenOutpassApi,
+  getGateSecurityOutpassApi,
+  scanGateSecurityOutpassQrApi,
 } from "./constants/wardenApi";
 
 const normalizeScannedToken = (decodedText) => {
@@ -50,9 +52,11 @@ const normalizeScannedToken = (decodedText) => {
   return compact;
 };
 
-function OutpassManagement() {
+function OutpassManagement({ portalRole = "warden" }) {
   const dispatch = useDispatch();
   const profileState = useSelector((state) => state.warden.profile);
+  const userData = useSelector((state) => state.user.userData);
+  const isGateSecurity = String(portalRole || "").toLowerCase() === "gatesecurity";
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   const [selectedOutpass, setSelectedOutpass] = useState(null);
@@ -89,23 +93,29 @@ function OutpassManagement() {
 
   const profile = useMemo(
     () => ({
-      name: profileState?.name || "Warden",
-      role: profileState?.role || "warden",
+      name:
+        profileState?.name ||
+        userData?.user?.name ||
+        (isGateSecurity ? "Gate Security" : "Warden"),
+      role: profileState?.role || userData?.user?.role || (isGateSecurity ? "gateSecurity" : "warden"),
     }),
-    [profileState]
+    [profileState, userData, isGateSecurity]
   );
 
   useEffect(() => {
-    dispatch(fetchWardenProfile());
-  }, [dispatch]);
+    if (!isGateSecurity) {
+      dispatch(fetchWardenProfile());
+    }
+  }, [dispatch, isGateSecurity]);
 
   const fetchOutpasses = async () => {
     try {
       setLoading(true);
       setError("");
+      const outpassApiCall = isGateSecurity ? getGateSecurityOutpassApi : getWardenOutpassesApi;
       const [payload, todayPayload] = await Promise.all([
-        getWardenOutpassesApi(),
-        getWardenTodayOutpassesApi(),
+        outpassApiCall(),
+        isGateSecurity ? Promise.resolve({ outpasses: [] }) : getWardenTodayOutpassesApi(),
       ]);
       const list = Array.isArray(payload?.outpasses) ? payload.outpasses : [];
       const todayList = Array.isArray(todayPayload?.outpasses) ? todayPayload.outpasses : [];
@@ -126,14 +136,14 @@ function OutpassManagement() {
 
   useEffect(() => {
     fetchOutpasses();
-  }, []);
+  }, [isGateSecurity]);
 
   const summaryCards = [
     {
       id: "approved-count",
-      title: "Approved Outpasses",
+      title: isGateSecurity ? "Students Outside" : "Approved Outpasses",
       value: stats.approved,
-      delta: "Currently active",
+      delta: isGateSecurity ? "Approved and yet to return" : "Currently active",
       icon: CheckCircle,
     },
     {
@@ -145,7 +155,7 @@ function OutpassManagement() {
     },
     {
       id: "pending-requests",
-      title: "Pending Requests",
+      title: isGateSecurity ? "Pending Approval" : "Pending Requests",
       value: stats.pending,
       delta: "Awaiting approval",
       icon: Clock,
@@ -226,7 +236,8 @@ function OutpassManagement() {
     scanProcessingRef.current = true;
     try {
       setScanLoading(true);
-      const payload = await scanWardenOutpassQrApi({ token: normalizedToken });
+      const scanApiCall = isGateSecurity ? scanGateSecurityOutpassQrApi : scanWardenOutpassQrApi;
+      const payload = await scanApiCall({ token: normalizedToken });
       setScanResult({
         ok: true,
         message: payload?.message || "Verification successful",
