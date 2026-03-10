@@ -9,6 +9,7 @@ import User from "../models/userModel.js";
 import Faculty from "../models/Faculty.js";
 import { evaluateQuestion, generatePaperDraft } from "../services/examAiService.js";
 import { verifyFaceWithPython } from "../services/faceVerifyService.js";
+import { renderPdfBufferFromHtml } from "./pdfController.js";
 import {
   applyUniversityReportWorksheetLayout,
   buildUniversityReportPdfHtml,
@@ -907,20 +908,11 @@ export const downloadExamScoresReport = async (req, res) => {
         },
       });
 
-      // Use puppeteer to render PDF
-      const puppeteer = await import("puppeteer");
-      const browser = await puppeteer.default.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      });
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "networkidle0" });
-      const pdfBuffer = await page.pdf({
+      const pdfBuffer = await renderPdfBufferFromHtml(html, {
         format: "A4",
         margin: { top: "15mm", bottom: "15mm", left: "10mm", right: "10mm" },
         printBackground: true,
       });
-      await browser.close();
 
       const fileName = `${String(blueprint.subject || "exam").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-scores.pdf`;
       res.setHeader("Content-Type", "application/pdf");
