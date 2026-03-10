@@ -12,6 +12,9 @@ import Group from "../models/Group.js";
 export const getTeachingLoad = async (req, res) => {
   try {
     const { department, program, semester } = req.query;
+    const normalizedProgram = String(program || "").trim().toLowerCase();
+    const parsedSemester = Number.parseInt(semester, 10);
+    const hasSemesterFilter = Number.isFinite(parsedSemester);
 
     if (!department || !program) {
       return res.status(400).json({
@@ -23,7 +26,7 @@ export const getTeachingLoad = async (req, res) => {
     // Get all faculty from the department
     const facultyList = await Faculty.find({
       department,
-      isDeleted: false,
+      isDeleted: { $ne: true },
     })
       .populate("user", "name email")
       .populate("department", "name")
@@ -32,12 +35,12 @@ export const getTeachingLoad = async (req, res) => {
     // Get all courses for the department
     const courseQuery = {
       department,
-      isDeleted: false,
+      isDeleted: { $ne: true },
     };
     
     // Add semester filter if provided
-    if (semester) {
-      courseQuery.semester = parseInt(semester);
+    if (hasSemesterFilter) {
+      courseQuery.semester = parsedSemester;
     }
 
     const courses = await Course.find(courseQuery)
@@ -48,7 +51,7 @@ export const getTeachingLoad = async (req, res) => {
     // Get all groups for the department
     const groups = await Group.find({
       department,
-      isDeleted: false,
+      isDeleted: { $ne: true },
     })
       .populate("courseFaculty.course", "code courseName semester branch")
       .populate("courseFaculty.faculty", "user employeeId")
@@ -152,12 +155,15 @@ export const getTeachingLoad = async (req, res) => {
         if (!course) return;
 
         // Filter by program if specified
-        if (program && course.branch && !course.branch.includes(program)) {
-          return;
+        if (normalizedProgram) {
+          const branchValue = String(course.branch || "").trim().toLowerCase();
+          if (!branchValue || !branchValue.includes(normalizedProgram)) {
+            return;
+          }
         }
 
         // Filter by semester if specified
-        if (semester && course.semester !== parseInt(semester)) {
+        if (hasSemesterFilter && Number(course.semester) !== parsedSemester) {
           return;
         }
 

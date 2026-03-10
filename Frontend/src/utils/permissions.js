@@ -68,21 +68,11 @@ const ROLE_PERMISSION_FALLBACK = {
     "portal.admin",
     "module.dashboard",
     "module.students",
-    "module.students_write",
-    "module.student_discipline",
-    "module.student_id_cards",
-    "module.courses",
-    "module.groups",
-    "module.classrooms",
-    "module.assignment",
     "module.timetable",
     "module.exams",
     "module.exam_blueprint",
     "module.results",
-    "module.attendance",
     "module.alerts",
-    "module.general_reports",
-    "module.student_attendance",
     "module.settings",
     "module.settings.profile",
     "module.settings.security",
@@ -167,6 +157,13 @@ const ROLE_PERMISSION_FALLBACK = {
   ],
 };
 
+const CUSTOM_PERMISSION_ROLES = new Set([
+  "accounts",
+  "hod",
+  "exam",
+  "placement",
+]);
+
 const PERMISSION_KEY_ALIASES = {
   "module.studentDicipline": "module.student_discipline",
   "module.studentDiscipline": "module.student_discipline",
@@ -182,8 +179,8 @@ export const resolvePermissions = (userData) => {
   const explicit = Array.isArray(userData?.permissions)
     ? userData.permissions.map((permission) => normalizePermissionKey(permission))
     : [];
-  if (explicit.length) return explicit;
   const role = String(userData?.user?.role || "").trim().toLowerCase();
+  if (CUSTOM_PERMISSION_ROLES.has(role) && explicit.length) return explicit;
   const fallback = ROLE_PERMISSION_FALLBACK[role];
   return Array.isArray(fallback) ? fallback : [];
 };

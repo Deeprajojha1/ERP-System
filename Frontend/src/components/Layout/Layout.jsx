@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { FiArrowRight, FiAward, FiBookOpen, FiCheckCircle, FiUsers } from "react-icons/fi";
+import { FiArrowRight, FiAward, FiBookOpen, FiCheckCircle, FiUsers, FiMapPin, FiMail, FiPhone } from "react-icons/fi";
 import { HiOutlineAcademicCap } from "react-icons/hi2";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
@@ -184,36 +184,44 @@ const Layout = () => {
 
       <footer id="contact" className="landing-footer">
         <div className="footer-grid">
-          <div>
+          <div className="footer-brand">
             <img src={huLogo} alt="Haridwar University" className="footer-logo" />
-            <p>
+            <p className="footer-tagline">
               Empowering the future generation through excellence in education and
               technology.
             </p>
+            <div className="footer-social">
+              <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" aria-label="Facebook" className="footer-social-link">f</a>
+              <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter" className="footer-social-link">𝕏</a>
+              <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" aria-label="Instagram" className="footer-social-link">in</a>
+              <a href="https://linkedin.com" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn" className="footer-social-link">Li</a>
+            </div>
           </div>
-          <div>
+          <div className="footer-links">
             <h4>Quick Links</h4>
-            <a href="/login">Student Login</a>
-            <a href="/login">Faculty Login</a>
-            <a href="/login">Admin Portal</a>
+            <a href="/login"><span className="footer-link-arrow">›</span> Student Login</a>
+            <a href="/login"><span className="footer-link-arrow">›</span> Faculty Login</a>
+            <a href="/login"><span className="footer-link-arrow">›</span> Admin Portal</a>
           </div>
-          <div>
-            <h4>Contact</h4>
-            <p>Haridwar, Uttarakhand</p>
-            <p>info@haridwaruniversity.edu</p>
-            <p>+91 123 456 7890</p>
-          </div>
-          <div>
-            <h4>Newsletter</h4>
-            <div className="newsletter-box">
-              <input type="email" placeholder="Enter your email" />
-              <button type="button">
-                <FiArrowRight />
-              </button>
+          <div className="footer-contact">
+            <h4>Contact Us</h4>
+            <div className="footer-contact-item">
+              <FiMapPin className="footer-contact-icon" />
+              <span>Haridwar, Uttarakhand</span>
+            </div>
+            <div className="footer-contact-item">
+              <FiMail className="footer-contact-icon" />
+              <span>info@haridwaruniversity.edu</span>
+            </div>
+            <div className="footer-contact-item">
+              <FiPhone className="footer-contact-icon" />
+              <span>+91 123 456 7890</span>
             </div>
           </div>
         </div>
-        <p className="footer-copy">© 2026 Haridwar University. All rights reserved.</p>
+        <div className="footer-bottom">
+          <p className="footer-copy">© 2026 Haridwar University. All rights reserved.</p>
+        </div>
       </footer>
     </div>
   );

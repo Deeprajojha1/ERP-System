@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs";
 import { format as csvFormat } from "fast-csv";
+import { applyUniversityReportWorksheetLayout } from "../utils/universityReportLayout.js";
 
 const sanitizeFileName = (name = "report") =>
   String(name)
@@ -17,34 +18,74 @@ const getHeaders = (rows) => {
   return Array.from(keys);
 };
 
-const buildCsvBuffer = async (rows, headers) =>
+const buildCsvPrefix = (reportMeta = {}) => {
+  const title = String(reportMeta?.reportTitle || "Report").trim();
+  const details = normalizeDetailLines(reportMeta?.details);
+  const departmentName = String(reportMeta?.departmentName || "Department - N/A").trim();
+  const courseLine = String(reportMeta?.courseLine || "Course - N/A").trim();
+  const lines = [
+    "HARIDWAR UNIVERSITY, ROORKEE",
+    departmentName,
+    courseLine,
+    title,
+    ...details.map((item) => `${item.label}: ${item.value}`),
+    "",
+  ];
+  return `${lines.join("\n")}\n`;
+};
+
+const buildCsvBuffer = async (rows, headers, reportMeta = {}) =>
   new Promise((resolve, reject) => {
     const chunks = [];
     const csvStream = csvFormat({ headers });
 
     csvStream.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
-    csvStream.on("end", () => resolve(Buffer.concat(chunks)));
     csvStream.on("error", reject);
 
     rows.forEach((row) => csvStream.write(row));
     csvStream.end();
+
+    csvStream.on("end", () => {
+      const csvContent = Buffer.concat(chunks);
+      const prefix = buildCsvPrefix(reportMeta);
+      resolve(Buffer.concat([Buffer.from(prefix, "utf8"), csvContent]));
+    });
   });
 
-const buildExcelBuffer = async (rows, headers, sheetName = "Report") => {
+const normalizeDetailLines = (details = []) =>
+  Array.isArray(details)
+    ? details
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const label = String(item.label || "").trim();
+          const value = String(item.value ?? "").trim();
+          if (!label && !value) return null;
+          return { label: label || "Detail", value: value || "-" };
+        })
+        .filter(Boolean)
+    : [];
+
+const buildExcelBuffer = async (
+  rows,
+  headers,
+  sheetName = "Report",
+  reportMeta = {}
+) => {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet(sheetName);
 
-  worksheet.columns = headers.map((header) => ({
-    header,
-    key: header,
-    width: Math.max(14, String(header).length + 4),
-  }));
-
-  rows.forEach((row) => worksheet.addRow(row));
-
-  const firstRow = worksheet.getRow(1);
-  firstRow.font = { bold: true };
-  firstRow.alignment = { vertical: "middle" };
+  applyUniversityReportWorksheetLayout({
+    worksheet,
+    reportTitle: String(reportMeta?.reportTitle || sheetName || "Report"),
+    details: normalizeDetailLines(reportMeta?.details),
+    headers,
+    rows: rows.map((row) => headers.map((header) => row?.[header] ?? "")),
+    header: {
+      universityName: String(reportMeta?.universityName || "HARIDWAR UNIVERSITY, ROORKEE"),
+      departmentName: String(reportMeta?.departmentName || "Department - N/A"),
+      courseLine: String(reportMeta?.courseLine || "Course - N/A"),
+    },
+  });
 
   const buffer = await workbook.xlsx.writeBuffer();
   return Buffer.isBuffer(buffer) ? buffer : Buffer.from(buffer);
@@ -52,7 +93,7 @@ const buildExcelBuffer = async (rows, headers, sheetName = "Report") => {
 
 export const exportTabularData = async (req, res) => {
   try {
-    const { format, rows, fileName, sheetName } = req.body || {};
+    const { format, rows, fileName, sheetName, reportMeta } = req.body || {};
     const normalizedFormat = String(format || "").toLowerCase();
 
     if (!["csv", "xlsx"].includes(normalizedFormat)) {
@@ -72,13 +113,18 @@ export const exportTabularData = async (req, res) => {
     const baseFileName = sanitizeFileName(fileName || "report").replace(/\.(csv|xlsx)$/i, "");
 
     if (normalizedFormat === "csv") {
-      const csvBuffer = await buildCsvBuffer(objectRows, headers);
+      const csvBuffer = await buildCsvBuffer(objectRows, headers, reportMeta || {});
       res.setHeader("Content-Type", "text/csv; charset=utf-8");
       res.setHeader("Content-Disposition", `attachment; filename="${baseFileName}.csv"`);
       return res.status(200).send(csvBuffer);
     }
 
-    const excelBuffer = await buildExcelBuffer(objectRows, headers, sheetName || "Report");
+    const excelBuffer = await buildExcelBuffer(
+      objectRows,
+      headers,
+      sheetName || "Report",
+      reportMeta || {}
+    );
     res.setHeader(
       "Content-Type",
       "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -92,3 +138,5 @@ export const exportTabularData = async (req, res) => {
     });
   }
 };
+
+

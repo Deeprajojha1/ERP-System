@@ -7,6 +7,7 @@ import {
   FiEdit2,
   FiFileText,
   FiPrinter,
+  FiRefreshCw,
   FiSearch,
   FiTrash2,
 } from "react-icons/fi";
@@ -16,6 +17,7 @@ import { useSelector, useDispatch } from "react-redux";
 import "./Exam.css";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import { downloadPdfFromHtml, openPdfFromHtml } from "../utils/pdfDownload";
+import { buildUniversityPdfHtml } from "../utils/universityPdfLayout";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 import ClipLoader from "./components/ClipLoader";
@@ -173,6 +175,8 @@ const Exam = () => {
   });
   const [selectedAdmitCard, setSelectedAdmitCard] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [refreshingRegistrations, setRefreshingRegistrations] = useState(false);
+  const [refreshingAdmitCards, setRefreshingAdmitCards] = useState(false);
 
   const [formData, setFormData] = useState({
     examName: "",
@@ -219,8 +223,8 @@ const Exam = () => {
       await Promise.all([
         dispatch(fetchExams({ apiBase })).unwrap(),
         dispatch(fetchExamSupportData({ apiBase })).unwrap(),
-        fetchExamRegistrations().catch(() => {}),
-        fetchAdmitCards().catch(() => {}),
+        fetchExamRegistrations(),
+        fetchAdmitCards(),
       ]);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
     } catch (error) {
@@ -265,6 +269,11 @@ const Exam = () => {
         duration: exam?.durationMinutes ? `${exam.durationMinutes} mins` : "-",
         status: String(exam?.status || "SCHEDULED").toUpperCase(),
         roomNo: exam?.roomNo || "-",
+        departmentName: exam?.department?.name || exam?.departmentName || "-",
+        courseLine:
+          exam?.course?.courseName && exam?.semester
+            ? `${exam.course.courseName} / Semester ${exam.semester}`
+            : exam?.course?.courseName || exam?.program || "-",
       })),
     [exams]
   );
@@ -375,6 +384,11 @@ const Exam = () => {
             : formatTime12(exam?.startTime),
         duration: exam?.durationMinutes ? `${exam.durationMinutes} mins` : "-",
         status: String(exam?.status || "SCHEDULED").toUpperCase(),
+        departmentName: exam?.department?.name || "-",
+        courseLine:
+          exam?.course?.courseName && exam?.semester
+            ? `${exam.course.courseName} / Semester ${exam.semester}`
+            : exam?.course?.courseName || exam?.program || "-",
       })),
     [masterReportRows, groupStrengthMap]
   );
@@ -398,7 +412,7 @@ const Exam = () => {
 
         return {
           _id: registration?._id,
-          examName: registration?.exam?.examName || registration?.courseName || "All Exams",
+          examName: registration?.exam?.examName || registration?.courseName || "-",
           subject:
             registration?.subjects?.[0]?.subjectCode && registration?.subjects?.[0]?.subjectName
               ? `${registration.subjects[0].subjectCode} - ${registration.subjects[0].subjectName}`
@@ -661,7 +675,15 @@ const Exam = () => {
   };
 
   const refreshRegistrationAndAdmit = useCallback(async () => {
-    await Promise.all([fetchExamRegistrations(), fetchAdmitCards()]);
+    setRefreshingRegistrations(true);
+    try {
+      await Promise.all([fetchExamRegistrations(), fetchAdmitCards()]);
+      toast.success("Data refreshed");
+    } catch {
+      toast.error("Failed to refresh data");
+    } finally {
+      setRefreshingRegistrations(false);
+    }
   }, [fetchExamRegistrations, fetchAdmitCards]);
 
   const withRegistrationAction = async (registration, action, runner) => {
@@ -791,7 +813,15 @@ const Exam = () => {
   };
 
   const refreshAdmitCardsOnly = useCallback(async () => {
-    await fetchAdmitCards();
+    setRefreshingAdmitCards(true);
+    try {
+      await fetchAdmitCards();
+      toast.success("Admit cards refreshed");
+    } catch {
+      toast.error("Failed to refresh admit cards");
+    } finally {
+      setRefreshingAdmitCards(false);
+    }
   }, [fetchAdmitCards]);
 
   const withAdmitCardAction = async (card, action, runner) => {
@@ -1744,9 +1774,13 @@ const Exam = () => {
                   className="exam-download-all-btn admin-btn-with-loader exam-admit-refresh-btn"
                   type="button"
                   onClick={refreshRegistrationAndAdmit}
-                  disabled={admitCardsLoadState === ADMIN_LOAD_STATES.PENDING}
+                  disabled={refreshingRegistrations}
                 >
-                  Refresh
+                  {refreshingRegistrations ? (
+                    <ClipLoader size={15} color="#1d4ed8" trackColor="rgba(29, 78, 216, 0.25)" />
+                  ) : (
+                    <><FiRefreshCw size={14} /> Refresh</>
+                  )}
                 </button>
               </div>
               <div className="exam-table-wrap">
@@ -1774,8 +1808,8 @@ const Exam = () => {
                         <td className="exam-name">{item.candidateName}</td>
                         <td>{item.rollNo}</td>
                         <td>{item.enrollmentNumber}</td>
-                        <td className="exam-name">{item.examName === "-" ? "All Exams" : item.examName}</td>
-                        <td>{item.subject === "-" ? "All Exams" : item.subject}</td>
+                        <td className="exam-name">{item.examName}</td>
+                        <td>{item.subject}</td>
                         <td>{item.session}</td>
                         <td>{item.semester}</td>
                         <td>{item.date}</td>
@@ -1888,16 +1922,12 @@ const Exam = () => {
                     className="exam-download-all-btn admin-btn-with-loader exam-admit-refresh-btn"
                     type="button"
                     onClick={refreshAdmitCardsOnly}
-                    disabled={admitCardsLoadState === ADMIN_LOAD_STATES.PENDING}
+                    disabled={refreshingAdmitCards}
                   >
-                    {admitCardsLoadState === ADMIN_LOAD_STATES.PENDING ? (
-                      <ClipLoader
-                        size={15}
-                        color="#1d4ed8"
-                        trackColor="rgba(29, 78, 216, 0.25)"
-                      />
+                    {refreshingAdmitCards ? (
+                      <ClipLoader size={15} color="#1d4ed8" trackColor="rgba(29, 78, 216, 0.25)" />
                     ) : (
-                      "Refresh"
+                      <><FiRefreshCw size={14} /> Refresh</>
                     )}
                   </button>
                 </div>
@@ -2268,3 +2298,4 @@ const Exam = () => {
 };
 
 export default Exam;
+

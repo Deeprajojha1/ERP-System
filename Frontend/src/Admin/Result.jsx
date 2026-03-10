@@ -8,6 +8,7 @@ import axios from "../utils/axiosInstance";
 import { useSelector, useDispatch } from "react-redux";
 import toast from "react-hot-toast";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import { buildUniversityPdfHtml } from "../utils/universityPdfLayout";
 import ClipLoader from "./components/ClipLoader";
 import {
   fetchResults,
@@ -540,7 +541,52 @@ const Result = () => {
 
     setDownloadingResultId(resultDoc._id);
     try {
-      const html = getResultPdfHtmlDocument({ sheetsHtml: getResultSheetHtml(resultDoc) });
+      const subjects = Array.isArray(resultDoc?.subjects) ? resultDoc.subjects : [];
+      const totalObtained = subjects.reduce(
+        (sum, subject) => sum + Number(subject?.marksObtained || 0),
+        0
+      );
+      const totalMax = subjects.reduce((sum, subject) => sum + Number(subject?.maxMarks || 0), 0);
+      const tableRows = subjects.map((subject, index) => [
+        index + 1,
+        subject?.subjectCode || "-",
+        subject?.subjectName || "-",
+        subject?.marksObtained ?? "-",
+        subject?.maxMarks ?? "-",
+        toExamTypeLabel(subject?.examType),
+        subject?.grade || "-",
+        subject?.gradePoint ?? "-",
+        subject?.credits ?? "-",
+      ]);
+
+      const html = buildUniversityPdfHtml({
+        reportTitle: "Result Award Sheet",
+        departmentName: resultDoc?.department?.name
+          ? `Department of ${resultDoc.department.name}`
+          : "Department - N/A",
+        courseLine: `Course - Semester ${resultDoc?.semester ?? "-"}`,
+        details: [
+          { label: "Subject Name with Code", value: "Semester Result" },
+          { label: "Faculty Name", value: "-" },
+          { label: "Exam", value: `${resultDoc?.academicYear || "-"} Sem ${resultDoc?.semester ?? "-"}` },
+          { label: "Total Marks", value: `${totalObtained}/${totalMax || 0}` },
+          { label: "Student Name", value: resultDoc?.student?.user?.name || "-" },
+          { label: "Enrollment", value: resultDoc?.student?.enrollmentNumber || "-" },
+          { label: "Status", value: String(resultDoc?.overallStatus || "FAIL").toUpperCase() },
+        ],
+        headers: [
+          "S. No",
+          "Subject Code",
+          "Subject Name",
+          "Marks Obtained",
+          "Max Marks",
+          "Exam Type",
+          "Grade",
+          "Grade Point",
+          "Credits",
+        ],
+        rows: tableRows.length ? tableRows : [[1, "-", "No subject data", "-", "-", "-", "-", "-", "-"]],
+      });
 
       const studentKey = String(resultDoc?.student?.enrollmentNumber || resultDoc?._id || "result")
         .replace(/\s+/g, "_");
@@ -575,107 +621,52 @@ const Result = () => {
       const selectedSemesterLabel =
         semesterFilter === "All" ? "All Semesters" : `Sem ${semesterFilter}`;
 
-    const rows = filteredResultDocs
-      .map((resultDoc, index) => {
-        const statusText = String(resultDoc?.overallStatus || "FAIL").toUpperCase();
-        const statusClass = statusText === "PASS" ? "pass" : "fail";
-        return `
-          <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(resultDoc?.student?.user?.name || "-")}</td>
-            <td>${escapeHtml(resultDoc?.student?.enrollmentNumber || "-")}</td>
-            <td>${escapeHtml(resultDoc?.semester ?? "-")}</td>
-            <td>${escapeHtml(round2(resultDoc?.semesterSummary?.sgpa))}</td>
-            <td>${escapeHtml(round2(resultDoc?.cumulative?.cgpa))}</td>
-            <td>${escapeHtml(
-              Number(resultDoc?.cumulative?.totalBack ?? resultDoc?.semesterSummary?.totalBack ?? 0)
-            )}</td>
-            <td>${escapeHtml(
-              Number(resultDoc?.cumulative?.activeBack ?? resultDoc?.semesterSummary?.activeBack ?? 0)
-            )}</td>
-            <td>${escapeHtml(
-              Number(resultDoc?.cumulative?.clearedBack ?? resultDoc?.semesterSummary?.clearedBack ?? 0)
-            )}</td>
-            <td class="${statusClass}">${escapeHtml(statusText)}</td>
-          </tr>
-        `;
-      })
-      .join("");
-
-    const html = `
-      <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #0f172a; }
-            h1 {
-              margin: 0 0 14px;
-              text-align: center;
-              font-size: 26px;
-              letter-spacing: 0.5px;
-            }
-            .meta {
-              margin-bottom: 10px;
-              font-size: 13px;
-              color: #475569;
-            }
-            .filters {
-              margin: 0 0 14px;
-              font-size: 12px;
-              color: #334155;
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 6px 12px;
-            }
-            .filters .item strong {
-              color: #0f172a;
-            }
-            table { width: 100%; border-collapse: collapse; border: 1px solid #cbd5e1; }
-            th, td {
-              border: 1px solid #cbd5e1;
-              padding: 10px 8px;
-              font-size: 12px;
-              text-align: left;
-            }
-            th {
-              background: #f8fafc;
-              color: #1e3a5f;
-              font-weight: 700;
-              letter-spacing: 0.5px;
-            }
-            td.pass { color: #16a34a; font-weight: 700; }
-            td.fail { color: #dc2626; font-weight: 700; }
-          </style>
-        </head>
-        <body>
-          <h1>RESULT REPORT</h1>
-          <div class="meta">Total Students: ${filteredResultDocs.length}</div>
-          <div class="filters">
-            <div class="item"><strong>Status:</strong> ${escapeHtml(status)}</div>
-            <div class="item"><strong>Department:</strong> ${escapeHtml(selectedDepartmentLabel)}</div>
-            <div class="item"><strong>Group:</strong> ${escapeHtml(selectedGroupLabel)}</div>
-            <div class="item"><strong>Semester:</strong> ${escapeHtml(selectedSemesterLabel)}</div>
-            <div class="item"><strong>Search:</strong> ${escapeHtml(search || "All")}</div>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>S. NO</th>
-                <th>STUDENT NAME</th>
-                <th>ENROLLMENT</th>
-                <th>SEM</th>
-                <th>SGPA</th>
-                <th>CGPA</th>
-                <th>TOTAL BACK</th>
-                <th>ACTIVE BACK</th>
-                <th>CLEARED BACK</th>
-                <th>STATUS</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </body>
-      </html>
-    `;
+    const html = buildUniversityPdfHtml({
+      reportTitle: "Result Summary Award Sheet",
+      departmentName:
+        selectedDepartmentLabel && selectedDepartmentLabel !== "All Departments"
+          ? `Department of ${selectedDepartmentLabel}`
+          : "Department - All Departments",
+      courseLine:
+        selectedSemesterLabel && selectedSemesterLabel !== "All Semesters"
+          ? `Course - ${selectedSemesterLabel}`
+          : "Course - All Semesters",
+      details: [
+        { label: "Subject Name with Code", value: "All Subjects" },
+        { label: "Faculty Name", value: "-" },
+        { label: "Exam", value: "Overall Result Summary" },
+        { label: "Total Marks", value: filteredResultDocs.length },
+        { label: "Status", value: status },
+        { label: "Department", value: selectedDepartmentLabel },
+        { label: "Group", value: selectedGroupLabel },
+        { label: "Semester", value: selectedSemesterLabel },
+        { label: "Search", value: search || "All" },
+      ],
+      headers: [
+        "S. No",
+        "Student Name",
+        "Enrollment",
+        "Sem",
+        "SGPA",
+        "CGPA",
+        "Total Back",
+        "Active Back",
+        "Cleared Back",
+        "Status",
+      ],
+      rows: filteredResultDocs.map((resultDoc, index) => [
+        index + 1,
+        resultDoc?.student?.user?.name || "-",
+        resultDoc?.student?.enrollmentNumber || "-",
+        resultDoc?.semester ?? "-",
+        round2(resultDoc?.semesterSummary?.sgpa),
+        round2(resultDoc?.cumulative?.cgpa),
+        Number(resultDoc?.cumulative?.totalBack ?? resultDoc?.semesterSummary?.totalBack ?? 0),
+        Number(resultDoc?.cumulative?.activeBack ?? resultDoc?.semesterSummary?.activeBack ?? 0),
+        Number(resultDoc?.cumulative?.clearedBack ?? resultDoc?.semesterSummary?.clearedBack ?? 0),
+        String(resultDoc?.overallStatus || "FAIL").toUpperCase(),
+      ]),
+    });
       await downloadPdfFromHtml(apiBase, {
         html,
         fileName: "Overall_Results_Report.pdf",
@@ -1113,3 +1104,4 @@ const Result = () => {
 };
 
 export default Result;
+

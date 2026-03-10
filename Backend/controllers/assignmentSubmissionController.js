@@ -10,6 +10,7 @@ import Group from "../models/Group.js";
 import User from "../models/userModel.js";
 import Course from "../models/Course.js";
 import ExcelJS from "exceljs";
+import { applyUniversityReportWorksheetLayout } from "../utils/universityReportLayout.js";
 
 const normalizeText = (value = "", max = 2000) =>
   String(value || "").trim().slice(0, max);
@@ -296,7 +297,7 @@ export const markMissingAssignmentSubmission = async (req, res) => {
         },
       },
     });
-    if (!groupMatch && req.role !== "admin") {
+    if (!groupMatch && req.role !== "admin" && req.role !== "super_admin") {
       return res.status(403).json({ message: "Student is not mapped to this course" });
     }
 
@@ -657,7 +658,7 @@ export const downloadUnitAwardSheet = async (req, res) => {
 
     const assignments = await FacultyCourseContent.find(assignmentQuery)
       .select("_id title description dueDate course")
-      .populate({ path: "course", select: "_id code courseName semester" })
+      .populate({ path: "course", select: "_id code courseName semester department", populate: { path: "department", select: "name" } })
       .lean();
 
     const targetAssignments = assignments.filter(
@@ -766,97 +767,59 @@ export const downloadUnitAwardSheet = async (req, res) => {
     const courseDoc =
       targetAssignments[0]?.course?._id
         ? targetAssignments[0].course
-        : await Course.findById(courseId).select("code courseName semester").lean();
+        : await Course.findById(courseId)
+            .select("code courseName semester department")
+            .populate("department", "name")
+            .lean();
     const facultyUser = await User.findById(req.userId).select("name").lean();
+    const departmentName = courseDoc?.department?.name
+      ? `Department of ${courseDoc.department.name}`
+      : "Department - N/A";
+    const courseLine = `Course - ${courseDoc?.courseName || courseDoc?.code || "N/A"}${
+      courseDoc?.semester ? ` / Semester ${courseDoc.semester}` : ""
+    }`;
 
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Award Sheet");
 
-    worksheet.mergeCells("A1:E1");
-    worksheet.getCell("A1").value = "HARIDWAR UNIVERSITY, ROORKEE";
-    worksheet.getCell("A1").font = { bold: true, size: 20, name: "Times New Roman" };
-    worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
-
-    worksheet.mergeCells("A2:E2");
-    worksheet.getCell("A2").value = "Department of Computer Science & Engineering";
-    worksheet.getCell("A2").font = { bold: true, size: 15, name: "Times New Roman" };
-    worksheet.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
-
-    worksheet.mergeCells("A3:E3");
-    worksheet.getCell("A3").value = "Course - B.Tech. 2nd Year / 4th Semester";
-    worksheet.getCell("A3").font = { bold: true, size: 12, name: "Times New Roman" };
-    worksheet.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
-    worksheet.getCell("A3").fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFFFFF00" },
-    };
-
-    worksheet.mergeCells("A4:E4");
-    worksheet.getCell("A4").value = `${unit} Award Sheet`;
-    worksheet.getCell("A4").font = { bold: true, size: 13, name: "Times New Roman" };
-    worksheet.getCell("A4").alignment = { horizontal: "center", vertical: "middle" };
-
-    worksheet.mergeCells("A5:E5");
-    worksheet.getCell("A5").value = `Subject Name with Code: ${courseDoc?.code || "N/A"} ${courseDoc?.courseName || ""}`.trim();
-    worksheet.getCell("A5").font = { bold: true, size: 11, name: "Times New Roman" };
-
-    worksheet.mergeCells("A6:E6");
-    worksheet.getCell("A6").value = `Subject Faculty Name : ${facultyUser?.name || "Faculty"}`;
-    worksheet.getCell("A6").font = { bold: true, size: 11, name: "Times New Roman" };
-
-    worksheet.mergeCells("A7:E7");
-    worksheet.getCell("A7").value = `Group : ${groupName || "All Groups"}`;
-    worksheet.getCell("A7").font = { bold: true, size: 11, name: "Times New Roman" };
-
-    worksheet.getRow(9).values = [
+    const examLabel = `${courseDoc?.courseName || "N/A"}${
+      courseDoc?.semester ? ` - sem ${courseDoc.semester}` : ""
+    }`;
+    const tableHeaders = [
       "S. No",
       "University Roll no.",
       "Student Name",
       "Marks in figure",
       "Grade",
     ];
-    worksheet.getRow(9).font = { bold: true, size: 11, name: "Times New Roman" };
-    worksheet.getRow(9).alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+    const tableRows = rows.map((row, index) => [
+      index + 1,
+      row.student?.enrollmentNumber || "",
+      row.student?.name || "",
+      row.marksValue,
+      row.gradeValue,
+    ]);
 
-    rows.forEach((row, index) => {
-      worksheet.addRow([
-        index + 1,
-        row.student?.enrollmentNumber || "",
-        row.student?.name || "",
-        row.marksValue,
-        row.gradeValue,
-      ]);
+    applyUniversityReportWorksheetLayout({
+      worksheet,
+      reportTitle: `${unit} Award Sheet`,
+      details: [
+        {
+          label: "Subject Name with Code",
+          value: `${courseDoc?.code || "N/A"} ${courseDoc?.courseName || ""}`.trim(),
+        },
+        { label: "Faculty Name", value: facultyUser?.name || "Faculty" },
+        { label: "Exam", value: examLabel },
+        { label: "Total Marks", value: "N/A" },
+      ],
+      headers: tableHeaders,
+      rows: tableRows,
+      columnWidths: [8, 24, 36, 16, 14],
+      header: {
+        departmentName,
+        courseLine,
+      },
     });
-
-    worksheet.columns = [
-      { key: "sno", width: 8 },
-      { key: "roll", width: 24 },
-      { key: "name", width: 36 },
-      { key: "marks", width: 16 },
-      { key: "grade", width: 14 },
-    ];
-
-    const totalRows = Math.max(9, worksheet.rowCount);
-    for (let rowIndex = 1; rowIndex <= totalRows; rowIndex += 1) {
-      for (let colIndex = 1; colIndex <= 5; colIndex += 1) {
-        const cell = worksheet.getCell(rowIndex, colIndex);
-        cell.border = {
-          top: { style: "thin" },
-          left: { style: "thin" },
-          bottom: { style: "thin" },
-          right: { style: "thin" },
-        };
-      }
-    }
-
-    for (let rowIndex = 10; rowIndex <= worksheet.rowCount; rowIndex += 1) {
-      worksheet.getCell(`A${rowIndex}`).alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.getCell(`B${rowIndex}`).alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.getCell(`C${rowIndex}`).alignment = { horizontal: "left", vertical: "middle" };
-      worksheet.getCell(`D${rowIndex}`).alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.getCell(`E${rowIndex}`).alignment = { horizontal: "center", vertical: "middle" };
-    }
 
     const unitSlug = normalizeUnitKey(unit).replace(/[^a-z0-9]+/g, "-");
     const groupSlug = groupName ? `-${groupName.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}` : "";
@@ -874,3 +837,4 @@ export const downloadUnitAwardSheet = async (req, res) => {
     });
   }
 };
+

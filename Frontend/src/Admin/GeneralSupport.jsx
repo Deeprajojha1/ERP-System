@@ -119,21 +119,52 @@ const GeneralSupport = () => {
       )
       .join("");
 
+    const detailLines = [
+      { label: "Report Type", value: reportType },
+      { label: "Department", value: department },
+      { label: "Group", value: courseProgram },
+      { label: "Generated On", value: new Date().toLocaleString() },
+    ]
+      .filter((item) => String(item.value || "").trim())
+      .map((item) => `<p class="info"><b>${esc(item.label)}:</b> ${esc(item.value)}</p>`)
+      .join("");
+
     const html = `
       <html>
         <head>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; color: #111827; }
-            h1 { margin: 0 0 6px; font-size: 22px; }
-            p { margin: 0 0 16px; color: #4b5563; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
-            th { background: #f3f4f6; }
+            body { font-family: "Times New Roman", serif; padding: 20px 26px; color: #111827; }
+            h1 { text-align: center; margin: 0; font-size: 30px; }
+            h2 { text-align: center; margin: 4px 0; font-size: 18px; }
+            h3 {
+              text-align: center;
+              margin: 6px 0;
+              font-size: 16px;
+              background: #ffd700;
+              padding: 4px 6px;
+            }
+            h4 { text-align: center; margin: 4px 0 8px; font-size: 16px; }
+            .info { margin: 2px 0; font-size: 14px; color: #111827; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { border: 1px solid #4b5563; padding: 8px; text-align: center; font-size: 12px; }
+            td:nth-child(3) { text-align: left; }
+            th { background: #f3f4f6; font-weight: 700; }
           </style>
         </head>
         <body>
-          <h1>${esc(reportType)}</h1>
-          <p>Generated on: ${esc(new Date().toLocaleString())}</p>
+          <h1>HARIDWAR UNIVERSITY, ROORKEE</h1>
+          <h2>${esc(
+            department && department !== "All Departments"
+              ? `Department of ${department}`
+              : "Department - All Departments"
+          )}</h2>
+          <h3>${esc(
+            semester && semester !== "All Semesters"
+              ? `Course - Semester ${semester}`
+              : "Course - All Semesters"
+          )}</h3>
+          <h4>${esc(reportType)}</h4>
+          ${detailLines}
           <table>
             <thead><tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr></thead>
             <tbody>${list}</tbody>
@@ -693,6 +724,22 @@ const GeneralSupport = () => {
           rows: data,
           format: "csv",
           fileName: `${base}.csv`,
+          reportMeta: {
+            reportTitle: reportType,
+            departmentName:
+              department && department !== "All Departments"
+                ? `Department of ${department}`
+                : "Department - All Departments",
+            courseLine:
+              semester && semester !== "All Semesters"
+                ? `Course - Semester ${semester}`
+                : "Course - All Semesters",
+            details: [
+              { label: "Department", value: department },
+              { label: "Group", value: courseProgram },
+              { label: "Generated On", value: new Date().toLocaleString() },
+            ],
+          },
         });
       } else {
         await downloadTabularFile(apiBase, {
@@ -700,6 +747,22 @@ const GeneralSupport = () => {
           format: "xlsx",
           fileName: `${base}.xlsx`,
           sheetName: "Report",
+          reportMeta: {
+            reportTitle: reportType,
+            departmentName:
+              department && department !== "All Departments"
+                ? `Department of ${department}`
+                : "Department - All Departments",
+            courseLine:
+              semester && semester !== "All Semesters"
+                ? `Course - Semester ${semester}`
+                : "Course - All Semesters",
+            details: [
+              { label: "Department", value: department },
+              { label: "Group", value: courseProgram },
+              { label: "Generated On", value: new Date().toLocaleString() },
+            ],
+          },
         });
       }
     } catch (error) {
@@ -891,3 +954,4 @@ const GeneralSupport = () => {
 };
 
 export default GeneralSupport;
+

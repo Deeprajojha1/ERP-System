@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: hu-erp-backend
+    env: docker
+    region: oregon
+    plan: free
+    dockerContext: ./Backend
+    dockerfilePath: ./Backend/Dockerfile
+    envVars:
+      - key: PUPPETEER_SKIP_DOWNLOAD
+        value: true
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /usr/bin/chromium-browser

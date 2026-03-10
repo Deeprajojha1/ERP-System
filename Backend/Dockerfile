@@ -12,11 +12,14 @@ RUN apk add --no-cache \
   freetype \
   harfbuzz \
   ca-certificates \
-  ttf-freefont
+  ttf-freefont \
+  python3 \
+  make \
+  g++
 
 # Install dependencies
 COPY package*.json ./
-RUN npm install --only=production
+RUN npm ci --omit=dev --no-audit --fund=false
 
 # Copy source
 COPY . .
