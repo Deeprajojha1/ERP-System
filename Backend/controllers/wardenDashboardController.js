@@ -138,6 +138,18 @@ const normalizeQrTokenInput = (value) => {
   return compact;
 };
 
+const isGateSecurityRole = (roleValue) =>
+  String(roleValue || "").trim().toLowerCase() === "gatesecurity";
+
+const getAccessibleHostelIds = async (req) => {
+  const allowAllForGate = Boolean(req?.allowAllHostelsForGate);
+  if (allowAllForGate && isGateSecurityRole(req?.role)) {
+    const hostels = await Hostel.find({}).select("_id");
+    return hostels.map((h) => h._id);
+  }
+  return getWardenHostelIds(req.userId);
+};
+
 export const getWardenMe = async (req, res) => {
   try {
     const user = await User.findById(req.userId).select("name email role status");
@@ -348,7 +360,7 @@ export const getWardenStudents = async (req, res) => {
 
 export const getWardenOutpasses = async (req, res) => {
   try {
-    const hostelIds = await getWardenHostelIds(req.userId);
+    const hostelIds = await getAccessibleHostelIds(req);
     const status = String(req.query?.status || "").trim();
     const studentId = String(req.query?.studentId || "").trim();
     const roomId = String(req.query?.roomId || "").trim();
@@ -379,7 +391,7 @@ export const getWardenOutpasses = async (req, res) => {
 
 export const getWardenTodayOutpasses = async (req, res) => {
   try {
-    const hostelIds = await getWardenHostelIds(req.userId);
+    const hostelIds = await getAccessibleHostelIds(req);
     const { start, end } = toDayBoundary(new Date());
     const query = {
       hostel: { $in: hostelIds },
@@ -428,7 +440,7 @@ export const scanWardenOutpassQr = async (req, res) => {
       wardenUserId: req.userId || null,
       hasToken: Boolean(req.body?.token),
     });
-    const hostelIds = await getWardenHostelIds(req.userId);
+    const hostelIds = await getAccessibleHostelIds(req);
     const token = normalizeQrTokenInput(req.body?.token);
     if (!token) {
       console.warn("[OUTPASS_QR_SCAN] missing token");
@@ -514,6 +526,7 @@ export const scanWardenOutpassQr = async (req, res) => {
     }
 
     const now = new Date();
+    const scanActor = isGateSecurityRole(req.role) ? "Gate Security Scan" : "Warden Gate Scan";
     let phase = "";
     const hasExitTime = Boolean(outpass?.exitTime);
     const hasEntryTime = Boolean(outpass?.entryTime);
@@ -559,7 +572,7 @@ export const scanWardenOutpassQr = async (req, res) => {
     outpass.logs = Array.isArray(outpass.logs) ? outpass.logs : [];
     outpass.logs.push({
       action: phase === "EXIT" ? "Exited" : "Returned",
-      by: "Warden Gate Scan",
+      by: scanActor,
       remarks: `QR scan ${outpass.qr.scanCount}/${maxScans}`,
       timestamp: now,
     });
@@ -626,6 +639,12 @@ export const scanWardenOutpassQr = async (req, res) => {
 
 export const updateWardenOutpassStatus = async (req, res) => {
   try {
+    if (isGateSecurityRole(req.role)) {
+      return res.status(403).json({
+        message: "Access denied. Gate Security can only scan entry/exit QR.",
+      });
+    }
+
     const hostelIds = await getWardenHostelIds(req.userId);
     const outpassId = String(req.params?.id || "").trim();
     const nextStatus = String(req.body?.status || "").trim();

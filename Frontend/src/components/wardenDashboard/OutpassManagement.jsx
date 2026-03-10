@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+﻿import { useMemo, useState } from "react";
 import {
   CheckCircle,
   FileText,
@@ -15,13 +15,11 @@ import {
 import { Html5Qrcode } from "html5-qrcode";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
-import Sidebar from "./Sidebar";
 import TopNavbar from "./TopNavbar";
 import StatCard from "./StatCard";
 import OutpassDrawer from "./OutpassDrawer";
 import StatusBadge from "./StatusBadge";
 import { getOutpassStats } from "./outpassMockData";
-import { sidebarItems } from "./mockData";
 import "./wardenScope.css";
 import { useDispatch, useSelector } from "react-redux";
 import { useEffect } from "react";
@@ -32,6 +30,8 @@ import {
   getWardenTodayOutpassesApi,
   scanWardenOutpassQrApi,
   updateWardenOutpassApi,
+  getGateSecurityOutpassApi,
+  scanGateSecurityOutpassQrApi,
 } from "./constants/wardenApi";
 import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 
@@ -54,12 +54,12 @@ const normalizeScannedToken = (decodedText) => {
   return compact;
 };
 
-function OutpassManagement() {
+function OutpassManagement({ portalRole = "warden" }) {
   const dispatch = useDispatch();
   const profileState = useSelector((state) => state.warden.profile);
+  const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const isGateSecurity = String(portalRole || "").toLowerCase() === "gatesecurity";
   const [selectedOutpass, setSelectedOutpass] = useState(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [outpasses, setOutpasses] = useState([]);
@@ -98,23 +98,32 @@ function OutpassManagement() {
 
   const profile = useMemo(
     () => ({
-      name: profileState?.name || "Warden",
-      role: profileState?.role || "warden",
+      name:
+        profileState?.name ||
+        userData?.user?.name ||
+        (isGateSecurity ? "Gate Security" : "Warden"),
+      role:
+        profileState?.role ||
+        userData?.user?.role ||
+        (isGateSecurity ? "Gate Security" : "Warden"),
     }),
-    [profileState]
+    [profileState, userData, isGateSecurity]
   );
 
   useEffect(() => {
-    dispatch(fetchWardenProfile());
-  }, [dispatch]);
+    if (!isGateSecurity) {
+      dispatch(fetchWardenProfile());
+    }
+  }, [dispatch, isGateSecurity]);
 
   const fetchOutpasses = async () => {
     try {
       setLoading(true);
       setError("");
+      const outpassApiCall = isGateSecurity ? getGateSecurityOutpassApi : getWardenOutpassesApi;
       const [payload, todayPayload] = await Promise.all([
-        getWardenOutpassesApi(),
-        getWardenTodayOutpassesApi(),
+        outpassApiCall(),
+        isGateSecurity ? Promise.resolve({ outpasses: [] }) : getWardenTodayOutpassesApi(),
       ]);
       const list = Array.isArray(payload?.outpasses) ? payload.outpasses : [];
       const todayList = Array.isArray(todayPayload?.outpasses) ? todayPayload.outpasses : [];
@@ -135,14 +144,14 @@ function OutpassManagement() {
 
   useEffect(() => {
     fetchOutpasses();
-  }, []);
+  }, [isGateSecurity]);
 
   const summaryCards = [
     {
       id: "approved-count",
-      title: "Approved Outpasses",
+      title: isGateSecurity ? "Students Outside" : "Approved Outpasses",
       value: stats.approved,
-      delta: "Currently active",
+      delta: isGateSecurity ? "Approved and yet to return" : "Currently active",
       icon: CheckCircle,
     },
     {
@@ -154,7 +163,7 @@ function OutpassManagement() {
     },
     {
       id: "pending-requests",
-      title: "Pending Requests",
+      title: isGateSecurity ? "Pending Approval" : "Pending Requests",
       value: stats.pending,
       delta: "Awaiting approval",
       icon: Clock,
@@ -163,7 +172,7 @@ function OutpassManagement() {
       id: "overdue-returns",
       title: "Overdue Returns",
       value: stats.overdue,
-      delta: stats.overdue > 0 ? "⚠️ Action required" : "All clear",
+      delta: stats.overdue > 0 ? "Action required" : "All clear",
       icon: AlertTriangle,
     },
   ];
@@ -204,7 +213,16 @@ function OutpassManagement() {
   };
 
   const getOutpassReferenceDate = (doc) => {
-    const raw = doc?.fromDate || doc?.appliedAt || doc?.toDate || null;
+    const raw =
+      doc?.fromDate ||
+      doc?.appliedAt ||
+      doc?.toDate ||
+      doc?.dateFrom ||
+      doc?.dateTo ||
+      doc?.createdAt ||
+      doc?.updatedAt ||
+      doc?.issuedAt ||
+      null;
     const parsed = new Date(raw);
     if (Number.isNaN(parsed.getTime())) return null;
     return parsed;
@@ -263,8 +281,10 @@ function OutpassManagement() {
       const currentStatus = String(doc?.status || "").trim();
       if (reportStatusFilter !== "all" && currentStatus !== reportStatusFilter) return false;
       const referenceDate = getOutpassReferenceDate(doc);
+      if (!start || !end) {
+        return referenceDate ? true : reportRange === "all";
+      }
       if (!referenceDate) return false;
-      if (!start || !end) return true;
       return referenceDate.getTime() >= start.getTime() && referenceDate.getTime() <= end.getTime();
     });
 
@@ -324,6 +344,8 @@ function OutpassManagement() {
   };
 
   const handleDownloadPdfReport = async () => {
+    let fallbackWindow = null;
+    let html = "";
     try {
       setReportExporting("pdf");
       if (reportRange === "date" && !reportSpecificDate) {
@@ -335,11 +357,6 @@ function OutpassManagement() {
         toast.error("No outpass data available for selected report period.");
         return;
       }
-      if (!apiBase) {
-        toast.error("PDF download is not available right now.");
-        return;
-      }
-
       const esc = (value = "") =>
         String(value)
           .replace(/&/g, "&amp;")
@@ -386,7 +403,7 @@ function OutpassManagement() {
           ? `Particular Date (${reportSpecificDate})`
           : String(periodMeta.label || "all").replace("-", " ").toUpperCase();
 
-      const html = `
+      html = `
         <html>
           <head>
             <style>
@@ -440,18 +457,41 @@ function OutpassManagement() {
 
       const periodLabel = periodMeta.label;
       const fileDate = toLocalDateKey(new Date()) || new Date().toISOString().slice(0, 10);
+      const filePrefix = isGateSecurity ? "Gate_Security_Outpass_Report" : "Warden_Student_Outpass_Report";
+
+      if (typeof window !== "undefined") {
+        fallbackWindow = window.open("", "_blank", "width=1000,height=800");
+      }
+
       await downloadPdfFromHtml(apiBase, {
         html,
-        fileName: `Warden_Student_Outpass_Report_${periodLabel}_${fileDate}.pdf`,
+        fileName: `${filePrefix}_${periodLabel}_${fileDate}.pdf`,
         options: {
           landscape: true,
           format: "A4",
           margin: { top: "12mm", right: "8mm", bottom: "12mm", left: "8mm" },
         },
-        fallbackToPrint: true,
+        fallbackToPrint: false,
       });
+      if (fallbackWindow) {
+        fallbackWindow.close();
+        fallbackWindow = null;
+      }
       toast.success("PDF report downloaded.");
     } catch (_error) {
+      if (fallbackWindow) {
+        try {
+          fallbackWindow.document.open();
+          fallbackWindow.document.write(html);
+          fallbackWindow.document.close();
+          fallbackWindow.focus();
+          fallbackWindow.print();
+          toast.success("PDF opened in print dialog.");
+          return;
+        } catch (_fallbackError) {
+          // ignore
+        }
+      }
       toast.error("Failed to download PDF report.");
     } finally {
       setReportExporting("");
@@ -515,7 +555,8 @@ function OutpassManagement() {
     scanProcessingRef.current = true;
     try {
       setScanLoading(true);
-      const payload = await scanWardenOutpassQrApi({ token: normalizedToken });
+      const scanApiCall = isGateSecurity ? scanGateSecurityOutpassQrApi : scanWardenOutpassQrApi;
+      const payload = await scanApiCall({ token: normalizedToken });
       setScanResult({
         ok: true,
         message: payload?.message || "Verification successful",
@@ -653,40 +694,18 @@ function OutpassManagement() {
 
   return (
     <div className="warden-scope min-h-screen bg-gradient-to-b from-[#f8fbff] via-[#eef4ff] to-[#f4f7fb] text-gray-900">
-      <div className="flex">
-        <Sidebar
-          isCollapsed={isSidebarCollapsed}
-          onToggle={() => setIsSidebarCollapsed((prev) => !prev)}
-          items={sidebarItems}
+      <div className="min-h-screen">
+        <TopNavbar
+          currentDate={currentDate}
+          profile={profile}
+          onMobileMenuToggle={() => setIsMobileSidebarOpen((prev) => !prev)}
+          dashboardTitle={isGateSecurity ? "Gate Security Dashboard" : "Warden Dashboard"}
+          enableWardenPanels={!isGateSecurity}
+          showSidebarToggle={false}
+          enableProfileMenu
         />
 
-        {isMobileSidebarOpen && (
-          <div className="fixed inset-0 z-30 lg:hidden" role="dialog" aria-modal="true">
-            <button
-              type="button"
-              className="absolute inset-0 bg-black/35"
-              onClick={() => setIsMobileSidebarOpen(false)}
-              aria-label="Close sidebar"
-            />
-            <div className="relative h-full w-72 border-r border-gray-200 bg-white p-4 shadow-xl">
-              <Sidebar
-                isCollapsed={false}
-                onToggle={() => setIsMobileSidebarOpen(false)}
-                items={sidebarItems}
-                mobile
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="min-h-screen flex-1">
-          <TopNavbar
-            currentDate={currentDate}
-            profile={profile}
-            onMobileMenuToggle={() => setIsMobileSidebarOpen((prev) => !prev)}
-          />
-
-          <main className="p-6">
+        <main className="p-6">
             {/* Header */}
             <header className="mb-6">
               <h1 className="text-2xl font-bold text-gray-900">Outpass Management</h1>
@@ -794,31 +813,35 @@ function OutpassManagement() {
 	                    <h3 className="text-lg font-semibold text-gray-900">Outpass History</h3>
 	                  </div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <select
-                        value={reportRange}
-                        onChange={(e) => setReportRange(e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        aria-label="Select report period"
-                      >
-                        <option value="all">All</option>
-                        <option value="today">Today</option>
-                        <option value="week">Week</option>
-                        <option value="month">Month</option>
-                        <option value="year">Year</option>
-                        <option value="date">Choose Date</option>
-                      </select>
-                      <select
-                        value={reportStatusFilter}
-                        onChange={(e) => setReportStatusFilter(e.target.value)}
-                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                        aria-label="Select status for report download"
-                      >
-                        <option value="all">All Status</option>
-                        <option value="Pending">Pending</option>
-                        <option value="Approved">Approved</option>
-                        <option value="Rejected">Rejected</option>
-                      </select>
-                      {reportRange === "date" ? (
+                      {!isGateSecurity && (
+                        <select
+                          value={reportRange}
+                          onChange={(e) => setReportRange(e.target.value)}
+                          className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          aria-label="Select report period"
+                        >
+                          <option value="all">All</option>
+                          <option value="today">Today</option>
+                          <option value="week">Week</option>
+                          <option value="month">Month</option>
+                          <option value="year">Year</option>
+                          <option value="date">Choose Date</option>
+                        </select>
+                      )}
+                      {!isGateSecurity && (
+                        <select
+                          value={reportStatusFilter}
+                          onChange={(e) => setReportStatusFilter(e.target.value)}
+                          className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          aria-label="Select status for report download"
+                        >
+                          <option value="all">All Status</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Approved">Approved</option>
+                          <option value="Rejected">Rejected</option>
+                        </select>
+                      )}
+                      {!isGateSecurity && reportRange === "date" ? (
                         <input
                           type="date"
                           value={reportSpecificDate}
@@ -830,27 +853,27 @@ function OutpassManagement() {
                       <button
                         type="button"
                         onClick={handleDownloadPdfReport}
-                        disabled={
-                          loading ||
-                          reportExporting === "pdf" ||
-                          reportExporting === "excel" ||
-                          (reportRange === "date" && !reportSpecificDate)
-                        }
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        {reportExporting === "pdf" ? "Downloading PDF..." : "Download PDF"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleDownloadExcelReport}
-                        disabled={
-                          loading ||
-                          reportExporting === "pdf" ||
-                          reportExporting === "excel" ||
-                          (reportRange === "date" && !reportSpecificDate)
-                        }
-                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                          disabled={
+                            loading ||
+                            reportExporting === "pdf" ||
+                            reportExporting === "excel" ||
+                            (reportRange === "date" && !reportSpecificDate)
+                          }
+                          className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                          {reportExporting === "pdf" ? "Downloading PDF..." : "Download PDF"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleDownloadExcelReport}
+                          disabled={
+                            loading ||
+                            reportExporting === "pdf" ||
+                            reportExporting === "excel" ||
+                            (reportRange === "date" && !reportSpecificDate)
+                          }
+                          className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         <Download className="h-3.5 w-3.5" />
                         {reportExporting === "excel" ? "Downloading Excel..." : "Download Excel"}
@@ -947,12 +970,12 @@ function OutpassManagement() {
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {formatDateTime(outpass.toDate)}
                           </td>
-	                          <td className="px-4 py-3 text-sm text-gray-900">{outpass.destination || "—"}</td>
+	                          <td className="px-4 py-3 text-sm text-gray-900">{outpass.destination || "-"}</td>
                           <td className="px-4 py-3">
                             <StatusBadge status={outpass.status} />
                           </td>
                           <td className="px-4 py-3 text-sm font-medium text-gray-700">
-                            {todayOutpassMap[outpass.id] || "—"}
+                            {todayOutpassMap[outpass.id] || "-"}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <button
@@ -980,14 +1003,13 @@ function OutpassManagement() {
 	                  {loading && (
 	                    <div className="py-12 text-center">
 	                      <FileText className="mx-auto mb-3 h-12 w-12 text-gray-300" aria-hidden="true" />
-	                      <p className="text-sm font-semibold text-gray-600">Loading outpasses…</p>
+	                      <p className="text-sm font-semibold text-gray-600">Loading outpasses...</p>
 	                    </div>
 	                  )}
 	                </div>
 	              </div>
 	            </section>
-          </main>
-        </div>
+        </main>
       </div>
 
       {/* Drawers and Modals */}

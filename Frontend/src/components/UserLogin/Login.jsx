@@ -10,6 +10,7 @@ import collegeLogo from "../../assets/college_47233.jpg";
 import { TailSpin } from "react-loader-spinner";
 import "./Login.css";
 import toast from "react-hot-toast";
+import { normalizeRole, isAdminRole } from "../../utils/roles";
 
 const Login = () => {
   const navigate = useNavigate();
@@ -95,14 +96,18 @@ const Login = () => {
         password: "",
       });
 
-      if (res.data.user.role === "faculty") {
+      const role = normalizeRole(res.data?.user?.role);
+
+      if (role === "faculty") {
         navigate("/faculty/faculty-dashboard", { replace: true });
-      } else if (res.data.user.role === "student") {
+      } else if (role === "student") {
         navigate("/dashboard", { replace: true });
-      } else if (["admin", "accounts", "hod", "exam", "placement", "director", "vc"].includes(res.data.user.role)) {
+      } else if (isAdminRole(role)) {
         navigate("/admin/dashboard", { replace: true });
-      } else if (res.data.user.role === "warden") {
+      } else if (role === "warden") {
         navigate("/warden-dashboard", { replace: true });
+      } else if (role === "gateSecurity") {
+        navigate("/gate-security-dashboard", { replace: true });
       }
     } catch (error) {
       if (!error.response) {

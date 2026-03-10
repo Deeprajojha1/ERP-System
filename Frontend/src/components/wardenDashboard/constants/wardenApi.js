@@ -20,6 +20,16 @@ export const scanWardenOutpassQrApi = async (payload) => {
   return response.data;
 };
 
+export const getGateSecurityOutpassApi = async (params = {}) => {
+  const response = await axiosInstance.get("/api/gate-security/outpasses", { params });
+  return response.data;
+};
+
+export const scanGateSecurityOutpassQrApi = async (payload) => {
+  const response = await axiosInstance.post("/api/gate-security/outpasses/scan", payload);
+  return response.data;
+};
+
 export const getWardenComplaintsApi = async (params = {}) => {
   const response = await axiosInstance.get("/api/warden/complaints", { params });
   return response.data;

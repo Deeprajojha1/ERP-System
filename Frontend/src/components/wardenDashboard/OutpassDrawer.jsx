@@ -19,7 +19,7 @@ import {
 import Timeline from "./Timeline";
 import StatusBadge from "./StatusBadge";
 
-function OutpassDrawer({ outpass, isOpen, onClose, onStatusChange }) {
+function OutpassDrawer({ outpass, isOpen, onClose, onStatusChange, canUpdateStatus = true }) {
   const [isEditingStatus, setIsEditingStatus] = useState(false);
   const [newStatus, setNewStatus] = useState(outpass?.status || "");
   const [remarksText, setRemarksText] = useState("");
@@ -324,11 +324,17 @@ function OutpassDrawer({ outpass, isOpen, onClose, onStatusChange }) {
                   <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-500">
                     Update Status
                   </h3>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Approve/Reject only. Exit and Return are captured from QR scan at gate.
-                  </p>
+                  {canUpdateStatus ? (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Approve/Reject only. Exit and Return are captured from QR scan at gate.
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-gray-500">
+                      Read only for gate security. Exit and Return are captured from QR scan at gate.
+                    </p>
+                  )}
                 </div>
-                {!isEditingStatus && getAvailableStatuses().length > 0 && (
+                {canUpdateStatus && !isEditingStatus && getAvailableStatuses().length > 0 && (
                   <button
                     onClick={() => setIsEditingStatus(true)}
                     className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-blue-700"
@@ -339,7 +345,7 @@ function OutpassDrawer({ outpass, isOpen, onClose, onStatusChange }) {
                 )}
               </div>
 
-              {isEditingStatus && getAvailableStatuses().length > 0 && (
+              {canUpdateStatus && isEditingStatus && getAvailableStatuses().length > 0 && (
                 <div className="mt-4 space-y-4 border-t border-gray-200 pt-4">
                   {/* Current Status Display */}
                   <div>

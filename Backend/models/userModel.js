@@ -31,10 +31,13 @@ const userSchema = new mongoose.Schema(
         "student",
         "faculty",
         "admin",
+        "warden",
+        "gateSecurity",
         "accounts",
         "hod",
         "placement",
         "exam",
+        "gateSecurity",
 
       ],
       default: "student",
