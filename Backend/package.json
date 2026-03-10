@@ -8,6 +8,9 @@
     "dev": "nodemon server.js",
     "postinstall": "node ./scripts/installPuppeteerBrowser.js"
   },
+  "puppeteer": {
+    "cacheDirectory": "./.cache/puppeteer"
+  },
   "author": "",
   "license": "ISC",
   "description": "",

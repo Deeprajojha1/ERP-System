@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: hu-erp-backend
+    env: node
+    region: oregon
+    plan: free
+    buildCommand: |
+      cd Backend
+      npm install
+      npx puppeteer browsers install chrome
+    startCommand: cd Backend && npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PUPPETEER_CACHE_DIR
+        value: /opt/render/project/src/Backend/.cache/puppeteer
+      - key: PUPPETEER_SKIP_CHROMIUM_DOWNLOAD
+        value: false
