@@ -1,3 +1,5 @@
+import fs from "node:fs";
+import path from "node:path";
 import puppeteer from "puppeteer";
 
 const getLaunchArgs = () => [
@@ -36,6 +38,36 @@ const getExecutableCandidates = () => {
       "C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe",
       "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe"
     );
+  }
+
+  // Render often installs Chrome under /opt/render/.cache/puppeteer/chrome/*/chrome-linux64/chrome
+  // while app runtime may resolve a different cache path. Probe both common cache roots.
+  const renderCacheRoots = [
+    process.env.PUPPETEER_CACHE_DIR,
+    "/opt/render/.cache/puppeteer",
+    "/opt/render/project/src/Backend/.cache/puppeteer",
+  ].filter(Boolean);
+
+  for (const root of renderCacheRoots) {
+    try {
+      const chromeDir = path.join(root, "chrome");
+      if (!fs.existsSync(chromeDir)) continue;
+
+      const entries = fs
+        .readdirSync(chromeDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => entry.name)
+        .sort((a, b) => b.localeCompare(a));
+
+      for (const entry of entries) {
+        candidates.push(
+          path.join(chromeDir, entry, "chrome-linux64", "chrome"),
+          path.join(chromeDir, entry, "chrome-linux", "chrome")
+        );
+      }
+    } catch (_) {
+      // Ignore cache scan errors and continue with other candidates.
+    }
   }
 
   return [...new Set(candidates.filter(Boolean))];

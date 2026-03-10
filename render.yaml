@@ -6,8 +6,9 @@ services:
     plan: free
     buildCommand: |
       cd Backend
+      export PUPPETEER_CACHE_DIR=/opt/render/.cache/puppeteer
       npm install
-      npx puppeteer browsers install chrome
+      npx puppeteer browsers install chrome --path /opt/render/.cache/puppeteer
     startCommand: cd Backend && npm start
     envVars:
       - key: NODE_VERSION
