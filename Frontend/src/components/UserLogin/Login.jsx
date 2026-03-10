@@ -105,10 +105,8 @@ const Login = () => {
         navigate("/admin/dashboard", { replace: true });
       } else if (role === "warden") {
         navigate("/warden-dashboard", { replace: true });
-      } else if (["gateSecurity", "gate-security", "gate_security"].includes(role)) {
+      } else if (res.data.user.role === "gateSecurity") {
         navigate("/gate-security-dashboard", { replace: true });
-      } else {
-        navigate("/", { replace: true });
       }
     } catch (error) {
       if (!error.response) {

@@ -526,6 +526,7 @@ export const scanWardenOutpassQr = async (req, res) => {
     }
 
     const now = new Date();
+    const scanActor = isGateSecurityRole(req.role) ? "Gate Security Scan" : "Warden Gate Scan";
     let phase = "";
     const hasExitTime = Boolean(outpass?.exitTime);
     const hasEntryTime = Boolean(outpass?.entryTime);

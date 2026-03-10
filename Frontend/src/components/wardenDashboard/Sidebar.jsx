@@ -8,7 +8,18 @@ import { clearFaculty } from "../../redux/facultySlice";
 import { clearLeaves } from "../../redux/leavesSlice";
 import { clearTimetable } from "../../redux/timetableSlice";
 
-function Sidebar({ isCollapsed, onToggle, items, mobile = false, routeMap = {}, defaultPath = "/warden-dashboard" }) {
+function Sidebar({
+  isCollapsed,
+  onToggle,
+  items,
+  mobile = false,
+  routeMap = {},
+  title = "HU Warden",
+  subtitle = "Management",
+  defaultPath = "/warden-dashboard",
+  profile = null,
+  showProfileSection = false,
+}) {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
@@ -77,6 +88,15 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false, routeMap = {}, 
   };
 
   const desktopWidthClass = isCollapsed ? "w-20" : "w-64";
+  const profileName = String(profile?.name || "").trim() || "User";
+  const profileRole = String(profile?.role || "").trim() || "Member";
+  const profileInitials = profileName
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join("")
+    .toUpperCase() || "U";
   const layoutClass = mobile
     ? "flex h-full w-full flex-col border-r border-gray-200 bg-white px-3 py-6"
     : `fixed left-0 top-0 z-30 hidden h-screen ${desktopWidthClass} flex-col border-r border-gray-200 bg-gradient-to-b from-blue-50 to-blue-100 px-3 py-6 transition-all duration-200 lg:flex`;
@@ -94,8 +114,8 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false, routeMap = {}, 
               </span>
               {!isCollapsed && (
                 <div>
-                  <h2 className="text-sm font-bold tracking-tight text-blue-900">HU Warden</h2>
-                  <p className="text-xs text-blue-600">Management</p>
+                  <h2 className="text-sm font-bold tracking-tight text-blue-900">{title}</h2>
+                  <p className="text-xs text-blue-600">{subtitle}</p>
                 </div>
               )}
             </div>
@@ -142,6 +162,19 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false, routeMap = {}, 
           </nav>
 
           <div className="border-t border-blue-200 pt-4">
+            {showProfileSection && !isCollapsed && (
+              <div className="mb-3 rounded-xl border border-blue-200 bg-white/80 p-3">
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                    {profileInitials}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-blue-900">{profileName}</p>
+                    <p className="truncate text-xs text-blue-700">{profileRole}</p>
+                  </div>
+                </div>
+              </div>
+            )}
             <button
               type="button"
               onClick={handleLogout}
@@ -167,9 +200,9 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false, routeMap = {}, 
           {!isCollapsed && (
             <div>
               <h2 className="text-sm font-bold tracking-tight text-blue-900">
-                HU Warden
+                {title}
               </h2>
-              <p className="text-xs text-blue-600">Management</p>
+              <p className="text-xs text-blue-600">{subtitle}</p>
             </div>
           )}
         </div>
@@ -214,6 +247,19 @@ function Sidebar({ isCollapsed, onToggle, items, mobile = false, routeMap = {}, 
       </nav>
 
       <div className="border-t border-blue-200 pt-4">
+        {showProfileSection && !isCollapsed && (
+          <div className="mb-3 rounded-xl border border-blue-200 bg-white/80 p-3">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-xs font-semibold text-white">
+                {profileInitials}
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-blue-900">{profileName}</p>
+                <p className="truncate text-xs text-blue-700">{profileRole}</p>
+              </div>
+            </div>
+          </div>
+        )}
         <button
           type="button"
           onClick={handleLogout}

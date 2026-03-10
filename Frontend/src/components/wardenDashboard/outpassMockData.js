@@ -258,14 +258,15 @@ export const getActiveOutpass = () => {
 
 // Get statistics
 export const getOutpassStats = (sourceOutpasses = outpassesData) => {
-  const total = sourceOutpasses.length;
-  const pending = sourceOutpasses.filter((op) => op.status === "Pending").length;
-  const approved = sourceOutpasses.filter((op) => op.status === "Approved").length;
-  const returned = sourceOutpasses.filter((op) => op.status === "Returned").length;
-  const rejected = sourceOutpasses.filter((op) => op.status === "Rejected").length;
+  const safeOutpasses = Array.isArray(sourceOutpasses) ? sourceOutpasses : [];
+  const total = safeOutpasses.length;
+  const pending = safeOutpasses.filter((op) => op.status === "Pending").length;
+  const approved = safeOutpasses.filter((op) => op.status === "Approved").length;
+  const returned = safeOutpasses.filter((op) => op.status === "Returned").length;
+  const rejected = safeOutpasses.filter((op) => op.status === "Rejected").length;
   
   // Check for overdue (if returned after toDate)
-  const overdue = sourceOutpasses.filter((op) => {
+  const overdue = safeOutpasses.filter((op) => {
     if (op.status === "Exited" && op.exitTime) {
       const toDate = new Date(op.toDate);
       const now = new Date();

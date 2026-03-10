@@ -37,6 +37,7 @@ const userSchema = new mongoose.Schema(
         "hod",
         "placement",
         "exam",
+        "gateSecurity",
 
       ],
       default: "student",

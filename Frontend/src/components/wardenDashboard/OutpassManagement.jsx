@@ -11,8 +11,11 @@ import {
   Camera,
   X,
   Download,
+  Download,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
+import * as XLSX from "xlsx";
+import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import Sidebar from "./Sidebar";
@@ -28,13 +31,16 @@ import { useEffect } from "react";
 import { useRef } from "react";
 import { fetchWardenProfile } from "../../redux/wardenSlice";
 import {
+  getGateSecurityOutpassApi,
   getWardenOutpassesApi,
   getWardenTodayOutpassesApi,
+  scanGateSecurityOutpassQrApi,
   scanWardenOutpassQrApi,
   updateWardenOutpassApi,
   getGateSecurityOutpassApi,
   scanGateSecurityOutpassQrApi,
 } from "./constants/wardenApi";
+import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 
 const normalizeScannedToken = (decodedText) => {
@@ -56,10 +62,43 @@ const normalizeScannedToken = (decodedText) => {
   return compact;
 };
 
+const computeComingStatusForUi = (outpass, now = new Date()) => {
+  const status = String(outpass?.status || "").trim();
+  if (!status) return "UNKNOWN";
+  if (status === "Returned") return "RETURNED";
+  if (status === "Rejected") return "REJECTED";
+  if (status === "Cancelled") return "CANCELLED";
+  if (status === "Pending") return "PENDING_APPROVAL";
+
+  const hasExited = Boolean(outpass?.exitTime);
+  const hasReturned = Boolean(outpass?.entryTime);
+  if (hasReturned) return "RETURNED";
+
+  if (hasExited || status === "Exited") {
+    const toDate = new Date(outpass?.toDate || outpass?.dateTo);
+    if (!Number.isNaN(toDate.getTime()) && now.getTime() > toDate.getTime()) {
+      return "OVERDUE";
+    }
+    return "EXITED";
+  }
+
+  if (status === "Approved") return "YET_TO_EXIT";
+  return status.toUpperCase();
+};
+
+const normalizeOutpassRecord = (record = {}) => ({
+  ...record,
+  id: record?.id || record?._id || "",
+  fromDate: record?.fromDate || record?.dateFrom || null,
+  toDate: record?.toDate || record?.dateTo || null,
+  appliedAt: record?.appliedAt || record?.createdAt || null,
+});
+
 function OutpassManagement({ portalRole = "warden" }) {
   const dispatch = useDispatch();
   const profileState = useSelector((state) => state.warden.profile);
   const userData = useSelector((state) => state.user.userData);
+  const apiBase = useSelector((state) => state.config.apiBase);
   const isGateSecurity = String(portalRole || "").toLowerCase() === "gatesecurity";
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -74,6 +113,10 @@ function OutpassManagement({ portalRole = "warden" }) {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [isDetectingQr, setIsDetectingQr] = useState(false);
+  const [reportExporting, setReportExporting] = useState("");
+  const [reportRange, setReportRange] = useState("all");
+  const [reportSpecificDate, setReportSpecificDate] = useState("");
+  const [reportStatusFilter, setReportStatusFilter] = useState("all");
   const [reportExporting, setReportExporting] = useState("");
   const [reportRange, setReportRange] = useState("all");
   const [reportSpecificDate, setReportSpecificDate] = useState("");
@@ -111,26 +154,38 @@ function OutpassManagement({ portalRole = "warden" }) {
   );
 
   useEffect(() => {
-    if (!isGateSecurity) {
-      dispatch(fetchWardenProfile());
-    }
+    if (isGateSecurity) return;
+    dispatch(fetchWardenProfile());
   }, [dispatch, isGateSecurity]);
 
   const fetchOutpasses = async () => {
     try {
       setLoading(true);
       setError("");
-      const outpassApiCall = isGateSecurity ? getGateSecurityOutpassApi : getWardenOutpassesApi;
-      const [payload, todayPayload] = await Promise.all([
-        outpassApiCall(),
-        isGateSecurity ? Promise.resolve({ outpasses: [] }) : getWardenTodayOutpassesApi(),
-      ]);
-      const list = Array.isArray(payload?.outpasses) ? payload.outpasses : [];
-      const todayList = Array.isArray(todayPayload?.outpasses) ? todayPayload.outpasses : [];
-      const todayMap = todayList.reduce((acc, item) => {
-        acc[item.id] = item?.comingStatus || "";
-        return acc;
-      }, {});
+      let list = [];
+      let todayMap = {};
+
+      if (isGateSecurity) {
+        const payload = await getGateSecurityOutpassApi();
+        list = Array.isArray(payload?.outpasses) ? payload.outpasses.map(normalizeOutpassRecord) : [];
+        const now = new Date();
+        todayMap = list.reduce((acc, item) => {
+          acc[item.id] = computeComingStatusForUi(item, now);
+          return acc;
+        }, {});
+      } else {
+        const [payload, todayPayload] = await Promise.all([
+          getWardenOutpassesApi(),
+          getWardenTodayOutpassesApi(),
+        ]);
+        list = Array.isArray(payload?.outpasses) ? payload.outpasses.map(normalizeOutpassRecord) : [];
+        const todayList = Array.isArray(todayPayload?.outpasses) ? todayPayload.outpasses : [];
+        todayMap = todayList.reduce((acc, item) => {
+          acc[item.id] = item?.comingStatus || "";
+          return acc;
+        }, {});
+      }
+
       setOutpasses(list);
       setTodayOutpassMap(todayMap);
     } catch (err) {
@@ -172,7 +227,7 @@ function OutpassManagement({ portalRole = "warden" }) {
       id: "overdue-returns",
       title: "Overdue Returns",
       value: stats.overdue,
-      delta: stats.overdue > 0 ? "⚠️ Action required" : "All clear",
+      delta: stats.overdue > 0 ? "Action required" : "All clear",
       icon: AlertTriangle,
     },
   ];
@@ -186,7 +241,10 @@ function OutpassManagement({ portalRole = "warden" }) {
   }, [isGateSecurity]);
 
   const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString("en-US", {
+    if (!dateString) return "N/A";
+    const parsed = new Date(dateString);
+    if (Number.isNaN(parsed.getTime())) return "N/A";
+    return parsed.toLocaleString("en-US", {
       month: "short",
       day: "numeric",
       year: "numeric",
@@ -331,7 +389,8 @@ function OutpassManagement({ portalRole = "warden" }) {
       XLSX.utils.book_append_sheet(workbook, worksheet, "Outpass Report");
       const periodLabel = getReportPeriodMeta().label;
       const fileDate = toLocalDateKey(new Date()) || new Date().toISOString().slice(0, 10);
-      XLSX.writeFile(workbook, `Warden_Student_Outpass_Report_${periodLabel}_${fileDate}.xlsx`);
+      const reportPrefix = isGateSecurity ? "GateSecurity" : "Warden";
+      XLSX.writeFile(workbook, `${reportPrefix}_Student_Outpass_Report_${periodLabel}_${fileDate}.xlsx`);
       toast.success("Excel report downloaded.");
     } catch (_error) {
       toast.error("Failed to download Excel report.");
@@ -459,7 +518,7 @@ function OutpassManagement({ portalRole = "warden" }) {
       const fileDate = toLocalDateKey(new Date()) || new Date().toISOString().slice(0, 10);
       await downloadPdfFromHtml(apiBase, {
         html,
-        fileName: `Warden_Student_Outpass_Report_${periodLabel}_${fileDate}.pdf`,
+        fileName: `${isGateSecurity ? "GateSecurity" : "Warden"}_Student_Outpass_Report_${periodLabel}_${fileDate}.pdf`,
         options: {
           landscape: true,
           format: "A4",
@@ -477,10 +536,11 @@ function OutpassManagement({ portalRole = "warden" }) {
 
   // Handle status change
   const handleStatusChange = (outpassId, newStatus, remarks) => {
+    if (isGateSecurity) return;
     (async () => {
       try {
         const response = await updateWardenOutpassApi(outpassId, { status: newStatus, remarks });
-        const updated = response?.outpass;
+        const updated = normalizeOutpassRecord(response?.outpass || {});
         if (!updated?.id) return;
         setOutpasses((prev) => prev.map((op) => (op.id === updated.id ? updated : op)));
         setSelectedOutpass((prevSelected) => (prevSelected?.id === updated.id ? updated : prevSelected));
@@ -532,8 +592,9 @@ function OutpassManagement({ portalRole = "warden" }) {
     scanProcessingRef.current = true;
     try {
       setScanLoading(true);
-      const scanApiCall = isGateSecurity ? scanGateSecurityOutpassQrApi : scanWardenOutpassQrApi;
-      const payload = await scanApiCall({ token: normalizedToken });
+      const payload = isGateSecurity
+        ? await scanGateSecurityOutpassQrApi({ token: normalizedToken })
+        : await scanWardenOutpassQrApi({ token: normalizedToken });
       setScanResult({
         ok: true,
         message: payload?.message || "Verification successful",
@@ -565,6 +626,7 @@ function OutpassManagement({ portalRole = "warden" }) {
 
       await scanner.start(
         { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 340, height: 340 } },
         { fps: 10, qrbox: { width: 340, height: 340 } },
         async (decodedText) => {
           if (scanProcessingRef.current) return;
@@ -605,7 +667,10 @@ function OutpassManagement({ portalRole = "warden" }) {
 
     if (dateFilter) {
       filtered = filtered.filter((op) => {
-        const opDate = new Date(op.fromDate).toISOString().split("T")[0];
+        const opDateValue = op?.fromDate || op?.dateFrom;
+        const parsed = new Date(opDateValue);
+        if (Number.isNaN(parsed.getTime())) return false;
+        const opDate = parsed.toISOString().split("T")[0];
         return opDate >= dateFilter;
       });
     }
@@ -675,9 +740,12 @@ function OutpassManagement({ portalRole = "warden" }) {
         <Sidebar
           isCollapsed={isSidebarCollapsed}
           onToggle={() => setIsSidebarCollapsed((prev) => !prev)}
-          items={sidebarItems}
-          routeMap={sidebarRouteMap}
+          items={isGateSecurity ? ["Outpass"] : sidebarItems}
+          routeMap={isGateSecurity ? { Outpass: "/gate-security-dashboard" } : {}}
           defaultPath={isGateSecurity ? "/gate-security-dashboard" : "/warden-dashboard"}
+          title={isGateSecurity ? "HU Gate Security" : "HU Warden"}
+          profile={isGateSecurity ? profile : null}
+          showProfileSection={isGateSecurity}
         />
 
         {isMobileSidebarOpen && (
@@ -692,10 +760,13 @@ function OutpassManagement({ portalRole = "warden" }) {
               <Sidebar
                 isCollapsed={false}
                 onToggle={() => setIsMobileSidebarOpen(false)}
-                items={sidebarItems}
-                routeMap={sidebarRouteMap}
-                defaultPath={isGateSecurity ? "/gate-security-dashboard" : "/warden-dashboard"}
+                items={isGateSecurity ? ["Outpass"] : sidebarItems}
                 mobile
+                routeMap={isGateSecurity ? { Outpass: "/gate-security-dashboard" } : {}}
+                defaultPath={isGateSecurity ? "/gate-security-dashboard" : "/warden-dashboard"}
+                title={isGateSecurity ? "HU Gate Security" : "HU Warden"}
+                profile={isGateSecurity ? profile : null}
+                showProfileSection={isGateSecurity}
               />
             </div>
           </div>
@@ -706,16 +777,23 @@ function OutpassManagement({ portalRole = "warden" }) {
             currentDate={currentDate}
             profile={profile}
             onMobileMenuToggle={() => setIsMobileSidebarOpen((prev) => !prev)}
+            dashboardTitle={isGateSecurity ? "Gate Security Dashboard" : "Warden Dashboard"}
+            enableWardenPanels={!isGateSecurity}
           />
 
           <main className="p-6">
             {/* Header */}
             <header className="mb-6">
-              <h1 className="text-2xl font-bold text-gray-900">Outpass Management</h1>
-              <p className="text-sm text-gray-600">Monitor and manage student outpass requests</p>
+              <h1 className="text-2xl font-bold text-gray-900">
+                {isGateSecurity ? "Gate Security Outpass Dashboard" : "Outpass Management"}
+              </h1>
+              <p className="text-sm text-gray-600">
+                {isGateSecurity
+                  ? "Verify gate entry/exit scans and monitor outpass history."
+                  : "Monitor and manage student outpass requests"}
+              </p>
             </header>
 
-            {/* Summary Cards */}
             <section aria-label="Outpass Summary" className="mb-6">
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 {summaryCards.map((card) => (
@@ -725,96 +803,161 @@ function OutpassManagement({ portalRole = "warden" }) {
             </section>
 
             <section aria-label="QR Verification" className="mb-6">
-              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-                <div className="mb-4 flex items-center gap-2">
-                  <ScanLine className="h-5 w-5 text-blue-600" />
-                  <h3 className="text-lg font-semibold text-gray-900">Gate QR Verification</h3>
-                </div>
-                <p className="mb-3 text-sm text-gray-600">Use camera scan to verify student exit/entry QR.</p>
-                <div className="flex flex-col gap-3 md:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setIsCameraOpen(true)}
-                    disabled={scanLoading}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <Camera className="h-4 w-4" />
-                    {scanLoading ? "Verifying..." : "Scan Camera"}
-                  </button>
-                </div>
-                {scanResult?.message ? (
-                  <div className={`mt-3 rounded-lg border px-3 py-2 text-sm ${scanResult.ok ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700"}`}>
-                    {scanResult.message}
-                    {scanResult.phase ? ` (${scanResult.phase})` : ""}
+              {isGateSecurity && (
+                <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+                  <div className="mb-4 flex items-center gap-2">
+                    <ScanLine className="h-5 w-5 text-blue-600" />
+                    <h3 className="text-lg font-semibold text-gray-900">Gate QR Verification</h3>
                   </div>
-                ) : null}
-                {scanResult?.ok && scanResult?.outpass ? (
-                  <details className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                    <summary className="cursor-pointer text-sm font-semibold text-gray-800">
-                      View scanned outpass document
-                    </summary>
-                    {(() => {
-                      const view = getScannedOutpassView(scanResult.outpass);
-                      return (
-                        <div className="mt-3 rounded-lg border border-amber-300 bg-[#f8f2e2] p-4 text-[#2b2114]">
-                          <div className="border-b border-dashed border-amber-700 pb-2 text-center">
-                            <p className="text-2xl font-black tracking-wide">HARIDWAR UNIVERSITY</p>
-                            <p className="mt-1 text-lg font-bold">STUDENT LEAVE / OUT PASS</p>
-                            <p className="text-sm font-semibold">SECURITY GATE COPY</p>
-                          </div>
-
-                          <div className="mt-3 grid grid-cols-1 gap-250 text-sm sm:grid-cols-2">
-                            <p className="flex flex-row">
-                              <span className="font-semibold pr-2">Sl.No:</span> {view.id}
-                            </p>
-                            <p>
-                              <span className="font-semibold">Dated:</span> {view.fromDate ? formatDatePart(view.fromDate) : "N/A"}
-                            </p>
-                          </div>
-
-                          <div className="mt-3 space-y-2 text-sm">
-                            <p><span className="font-semibold">Name of Student:</span> {view.studentName}</p>
-                            <p><span className="font-semibold">Enrollment:</span> {view.enrollment} | <span className="font-semibold">Branch:</span> {view.branchName}</p>
-                            <p><span className="font-semibold">Room No:</span> {view.room} | <span className="font-semibold">Hostel:</span> {view.hostel}</p>
-                            <p><span className="font-semibold">Purpose:</span> {view.category} | <span className="font-semibold">Destination:</span> {view.destination}</p>
-                            <p>
-                              <span className="font-semibold">From:</span> {view.fromDate ? `${formatTimePart(view.fromDate)} on ${formatDatePart(view.fromDate)}` : "N/A"}
-                              {"  "}
-                              <span className="font-semibold">To:</span> {view.toDate ? `${formatTimePart(view.toDate)} on ${formatDatePart(view.toDate)}` : "N/A"}
-                            </p>
-                            <p><span className="font-semibold">Return by:</span> {view.toDate ? `${formatTimePart(view.toDate)} on ${formatDatePart(view.toDate)}` : "N/A"}</p>
-                            <p><span className="font-semibold">Parent/Emergency Consent Contact:</span> {view.parentContact !== "N/A" ? view.parentContact : view.emergencyContact}</p>
-                            <p><span className="font-semibold">Contact No. during outpass:</span> {view.emergencyContact}</p>
-                            <p><span className="font-semibold">Address During Leave/Out Pass:</span> {view.destination}</p>
-                            <p><span className="font-semibold">Reason:</span> {view.reason}</p>
-                          </div>
-
-                          <div className="mt-3 border-t border-dashed border-amber-700 pt-2 text-sm">
-                            <p><span className="font-semibold">Actual Time of Departure:</span> {view.exitTime ? formatDateTime(view.exitTime) : "Pending first scan"}</p>
-                            <p><span className="font-semibold">Actual Time of Arrival:</span> {view.entryTime ? formatDateTime(view.entryTime) : "Pending second scan"}</p>
-                          </div>
-
-                        </div>
-                      );
-                    })()}
-                  </details>
-                ) : null}
-                {cameraError ? (
-                  <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {cameraError}
+                  <p className="mb-3 text-sm text-gray-600">Use camera scan to verify student exit/entry QR.</p>
+                  <div className="flex flex-col gap-3 md:flex-row">
+                    <button
+                      type="button"
+                      onClick={() => setIsCameraOpen(true)}
+                      disabled={scanLoading}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 transition hover:bg-blue-100 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <Camera className="h-4 w-4" />
+                      {scanLoading ? "Verifying..." : "Scan Camera"}
+                    </button>
                   </div>
-                ) : null}
-              </div>
+                  {scanResult?.message ? (
+                    <div className={`mt-3 rounded-lg border px-3 py-2 text-sm ${scanResult.ok ? "border-green-200 bg-green-50 text-green-800" : "border-red-200 bg-red-50 text-red-700"}`}>
+                      {scanResult.message}
+                      {scanResult.phase ? ` (${scanResult.phase})` : ""}
+                    </div>
+                  ) : null}
+                  {scanResult?.ok && scanResult?.outpass ? (
+                    <details className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                      <summary className="cursor-pointer text-sm font-semibold text-gray-800">
+                        View scanned outpass document
+                      </summary>
+                      {(() => {
+                        const view = getScannedOutpassView(scanResult.outpass);
+                        return (
+                          <div className="mt-3 rounded-lg border border-amber-300 bg-[#f8f2e2] p-4 text-[#2b2114]">
+                            <div className="border-b border-dashed border-amber-700 pb-2 text-center">
+                              <p className="text-2xl font-black tracking-wide">HARIDWAR UNIVERSITY</p>
+                              <p className="mt-1 text-lg font-bold">STUDENT LEAVE / OUT PASS</p>
+                              <p className="text-sm font-semibold">SECURITY GATE COPY</p>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-1 gap-250 text-sm sm:grid-cols-2">
+                              <p className="flex flex-row">
+                                <span className="font-semibold pr-2">Sl.No:</span> {view.id}
+                              </p>
+                              <p>
+                                <span className="font-semibold">Dated:</span> {view.fromDate ? formatDatePart(view.fromDate) : "N/A"}
+                              </p>
+                            </div>
+
+                            <div className="mt-3 space-y-2 text-sm">
+                              <p><span className="font-semibold">Name of Student:</span> {view.studentName}</p>
+                              <p><span className="font-semibold">Enrollment:</span> {view.enrollment} | <span className="font-semibold">Branch:</span> {view.branchName}</p>
+                              <p><span className="font-semibold">Room No:</span> {view.room} | <span className="font-semibold">Hostel:</span> {view.hostel}</p>
+                              <p><span className="font-semibold">Purpose:</span> {view.category} | <span className="font-semibold">Destination:</span> {view.destination}</p>
+                              <p>
+                                <span className="font-semibold">From:</span> {view.fromDate ? `${formatTimePart(view.fromDate)} on ${formatDatePart(view.fromDate)}` : "N/A"}
+                                {"  "}
+                                <span className="font-semibold">To:</span> {view.toDate ? `${formatTimePart(view.toDate)} on ${formatDatePart(view.toDate)}` : "N/A"}
+                              </p>
+                              <p><span className="font-semibold">Return by:</span> {view.toDate ? `${formatTimePart(view.toDate)} on ${formatDatePart(view.toDate)}` : "N/A"}</p>
+                              <p><span className="font-semibold">Parent/Emergency Consent Contact:</span> {view.parentContact !== "N/A" ? view.parentContact : view.emergencyContact}</p>
+                              <p><span className="font-semibold">Contact No. during outpass:</span> {view.emergencyContact}</p>
+                              <p><span className="font-semibold">Address During Leave/Out Pass:</span> {view.destination}</p>
+                              <p><span className="font-semibold">Reason:</span> {view.reason}</p>
+                            </div>
+
+                            <div className="mt-3 border-t border-dashed border-amber-700 pt-2 text-sm">
+                              <p><span className="font-semibold">Actual Time of Departure:</span> {view.exitTime ? formatDateTime(view.exitTime) : "Pending first scan"}</p>
+                              <p><span className="font-semibold">Actual Time of Arrival:</span> {view.entryTime ? formatDateTime(view.entryTime) : "Pending second scan"}</p>
+                            </div>
+
+                          </div>
+                        );
+                      })()}
+                    </details>
+                  ) : null}
+                  {cameraError ? (
+                    <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {cameraError}
+                    </div>
+                  ) : null}
+                </div>
+              )}
             </section>
 
-            {/* Outpass History */}
 	            <section aria-label="Outpass History">
 	              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+	                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
 	                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
 	                  <div className="flex items-center gap-2">
 	                    <FileText className="h-5 w-5 text-blue-600" aria-hidden="true" />
 	                    <h3 className="text-lg font-semibold text-gray-900">Outpass History</h3>
 	                  </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={reportRange}
+                        onChange={(e) => setReportRange(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        aria-label="Select report period"
+                      >
+                        <option value="all">All</option>
+                        <option value="today">Today</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                        <option value="year">Year</option>
+                        <option value="date">Choose Date</option>
+                      </select>
+                      <select
+                        value={reportStatusFilter}
+                        onChange={(e) => setReportStatusFilter(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        aria-label="Select status for report download"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                      {reportRange === "date" ? (
+                        <input
+                          type="date"
+                          value={reportSpecificDate}
+                          onChange={(e) => setReportSpecificDate(e.target.value)}
+                          className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          aria-label="Select particular report date"
+                        />
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={handleDownloadPdfReport}
+                        disabled={
+                          loading ||
+                          reportExporting === "pdf" ||
+                          reportExporting === "excel" ||
+                          (reportRange === "date" && !reportSpecificDate)
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {reportExporting === "pdf" ? "Downloading PDF..." : "Download PDF"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDownloadExcelReport}
+                        disabled={
+                          loading ||
+                          reportExporting === "pdf" ||
+                          reportExporting === "excel" ||
+                          (reportRange === "date" && !reportSpecificDate)
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {reportExporting === "excel" ? "Downloading Excel..." : "Download Excel"}
+                      </button>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <select
                         value={reportRange}
@@ -935,6 +1078,12 @@ function OutpassManagement({ portalRole = "warden" }) {
                           Room No
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Student Name
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Room No
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                           From Date
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
@@ -957,6 +1106,12 @@ function OutpassManagement({ portalRole = "warden" }) {
                     <tbody className="divide-y divide-gray-200">
                       {filteredOutpasses.map((outpass) => (
                         <tr key={outpass.id} className="transition-colors hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {outpass?.student?.name || outpass?.studentName || "N/A"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {outpass?.roomNumber || outpass?.room?.roomNumber || "N/A"}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {outpass?.student?.name || outpass?.studentName || "N/A"}
                           </td>
@@ -1018,10 +1173,12 @@ function OutpassManagement({ portalRole = "warden" }) {
         isOpen={isDrawerOpen}
         onClose={handleCloseDrawer}
         onStatusChange={handleStatusChange}
+        canUpdateStatus={!isGateSecurity}
       />
 
       {isCameraOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
+          <div className="w-full max-w-4xl rounded-xl bg-white p-4 shadow-2xl">
           <div className="w-full max-w-4xl rounded-xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Scan Student QR</h3>
@@ -1036,6 +1193,7 @@ function OutpassManagement({ portalRole = "warden" }) {
             </div>
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
               <div id={scannerRegionId} className="min-h-[560px] w-full" />
+              <div id={scannerRegionId} className="min-h-[560px] w-full" />
             </div>
             <p className="mt-3 text-sm text-gray-600">
               {isDetectingQr ? "Point camera at student QR code..." : "Starting camera..."}
@@ -1048,3 +1206,4 @@ function OutpassManagement({ portalRole = "warden" }) {
 }
 
 export default OutpassManagement;
+

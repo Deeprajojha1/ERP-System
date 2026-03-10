@@ -4,7 +4,13 @@ import { useDispatch, useSelector } from "react-redux";
 import { fetchWardenHostels, fetchWardenOverview } from "../../redux/wardenSlice";
 import { getWardenAlertsApi } from "./constants/wardenApi";
 
-function TopNavbar({ currentDate, profile, onMobileMenuToggle }) {
+function TopNavbar({
+  currentDate,
+  profile,
+  onMobileMenuToggle,
+  dashboardTitle = "Warden Dashboard",
+  enableWardenPanels = true,
+}) {
   const dispatch = useDispatch();
   const hostels = useSelector((state) => state.warden.hostels);
   const hostelsLoading = useSelector((state) => state.warden.loading.hostels);
@@ -17,16 +23,18 @@ function TopNavbar({ currentDate, profile, onMobileMenuToggle }) {
   const [alerts, setAlerts] = useState([]);
 
   useEffect(() => {
+    if (!enableWardenPanels) return;
     if (!hostelsLoading && (!Array.isArray(hostels) || hostels.length === 0)) {
       dispatch(fetchWardenHostels());
     }
-  }, [dispatch, hostels, hostelsLoading]);
+  }, [dispatch, hostels, hostelsLoading, enableWardenPanels]);
 
   useEffect(() => {
+    if (!enableWardenPanels) return;
     if (!overviewLoading && !overview) {
       dispatch(fetchWardenOverview());
     }
-  }, [dispatch, overview, overviewLoading]);
+  }, [dispatch, overview, overviewLoading, enableWardenPanels]);
 
   const hostelNames = useMemo(
     () => (Array.isArray(hostels) ? hostels.map((h) => h?.name).filter(Boolean) : []),
@@ -58,6 +66,11 @@ function TopNavbar({ currentDate, profile, onMobileMenuToggle }) {
   const badgeText = totalBadgeCount > 99 ? "99+" : String(totalBadgeCount);
 
   const fetchAlerts = async () => {
+    if (!enableWardenPanels) {
+      setAlerts([]);
+      setAlertsError("");
+      return;
+    }
     try {
       setAlertsLoading(true);
       setAlertsError("");
@@ -73,12 +86,13 @@ function TopNavbar({ currentDate, profile, onMobileMenuToggle }) {
   };
 
   useEffect(() => {
+    if (!enableWardenPanels) return;
     // lightweight: only prefetch once so bell badge can reflect admin messages too
     if (alertsLoading) return;
     if (Array.isArray(alerts) && alerts.length > 0) return;
     fetchAlerts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [enableWardenPanels]);
 
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200 bg-gradient-to-r from-[#f8fbff] via-[#eef5ff] to-[#f6fbff] px-6 py-4 backdrop-blur">
@@ -93,7 +107,7 @@ function TopNavbar({ currentDate, profile, onMobileMenuToggle }) {
             <Menu className="h-5 w-5" />
           </button>
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Warden Dashboard</h1>
+            <h1 className="text-xl font-semibold text-gray-900">{dashboardTitle}</h1>
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-600">
               <span>{currentDate}</span>
               {hostelLabel && (
