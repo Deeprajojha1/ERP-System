@@ -146,10 +146,9 @@ const examRegistrationSchema = new mongoose.Schema(
 );
 
 examRegistrationSchema.index(
-  { student: 1, exam: 1 },
+  { student: 1, exam: 1, createdAt: -1 },
   {
-    unique: true,
-    partialFilterExpression: { isDeleted: false, exam: { $type: "objectId" } },
+    partialFilterExpression: { isDeleted: false },
   }
 );
 examRegistrationSchema.index({ exam: 1, registrationStatus: 1, isDeleted: 1 });

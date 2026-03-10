@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
 import ExamRegistration from "../models/ExamRegistration.js";
 import Student from "../models/Student.js";
-import Exam from "../models/Exam.js";
+import Group from "../models/Group.js";
+import Course from "../models/Course.js";
+import Enrollment from "../models/Enrollment.js";
 import { uploadImageToCloudinary } from "../config/cloudinaryUpload.js";
 
 const toNumberOrNull = (value) => {
@@ -26,24 +28,79 @@ const normalizeGender = (value = "") => {
   return "";
 };
 
-const buildDefaultSubjects = (exam) => {
-  if (!exam) return [];
-  if (!exam.subjectCode && !exam.subjectName) return [];
-  return [
-    {
-      course: exam.course?._id || exam.course || null,
-      subjectCode: String(exam.subjectCode || "").trim(),
-      subjectName: String(exam.subjectName || "").trim(),
-    },
-  ].filter((item) => item.subjectCode && item.subjectName);
+const resolveSubjectsFromGroupAndSemester = async ({ student, semesterValue }) => {
+  const targetSemester = toNumberOrNull(semesterValue) ?? student?.semester ?? null;
+  const toSubjectRows = (courses = []) =>
+    courses
+      .filter((course) => {
+        if (!course?._id) return false;
+        if (!String(course?.code || "").trim() || !String(course?.courseName || "").trim()) return false;
+        if (targetSemester && Number(course?.semester) !== Number(targetSemester)) return false;
+        return true;
+      })
+      .map((course) => ({
+        course: course?._id || null,
+        subjectCode: String(course?.code || "").trim(),
+        subjectName: String(course?.courseName || "").trim(),
+      }));
+
+  // 1) Enrollment mapped courses (most specific for the student)
+  const enrollmentRows = await Enrollment.find({
+    student: student?._id,
+    status: { $in: ["active", "completed"] },
+  })
+    .populate("course", "code courseName semester branch")
+    .lean();
+  const enrollmentCourses = enrollmentRows.map((row) => row?.course).filter(Boolean);
+  const enrollmentSubjects = toSubjectRows(enrollmentCourses);
+  if (enrollmentSubjects.length) {
+    return {
+      subjects: enrollmentSubjects,
+      primaryCourse: enrollmentCourses[0] || null,
+    };
+  }
+
+  // 2) Group mapped courses
+  if (student?.group?._id) {
+    const group = await Group.findById(student.group._id)
+      .populate("courseIds", "code courseName semester branch")
+      .lean();
+    const groupCourses = Array.isArray(group?.courseIds) ? group.courseIds : [];
+    const groupSubjects = toSubjectRows(groupCourses);
+    if (groupSubjects.length) {
+      return {
+        subjects: groupSubjects,
+        primaryCourse: groupCourses[0] || null,
+      };
+    }
+  }
+
+  // 3) Department + semester fallback (least specific)
+  if (student?.department && targetSemester) {
+    const courses = await Course.find({
+      department: student.department,
+      semester: Number(targetSemester),
+      isDeleted: { $ne: true },
+    })
+      .select("code courseName semester branch")
+      .lean();
+    const fallbackSubjects = toSubjectRows(courses);
+    if (fallbackSubjects.length) {
+      return {
+        subjects: fallbackSubjects,
+        primaryCourse: courses[0] || null,
+      };
+    }
+  }
+
+  return { subjects: [], primaryCourse: null };
 };
 
-const buildRegistrationPayload = ({ body, student, exam }) => {
-  const semester = toNumberOrNull(body.semester) ?? student.semester ?? (exam?.semester ?? null);
+const buildRegistrationPayload = ({ body, student, resolvedSubjects = [], resolvedCourse = null }) => {
+  const semester = toNumberOrNull(body.semester) ?? student.semester ?? (resolvedCourse?.semester ?? null);
 
   return {
     student: student._id,
-    exam: exam?._id || null,
     registrationStatus: body.registrationStatus || "SUBMITTED",
     rejectionReason: String(body.rejectionReason || "").trim(),
 
@@ -74,14 +131,14 @@ const buildRegistrationPayload = ({ body, student, exam }) => {
     tenthMarksPercent: toNumberOrNull(body.tenthMarksPercent),
     twelfthMarksPercent: toNumberOrNull(body.twelfthMarksPercent),
 
-    courseName: String(body.courseName || exam?.course?.courseName || "").trim(),
-    branchName: String(body.branchName || exam?.course?.branch || exam?.program || "").trim(),
+    courseName: String(body.courseName || resolvedCourse?.courseName || "").trim(),
+    branchName: String(body.branchName || resolvedCourse?.branch || student?.program || "").trim(),
     batchLabel: String(body.batchLabel || student.academicYear || "").trim(),
-    academicSession: String(body.academicSession || exam?.session || "").trim(),
+    academicSession: String(body.academicSession || "").trim(),
     year: toNumberOrNull(body.year) ?? (semester ? Math.ceil(semester / 2) : null),
     semester,
-    groupName: String(body.groupName || exam?.group?.name || student.group?.name || "").trim(),
-    examinationCentre: String(body.examinationCentre || exam?.block || "").trim(),
+    groupName: String(body.groupName || student.group?.name || "").trim(),
+    examinationCentre: String(body.examinationCentre || "").trim(),
     photoUrl: String(body.photoUrl || "").trim(),
     thumbImpressionUrl: String(body.thumbImpressionUrl || "").trim(),
     studentSignatureUrl: String(body.studentSignatureUrl || "").trim(),
@@ -98,7 +155,7 @@ const buildRegistrationPayload = ({ body, student, exam }) => {
             subjectName: String(item?.subjectName || "").trim(),
           }))
           .filter((item) => item.subjectCode && item.subjectName)
-      : exam ? buildDefaultSubjects(exam) : [],
+      : resolvedSubjects,
   };
 };
 
@@ -155,31 +212,25 @@ export const uploadExamRegistrationImage = async (req, res) => {
   }
 };
 
-/* ================= APPLY / UPSERT EXAM REGISTRATION ================= */
+/* ================= APPLY EXAM REGISTRATION ================= */
 export const applyExamRegistration = async (req, res) => {
   try {
     const payload = req.body || {};
-    const { exam: examId } = payload;
 
     const student = await getCurrentStudent(req.userId);
     if (!student) {
       return res.status(404).json({ message: "Student profile not found" });
     }
-
-    let exam = null;
-    if (examId) {
-      exam = await Exam.findOne({ _id: examId, isDeleted: { $ne: true } })
-        .populate("course", "code courseName branch")
-        .populate("group", "name");
-      if (!exam) {
-        return res.status(404).json({ message: "Exam not found" });
-      }
-    }
+    const resolved = await resolveSubjectsFromGroupAndSemester({
+      student,
+      semesterValue: payload.semester,
+    });
 
     const registrationPayload = buildRegistrationPayload({
       body: payload,
       student,
-      exam,
+      resolvedSubjects: resolved.subjects,
+      resolvedCourse: resolved.primaryCourse,
     });
 
     if (
@@ -193,41 +244,16 @@ export const applyExamRegistration = async (req, res) => {
       });
     }
 
-    const findQuery = { student: student._id, isDeleted: { $ne: true } };
-    if (exam) findQuery.exam = exam._id;
-    else findQuery.exam = null;
-
-    const existing = await ExamRegistration.findOne(findQuery);
-
-    let registration;
-    if (existing) {
-      if (existing.registrationStatus === "VERIFIED") {
-        return res.status(400).json({
-          message: "Registration is already verified and cannot be edited by student",
-        });
-      }
-
-      registration = await ExamRegistration.findByIdAndUpdate(
-        existing._id,
-        {
-          ...registrationPayload,
-          registrationStatus: "SUBMITTED",
-          verifiedBy: null,
-          verifiedAt: null,
-        },
-        { new: true, runValidators: true }
-      )
-        .populate("exam", "examName session examDate startTime endTime block")
-        .populate("student", "enrollmentNumber semester academicYear");
-    } else {
-      registration = await ExamRegistration.create({
-        ...registrationPayload,
-        registrationStatus: "SUBMITTED",
-      });
-      registration = await ExamRegistration.findById(registration._id)
-        .populate("exam", "examName session examDate startTime endTime block")
-        .populate("student", "enrollmentNumber semester academicYear");
-    }
+    let registration = await ExamRegistration.create({
+      ...registrationPayload,
+      registrationStatus: "SUBMITTED",
+      verifiedBy: null,
+      verifiedAt: null,
+    });
+    registration = await ExamRegistration.findById(registration._id).populate(
+      "student",
+      "enrollmentNumber semester academicYear"
+    );
 
     return res.status(201).json({
       message: "Exam registration submitted successfully",
@@ -254,7 +280,6 @@ export const getMyExamRegistrations = async (req, res) => {
       isDeleted: { $ne: true },
     })
       .sort({ createdAt: -1 })
-      .populate("exam", "examName session examDate startTime endTime block")
       .populate("verifiedBy", "name email");
 
     return res.json({
@@ -281,7 +306,6 @@ export const getMyExamRegistrationById = async (req, res) => {
       student: student._id,
       isDeleted: { $ne: true },
     })
-      .populate("exam", "examName session examDate startTime endTime block")
       .populate("verifiedBy", "name email");
 
     if (!registration) {
@@ -310,7 +334,7 @@ export const updateMyExamRegistration = async (req, res) => {
       _id: id,
       student: student._id,
       isDeleted: { $ne: true },
-    }).populate("exam", "examName session examDate startTime endTime block course group subjectCode subjectName");
+    });
 
     if (!existing) {
       return res.status(404).json({ message: "Exam registration not found" });
@@ -323,16 +347,20 @@ export const updateMyExamRegistration = async (req, res) => {
     }
 
     const payload = req.body || {};
+    const resolved = await resolveSubjectsFromGroupAndSemester({
+      student,
+      semesterValue: payload.semester ?? existing.semester,
+    });
     const merged = {
       ...existing.toObject(),
       ...payload,
-      exam: existing.exam?._id || existing.exam,
     };
 
     const updatePayload = buildRegistrationPayload({
       body: merged,
       student,
-      exam: existing.exam,
+      resolvedSubjects: resolved.subjects,
+      resolvedCourse: resolved.primaryCourse,
     });
 
     const updated = await ExamRegistration.findByIdAndUpdate(
@@ -344,9 +372,7 @@ export const updateMyExamRegistration = async (req, res) => {
         verifiedAt: null,
       },
       { new: true, runValidators: true }
-    )
-      .populate("exam", "examName session examDate startTime endTime block")
-      .populate("verifiedBy", "name email");
+    ).populate("verifiedBy", "name email");
 
     return res.json({
       message: "Exam registration updated successfully",

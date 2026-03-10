@@ -10,8 +10,11 @@ import {
   ScanLine,
   Camera,
   X,
+  Download,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
+import * as XLSX from "xlsx";
+import toast from "react-hot-toast";
 import Sidebar from "./Sidebar";
 import TopNavbar from "./TopNavbar";
 import StatCard from "./StatCard";
@@ -32,6 +35,7 @@ import {
   getGateSecurityOutpassApi,
   scanGateSecurityOutpassQrApi,
 } from "./constants/wardenApi";
+import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 
 const normalizeScannedToken = (decodedText) => {
   const raw = String(decodedText || "").trim();
@@ -70,6 +74,10 @@ function OutpassManagement({ portalRole = "warden" }) {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [isDetectingQr, setIsDetectingQr] = useState(false);
+  const [reportExporting, setReportExporting] = useState("");
+  const [reportRange, setReportRange] = useState("all");
+  const [reportSpecificDate, setReportSpecificDate] = useState("");
+  const [reportStatusFilter, setReportStatusFilter] = useState("all");
   const html5QrcodeRef = useRef(null);
   const scanProcessingRef = useRef(false);
   const scannerRegionId = "warden-outpass-qr-reader";
@@ -179,6 +187,286 @@ function OutpassManagement({ portalRole = "warden" }) {
     });
   };
 
+  const formatForReport = (dateValue, { dateOnly = false } = {}) => {
+    if (!dateValue) return "N/A";
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) return "N/A";
+    if (dateOnly) return parsed.toLocaleDateString("en-IN");
+    return parsed.toLocaleString("en-IN", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const toLocalDateKey = (dateValue) => {
+    if (!dateValue) return "";
+    const parsed = new Date(dateValue);
+    if (Number.isNaN(parsed.getTime())) return "";
+    const year = parsed.getFullYear();
+    const month = String(parsed.getMonth() + 1).padStart(2, "0");
+    const day = String(parsed.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  const getOutpassReferenceDate = (doc) => {
+    const raw = doc?.fromDate || doc?.appliedAt || doc?.toDate || null;
+    const parsed = new Date(raw);
+    if (Number.isNaN(parsed.getTime())) return null;
+    return parsed;
+  };
+
+  const getReportPeriodMeta = () => {
+    const now = new Date();
+    const start = new Date(now);
+    const end = new Date(now);
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
+
+    if (reportRange === "today") {
+      return { start, end, label: "today" };
+    }
+
+    if (reportRange === "week") {
+      const day = now.getDay();
+      const mondayDiff = day === 0 ? -6 : 1 - day;
+      start.setDate(now.getDate() + mondayDiff);
+      end.setDate(start.getDate() + 6);
+      return { start, end, label: "week" };
+    }
+
+    if (reportRange === "month") {
+      start.setDate(1);
+      end.setMonth(start.getMonth() + 1, 0);
+      return { start, end, label: "month" };
+    }
+
+    if (reportRange === "year") {
+      start.setMonth(0, 1);
+      end.setMonth(11, 31);
+      return { start, end, label: "year" };
+    }
+
+    if (reportRange === "date") {
+      if (!reportSpecificDate) return { start: null, end: null, label: "particular-date" };
+      const exact = new Date(reportSpecificDate);
+      if (Number.isNaN(exact.getTime())) return { start: null, end: null, label: "particular-date" };
+      const exactStart = new Date(exact);
+      const exactEnd = new Date(exact);
+      exactStart.setHours(0, 0, 0, 0);
+      exactEnd.setHours(23, 59, 59, 999);
+      return { start: exactStart, end: exactEnd, label: "particular-date" };
+    }
+
+    return { start: null, end: null, label: "all" };
+  };
+
+  const getReportSourceOutpasses = () => {
+    const periodMeta = getReportPeriodMeta();
+    const { start, end } = periodMeta;
+
+    const filtered = outpasses.filter((doc) => {
+      const currentStatus = String(doc?.status || "").trim();
+      if (reportStatusFilter !== "all" && currentStatus !== reportStatusFilter) return false;
+      const referenceDate = getOutpassReferenceDate(doc);
+      if (!referenceDate) return false;
+      if (!start || !end) return true;
+      return referenceDate.getTime() >= start.getTime() && referenceDate.getTime() <= end.getTime();
+    });
+
+    return filtered.sort((a, b) => new Date(b.appliedAt || 0) - new Date(a.appliedAt || 0));
+  };
+
+  const getReportRows = (sourceOutpasses) =>
+    sourceOutpasses.map((doc, index) => ({
+        "S.No": index + 1,
+        "Outpass ID": getFirstNonEmpty(doc?.id, doc?._id, "N/A"),
+        "Form Date": formatForReport(getFirstNonEmpty(doc?.formDate, doc?.fromDate), { dateOnly: true }),
+        "Student Name": getFirstNonEmpty(doc?.student?.name, doc?.studentName, "N/A"),
+        Enrollment: getFirstNonEmpty(doc?.student?.enrollmentNumber, "N/A"),
+        Branch: getFirstNonEmpty(doc?.branchName, doc?.programName, "N/A"),
+        "Room No": getFirstNonEmpty(doc?.roomNumber, doc?.room?.roomNumber, "N/A"),
+        Hostel: getFirstNonEmpty(doc?.hostel?.name, "N/A"),
+        Purpose: getFirstNonEmpty(doc?.category, "N/A"),
+        Destination: getFirstNonEmpty(doc?.destination, "N/A"),
+        Reason: getFirstNonEmpty(doc?.reason, "N/A"),
+        "Allowed From": formatForReport(doc?.fromDate),
+        "Allowed To": formatForReport(doc?.toDate),
+        "Parent Contact": getFirstNonEmpty(doc?.parentContact, "N/A"),
+        "Emergency Contact": getFirstNonEmpty(doc?.emergencyContact, "N/A"),
+        Status: getFirstNonEmpty(doc?.status, "N/A"),
+        "Applied At": formatForReport(doc?.appliedAt),
+        "Approved At": formatForReport(doc?.approvedAt),
+        "Rejected At": formatForReport(doc?.rejectedAt),
+        "Approved By": getFirstNonEmpty(doc?.approvedByName, doc?.approvedBy, "N/A"),
+        "Rejected By": getFirstNonEmpty(doc?.rejectedBy, "N/A"),
+      }));
+
+  const handleDownloadExcelReport = () => {
+    try {
+      setReportExporting("excel");
+      if (reportRange === "date" && !reportSpecificDate) {
+        toast.error("Select a particular date for report export.");
+        return;
+      }
+      const sourceOutpasses = getReportSourceOutpasses();
+      const rows = getReportRows(sourceOutpasses);
+      if (!rows.length) {
+        toast.error("No outpass data available for selected report period.");
+        return;
+      }
+      const worksheet = XLSX.utils.json_to_sheet(rows);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Outpass Report");
+      const periodLabel = getReportPeriodMeta().label;
+      const fileDate = toLocalDateKey(new Date()) || new Date().toISOString().slice(0, 10);
+      XLSX.writeFile(workbook, `Warden_Student_Outpass_Report_${periodLabel}_${fileDate}.xlsx`);
+      toast.success("Excel report downloaded.");
+    } catch (_error) {
+      toast.error("Failed to download Excel report.");
+    } finally {
+      setReportExporting("");
+    }
+  };
+
+  const handleDownloadPdfReport = async () => {
+    try {
+      setReportExporting("pdf");
+      if (reportRange === "date" && !reportSpecificDate) {
+        toast.error("Select a particular date for report export.");
+        return;
+      }
+      const sourceOutpasses = getReportSourceOutpasses();
+      if (!sourceOutpasses.length) {
+        toast.error("No outpass data available for selected report period.");
+        return;
+      }
+      if (!apiBase) {
+        toast.error("PDF download is not available right now.");
+        return;
+      }
+
+      const esc = (value = "") =>
+        String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+
+      const rows = getReportRows(sourceOutpasses);
+      const headers = Object.keys(rows[0] || {});
+      const bodyRows = rows
+        .map((row) => `<tr>${headers.map((h) => `<td>${esc(row[h])}</td>`).join("")}</tr>`)
+        .join("");
+      const columnWidthByHeader = {
+        "S.No": "50px",
+        "Outpass ID": "210px",
+        "Form Date": "74px",
+        "Student Name": "70px",
+        Enrollment: "112px",
+        Branch: "94px",
+        "Room No": "56px",
+        Hostel: "70px",
+        Purpose: "90px",
+        Destination: "96px",
+        Reason: "142px",
+        "Allowed From": "82px",
+        "Allowed To": "82px",
+        "Parent Contact": "90px",
+        "Emergency Contact": "90px",
+        Status: "70px",
+        "Applied At": "92px",
+        "Approved At": "92px",
+        "Rejected At": "92px",
+        "Approved By": "78px",
+        "Rejected By": "78px",
+      };
+      const colGroup = headers
+        .map((header) => `<col style="width:${columnWidthByHeader[header] || "88px"}" />`)
+        .join("");
+
+      const periodMeta = getReportPeriodMeta();
+      const periodLabelForUser =
+        reportRange === "date" && reportSpecificDate
+          ? `Particular Date (${reportSpecificDate})`
+          : String(periodMeta.label || "all").replace("-", " ").toUpperCase();
+
+      const html = `
+        <html>
+          <head>
+            <style>
+              body { font-family: Arial, sans-serif; color: #111827; padding: 16px; }
+              .meta { margin: 0 0 12px; color: #4b5563; font-size: 11px; }
+              table {
+                width: 100%;
+                border-collapse: collapse;
+                table-layout: fixed;
+                font-size: 11px;
+              }
+              th, td {
+                border: 1px solid #cbd5e1;
+                padding: 9px 8px;
+                text-align: left;
+                vertical-align: top;
+                line-height: 1.25;
+                word-break: keep-all;
+                overflow-wrap: normal;
+                white-space: normal;
+              }
+              th {
+                background: #f3f4f6;
+                font-size: 11px;
+                font-weight: 700;
+              }
+              td:nth-child(2),
+              td:nth-child(5),
+              td:nth-child(7),
+              td:nth-child(14),
+              td:nth-child(15),
+              td:nth-child(16),
+              td:nth-child(17) {
+                white-space: nowrap;
+                overflow-wrap: normal;
+              }
+            </style>
+          </head>
+          <body>
+            <p class="meta">Generated on: ${esc(new Date().toLocaleString("en-IN"))} | Report Period: ${esc(periodLabelForUser)} | Records: ${esc(sourceOutpasses.length)}</p>
+            <table>
+              <colgroup>${colGroup}</colgroup>
+              <thead>
+                <tr>${headers.map((h) => `<th>${esc(h)}</th>`).join("")}</tr>
+              </thead>
+              <tbody>${bodyRows}</tbody>
+            </table>
+          </body>
+        </html>
+      `;
+
+      const periodLabel = periodMeta.label;
+      const fileDate = toLocalDateKey(new Date()) || new Date().toISOString().slice(0, 10);
+      await downloadPdfFromHtml(apiBase, {
+        html,
+        fileName: `Warden_Student_Outpass_Report_${periodLabel}_${fileDate}.pdf`,
+        options: {
+          landscape: true,
+          format: "A4",
+          margin: { top: "12mm", right: "8mm", bottom: "12mm", left: "8mm" },
+        },
+        fallbackToPrint: true,
+      });
+      toast.success("PDF report downloaded.");
+    } catch (_error) {
+      toast.error("Failed to download PDF report.");
+    } finally {
+      setReportExporting("");
+    }
+  };
+
   // Handle status change
   const handleStatusChange = (outpassId, newStatus, remarks) => {
     (async () => {
@@ -269,7 +557,7 @@ function OutpassManagement({ portalRole = "warden" }) {
 
       await scanner.start(
         { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 260, height: 260 } },
+        { fps: 10, qrbox: { width: 340, height: 340 } },
         async (decodedText) => {
           if (scanProcessingRef.current) return;
           const token = normalizeScannedToken(decodedText);
@@ -510,14 +798,74 @@ function OutpassManagement({ portalRole = "warden" }) {
             {/* Outpass History */}
 	            <section aria-label="Outpass History">
 	              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-	                <div className="mb-5 flex items-center justify-between">
+	                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
 	                  <div className="flex items-center gap-2">
 	                    <FileText className="h-5 w-5 text-blue-600" aria-hidden="true" />
 	                    <h3 className="text-lg font-semibold text-gray-900">Outpass History</h3>
 	                  </div>
-	                  <span className="text-sm text-gray-600">
-	                    {loading ? "Loading..." : `${filteredOutpasses.length} records`}
-	                  </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={reportRange}
+                        onChange={(e) => setReportRange(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        aria-label="Select report period"
+                      >
+                        <option value="all">All</option>
+                        <option value="today">Today</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                        <option value="year">Year</option>
+                        <option value="date">Choose Date</option>
+                      </select>
+                      <select
+                        value={reportStatusFilter}
+                        onChange={(e) => setReportStatusFilter(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        aria-label="Select status for report download"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                      {reportRange === "date" ? (
+                        <input
+                          type="date"
+                          value={reportSpecificDate}
+                          onChange={(e) => setReportSpecificDate(e.target.value)}
+                          className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          aria-label="Select particular report date"
+                        />
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={handleDownloadPdfReport}
+                        disabled={
+                          loading ||
+                          reportExporting === "pdf" ||
+                          reportExporting === "excel" ||
+                          (reportRange === "date" && !reportSpecificDate)
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {reportExporting === "pdf" ? "Downloading PDF..." : "Download PDF"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDownloadExcelReport}
+                        disabled={
+                          loading ||
+                          reportExporting === "pdf" ||
+                          reportExporting === "excel" ||
+                          (reportRange === "date" && !reportSpecificDate)
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {reportExporting === "excel" ? "Downloading Excel..." : "Download Excel"}
+                      </button>
+                    </div>
 	                </div>
 
 	                {error && (
@@ -569,6 +917,12 @@ function OutpassManagement({ portalRole = "warden" }) {
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50">
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Student Name
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Room No
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                           From Date
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
@@ -591,6 +945,12 @@ function OutpassManagement({ portalRole = "warden" }) {
                     <tbody className="divide-y divide-gray-200">
                       {filteredOutpasses.map((outpass) => (
                         <tr key={outpass.id} className="transition-colors hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {outpass?.student?.name || outpass?.studentName || "N/A"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {outpass?.roomNumber || outpass?.room?.roomNumber || "N/A"}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {formatDateTime(outpass.fromDate)}
                           </td>
@@ -650,7 +1010,7 @@ function OutpassManagement({ portalRole = "warden" }) {
 
       {isCameraOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
-          <div className="w-full max-w-2xl rounded-xl bg-white p-4 shadow-2xl">
+          <div className="w-full max-w-4xl rounded-xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Scan Student QR</h3>
               <button
@@ -663,7 +1023,7 @@ function OutpassManagement({ portalRole = "warden" }) {
               </button>
             </div>
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
-              <div id={scannerRegionId} className="min-h-[420px] w-full" />
+              <div id={scannerRegionId} className="min-h-[560px] w-full" />
             </div>
             <p className="mt-3 text-sm text-gray-600">
               {isDetectingQr ? "Point camera at student QR code..." : "Starting camera..."}

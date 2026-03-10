@@ -37,6 +37,15 @@ const STATUS_CONFIG = {
   DRAFT: { icon: FiEdit2, label: "Draft", cls: "reg-status--draft" },
 };
 
+const getSubjectSummary = (registration) => {
+  const subjects = Array.isArray(registration?.subjects) ? registration.subjects : [];
+  if (!subjects.length) return "Subjects auto-fetched from group & semester";
+  if (subjects.length === 1) {
+    return subjects[0]?.subjectName || subjects[0]?.subjectCode || "Subject";
+  }
+  return `${subjects[0]?.subjectName || subjects[0]?.subjectCode || "Subject"} +${subjects.length - 1} more`;
+};
+
 const EMPTY_FORM = {
   candidateName: "",
   studentNameHindi: "",
@@ -51,8 +60,11 @@ const EMPTY_FORM = {
   dateOfBirth: "",
   fatherPhoneNumber: "",
   motherPhoneNumber: "",
+  fatherOccupation: "",
+  motherOccupation: "",
   aadharNumber: "",
   academicBankCreditId: "",
+  apaarId: "",
   digilockerId: "",
   addressLine: "",
   district: "",
@@ -144,8 +156,11 @@ const StudentExamRegistration = () => {
       dateOfBirth: reg.dateOfBirth ? formatDate(reg.dateOfBirth) : "",
       fatherPhoneNumber: reg.fatherPhoneNumber || "",
       motherPhoneNumber: reg.motherPhoneNumber || "",
+      fatherOccupation: reg.fatherOccupation || "",
+      motherOccupation: reg.motherOccupation || "",
       aadharNumber: reg.aadharNumber || "",
       academicBankCreditId: reg.academicBankCreditId || "",
+      apaarId: reg.apaarId || "",
       digilockerId: reg.digilockerId || "",
       addressLine: reg.addressLine || "",
       district: reg.district || "",
@@ -250,9 +265,9 @@ const StudentExamRegistration = () => {
                 <div key={reg._id} className="ser-reg-card">
                   <div className="ser-reg-card-top">
                     <div>
-                      <h3 className="ser-reg-exam-name">{reg.exam?.examName || "Exam"}</h3>
+                      <h3 className="ser-reg-exam-name">{getSubjectSummary(reg)}</h3>
                       <p className="ser-reg-meta">
-                        Session: {reg.academicSession || reg.exam?.session || "-"} &bull; Sem: {reg.semester || "-"}
+                        Session: {reg.academicSession || "-"} &bull; Sem: {reg.semester || "-"}
                       </p>
                     </div>
                     <span className={`ser-reg-status ${st.cls}`}>
@@ -270,7 +285,7 @@ const StudentExamRegistration = () => {
                       <span>Candidate:</span> <strong>{reg.candidateName || "-"}</strong>
                     </div>
                     <div className="ser-reg-info-row">
-                      <span>Date:</span> <strong>{formatDate(reg.exam?.examDate)}</strong>
+                      <span>Applied On:</span> <strong>{formatDate(reg.createdAt)}</strong>
                     </div>
                   </div>
                   <div className="ser-reg-card-actions">
@@ -348,7 +363,12 @@ const StudentExamRegistration = () => {
               <div className="ser-detail-row"><span>Mobile No.</span><strong>{viewingReg.mobileNumber || "-"}</strong></div>
               <div className="ser-detail-row"><span>Gender</span><strong>{viewingReg.gender || "-"}</strong></div>
               <div className="ser-detail-row"><span>D.O.B</span><strong>{formatDate(viewingReg.dateOfBirth)}</strong></div>
+              <div className="ser-detail-row"><span>Father Phone No.</span><strong>{viewingReg.fatherPhoneNumber || "-"}</strong></div>
+              <div className="ser-detail-row"><span>Mother Phone No.</span><strong>{viewingReg.motherPhoneNumber || "-"}</strong></div>
+              <div className="ser-detail-row"><span>Father Occupation</span><strong>{viewingReg.fatherOccupation || "-"}</strong></div>
+              <div className="ser-detail-row"><span>Mother Occupation</span><strong>{viewingReg.motherOccupation || "-"}</strong></div>
               <div className="ser-detail-row"><span>Aadhar Card No.</span><strong>{viewingReg.aadharNumber || "-"}</strong></div>
+              <div className="ser-detail-row"><span>APAAR ID</span><strong>{viewingReg.apaarId || "-"}</strong></div>
               <div className="ser-detail-row"><span>Digi Locker ID</span><strong>{viewingReg.digilockerId || "-"}</strong></div>
               <div className="ser-detail-row"><span>Academic Bank Credit ID</span><strong>{viewingReg.academicBankCreditId || "-"}</strong></div>
               <div className="ser-detail-row"><span>Address</span><strong>{viewingReg.addressLine || "-"}</strong></div>
@@ -576,6 +596,22 @@ const StudentExamRegistration = () => {
               <input type="tel" value={formData.mobileNumber} onChange={handleChange("mobileNumber")} maxLength={10} />
             </div>
             <div className="ser-field">
+              <label>Father Phone No.</label>
+              <input type="tel" value={formData.fatherPhoneNumber} onChange={handleChange("fatherPhoneNumber")} maxLength={10} />
+            </div>
+            <div className="ser-field">
+              <label>Mother Phone No.</label>
+              <input type="tel" value={formData.motherPhoneNumber} onChange={handleChange("motherPhoneNumber")} maxLength={10} />
+            </div>
+            <div className="ser-field">
+              <label>Father Occupation</label>
+              <input type="text" value={formData.fatherOccupation} onChange={handleChange("fatherOccupation")} />
+            </div>
+            <div className="ser-field">
+              <label>Mother Occupation</label>
+              <input type="text" value={formData.motherOccupation} onChange={handleChange("motherOccupation")} />
+            </div>
+            <div className="ser-field">
               <label>Gender</label>
               <div className="ser-radio-group">
                 {["MALE", "FEMALE", "TRANSGENDER"].map((g) => (
@@ -607,6 +643,10 @@ const StudentExamRegistration = () => {
             <div className="ser-field">
               <label>Academic Bank Credit ID</label>
               <input type="text" value={formData.academicBankCreditId} onChange={handleChange("academicBankCreditId")} />
+            </div>
+            <div className="ser-field">
+              <label>APAAR ID</label>
+              <input type="text" value={formData.apaarId} onChange={handleChange("apaarId")} />
             </div>
           </div>
         </fieldset>
