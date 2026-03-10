@@ -344,7 +344,6 @@ function OutpassManagement({ portalRole = "warden" }) {
   };
 
   const handleDownloadPdfReport = async () => {
-    let fallbackWindow = null;
     let html = "";
     try {
       setReportExporting("pdf");
@@ -459,10 +458,6 @@ function OutpassManagement({ portalRole = "warden" }) {
       const fileDate = toLocalDateKey(new Date()) || new Date().toISOString().slice(0, 10);
       const filePrefix = isGateSecurity ? "Gate_Security_Outpass_Report" : "Warden_Student_Outpass_Report";
 
-      if (typeof window !== "undefined") {
-        fallbackWindow = window.open("", "_blank", "width=1000,height=800");
-      }
-
       await downloadPdfFromHtml(apiBase, {
         html,
         fileName: `${filePrefix}_${periodLabel}_${fileDate}.pdf`,
@@ -473,25 +468,8 @@ function OutpassManagement({ portalRole = "warden" }) {
         },
         fallbackToPrint: false,
       });
-      if (fallbackWindow) {
-        fallbackWindow.close();
-        fallbackWindow = null;
-      }
       toast.success("PDF report downloaded.");
     } catch (_error) {
-      if (fallbackWindow) {
-        try {
-          fallbackWindow.document.open();
-          fallbackWindow.document.write(html);
-          fallbackWindow.document.close();
-          fallbackWindow.focus();
-          fallbackWindow.print();
-          toast.success("PDF opened in print dialog.");
-          return;
-        } catch (_fallbackError) {
-          // ignore
-        }
-      }
       toast.error("Failed to download PDF report.");
     } finally {
       setReportExporting("");
