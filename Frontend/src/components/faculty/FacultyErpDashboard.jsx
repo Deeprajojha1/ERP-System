@@ -10,7 +10,6 @@ import ProfileSection from "./ProfileSection";
 import FacultyLeavesSection from "./FacultyLeavesSection";
 import FacultyScheduleSection from "./FacultyScheduleSection";
 import FacultyExamsSection from "./FacultyExamsSection";
-import FacultyAdmitCardsSection from "./FacultyAdmitCardsSection";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
 import {
   fetchFacultyProfile,
@@ -77,8 +76,6 @@ export default function FacultyErpDashboard() {
         return <FacultyLeavesSection facultyData={facultyData} />;
       case "exams":
         return <FacultyExamsSection facultyData={facultyData} />;
-      case "admitCards":
-        return <FacultyAdmitCardsSection facultyData={facultyData} />;
       case "profile":
         return <ProfileSection facultyData={facultyData} />;
       case "settings":

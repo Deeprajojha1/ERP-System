@@ -108,6 +108,14 @@ const formatDateTime = (value) => {
   return date.toLocaleString();
 };
 
+const toLocalDateTimeInput = (value) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+};
+
 const deriveUnitKey = (item) => {
   const title = String(item?.title || "");
   const description = String(item?.description || "");
@@ -148,6 +156,8 @@ export default function CourseWorkspaceSection({ course, onBack }) {
   const [gradeDrafts, setGradeDrafts] = useState({});
   const [gradingSubmissionId, setGradingSubmissionId] = useState("");
   const [isDownloadingUnitReport, setIsDownloadingUnitReport] = useState(false);
+  const [editingContentId, setEditingContentId] = useState("");
+  const [editingContentItem, setEditingContentItem] = useState(null);
 
   const courseId = useMemo(() => String(course?._id || ""), [course?._id]);
   const isActiveTabLoading = Boolean(tabLoading[activeTab]);
@@ -234,6 +244,8 @@ export default function CourseWorkspaceSection({ course, onBack }) {
       void loadCourseContent("queries");
       return;
     }
+    setEditingContentId("");
+    setEditingContentItem(null);
     setFormState(INITIAL_FORM_STATE);
     setCurrentView("form");
   };
@@ -242,6 +254,49 @@ export default function CourseWorkspaceSection({ course, onBack }) {
     if (isCreating) return;
     setCurrentView("list");
     setFormState(INITIAL_FORM_STATE);
+    setEditingContentId("");
+    setEditingContentItem(null);
+  };
+
+  const handleEditAssignment = (item) => {
+    if (!item?._id) return;
+    setEditingContentId(String(item._id));
+    setEditingContentItem(item);
+    setFormState({
+      title: item?.title || "",
+      description: item?.description || "",
+      dueDate: toLocalDateTimeInput(item?.dueDate),
+      questions: item?.questionCount ? String(item.questionCount) : "",
+      groupId: item?.groupId ? String(item.groupId) : "",
+      file: null,
+    });
+    setCurrentView("form");
+  };
+
+  const handleDeleteAssignment = async (item) => {
+    const id = String(item?._id || "").trim();
+    if (!id || !apiBase) return;
+    if (!window.confirm("Delete this assignment? This cannot be undone.")) return;
+    setIsCreating(true);
+    try {
+      await axios.delete(`${apiBase}/faculty/course-content/${id}`, {
+        withCredentials: true,
+      });
+      setItemsByTab((prev) => ({
+        ...prev,
+        assignments: (prev.assignments || []).filter((entry) => String(entry?._id || "") !== id),
+      }));
+      setAssignmentSubmissionsByAssignment((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+      toast.success("Assignment deleted");
+    } catch (error) {
+      toast.error(buildMessageFromError(error, "Failed to delete assignment"));
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const loadCourseContent = useCallback(
@@ -569,6 +624,7 @@ export default function CourseWorkspaceSection({ course, onBack }) {
         selectedAssignmentGroupId !== "all"
       : selectedContentGroupId !== "all");
   const activeTabLabel = TABS.find((tab) => tab.id === activeTab)?.label || activeTab;
+  const formTitle = editingContentId ? `Edit ${activeTabLabel}` : tabContent.action;
 
   const handleDownloadUnitReport = useCallback(async () => {
     if (selectedAssignmentUnit === "all") {
@@ -753,16 +809,27 @@ export default function CourseWorkspaceSection({ course, onBack }) {
 
     setIsCreating(true);
     try {
-      const response = await axios.post(`${apiBase}/faculty/course-content`, formData, {
-        withCredentials: true,
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const response = editingContentId
+        ? await axios.put(`${apiBase}/faculty/course-content/${editingContentId}`, formData, {
+            withCredentials: true,
+            headers: { "Content-Type": "multipart/form-data" },
+          })
+        : await axios.post(`${apiBase}/faculty/course-content`, formData, {
+            withCredentials: true,
+            headers: { "Content-Type": "multipart/form-data" },
+          });
 
       const createdItem = response?.data?.item || null;
       if (createdItem) {
         setItemsByTab((prev) => ({
           ...prev,
-          [activeTab]: [createdItem, ...(prev[activeTab] || [])],
+          [activeTab]: editingContentId
+            ? (prev[activeTab] || []).map((entry) =>
+                String(entry?._id || "") === String(createdItem?._id || "")
+                  ? createdItem
+                  : entry
+              )
+            : [createdItem, ...(prev[activeTab] || [])],
         }));
         setTabsLoaded((prev) => ({ ...prev, [activeTab]: true }));
       } else {
@@ -772,6 +839,8 @@ export default function CourseWorkspaceSection({ course, onBack }) {
       toast.success(response?.data?.message || "Saved successfully");
       setCurrentView("list");
       setFormState(INITIAL_FORM_STATE);
+      setEditingContentId("");
+      setEditingContentItem(null);
     } catch (error) {
       toast.error(buildMessageFromError(error, "Failed to save content"));
     } finally {
@@ -935,7 +1004,7 @@ export default function CourseWorkspaceSection({ course, onBack }) {
       <section className={facultyUi.page}>
         <div className={facultyUi.pageHeader}>
           <h2 className={facultyUi.title}>
-            {tabContent.action}
+            {formTitle}
           </h2>
           <p className={facultyUi.subtitle}>
             {course?.courseName || "Course"} | {course?.code || "N/A"}
@@ -997,10 +1066,10 @@ export default function CourseWorkspaceSection({ course, onBack }) {
               activeTab === "quizzes" ||
               activeTab === "syllabus" ||
               activeTab === "questionbanks") && (
-              <div className="flex flex-col gap-1.5">
-                <label htmlFor="content-file" className="text-sm font-semibold text-slate-700">
-                  {activeTab === "materials" ||
-                  activeTab === "syllabus" ||
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="content-file" className="text-sm font-semibold text-slate-700">
+                {activeTab === "materials" ||
+                activeTab === "syllabus" ||
                   activeTab === "questionbanks" ? (
                     <>
                       {activeTab === "syllabus"
@@ -1054,6 +1123,11 @@ export default function CourseWorkspaceSection({ course, onBack }) {
                     <span>Choose File</span>
                   </label>
                 </div>
+                {editingContentItem?.originalFileName && !formState.file ? (
+                  <p className="text-xs text-slate-500">
+                    Current file: {editingContentItem.originalFileName}. Leave empty to keep it.
+                  </p>
+                ) : null}
               </div>
             )}
 
@@ -1148,7 +1222,7 @@ export default function CourseWorkspaceSection({ course, onBack }) {
                 ) : (
                   <>
                     <Upload size={16} />
-                    <span>Save</span>
+                    <span>{editingContentId ? "Update" : "Save"}</span>
                   </>
                 )}
               </button>
@@ -1579,7 +1653,7 @@ export default function CourseWorkspaceSection({ course, onBack }) {
                   </div>
 
                   {item.fileUrl ? (
-                    <div className="mt-4">
+                    <div className="mt-4 flex flex-wrap items-center gap-2">
                       <a
                         href={item.fileUrl}
                         target="_blank"
@@ -1593,6 +1667,47 @@ export default function CourseWorkspaceSection({ course, onBack }) {
                         <ExternalLink size={15} />
                         Open file
                       </a>
+                      {isAssignmentTab ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                          onClick={() => handleEditAssignment(item)}
+                        >
+                          <Upload size={15} />
+                          Edit file
+                        </button>
+                      ) : null}
+                      {isAssignmentTab ? (
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+                          onClick={() => handleDeleteAssignment(item)}
+                          disabled={isCreating}
+                        >
+                          <AlertTriangle size={15} />
+                          Delete
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : isAssignmentTab ? (
+                    <div className="mt-4">
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-2 rounded-lg border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                        onClick={() => handleEditAssignment(item)}
+                      >
+                        <Upload size={15} />
+                        Add file
+                      </button>
+                      <button
+                        type="button"
+                        className="ml-2 inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3.5 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-100"
+                        onClick={() => handleDeleteAssignment(item)}
+                        disabled={isCreating}
+                      >
+                        <AlertTriangle size={15} />
+                        Delete
+                      </button>
                     </div>
                   ) : null}
 

@@ -262,7 +262,6 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
     message: "",
   });
   const [courseQuestions, setCourseQuestions] = useState([]);
-  const [questionDateTimeFilter, setQuestionDateTimeFilter] = useState("");
   const [isQuestionLoading, setIsQuestionLoading] = useState(false);
   const [isQuestionSending, setIsQuestionSending] = useState(false);
 
@@ -521,19 +520,7 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
     }
   };
 
-  const filteredCourseQuestions = useMemo(() => {
-    if (!questionDateTimeFilter) return courseQuestions;
-    const selectedTs = new Date(questionDateTimeFilter).getTime();
-    if (Number.isNaN(selectedTs)) return courseQuestions;
-
-    return courseQuestions.filter((entry) => {
-      const messageTs = new Date(
-        entry?.lastMessageAt || entry?.updatedAt || entry?.createdAt || ""
-      ).getTime();
-      if (Number.isNaN(messageTs)) return false;
-      return messageTs <= selectedTs;
-    });
-  }, [courseQuestions, questionDateTimeFilter]);
+  const filteredCourseQuestions = useMemo(() => courseQuestions, [courseQuestions]);
 
   const resolvedCourses = useMemo(() => {
     if (Array.isArray(coursesData) && coursesData.length > 0) {
@@ -1110,7 +1097,6 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
                     subject:
                       prev.subject || `${detailData.title || "Course"} - Doubt`,
                   }));
-                  setQuestionDateTimeFilter("");
                   void fetchCourseQuestions(activeCourseId);
                 }}
               >
@@ -1163,19 +1149,8 @@ const CoursesDetails = ({ coursesData, roleDetails }) => {
                         }))
                       }
                     />
-                    <label>Date & Time Filter</label>
-                    <input
-                      type="datetime-local"
-                      value={questionDateTimeFilter}
-                      onChange={(e) => setQuestionDateTimeFilter(e.target.value)}
-                    />
                     <div className="message-thread">
                       <p className="message-thread-title">Previous Messages</p>
-                      {questionDateTimeFilter ? (
-                        <p className="message-thread-filter-note">
-                          Showing messages up to {formatDateTime(questionDateTimeFilter)}
-                        </p>
-                      ) : null}
                       {isQuestionLoading ? (
                         <p className="message-thread-empty">Loading...</p>
                       ) : filteredCourseQuestions.length === 0 ? (

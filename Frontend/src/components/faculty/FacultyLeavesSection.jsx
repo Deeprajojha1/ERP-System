@@ -66,6 +66,13 @@ export default function FacultyLeavesSection({ facultyData }) {
 
   const isLoading = loadState === ADMIN_LOAD_STATES.PENDING;
   const isApplying = applyState === ADMIN_LOAD_STATES.PENDING;
+  const recentLeaves = [...leaves]
+    .sort((a, b) => {
+      const aDate = new Date(a?.createdAt || a?.dateFrom || 0).getTime();
+      const bDate = new Date(b?.createdAt || b?.dateFrom || 0).getTime();
+      return bDate - aDate;
+    })
+    .slice(0, 10);
 
   useEffect(() => {
     if (apiBase && loadState === ADMIN_LOAD_STATES.INITIAL) {
@@ -315,11 +322,11 @@ export default function FacultyLeavesSection({ facultyData }) {
         <h3 className="m-0 mb-4 text-lg font-bold tracking-[0.2px] text-slate-900">Leave History</h3>
         {isLoading ? (
           <LoadingState message="Loading leave applications..." minHeight="min-h-56" />
-        ) : leaves.length === 0 ? (
+        ) : recentLeaves.length === 0 ? (
           <EmptyState message="No leave applications found" minHeight="min-h-56" />
         ) : (
           <div className="flex flex-col gap-3">
-            {leaves.map((leave) => {
+            {recentLeaves.map((leave) => {
               const statusConfig = STATUS_CONFIG[leave.status] || STATUS_CONFIG.pending;
               const StatusIcon = statusConfig.icon;
 

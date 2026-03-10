@@ -154,6 +154,12 @@ const ExamBlueprints = () => {
   const [publishingId, setPublishingId] = useState("");
   const [generatingId, setGeneratingId] = useState("");
   const [scoresModalBlueprint, setScoresModalBlueprint] = useState(null);
+  const [paperModalBlueprint, setPaperModalBlueprint] = useState(null);
+  const [paperLoadState, setPaperLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
+  const [paperError, setPaperError] = useState("");
+  const [paperId, setPaperId] = useState("");
+  const [editableQuestions, setEditableQuestions] = useState([]);
+  const [savingPaper, setSavingPaper] = useState(false);
   const formCardRef = useRef(null);
 
   const totalMarks = useMemo(
@@ -308,6 +314,15 @@ const ExamBlueprints = () => {
       dispatch(resetAdminExamScores());
     }
   }, [dispatch, scoresModalBlueprint]);
+
+  useEffect(() => {
+    if (!paperModalBlueprint) {
+      setPaperLoadState(ADMIN_LOAD_STATES.INITIAL);
+      setPaperError("");
+      setPaperId("");
+      setEditableQuestions([]);
+    }
+  }, [paperModalBlueprint]);
 
   const handleFilterChange = (field, value) => {
     setFilters((prev) => ({
@@ -507,6 +522,71 @@ const ExamBlueprints = () => {
       );
     } finally {
       setGeneratingId("");
+    }
+  };
+
+  const openPaperModal = async (blueprint) => {
+    const id = blueprint?._id;
+    if (!apiBase || !id) return;
+
+    setPaperModalBlueprint(blueprint);
+    setPaperLoadState(ADMIN_LOAD_STATES.PENDING);
+    setPaperError("");
+
+    try {
+      const response = await axios.get(`${apiBase}/admin/exam-blueprint/${id}/paper`, {
+        withCredentials: true,
+      });
+      const paper = response.data?.paper || response.data;
+      const questions = Array.isArray(paper?.questions) ? paper.questions : [];
+      setPaperId(String(paper?._id || ""));
+      setEditableQuestions(questions);
+      setPaperLoadState(ADMIN_LOAD_STATES.SUCCESS);
+    } catch (error) {
+      const message = error.response?.data?.message || "No paper available yet";
+      setPaperError(message);
+      setPaperLoadState(ADMIN_LOAD_STATES.FAILURE);
+    }
+  };
+
+  const closePaperModal = () => {
+    setPaperModalBlueprint(null);
+  };
+
+  const handleQuestionChange = (index, key, value) => {
+    setEditableQuestions((prev) =>
+      prev.map((question, qIndex) => {
+        if (qIndex !== index) return question;
+        if (key === "marks") {
+          return { ...question, marks: Number(value) || 1 };
+        }
+        if (key === "options") {
+          const options = String(value || "")
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean);
+          return { ...question, options };
+        }
+        return { ...question, [key]: value };
+      })
+    );
+  };
+
+  const savePaperReview = async () => {
+    if (!apiBase || !paperId || !editableQuestions.length) return;
+    if (String(paperModalBlueprint?.status || "").toUpperCase() === "PUBLISHED") return;
+    try {
+      setSavingPaper(true);
+      await axios.put(
+        `${apiBase}/admin/exam-paper/${paperId}/review`,
+        { questions: editableQuestions },
+        { withCredentials: true }
+      );
+      toast.success("Question paper updated");
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to update question paper");
+    } finally {
+      setSavingPaper(false);
     }
   };
 
@@ -1058,6 +1138,22 @@ const ExamBlueprints = () => {
                               )}
                             </button>
                           )}
+                          <button
+                            type="button"
+                            className="exam-blueprint-btn exam-blueprint-btn-ghost"
+                            onClick={() => openPaperModal(blueprint)}
+                            disabled={
+                              generatingId === blueprint._id ||
+                              publishingId === blueprint._id ||
+                              isClosingBlueprint(blueprint._id) ||
+                              isDeletingBlueprint(blueprint._id)
+                            }
+                          >
+                            <FiFileText className="exam-blueprint-btn-icon" />
+                            {String(blueprint.status || "").toUpperCase() === "PUBLISHED"
+                              ? "View Paper"
+                              : "Edit Paper"}
+                          </button>
                           {String(blueprint.status || "").toUpperCase() !== "PUBLISHED" && (
                             <button
                               type="button"
@@ -1234,6 +1330,155 @@ const ExamBlueprints = () => {
                       </tbody>
                     </table>
                   </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {paperModalBlueprint && (
+        <div className="exam-blueprint-scores-overlay" onClick={closePaperModal}>
+          <div
+            className="exam-blueprint-scores-modal exam-blueprint-paper-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <header className="exam-blueprint-scores-head">
+              <div>
+                <h3>Question Paper</h3>
+                <p>
+                  {paperModalBlueprint.title || "Exam Blueprint"} |{" "}
+                  {formatExamType(paperModalBlueprint.examType)}
+                </p>
+              </div>
+              <span
+                className={`exam-blueprint-paper-status ${String(
+                  paperModalBlueprint.status || "DRAFT"
+                ).toLowerCase()}`}
+              >
+                {String(paperModalBlueprint.status || "DRAFT").toUpperCase()}
+              </span>
+              <button
+                type="button"
+                className="exam-blueprint-btn exam-blueprint-btn-ghost"
+                onClick={closePaperModal}
+              >
+                <FiX className="exam-blueprint-btn-icon" />
+                Close
+              </button>
+            </header>
+
+            <div className="exam-blueprint-scores-body exam-blueprint-paper-body">
+              {paperLoadState === ADMIN_LOAD_STATES.PENDING ? (
+                <div className="exam-blueprint-scores-state">
+                  <ClipLoader size={22} color="#2563eb" />
+                  <p>Loading question paper...</p>
+                </div>
+              ) : paperLoadState === ADMIN_LOAD_STATES.FAILURE ? (
+                <div className="exam-blueprint-scores-state">
+                  <p>{paperError || "Unable to load question paper."}</p>
+                </div>
+              ) : editableQuestions.length === 0 ? (
+                <div className="exam-blueprint-scores-state">
+                  <p>No questions found for this blueprint.</p>
+                </div>
+              ) : (
+                <>
+                  <div className="exam-blueprint-paper-meta">
+                    <span>{editableQuestions.length} question(s)</span>
+                    {String(paperModalBlueprint.status || "").toUpperCase() === "PUBLISHED" && (
+                      <span>View only</span>
+                    )}
+                  </div>
+                  <div className="exam-blueprint-paper-list">
+                    {editableQuestions.map((question, index) => {
+                      const isMcq = String(question.sectionType || "").toUpperCase() === "MCQ";
+                      const readOnly =
+                        String(paperModalBlueprint.status || "").toUpperCase() === "PUBLISHED";
+                      return (
+                        <div
+                          className="exam-blueprint-paper-card"
+                          key={`${question.sectionType}-${index}`}
+                        >
+                          <div className="exam-blueprint-paper-card-head">
+                            <span>Q{index + 1}</span>
+                            <span>{question.sectionType || "QUESTION"}</span>
+                          </div>
+                          <textarea
+                            className="exam-blueprint-paper-textarea"
+                            rows={3}
+                            value={question.questionText || ""}
+                            onChange={(event) =>
+                              handleQuestionChange(index, "questionText", event.target.value)
+                            }
+                            readOnly={readOnly}
+                          />
+                          <div className="exam-blueprint-paper-row">
+                            <label>
+                              Marks
+                              <input
+                                type="number"
+                                min="1"
+                                value={question.marks || 1}
+                                onChange={(event) =>
+                                  handleQuestionChange(index, "marks", event.target.value)
+                                }
+                                readOnly={readOnly}
+                                disabled={readOnly}
+                              />
+                            </label>
+                            <label>
+                              Correct Answer
+                              <input
+                                type="text"
+                                value={question.correctAnswer || ""}
+                                onChange={(event) =>
+                                  handleQuestionChange(index, "correctAnswer", event.target.value)
+                                }
+                                readOnly={readOnly}
+                                disabled={readOnly}
+                              />
+                            </label>
+                          </div>
+                          {isMcq && (
+                            <label className="exam-blueprint-paper-options">
+                              Options (comma separated)
+                              <textarea
+                                rows={2}
+                                value={(question.options || []).join(", ")}
+                                onChange={(event) =>
+                                  handleQuestionChange(index, "options", event.target.value)
+                                }
+                                readOnly={readOnly}
+                              />
+                            </label>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  {String(paperModalBlueprint.status || "").toUpperCase() !== "PUBLISHED" && (
+                    <div className="exam-blueprint-paper-actions">
+                      <button
+                        type="button"
+                        className="exam-blueprint-btn exam-blueprint-btn-primary"
+                        onClick={savePaperReview}
+                        disabled={savingPaper}
+                      >
+                        {savingPaper ? (
+                          <>
+                            <ClipLoader size={14} color="#ffffff" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <FiSave className="exam-blueprint-btn-icon" />
+                            Save Changes
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>
