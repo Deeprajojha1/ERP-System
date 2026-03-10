@@ -8,7 +8,6 @@ import {
   Calendar,
   FileText,
   Award,
-  ShieldCheck,
 } from "lucide-react";
 import {
   setActiveSection,
@@ -43,7 +42,6 @@ const menuItems = [
   { id: "schedule", label: "Schedule", icon: Calendar, section: "ACADEMICS" },
   { id: "leaves", label: "Leave Management", icon: FileText, section: "ACADEMICS" },
   { id: "exams", label: "Exam Blueprints", icon: Award, section: "ACADEMICS" },
-  { id: "admitCards", label: "Admit Cards", icon: ShieldCheck, section: "ACADEMICS" },
   { id: "profile", label: "My Profile", icon: User, section: "ACCOUNT" },
   // Settings removed
 ];

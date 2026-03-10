@@ -35,6 +35,8 @@ import courseContentUpload from "../config/courseContentMulter.js";
 import {
   getCourseContents,
   createCourseContent,
+  updateCourseContent,
+  deleteCourseContent,
 } from "../controllers/facultyCourseContentController.js";
 import {
   getFacultyCourseSyllabus,
@@ -107,6 +109,15 @@ router.post("/course-content", isFacultyOrAdmin, (req, res, next) => {
     return next();
   });
 }, createCourseContent);
+router.put("/course-content/:id", isFacultyOrAdmin, (req, res, next) => {
+  courseContentUpload.single("file")(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ message: err.message || "File upload failed" });
+    }
+    return next();
+  });
+}, updateCourseContent);
+router.delete("/course-content/:id", isFacultyOrAdmin, deleteCourseContent);
 
 /* Course Syllabus Routes (Faculty) */
 router.get("/course-syllabus", isFacultyOrAdmin, getFacultyCourseSyllabus);
