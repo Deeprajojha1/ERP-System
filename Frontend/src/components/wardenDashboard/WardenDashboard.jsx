@@ -219,8 +219,8 @@ function WardenDashboard() {
                               {op?.student?.name || op?.student?.enrollmentNumber || "Student"}
                             </p>
                             <p className="mt-0.5 text-xs text-gray-600">
-                              {op?.room?.roomNumber ? `Room ${op.room.roomNumber}` : "Room â€”"} Â·{" "}
-                              {formatDateTime(op?.fromDate)} â†’ {formatDateTime(op?.toDate)}
+                              {op?.room?.roomNumber ? `Room ${op.room.roomNumber}` : "Room —"} ·{" "}
+                              {formatDateTime(op?.fromDate)} ? {formatDateTime(op?.toDate)}
                             </p>
                             {(op?.destination || op?.reason) && (
                               <p className="mt-1 truncate text-xs text-gray-500">
@@ -262,13 +262,13 @@ function WardenDashboard() {
                         const status = normalizeComplaintStatus(doc?.status);
                         const studentName =
                           doc?.student?.user?.name || doc?.student?.enrollmentNumber || "Student";
-                        const roomLabel = doc?.room?.roomNumber ? `Room ${doc.room.roomNumber}` : "Room â€”";
+                        const roomLabel = doc?.room?.roomNumber ? `Room ${doc.room.roomNumber}` : "Room —";
                         return (
                           <li key={doc?._id} className="flex items-start justify-between gap-4 py-3">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-semibold text-gray-900">{studentName}</p>
                               <p className="mt-0.5 text-xs text-gray-600">
-                                {roomLabel} Â· {String(doc?.issueType || "Complaint")}
+                                {roomLabel} · {String(doc?.issueType || "Complaint")}
                               </p>
                               {doc?.description && (
                                 <p className="mt-1 truncate text-xs text-gray-500">{doc.description}</p>
