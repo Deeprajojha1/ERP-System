@@ -27,9 +27,31 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ["student", "faculty", "admin", "librarian", "warden", "gateSecurity"],
+      enum: [
+        "student",
+        "faculty",
+        "admin",
+        "accounts",
+        "hod",
+        "placement",
+        "exam",
+        "gateSecurity",
+
+      ],
       default: "student",
     },
+    permissionRoles: [
+      {
+        type: String,
+        enum: ["accounts", "hod", "exam", "placement"],
+      },
+    ],
+    permissions: [
+      {
+        type: String,
+        trim: true,
+      },
+    ],
     status: {
       type: String,
       enum: ["active", "inactive", "leave"],

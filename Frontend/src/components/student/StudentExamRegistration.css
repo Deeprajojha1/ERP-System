@@ -1,0 +1,685 @@
+/* ═══════════════════════════════════════════════════════
+   Student Exam Registration
+   ═══════════════════════════════════════════════════════ */
+
+.ser-container {
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 20px 16px 40px;
+}
+
+/* ── Header ── */
+.ser-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.ser-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #1e293b;
+}
+
+.ser-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
+}
+
+.ser-header-right {
+  display: flex;
+  gap: 8px;
+}
+
+.ser-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ser-refresh-btn:hover {
+  background: #e2e8f0;
+}
+
+.ser-apply-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 16px;
+  border: none;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.ser-apply-btn:hover {
+  opacity: 0.92;
+}
+
+/* ── Loading / Empty ── */
+.ser-loading {
+  display: flex;
+  justify-content: center;
+  padding: 60px 0;
+}
+
+.ser-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 60px 20px;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.ser-empty p {
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* ── Registration Cards (list) ── */
+.ser-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+  gap: 14px;
+}
+
+.ser-reg-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+
+.ser-reg-card:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.ser-reg-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 14px 16px 10px;
+  gap: 10px;
+}
+
+.ser-reg-exam-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.ser-reg-meta {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin: 3px 0 0;
+}
+
+.ser-reg-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.reg-status--submitted {
+  background: #e0e7ff;
+  color: #3730a3;
+}
+
+.reg-status--verified {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.reg-status--rejected {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.reg-status--draft {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.ser-reg-card-body {
+  padding: 0 16px 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 14px;
+}
+
+.ser-reg-info-row {
+  display: flex;
+  gap: 4px;
+  font-size: 0.8rem;
+  color: #475569;
+}
+
+.ser-reg-info-row strong {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.ser-reg-card-actions {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px;
+  border-top: 1px solid #f1f5f9;
+  background: #fafbfc;
+}
+
+/* ── Buttons ── */
+.ser-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.ser-btn--view {
+  background: #e0e7ff;
+  color: #1d4ed8;
+}
+
+.ser-btn--view:hover {
+  background: #c7d2fe;
+}
+
+.ser-btn--edit {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.ser-btn--edit:hover {
+  background: #fde68a;
+}
+
+.ser-btn--cancel {
+  background: #f1f5f9;
+  color: #475569;
+  padding: 8px 20px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.ser-btn--submit {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
+  padding: 8px 24px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  min-height: 38px;
+}
+
+.ser-btn--submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* ── Back Button ── */
+.ser-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 16px;
+  transition: background 0.15s;
+}
+
+.ser-back-btn:hover {
+  background: #e2e8f0;
+}
+
+/* ═══════════════════════════════════════════════════════
+   Paper Form (matches university examination form style)
+   ═══════════════════════════════════════════════════════ */
+.ser-form-paper {
+  background: #fff;
+  border: 2px solid #cbd5e1;
+  border-radius: 14px;
+  padding: 32px 28px 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+}
+
+.ser-paper-header {
+  text-align: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #1e293b;
+}
+
+.ser-paper-header h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 2px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ser-paper-sub {
+  font-size: 0.72rem;
+  color: #64748b;
+  margin: 0 0 8px;
+}
+
+.ser-paper-header h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1e40af;
+  margin: 0;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* ── Fieldsets ── */
+.ser-fieldset {
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 18px 18px 14px;
+  margin: 0 0 16px;
+}
+
+.ser-fieldset legend {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #1e293b;
+  padding: 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ser-field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px 18px;
+}
+
+.ser-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ser-field--full {
+  grid-column: 1 / -1;
+}
+
+.ser-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #475569;
+}
+
+.ser-req {
+  color: #dc2626;
+}
+
+.ser-field input[type="text"],
+.ser-field input[type="email"],
+.ser-field input[type="tel"],
+.ser-field input[type="date"],
+.ser-field input[type="number"],
+.ser-field select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #0f172a;
+  background: #f8fafc;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  box-sizing: border-box;
+}
+
+.ser-field input:focus,
+.ser-field select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.ser-field input:disabled,
+.ser-field select:disabled {
+  background: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.ser-hint {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
+/* Select wrapper */
+.ser-select-wrap {
+  position: relative;
+}
+
+.ser-select-wrap select {
+  width: 100%;
+  appearance: none;
+  padding-right: 30px;
+}
+
+.ser-select-icon {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* Radio group */
+.ser-radio-group {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-top: 2px;
+}
+
+.ser-radio-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.82rem;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.ser-radio-label input[type="radio"] {
+  accent-color: #2563eb;
+  width: 15px;
+  height: 15px;
+}
+
+/* ── Declaration ── */
+.ser-fieldset--declaration {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.ser-declaration-text {
+  font-size: 0.84rem;
+  color: #475569;
+  line-height: 1.5;
+  margin: 0 0 10px;
+}
+
+.ser-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: #1e293b;
+  cursor: pointer;
+}
+
+.ser-checkbox-label input[type="checkbox"] {
+  accent-color: #2563eb;
+  width: 16px;
+  height: 16px;
+}
+
+/* ── Form Actions ── */
+.ser-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* ── Rejection Box ── */
+.ser-rejection-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  margin-bottom: 18px;
+  color: #991b1b;
+  font-size: 0.84rem;
+}
+
+/* ── Detail View ── */
+.ser-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+.ser-detail-section {
+  padding: 0;
+}
+
+.ser-detail-section h4 {
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ser-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 0.82rem;
+  border-bottom: 1px dashed #f1f5f9;
+}
+
+.ser-detail-row span {
+  color: #64748b;
+}
+
+.ser-detail-row strong {
+  color: #0f172a;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ── Upload Photo & Signature ── */
+.ser-upload-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+
+.ser-upload-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 160px;
+  max-width: 220px;
+}
+
+.ser-upload-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ser-upload-area {
+  width: 150px;
+  height: 180px;
+  border: 2px dashed #cbd5e1;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.15s, background 0.15s;
+  background: #f8fafc;
+}
+
+.ser-upload-area:hover {
+  border-color: #2563eb;
+  background: #eff6ff;
+}
+
+.ser-upload-area--sig {
+  width: 220px;
+  height: 100px;
+}
+
+.ser-upload-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  text-align: center;
+  padding: 8px;
+}
+
+.ser-upload-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.ser-upload-preview--sig {
+  object-fit: contain;
+  padding: 8px;
+}
+
+/* ── Detail View Images ── */
+.ser-detail-images {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.ser-detail-img-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.ser-detail-img-box span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+}
+
+.ser-detail-img-box img {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.ser-detail-photo {
+  width: 120px;
+  height: 150px;
+  object-fit: cover;
+}
+
+.ser-detail-signature {
+  width: 180px;
+  height: 80px;
+  object-fit: contain;
+  background: #f8fafc;
+  padding: 6px;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .ser-container {
+    padding: 12px 10px 30px;
+  }
+
+  .ser-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ser-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .ser-form-paper {
+    padding: 20px 14px 18px;
+  }
+
+  .ser-field-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ser-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ser-reg-card-body {
+    grid-template-columns: 1fr;
+  }
+
+  .ser-form-actions {
+    flex-direction: column;
+  }
+
+  .ser-form-actions .ser-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}

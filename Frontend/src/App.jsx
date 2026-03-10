@@ -66,6 +66,15 @@ import ExternalJobs from "./Admin/ExternalJobs";
 import ExternalJobApplications from "./Admin/ExternalJobApplications";
 import NetworkError from "./components/NetworkError/NetworkError";
 import PageNotFound from "./components/PageNotFound/PageNotFound";
+import ParentLogin from "./components/parent/ParentLogin";
+import ParentDashboard from "./components/parent/ParentDashboard";
+import ParentShell from "./components/parent/ParentShell";
+import ParentDailySubjectAttendance from "./components/parent/ParentDailySubjectAttendance";
+import ParentHostelAttendance from "./components/parent/ParentHostelAttendance";
+import ParentAssignments from "./components/parent/ParentAssignments";
+import ParentExams from "./components/parent/ParentExams";
+import ParentFees from "./components/parent/ParentFees";
+import { canAccessAdminPanel } from "./utils/permissions";
 
 const LAST_FAILED_ROUTE_KEY = "lastFailedRoute";
 const OFFLINE_REDIRECT_DELAY_MS = 1500;
@@ -74,6 +83,7 @@ function App() {
   const authResolved = useGetCurrentUser();
 
   const userData = useSelector((state) => state.user.userData);
+  const isAdminPanelUser = canAccessAdminPanel(userData);
   console.log("Current User",userData);
   const navigate = useNavigate();
   const location = useLocation();
@@ -97,8 +107,9 @@ function App() {
       savedRoute.startsWith("/login") ||
       savedRoute.startsWith("/reset-password") ||
       savedRoute.startsWith("/register") ||
+      savedRoute.startsWith("/parent") ||
       savedRoute === "/" ||
-      (role === "admin" && savedRoute.startsWith("/admin")) ||
+      (isAdminPanelUser && savedRoute.startsWith("/admin")) ||
       (role === "faculty" && savedRoute.startsWith("/faculty")) ||
       (role === "warden" && savedRoute.startsWith("/warden")) ||
       (role === "gateSecurity" && savedRoute.startsWith("/gate-security")) ||
@@ -108,7 +119,7 @@ function App() {
     if (isAllowedRoute) {
       navigate(savedRoute, { replace: true });
     }
-  }, [authResolved, userData, location.pathname, navigate]);
+  }, [authResolved, userData, isAdminPanelUser, location.pathname, navigate]);
 
   useEffect(() => {
     if (location.pathname === "/network-error") return;
@@ -171,7 +182,7 @@ function App() {
             userData ? (
               userData.user?.role === "faculty" ? (
                 <Navigate to="/faculty/faculty-dashboard" replace />
-              ) : userData.user?.role === "admin" ? (
+              ) : isAdminPanelUser ? (
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
@@ -192,7 +203,7 @@ function App() {
             userData ? (
               userData.user?.role === "faculty" ? (
                 <Navigate to="/faculty/faculty-dashboard" replace />
-              ) : userData.user?.role === "admin" ? (
+              ) : isAdminPanelUser ? (
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
@@ -213,7 +224,7 @@ function App() {
             userData ? (
               userData.user?.role === "faculty" ? (
                 <Navigate to="/faculty/faculty-dashboard" replace />
-              ) : userData.user?.role === "admin" ? (
+              ) : isAdminPanelUser ? (
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
@@ -234,7 +245,7 @@ function App() {
             userData ? (
               userData.user?.role === "faculty" ? (
                 <Navigate to="/faculty/faculty-dashboard" replace />
-              ) : userData.user?.role === "admin" ? (
+              ) : isAdminPanelUser ? (
                 <Navigate to="/admin/dashboard" replace />
               ) : userData.user?.role === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
@@ -370,7 +381,7 @@ function App() {
         <Route
           path="/admin/*"
           element={
-            userData?.user?.role === "admin" ? (
+            isAdminPanelUser ? (
               <AdminLayout />
             ) : (
               <Navigate to="/" replace />
@@ -427,6 +438,16 @@ function App() {
           <Route path="external-jobs" element={<ExternalJobs />} />
           <Route path="external-job-applications" element={<ExternalJobApplications />} />
           <Route path="*" element={<Navigate to="/page-not-found" replace />} />
+        </Route>
+
+        <Route path="/parent/login" element={<ParentLogin />} />
+        <Route path="/parent/dashboard/*" element={<ParentShell />}>
+          <Route index element={<ParentDashboard />} />
+          <Route path="daily-subject-attendance" element={<ParentDailySubjectAttendance />} />
+          <Route path="hostel" element={<ParentHostelAttendance />} />
+          <Route path="assignments" element={<ParentAssignments />} />
+          <Route path="exams" element={<ParentExams />} />
+          <Route path="fees" element={<ParentFees />} />
         </Route>
 
         <Route path="/network-error" element={<NetworkError />} />

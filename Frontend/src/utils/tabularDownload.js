@@ -39,7 +39,7 @@ const extractErrorMessage = async (error) => {
 
 export const downloadTabularFile = async (
   apiBase,
-  { rows, format, fileName, sheetName = "Report" }
+  { rows, format, fileName, sheetName = "Report", reportMeta = null }
 ) => {
   try {
     const normalizedFormat = String(format || "").toLowerCase();
@@ -53,6 +53,7 @@ export const downloadTabularFile = async (
         format: normalizedFormat,
         fileName: finalFileName,
         sheetName,
+        reportMeta,
       },
       { withCredentials: true, responseType: "blob" }
     );

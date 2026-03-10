@@ -13,6 +13,7 @@ import emptyStateImg from "../assets/empty-state.svg";
 import "./Student.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import ClipLoader from "./components/ClipLoader";
+import { hasPermission, resolvePermissions } from "../utils/permissions";
 
 const normalizeProgram = (value) => {
   return String(value || "")
@@ -20,6 +21,9 @@ const normalizeProgram = (value) => {
     .toLowerCase()
     .replace(/[^a-z]/g, "");
 };
+
+const isForbiddenError = (error) =>
+  Number(error?.response?.status) === 403;
 
 const Student = () => {
   const [search, setSearch] = useState("");
@@ -35,7 +39,10 @@ const Student = () => {
   const { students } = useSelector(
     (state) => state.student
   );
+  const userData = useSelector((state) => state.user.userData);
   const apiBase = useSelector((state) => state.config.apiBase);
+  const permissions = resolvePermissions(userData);
+  const canStudentWrite = hasPermission(permissions, "module.students_write");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -88,17 +95,24 @@ const Student = () => {
       try {
         setLoadState(ADMIN_LOAD_STATES.PENDING);
         dispatch(setStudentsLoading(true));
-        const [studentRes, deptRes] = await Promise.all([
-          axios.get(`${apiBase}/admin/student`, {
-            withCredentials: true,
-          }),
-          axios.get(`${apiBase}/admin/department`, {
-            withCredentials: true,
-          }),
-        ]);
+        const studentRes = await axios.get(`${apiBase}/admin/student`, {
+          withCredentials: true,
+        });
         const rows = extractStudentsFromResponse(studentRes.data).map(normalizeStudentRow);
         dispatch(setStudents(rows));
-        setDepartments(deptRes.data?.departments || []);
+
+        try {
+          const deptRes = await axios.get(`${apiBase}/admin/department`, {
+            withCredentials: true,
+          });
+          setDepartments(deptRes.data?.departments || []);
+        } catch (deptError) {
+          if (!isForbiddenError(deptError)) {
+            throw deptError;
+          }
+          setDepartments([]);
+        }
+
         setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       } catch (error) {
         console.error(
@@ -125,7 +139,7 @@ const Student = () => {
     if (!apiBase || modalDependenciesLoading) return;
     setModalDependenciesLoading(true);
     try {
-      const [deptRes, groupRes] = await Promise.all([
+      const [deptRes, groupRes] = await Promise.allSettled([
         axios.get(`${apiBase}/admin/department`, {
           withCredentials: true,
           skipNetworkRedirect: true,
@@ -137,8 +151,22 @@ const Student = () => {
           params: { noCache: "true" },
         }),
       ]);
-      setDepartments(deptRes.data?.departments || []);
-      setGroups(groupRes.data?.groups || []);
+
+      if (deptRes.status === "fulfilled") {
+        setDepartments(deptRes.value.data?.departments || []);
+      } else if (isForbiddenError(deptRes.reason)) {
+        setDepartments([]);
+      } else {
+        throw deptRes.reason;
+      }
+
+      if (groupRes.status === "fulfilled") {
+        setGroups(groupRes.value.data?.groups || []);
+      } else if (isForbiddenError(groupRes.reason)) {
+        setGroups([]);
+      } else {
+        throw groupRes.reason;
+      }
     } finally {
       setModalDependenciesLoading(false);
     }
@@ -212,6 +240,10 @@ const Student = () => {
   };
 
   const openAddModal = async (event) => {
+    if (!canStudentWrite) {
+      toast.error("Read-only access: student creation is not allowed.");
+      return;
+    }
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -248,6 +280,10 @@ const Student = () => {
   };
 
   const openEditModal = async (event, student) => {
+    if (!canStudentWrite) {
+      toast.error("Read-only access: student update is not allowed.");
+      return;
+    }
     if (event) {
       event.preventDefault();
       event.stopPropagation();
@@ -292,6 +328,10 @@ const Student = () => {
   };
 
   const handleDelete = async (student) => {
+    if (!canStudentWrite) {
+      toast.error("Read-only access: student delete is not allowed.");
+      return;
+    }
     if (!student?._id) return;
     const ok = window.confirm(
       `Delete student "${student.studentName || student.user?.name || student.name}"?`
@@ -348,6 +388,10 @@ const Student = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!canStudentWrite) {
+      toast.error("Read-only access: student changes are not allowed.");
+      return;
+    }
     try {
       setSubmitting(true);
       const payload = buildPayload();
@@ -468,21 +512,23 @@ const Student = () => {
               {filtered.length} Students in the organization
             </p>
           </div>
-          <button
-            className="student-add-btn"
-            type="button"
-            onClick={openAddModal}
-            disabled={isOpeningAdd || modalDependenciesLoading}
-          >
-            {isOpeningAdd ? (
-              <>
-                <FiLoader className="student-spin" />
-                Loading...
-              </>
-            ) : (
-              "+ Add Student"
-            )}
-          </button>
+          {canStudentWrite ? (
+            <button
+              className="student-add-btn"
+              type="button"
+              onClick={openAddModal}
+              disabled={isOpeningAdd || modalDependenciesLoading}
+            >
+              {isOpeningAdd ? (
+                <>
+                  <FiLoader className="student-spin" />
+                  Loading...
+                </>
+              ) : (
+                "+ Add Student"
+              )}
+            </button>
+          ) : null}
         </div>
 
         <div className="student-panel">
@@ -529,7 +575,7 @@ const Student = () => {
                     <th>DEPARTMENT</th>
                     <th>SEMESTER</th>
                     <th>STATUS</th>
-                    <th>ACTIONS</th>
+                    {canStudentWrite ? <th>ACTIONS</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -552,32 +598,34 @@ const Student = () => {
                           {(s.user?.status || s.status || "active").toUpperCase()}
                         </span>
                       </td>
-                      <td>
-                        <div className="student-actions">
-                          <button
-                            className="student-action-btn ghost"
-                            type="button"
-                            onClick={(event) => openEditModal(event, s)}
-                            disabled={openingEditId === s._id || modalDependenciesLoading}
-                          >
-                            {openingEditId === s._id ? (
-                              <>
-                                <FiLoader className="student-spin" />
-                                Loading...
-                              </>
-                            ) : (
-                              <>
-                                <FiEdit2 />
-                                Edit
-                              </>
-                            )}
-                          </button>
-                          <button className="student-action-btn danger" type="button" onClick={() => handleDelete(s)}>
-                            <FiTrash2 />
-                            Delete
-                          </button>
-                        </div>
-                      </td>
+                      {canStudentWrite ? (
+                        <td>
+                          <div className="student-actions">
+                            <button
+                              className="student-action-btn ghost"
+                              type="button"
+                              onClick={(event) => openEditModal(event, s)}
+                              disabled={openingEditId === s._id || modalDependenciesLoading}
+                            >
+                              {openingEditId === s._id ? (
+                                <>
+                                  <FiLoader className="student-spin" />
+                                  Loading...
+                                </>
+                              ) : (
+                                <>
+                                  <FiEdit2 />
+                                  Edit
+                                </>
+                              )}
+                            </button>
+                            <button className="student-action-btn danger" type="button" onClick={() => handleDelete(s)}>
+                              <FiTrash2 />
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      ) : null}
                     </tr>
                   );
                 })}

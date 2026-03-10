@@ -24,23 +24,27 @@ const TeachingLoad = () => {
   const semesterOptions = Array.from({ length: 12 }, (_, i) => i + 1);
 
   const programOptions = useMemo(() => {
+    const selectedDept = String(selectedDepartment || "").trim();
     const options = new Set();
     (courses || []).forEach((course) => {
+      const deptId = String(course.departmentId || course.department?._id || "").trim();
+      const deptName = String(course.department || course.department?.name || "").trim();
+      if (selectedDept && selectedDept !== deptId && selectedDept !== deptName) return;
       const branch = String(course.branch || "").trim();
       if (branch) options.add(branch);
     });
     return Array.from(options).sort((a, b) => a.localeCompare(b));
-  }, [courses]);
+  }, [courses, selectedDepartment]);
 
-  const groupOptions = useMemo(
-    () =>
-      groups.filter(
-        (group) =>
-          String(group.department?._id || group.department) ===
-          String(selectedDepartment)
-      ),
-    [groups, selectedDepartment]
-  );
+  const groupOptions = useMemo(() => {
+    const selectedDept = String(selectedDepartment || "").trim();
+    return groups.filter((group) => {
+      const deptId = String(group.department?._id || group.departmentId || group.department || "").trim();
+      const deptName = String(group.department?.name || "").trim();
+      if (!selectedDept) return true;
+      return selectedDept === deptId || selectedDept === deptName;
+    });
+  }, [groups, selectedDepartment]);
 
   const selectedDeptName = useMemo(
     () =>
@@ -91,6 +95,14 @@ const TeachingLoad = () => {
   useEffect(() => {
     fetchMasterData();
   }, [apiBase]);
+
+  useEffect(() => {
+    if (!selectedProgram) return;
+    if (!programOptions.includes(selectedProgram)) {
+      setSelectedProgram("");
+      setRows([]);
+    }
+  }, [programOptions, selectedProgram]);
 
   const searchTeachingLoad = async () => {
     if (!selectedDepartment || !selectedProgram) {
@@ -145,7 +157,10 @@ const TeachingLoad = () => {
               value={selectedDepartment}
               onChange={(event) => {
                 setSelectedDepartment(event.target.value);
+                setSelectedProgram("");
+                setSelectedSemester("");
                 setSelectedGroup("");
+                setRows([]);
               }}
             >
               <option value="">Select Department</option>

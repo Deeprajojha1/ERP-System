@@ -1,4 +1,5 @@
 import User from "../models/userModel.js";
+import mongoose from "mongoose";
 import Student from "../models/Student.js";
 import Faculty from "../models/Faculty.js";
 import Department from "../models/Department.js";
@@ -11,6 +12,11 @@ import jwt from "jsonwebtoken";
 import validator from "validator";
 import sendEmail from "../config/sendMail.js";
 import { uploadImageToCloudinary } from "../config/cloudinaryUpload.js";
+import {
+  getPermissionsFromPermissionRoles,
+  getPermissionsByRole,
+  resolvePermissionsForUser,
+} from "../utils/rolePermissions.js";
 
 const { isEmail } = validator;
 
@@ -538,6 +544,7 @@ export const login = async (req, res) => {
 
     res.json({
       message: "Login successful",
+      permissions: resolvePermissionsForUser(user),
       user: {
         id: user._id,
         name: user.name,
@@ -547,6 +554,7 @@ export const login = async (req, res) => {
         DOB: user.DOB,
         profileImage: user.profileImage || "",
         role: user.role,
+        permissionRoles: Array.isArray(user.permissionRoles) ? user.permissionRoles : [],
         status: user.status,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
@@ -601,6 +609,298 @@ export const register = async (req, res) => {
   } catch (err) {
     res.status(500).json({
       message: err.message,
+    });
+  }
+};
+
+export const createAdminUser = async (req, res) => {
+  try {
+    const {
+      firstName,
+      lastName,
+      email,
+      password,
+      permissionRoles = [],
+    } = req.body || {};
+
+    const normalizedEmail = String(email || "").trim().toLowerCase();
+    const safeFirstName = String(firstName || "").trim();
+    const safeLastName = String(lastName || "").trim();
+    const safePassword = String(password || "");
+    const selectedRoles = Array.isArray(permissionRoles)
+      ? [...new Set(permissionRoles.map((role) => String(role || "").trim().toLowerCase()))]
+      : [];
+    const assignableRoles = new Set(["hod", "accounts", "exam", "placement"]);
+    const validSelectedRoles = selectedRoles.filter((role) => assignableRoles.has(role));
+
+    if (!safeFirstName || !safeLastName || !normalizedEmail || !safePassword) {
+      return res.status(400).json({
+        message: "First name, last name, email, and password are required.",
+      });
+    }
+
+    if (!isEmail(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format." });
+    }
+
+    if (safePassword.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    if (!validSelectedRoles.length) {
+      return res.status(400).json({
+        message: "Select at least one permission role.",
+      });
+    }
+
+    const primaryRole = validSelectedRoles[0];
+    const permissions = getPermissionsFromPermissionRoles(validSelectedRoles);
+    if (!permissions.length) {
+      return res.status(400).json({
+        message: "Selected permission roles are invalid.",
+      });
+    }
+
+    const existingUser = await User.findOne({ email: normalizedEmail });
+    if (existingUser) {
+      return res.status(409).json({ message: "Email already registered." });
+    }
+
+    const passwordHash = await bcrypt.hash(safePassword, 10);
+    const user = await User.create({
+      name: `${safeFirstName} ${safeLastName}`.trim(),
+      email: normalizedEmail,
+      passwordHash,
+      role: primaryRole,
+      status: "active",
+      permissionRoles: validSelectedRoles,
+      permissions,
+    });
+
+    return res.status(201).json({
+      message: "Admin user created successfully.",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        status: user.status,
+        permissionRoles: user.permissionRoles || [],
+        permissions: resolvePermissionsForUser(user),
+        createdAt: user.createdAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to create admin user.",
+    });
+  }
+};
+
+export const backfillAdminPermissionMetadata = async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const dryRun = String(payload.dryRun || "false").toLowerCase() === "true";
+    const includeInactive = String(payload.includeInactive || "true").toLowerCase() === "true";
+    const customRoles = new Set(["accounts", "hod", "exam", "placement"]);
+    const allowedRoles = new Set(["admin", "accounts", "hod", "exam", "placement", "director", "vc"]);
+
+    const requestedRoles = Array.isArray(payload.roles)
+      ? payload.roles.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean)
+      : [];
+    const targetRoles = (requestedRoles.length ? requestedRoles : Array.from(allowedRoles)).filter((role) =>
+      allowedRoles.has(role)
+    );
+
+    const query = { role: { $in: targetRoles } };
+    if (!includeInactive) {
+      query.status = "active";
+    }
+
+    const users = await User.find(query).select(
+      "_id name email role status permissionRoles permissions"
+    );
+
+    const updateOps = [];
+    const touchedUsers = [];
+
+    users.forEach((user) => {
+      const role = String(user.role || "").trim().toLowerCase();
+      const existingPermissionRoles = Array.isArray(user.permissionRoles)
+        ? [...new Set(user.permissionRoles.map((item) => String(item || "").trim().toLowerCase()).filter(Boolean))]
+        : [];
+      const existingPermissions = Array.isArray(user.permissions)
+        ? [...new Set(user.permissions.map((item) => String(item || "").trim()).filter(Boolean))]
+        : [];
+
+      let nextPermissionRoles = existingPermissionRoles;
+      if (!existingPermissionRoles.length && customRoles.has(role)) {
+        nextPermissionRoles = [role];
+      }
+
+      let nextPermissions = existingPermissions;
+      if (!existingPermissions.length) {
+        if (customRoles.has(role) && nextPermissionRoles.length) {
+          nextPermissions = getPermissionsFromPermissionRoles(nextPermissionRoles);
+        } else {
+          nextPermissions = getPermissionsByRole(role);
+        }
+      }
+
+      const shouldSetPermissionRoles =
+        !existingPermissionRoles.length && nextPermissionRoles.length > 0;
+      const shouldSetPermissions = !existingPermissions.length && nextPermissions.length > 0;
+
+      if (!shouldSetPermissionRoles && !shouldSetPermissions) {
+        return;
+      }
+
+      const setPayload = {};
+      if (shouldSetPermissionRoles) {
+        setPayload.permissionRoles = nextPermissionRoles;
+      }
+      if (shouldSetPermissions) {
+        setPayload.permissions = nextPermissions;
+      }
+
+      touchedUsers.push({
+        id: user._id,
+        email: user.email,
+        role,
+        status: user.status,
+        updatedFields: Object.keys(setPayload),
+      });
+
+      updateOps.push({
+        updateOne: {
+          filter: { _id: user._id },
+          update: { $set: setPayload },
+        },
+      });
+    });
+
+    if (!dryRun && updateOps.length) {
+      await User.bulkWrite(updateOps);
+    }
+
+    return res.status(200).json({
+      message: dryRun
+        ? "Backfill dry-run completed."
+        : "Backfill completed successfully.",
+      dryRun,
+      scannedUsers: users.length,
+      updatedUsers: updateOps.length,
+      targetRoles,
+      updates: touchedUsers,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to backfill admin permission metadata.",
+    });
+  }
+};
+
+export const updateUserPermissionConfig = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const payload = req.body || {};
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user id." });
+    }
+
+    const hasPermissionRoles = Object.prototype.hasOwnProperty.call(payload, "permissionRoles");
+    const hasPermissions = Object.prototype.hasOwnProperty.call(payload, "permissions");
+    if (!hasPermissionRoles && !hasPermissions) {
+      return res.status(400).json({
+        message: "At least one of permissionRoles or permissions is required.",
+      });
+    }
+
+    const user = await User.findById(id).select(
+      "_id name email role status permissionRoles permissions"
+    );
+    if (!user) {
+      return res.status(404).json({ message: "User not found." });
+    }
+
+    const adminPanelRoles = new Set(["admin", "accounts", "hod", "exam", "placement", "director", "vc"]);
+    const role = String(user.role || "").trim().toLowerCase();
+    if (!adminPanelRoles.has(role)) {
+      return res.status(400).json({
+        message: "Permission config update is allowed only for admin-panel users.",
+      });
+    }
+
+    const assignableRoles = new Set(["accounts", "hod", "exam", "placement"]);
+    const nextState = {};
+
+    if (hasPermissionRoles) {
+      if (!Array.isArray(payload.permissionRoles)) {
+        return res.status(400).json({ message: "permissionRoles must be an array." });
+      }
+
+      const normalizedPermissionRoles = [
+        ...new Set(
+          payload.permissionRoles
+            .map((item) => String(item || "").trim().toLowerCase())
+            .filter(Boolean)
+        ),
+      ];
+      const invalidRoles = normalizedPermissionRoles.filter((item) => !assignableRoles.has(item));
+      if (invalidRoles.length) {
+        return res.status(400).json({
+          message: `Invalid permission roles: ${invalidRoles.join(", ")}`,
+        });
+      }
+
+      nextState.permissionRoles = normalizedPermissionRoles;
+    }
+
+    if (hasPermissions) {
+      if (!Array.isArray(payload.permissions)) {
+        return res.status(400).json({ message: "permissions must be an array." });
+      }
+
+      nextState.permissions = [
+        ...new Set(
+          payload.permissions
+            .map((item) => String(item || "").trim())
+            .filter(Boolean)
+        ),
+      ];
+    } else if (hasPermissionRoles) {
+      const rolesForPermissions = nextState.permissionRoles || [];
+      nextState.permissions = rolesForPermissions.length
+        ? getPermissionsFromPermissionRoles(rolesForPermissions)
+        : getPermissionsByRole(role);
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { $set: nextState },
+      { new: true, runValidators: true }
+    ).select("_id name email role status permissionRoles permissions updatedAt");
+
+    return res.status(200).json({
+      message: "User permission config updated successfully.",
+      user: {
+        id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        role: updatedUser.role,
+        status: updatedUser.status,
+        permissionRoles: updatedUser.permissionRoles || [],
+        permissions: updatedUser.permissions || [],
+        resolvedPermissions: resolvePermissionsForUser(updatedUser),
+        updatedAt: updatedUser.updatedAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to update user permission config.",
     });
   }
 };
@@ -1238,6 +1538,7 @@ export const getUser = async (req, res) => {
         console.log("User found:", user);
         return res.status(200).json({
             message: "User fetched successfully ",
+            permissions: resolvePermissionsForUser(user),
             user: {
               id: user._id,
               name: user.name,
@@ -1247,6 +1548,7 @@ export const getUser = async (req, res) => {
               DOB: user.DOB,
               profileImage: user.profileImage || "",
               role: user.role,
+              permissionRoles: Array.isArray(user.permissionRoles) ? user.permissionRoles : [],
               status: user.status,
               createdAt: user.createdAt,
               updatedAt: user.updatedAt,

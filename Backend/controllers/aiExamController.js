@@ -9,6 +9,11 @@ import User from "../models/userModel.js";
 import Faculty from "../models/Faculty.js";
 import { evaluateQuestion, generatePaperDraft } from "../services/examAiService.js";
 import { verifyFaceWithPython } from "../services/faceVerifyService.js";
+import { renderPdfBufferFromHtml } from "./pdfController.js";
+import {
+  applyUniversityReportWorksheetLayout,
+  buildUniversityReportPdfHtml,
+} from "../utils/universityReportLayout.js";
 
 const toObjectId = (value) => {
   if (!value) return null;
@@ -34,7 +39,7 @@ const resolveTeacherUserId = async (teacherId) => {
 
 const getTeacherOwnershipFilter = async (userId, role) => {
   // Admin can manage all blueprints in faculty/admin routes.
-  if (role === "admin") {
+  if (role === "admin" || role === "super_admin") {
     return {};
   }
 
@@ -853,81 +858,61 @@ export const downloadExamScoresReport = async (req, res) => {
       .sort((a, b) => a.enrollmentNumber.localeCompare(b.enrollmentNumber));
 
     const facultyUser = await User.findById(req.userId).select("name").lean();
+    const blueprintTeacherId = String(blueprint?.teacherId?._id || blueprint?.teacherId || "").trim();
+    const facultyProfile = blueprintTeacherId
+      ? await Faculty.findOne({ user: blueprintTeacherId })
+          .populate("department", "name")
+          .select("department")
+          .lean()
+      : null;
+    const departmentName = facultyProfile?.department?.name
+      ? `Department of ${facultyProfile.department.name}`
+      : "Department - N/A";
+    const courseLine = `Course - ${blueprint?.subject || "N/A"}`;
     const examTypeLabel = String(blueprint.examType || "")
       .toLowerCase()
       .split("_")
       .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
       .join(" ");
 
+    const tableHeaders = [
+      "S. No",
+      "University Roll no.",
+      "Student Name",
+      "Marks in figure",
+      "Grade",
+    ];
+    const tableRows = rows.map((row, index) => [
+      index + 1,
+      row.enrollmentNumber,
+      row.name,
+      row.marks,
+      row.grade,
+    ]);
+    const details = [
+      { label: "Subject Name with Code", value: blueprint.subject || "N/A" },
+      { label: "Faculty Name", value: facultyUser?.name || "Faculty" },
+      { label: "Exam", value: blueprint.title || "N/A" },
+      { label: "Total Marks", value: blueprint.totalMarks || "N/A" },
+    ];
+
     if (format === "pdf") {
-      const htmlRows = rows
-        .map(
-          (row, i) =>
-            `<tr>
-              <td>${i + 1}</td>
-              <td>${row.enrollmentNumber}</td>
-              <td style="text-align:left">${row.name}</td>
-              <td>${row.marks}</td>
-              <td>${row.grade}</td>
-            </tr>`
-        )
-        .join("");
-
-      const html = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <style>
-    body { font-family: "Times New Roman", serif; margin: 20px 30px; }
-    h1 { text-align: center; font-size: 22px; margin: 0; }
-    h2 { text-align: center; font-size: 16px; margin: 4px 0; }
-    h3 { text-align: center; font-size: 14px; margin: 4px 0; background: #FFD700; padding: 3px; }
-    h4 { text-align: center; font-size: 14px; margin: 4px 0; }
-    .info { font-size: 12px; margin: 2px 0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
-    th, td { border: 1px solid #333; padding: 6px 8px; text-align: center; }
-    th { background: #f0f0f0; font-weight: bold; }
-    td:nth-child(3) { text-align: left; }
-  </style>
-</head>
-<body>
-  <h1>HARIDWAR UNIVERSITY, ROORKEE</h1>
-  <h2>Department of Computer Science &amp; Engineering</h2>
-  <h3>Course - B.Tech. 2nd Year / 4th Semester</h3>
-  <h4>${examTypeLabel} Award Sheet</h4>
-  <p class="info"><b>Subject Name with Code:</b> ${blueprint.subject || "N/A"}</p>
-  <p class="info"><b>Exam:</b> ${blueprint.title || "N/A"}</p>
-  <p class="info"><b>Faculty Name:</b> ${facultyUser?.name || "Faculty"}</p>
-  <p class="info"><b>Total Marks:</b> ${blueprint.totalMarks || "N/A"}</p>
-  <table>
-    <thead>
-      <tr>
-        <th>S. No</th>
-        <th>University Roll No.</th>
-        <th>Student Name</th>
-        <th>Marks in Figure</th>
-        <th>Grade</th>
-      </tr>
-    </thead>
-    <tbody>${htmlRows}</tbody>
-  </table>
-</body>
-</html>`;
-
-      // Use puppeteer to render PDF
-      const puppeteer = await import("puppeteer");
-      const browser = await puppeteer.default.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
+      const html = buildUniversityReportPdfHtml({
+        reportTitle: `${examTypeLabel} Award Sheet`,
+        details,
+        headers: tableHeaders,
+        rows: tableRows,
+        header: {
+          departmentName,
+          courseLine,
+        },
       });
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: "networkidle0" });
-      const pdfBuffer = await page.pdf({
+
+      const pdfBuffer = await renderPdfBufferFromHtml(html, {
         format: "A4",
         margin: { top: "15mm", bottom: "15mm", left: "10mm", right: "10mm" },
         printBackground: true,
       });
-      await browser.close();
 
       const fileName = `${String(blueprint.subject || "exam").replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-scores.pdf`;
       res.setHeader("Content-Type", "application/pdf");
@@ -938,97 +923,18 @@ export const downloadExamScoresReport = async (req, res) => {
     // Default: Excel format
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet("Award Sheet");
-
-    worksheet.mergeCells("A1:E1");
-    worksheet.getCell("A1").value = "HARIDWAR UNIVERSITY, ROORKEE";
-    worksheet.getCell("A1").font = { bold: true, size: 20, name: "Times New Roman" };
-    worksheet.getCell("A1").alignment = { horizontal: "center", vertical: "middle" };
-
-    worksheet.mergeCells("A2:E2");
-    worksheet.getCell("A2").value = "Department of Computer Science & Engineering";
-    worksheet.getCell("A2").font = { bold: true, size: 15, name: "Times New Roman" };
-    worksheet.getCell("A2").alignment = { horizontal: "center", vertical: "middle" };
-
-    worksheet.mergeCells("A3:E3");
-    worksheet.getCell("A3").value = "Course - B.Tech. 2nd Year / 4th Semester";
-    worksheet.getCell("A3").font = { bold: true, size: 12, name: "Times New Roman" };
-    worksheet.getCell("A3").alignment = { horizontal: "center", vertical: "middle" };
-    worksheet.getCell("A3").fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FFFFFF00" },
-    };
-
-    worksheet.mergeCells("A4:E4");
-    worksheet.getCell("A4").value = `${examTypeLabel} Award Sheet`;
-    worksheet.getCell("A4").font = { bold: true, size: 13, name: "Times New Roman" };
-    worksheet.getCell("A4").alignment = { horizontal: "center", vertical: "middle" };
-
-    worksheet.mergeCells("A5:E5");
-    worksheet.getCell("A5").value = `Subject Name with Code: ${blueprint.subject || "N/A"}`;
-    worksheet.getCell("A5").font = { bold: true, size: 11, name: "Times New Roman" };
-
-    worksheet.mergeCells("A6:E6");
-    worksheet.getCell("A6").value = `Subject Faculty Name : ${facultyUser?.name || "Faculty"}`;
-    worksheet.getCell("A6").font = { bold: true, size: 11, name: "Times New Roman" };
-
-    worksheet.mergeCells("A7:E7");
-    worksheet.getCell("A7").value = `Exam : ${blueprint.title || "N/A"}`;
-    worksheet.getCell("A7").font = { bold: true, size: 11, name: "Times New Roman" };
-
-    worksheet.mergeCells("A8:E8");
-    worksheet.getCell("A8").value = `Total Marks : ${blueprint.totalMarks || "N/A"}`;
-    worksheet.getCell("A8").font = { bold: true, size: 11, name: "Times New Roman" };
-
-    const headerRow = 10;
-    worksheet.getRow(headerRow).values = [
-      "S. No",
-      "University Roll no.",
-      "Student Name",
-      "Marks in figure",
-      "Grade",
-    ];
-    worksheet.getRow(headerRow).font = { bold: true, size: 11, name: "Times New Roman" };
-    worksheet.getRow(headerRow).alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-
-    rows.forEach((row, index) => {
-      worksheet.addRow([
-        index + 1,
-        row.enrollmentNumber,
-        row.name,
-        row.marks,
-        row.grade,
-      ]);
+    applyUniversityReportWorksheetLayout({
+      worksheet,
+      reportTitle: `${examTypeLabel} Award Sheet`,
+      details,
+      headers: tableHeaders,
+      rows: tableRows,
+      columnWidths: [8, 24, 36, 16, 14],
+      header: {
+        departmentName,
+        courseLine,
+      },
     });
-
-    worksheet.columns = [
-      { key: "sno", width: 8 },
-      { key: "roll", width: 24 },
-      { key: "name", width: 36 },
-      { key: "marks", width: 16 },
-      { key: "grade", width: 14 },
-    ];
-
-    const totalRows = Math.max(headerRow, worksheet.rowCount);
-    for (let rowIndex = 1; rowIndex <= totalRows; rowIndex += 1) {
-      for (let colIndex = 1; colIndex <= 5; colIndex += 1) {
-        const cell = worksheet.getCell(rowIndex, colIndex);
-        cell.border = {
-          top: { style: "thin" },
-          left: { style: "thin" },
-          bottom: { style: "thin" },
-          right: { style: "thin" },
-        };
-      }
-    }
-
-    for (let rowIndex = headerRow + 1; rowIndex <= worksheet.rowCount; rowIndex += 1) {
-      worksheet.getCell(`A${rowIndex}`).alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.getCell(`B${rowIndex}`).alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.getCell(`C${rowIndex}`).alignment = { horizontal: "left", vertical: "middle" };
-      worksheet.getCell(`D${rowIndex}`).alignment = { horizontal: "center", vertical: "middle" };
-      worksheet.getCell(`E${rowIndex}`).alignment = { horizontal: "center", vertical: "middle" };
-    }
 
     const subjectSlug = String(blueprint.subject || "exam").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
     const fileName = `${subjectSlug}-scores.xlsx`;
@@ -1356,3 +1262,4 @@ export const getMyExamResult = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+

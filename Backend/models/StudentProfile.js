@@ -120,7 +120,6 @@ const studentProfileSchema = new mongoose.Schema(
 );
 
 // Index
-studentProfileSchema.index({ student: 1 });
 studentProfileSchema.index({ placementStatus: 1 });
 
 export default mongoose.model("StudentProfile", studentProfileSchema);

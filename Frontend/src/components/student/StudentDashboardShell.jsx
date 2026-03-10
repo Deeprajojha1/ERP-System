@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { PiStudentBold } from "react-icons/pi";
 import {
   FiHome,
@@ -11,7 +11,21 @@ import {
   FiDollarSign,
   FiBriefcase,
   FiMenu,
+  FiCalendar,
+  FiHash,
+  FiTruck,
+  FiMessageSquare,
+  FiSend,
+  FiRefreshCw,
+  FiFileText,
+  FiCreditCard,
+  FiCheckCircle,
+  FiClock,
+  FiAlertCircle,
+  FiPercent,
+  FiArrowLeft,
 } from "react-icons/fi";
+import { HiOutlineAcademicCap, HiOutlineBuildingOffice } from "react-icons/hi2";
 import { FaLinkedin } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 import heroImage from "../../assets/college_47233.jpg";
@@ -24,7 +38,23 @@ import StudentExamCenter from "./StudentExamCenter";
 import StudentExternalJobs from "./StudentExternalJobs";
 import LinkedinAnalyzer from "./linkedin/LinkedinAnalyzer";
 import StudentHostel from "./StudentHostel";
+import StudentAdmitCard from "./StudentAdmitCard";
+import StudentExamRegistration from "./StudentExamRegistration";
 import axiosInstance from "../../utils/axiosInstance";
+import toast from "react-hot-toast";
+import {
+  createMyDemandRequest,
+  fetchMyDemandRequests,
+  fetchMyFeeProfile,
+  fetchMyFeeDemands,
+  fetchMyPayments,
+  selectFeeActionLoading,
+  selectFeeLoading,
+  selectMyDemandRequests,
+  selectMyFeeProfile,
+  selectMyDemands,
+  selectMyPayments,
+} from "../../redux/feeSlice";
 import "./StudentDashboardShell.css";
 
 const buildProfileImageUrl = (apiBase, fileUrl, fileName) => {
@@ -61,8 +91,15 @@ const StudentDashboardShell = ({
 }) => {
   const apiBase = useSelector((state) => state.config.apiBase);
   const userData = useSelector((state) => state.user.userData);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const myDemandRequests = useSelector(selectMyDemandRequests);
+  const feeLoading = useSelector(selectFeeLoading);
+  const feeActionLoading = useSelector(selectFeeActionLoading);
+  const myFeeProfile = useSelector(selectMyFeeProfile);
+  const myDemands = useSelector(selectMyDemands);
+  const myPayments = useSelector(selectMyPayments);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => (typeof window !== "undefined" ? window.innerWidth >= 769 : true)
@@ -87,9 +124,21 @@ const StudentDashboardShell = ({
     "";
   const enrolledCoursesCount = Array.isArray(coursesData) ? coursesData.length : 0;
   const attendancePercent = Number(overallAttendance?.percentage || 0);
+  const attendanceSubjectRoutePrefix = "/dashboard/attendance/subject/";
 
   const [hostelAllocation, setHostelAllocation] = useState(null);
   const isHostelStudent = Boolean(hostelAllocation?.hostel?.id && hostelAllocation?.room?.id);
+  const defaultAcademicYear =
+    roleDetails?.academicYear ||
+    `${new Date().getFullYear()}-${String(new Date().getFullYear() + 1).slice(-2)}`;
+  const [demandRequestForm, setDemandRequestForm] = useState({
+    academicYear: defaultAcademicYear,
+    semesterNo: String(roleDetails?.semester || 1),
+    dueDate: "",
+    hostelAmount: "0",
+    transportAmount: "0",
+    note: "",
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -135,13 +184,23 @@ const StudentDashboardShell = ({
     if (path.includes("/dashboard/profile")) return "profile";
     if (path.includes("/dashboard/attendance")) return "attendance";
     if (path.includes("/dashboard/courses")) return "courses";
+    if (path.includes("/dashboard/exam-registration")) return "exam-registration";
     if (path.includes("/dashboard/exams")) return "exams";
     if (path.includes("/dashboard/hostel")) return "hostel";
     if (path.includes("/dashboard/fees")) return "fees";
+    if (path.includes("/dashboard/admit-card")) return "admit-card";
     if (path.includes("/dashboard/jobs")) return "jobs";
     if (path.includes("/dashboard/linkedin")) return "linkedin";
     return "home";
   }, [location.pathname]);
+
+  useEffect(() => {
+    if (currentSection !== "fees") return;
+    dispatch(fetchMyDemandRequests());
+    dispatch(fetchMyFeeProfile());
+    dispatch(fetchMyFeeDemands());
+    dispatch(fetchMyPayments());
+  }, [currentSection, dispatch]);
 
   const dashboardMenuItems = [
     { id: "home", label: "Home", path: "/dashboard", icon: FiHome },
@@ -155,7 +214,9 @@ const StudentDashboardShell = ({
     { id: "attendance", label: "Attendance", path: "/dashboard/attendance", icon: FiActivity },
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
     { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
+    { id: "exam-registration", label: "Exam Registration", path: "/dashboard/exam-registration", icon: FiFileText },
     { id: "fees", label: "Fees", path: "/dashboard/fees", icon: FiDollarSign },
+    { id: "admit-card", label: "Admit Card", path: "/dashboard/admit-card", icon: FiFileText },
     { id: "jobs", label: "Jobs", path: "/dashboard/jobs", icon: FiBriefcase },
     { id: "linkedin", label: "LinkedIn AI", path: "/dashboard/linkedin", icon: FaLinkedin },
   ];
@@ -168,6 +229,20 @@ const StudentDashboardShell = ({
     .join("");
 
   const feeSummary = useMemo(() => {
+    const profileSummary = myFeeProfile?.feeSummary;
+    if (profileSummary) {
+      const total = Number(profileSummary.courseNetFee || 0);
+      const paid = Number(profileSummary.totalPaid || 0);
+      const remaining = Number(profileSummary.remainingFee || 0) || Math.max(total - paid, 0);
+      return { total, paid, remaining };
+    }
+
+    const demandTotal = (myDemands || []).reduce((s, d) => s + Number(d.totalAmount || 0), 0);
+    const demandPaid = (myDemands || []).reduce((s, d) => s + Number(d.paidAmount || 0), 0);
+    if (demandTotal > 0) {
+      return { total: demandTotal, paid: demandPaid, remaining: Math.max(demandTotal - demandPaid, 0) };
+    }
+
     const total =
       Number(roleDetails?.totalAcademicFee) ||
       Number(roleDetails?.fees?.academic?.total) ||
@@ -178,7 +253,7 @@ const StudentDashboardShell = ({
       0;
     const remaining = Math.max(total - paid, 0);
     return { total, paid, remaining };
-  }, [roleDetails]);
+  }, [myFeeProfile, myDemands, roleDetails]);
 
   const formatAmount = (value) =>
     new Intl.NumberFormat("en-IN", {
@@ -187,27 +262,35 @@ const StudentDashboardShell = ({
       maximumFractionDigits: 0,
     }).format(Number(value) || 0);
 
-  const dateWiseAttendance = useMemo(() => {
-    const rows = [];
-    (attendanceData || []).forEach((entry) => {
-      const course = entry.course || {};
-      (entry.recentSessions || []).forEach((session) => {
-        rows.push({
-          date: session.date,
-          courseCode: course.code || "N/A",
-          courseName: course.courseName || "Course",
-          status: session.status || "no-data",
-        });
-      });
-    });
-    rows.sort((a, b) => new Date(b.date) - new Date(a.date));
-    return rows;
-  }, [attendanceData]);
-
   const handleMenuClick = (item) => {
     navigate(item.path);
     if (window.innerWidth < 769) {
       setIsSidebarOpen(false);
+    }
+  };
+
+  const submitDemandRequest = async (event) => {
+    event.preventDefault();
+    if (!demandRequestForm.academicYear || !demandRequestForm.semesterNo) {
+      toast.error("Academic year and semester are required");
+      return;
+    }
+
+    try {
+      await dispatch(
+        createMyDemandRequest({
+          academicYear: String(demandRequestForm.academicYear || "").trim(),
+          semesterNo: Number(demandRequestForm.semesterNo),
+          dueDate: demandRequestForm.dueDate || null,
+          hostelAmount: Number(demandRequestForm.hostelAmount || 0),
+          transportAmount: Number(demandRequestForm.transportAmount || 0),
+          note: String(demandRequestForm.note || "").trim(),
+        })
+      ).unwrap();
+      toast.success("Demand request sent to admin");
+      setDemandRequestForm((prev) => ({ ...prev, note: "", dueDate: "" }));
+    } catch (error) {
+      toast.error(error || "Failed to submit demand request");
     }
   };
 
@@ -273,66 +356,265 @@ const StudentDashboardShell = ({
     </div>
   );
 
-  const renderDateWiseAttendance = () => (
-    <section className="student-attendance-table-card rounded-2xl border border-gray-100 bg-white shadow-md">
-      <h3>Date-wise Attendance</h3>
-      {dateWiseAttendance.length === 0 ? (
-        <p className="student-empty-state">No date-wise attendance data available.</p>
-      ) : (
-        <div className="student-attendance-table-wrap">
-          <table className="student-attendance-table border-separate [border-spacing:0_0.75rem]">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Course</th>
-                <th>Subject</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {dateWiseAttendance.map((row, idx) => (
-                <tr
-                  key={`${row.date}-${row.courseCode}-${idx}`}
-                  className="group transition-all duration-200 ease-in-out hover:scale-[1.01] hover:shadow-sm"
-                >
-                  <td className="rounded-l-xl border-y border-l border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
-                    {Number.isNaN(new Date(row.date).getTime())
-                      ? "N/A"
-                      : new Date(row.date).toLocaleDateString("en-IN")}
-                  </td>
-                  <td className="border-y border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
-                    {row.courseCode}
-                  </td>
-                  <td className="border-y border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
-                    {row.courseName}
-                  </td>
-                  <td className="rounded-r-xl border-y border-r border-gray-100 px-4 py-3 transition-all duration-200 ease-in-out group-hover:bg-gray-50">
-                    <span
-                      className={`inline-flex rounded-lg px-4 py-1.5 text-sm font-medium text-white shadow-sm transition-all duration-200 ease-in-out ${
-                        row.status === "present"
-                          ? "bg-emerald-600 hover:bg-emerald-700"
-                          : row.status === "absent"
-                          ? "bg-red-600 hover:bg-red-700"
-                          : "bg-gray-500 hover:bg-gray-600"
-                      }`}
-                    >
-                      {row.status === "present"
-                        ? "Present"
-                        : row.status === "absent"
-                        ? "Absent"
-                        : "No Data"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </section>
-  );
+  const renderAttendancePage = () => {
+    const totalClasses = overallAttendance?.totalSessions || 0;
+    const attended = overallAttendance?.presentCount || 0;
+    const missed = totalClasses - attended;
+    const percentage = totalClasses > 0
+      ? Number(((attended / totalClasses) * 100).toFixed(1))
+      : 0;
 
-  const renderFees = () => (
+    const getColor = (pct) => {
+      if (pct >= 90) return "#e8590c";
+      if (pct >= 75) return "#e8590c";
+      return "#ef4444";
+    };
+
+    const subjectData = (attendanceData || []).map((entry) => {
+      const course = entry.course || {};
+      const total = entry.totalSessions || 0;
+      const present = entry.presentCount || 0;
+      const pct = total > 0 ? Number(((present / total) * 100).toFixed(0)) : 0;
+      const routeId = String(course._id || course.code || course.courseName || "subject")
+        .trim()
+        .replace(/\s+/g, "-")
+        .toLowerCase();
+      const sessions = Array.isArray(entry.recentSessions)
+        ? [...entry.recentSessions]
+            .map((session) => ({
+              date: session?.date,
+              status: String(session?.status || "no-data").toLowerCase(),
+            }))
+            .sort((a, b) => new Date(b.date) - new Date(a.date))
+        : [];
+      return {
+        name: course.courseName || course.code || "Course",
+        code: course.code || "",
+        routeId,
+        totalSessions: total,
+        presentCount: present,
+        percentage: pct,
+        sessions,
+      };
+    });
+
+    const selectedRouteId = decodeURIComponent(
+      String(location.pathname || "")
+        .replace(attendanceSubjectRoutePrefix, "")
+        .split("/")[0]
+        .trim()
+    );
+    const selectedSubject = subjectData.find((item) => item.routeId === selectedRouteId);
+
+    const lowestSubject = subjectData.length > 0
+      ? subjectData.reduce((low, s) => (s.percentage < low.percentage ? s : low), subjectData[0])
+      : null;
+    const tipSubject = lowestSubject && lowestSubject.percentage < 75 ? lowestSubject : null;
+    let classesNeeded = 0;
+    if (tipSubject) {
+      let needed = 0;
+      let t = tipSubject.totalSessions;
+      let p = tipSubject.presentCount;
+      while (t < 999 && (p / t) * 100 < 75) { t++; p++; needed++; }
+      classesNeeded = needed;
+    }
+
+    if (selectedRouteId) {
+      return (
+        <section className="stu-att-page">
+          <div className="stu-att-detail-card">
+            <button
+              type="button"
+              className="stu-att-detail-back"
+              onClick={() => navigate("/dashboard/attendance")}
+            >
+              <FiArrowLeft size={14} />
+              Back to Attendance
+            </button>
+            <div className="stu-att-detail-head">
+              <div>
+                <h3 className="stu-att-detail-name">{selectedSubject?.name || "Subject Attendance"}</h3>
+                {selectedSubject?.code && (
+                  <span className="stu-att-detail-code">{selectedSubject.code}</span>
+                )}
+              </div>
+              {selectedSubject && (
+                <div className="stu-att-detail-summary">
+                  <span className="stu-att-detail-chip stu-att-detail-chip--pct">{selectedSubject.percentage}%</span>
+                  <span className="stu-att-detail-chip stu-att-detail-chip--present">{selectedSubject.presentCount} Present</span>
+                  <span className="stu-att-detail-chip stu-att-detail-chip--absent">
+                    {Math.max(selectedSubject.totalSessions - selectedSubject.presentCount, 0)} Absent
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {!selectedSubject ? (
+              <p className="stu-att-detail-empty">Subject attendance not found.</p>
+            ) : selectedSubject.sessions.length === 0 ? (
+              <p className="stu-att-detail-empty">No session records available for this subject.</p>
+            ) : (
+              <div className="stu-att-detail-list">
+                {selectedSubject.sessions.map((session, index) => {
+                  const dateObj = new Date(session.date);
+                  const dateText = Number.isNaN(dateObj.getTime())
+                    ? "N/A"
+                    : dateObj.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+                  const dayText = Number.isNaN(dateObj.getTime())
+                    ? ""
+                    : dateObj.toLocaleDateString("en-IN", { weekday: "short" });
+                  const status = session.status === "present"
+                    ? "present"
+                    : session.status === "absent"
+                    ? "absent"
+                    : "no-data";
+                  return (
+                    <div key={`${selectedSubject.routeId}-${session.date || "na"}-${index}`} className="stu-att-detail-row">
+                      <div className="stu-att-detail-date">
+                        <span className="stu-att-detail-date-main">{dateText}</span>
+                        <span className="stu-att-detail-date-day">{dayText}</span>
+                      </div>
+                      <span className={`stu-att-detail-badge stu-att-detail-badge--${status}`}>
+                        {status === "present" ? "Present" : status === "absent" ? "Absent" : "No Data"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </section>
+      );
+    }
+
+    return (
+      <section className="stu-att-page">
+        {/* Overall Attendance Card */}
+        <div className="stu-att-overall-card">
+          <h3 className="stu-att-overall-title">Overall Attendance</h3>
+          <div className="stu-att-circle-wrap">
+            <svg viewBox="0 0 140 140" className="stu-att-circle-svg">
+              <circle cx="70" cy="70" r="58" fill="none" stroke="#f1f5f9" strokeWidth="11" />
+              <circle
+                cx="70" cy="70" r="58"
+                fill="none"
+                stroke={getColor(percentage)}
+                strokeWidth="11"
+                strokeLinecap="round"
+                strokeDasharray={`${(percentage / 100) * 364.42} 364.42`}
+                transform="rotate(-90 70 70)"
+                style={{ transition: "stroke-dasharray 0.8s ease" }}
+              />
+            </svg>
+            <div className="stu-att-circle-text">
+              <span className="stu-att-circle-pct">{percentage}%</span>
+              <span className="stu-att-circle-label">PRESENT</span>
+            </div>
+          </div>
+          <div className="stu-att-stats-row">
+            <div className="stu-att-stat">
+              <span className="stu-att-stat-label">TOTAL</span>
+              <span className="stu-att-stat-value">{totalClasses}</span>
+            </div>
+            <div className="stu-att-stat-divider" />
+            <div className="stu-att-stat">
+              <span className="stu-att-stat-label stu-att-stat-label--attended">ATTENDED</span>
+              <span className="stu-att-stat-value stu-att-stat-value--attended">{attended}</span>
+            </div>
+            <div className="stu-att-stat-divider" />
+            <div className="stu-att-stat">
+              <span className="stu-att-stat-label stu-att-stat-label--missed">MISSED</span>
+              <span className="stu-att-stat-value stu-att-stat-value--missed">{missed}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Subject-wise Analysis */}
+        {subjectData.length > 0 && (
+          <div className="stu-att-subject-card">
+            <div className="stu-att-subject-header">
+              <h3 className="stu-att-subject-title">Subject-wise Analysis</h3>
+            </div>
+            <div className="stu-att-subject-list">
+              {subjectData.map((sub, idx) => {
+                const barColor = sub.percentage >= 75 ? "#e8590c" : "#ef4444";
+                const isLow = sub.percentage < 75;
+                return (
+                  <div
+                    key={idx}
+                    className="stu-att-subject-item stu-att-subject-item--clickable"
+                    onClick={() =>
+                      navigate(`${attendanceSubjectRoutePrefix}${encodeURIComponent(sub.routeId)}`)
+                    }
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        navigate(`${attendanceSubjectRoutePrefix}${encodeURIComponent(sub.routeId)}`);
+                      }
+                    }}
+                  >
+                    <div className="stu-att-subject-row">
+                      <div className="stu-att-subject-info">
+                        <span className="stu-att-subject-name">{sub.name}</span>
+                        <span className="stu-att-subject-hint">Tap to view all dates</span>
+                      </div>
+                      <div className="stu-att-subject-nums">
+                        <span className="stu-att-subject-pct" style={{ color: barColor }}>{sub.percentage}%</span>
+                        <span className="stu-att-subject-count">{sub.presentCount} / {sub.totalSessions} classes</span>
+                      </div>
+                    </div>
+                    <div className="stu-att-bar-track">
+                      <div
+                        className="stu-att-bar-fill"
+                        style={{
+                          width: `${Math.min(sub.percentage, 100)}%`,
+                          background: barColor,
+                          transition: "width 0.6s ease",
+                        }}
+                      />
+                    </div>
+                    {isLow && (
+                      <span className="stu-att-below-threshold">Below threshold (75%)</span>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Attendance Tip */}
+        {tipSubject && classesNeeded > 0 && (
+          <div className="stu-att-tip-card">
+            <div className="stu-att-tip-icon">
+              <FiAlertCircle size={22} />
+            </div>
+            <div className="stu-att-tip-body">
+              <span className="stu-att-tip-title">Attendance Tip</span>
+              <span className="stu-att-tip-text">
+                Attend the next {classesNeeded} {tipSubject.name} classes to reach the 75% goal.
+              </span>
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  const renderFees = () => {
+    const demandsList = myDemands || [];
+    const paymentsList = myPayments || [];
+    const profile = myFeeProfile;
+
+    const pendingDemands = demandsList.filter((d) => d.status === "PENDING" || d.status === "PARTIAL").length;
+    const paidDemands = demandsList.filter((d) => d.status === "PAID").length;
+    const totalDemandAmount = demandsList.reduce((s, d) => s + Number(d.totalAmount || 0), 0);
+    const totalPaidAmount = demandsList.reduce((s, d) => s + Number(d.paidAmount || 0), 0);
+    const collectionRate = totalDemandAmount > 0 ? ((totalPaidAmount / totalDemandAmount) * 100) : 0;
+    const successPayments = paymentsList.filter((p) => p.status === "SUCCESS").length;
+
+    return (
     <section className="student-fees-page mt-10 rounded-2xl border border-gray-100 bg-white p-8 shadow-sm">
       <h3 className="relative z-10 text-2xl font-semibold text-gray-800">Fee Overview</h3>
       <div className="relative z-10 mt-6">
@@ -341,15 +623,372 @@ const StudentDashboardShell = ({
           cardClassName: "student-summary-card--hoverable",
         })}
       </div>
+
+      {/* Admin-style info cards */}
+      <div className="relative z-10 mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <FiFileText size={18} />
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Demands</span>
+          <span className="text-xl font-semibold text-slate-800">{demandsList.length}</span>
+          <span className="text-xs text-slate-400">{formatAmount(totalDemandAmount)} generated</span>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
+            <FiClock size={18} />
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Pending</span>
+          <span className="text-xl font-semibold text-slate-800">{pendingDemands}</span>
+          <span className="text-xs text-slate-400">{pendingDemands === 1 ? "demand" : "demands"} unpaid</span>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
+            <FiCheckCircle size={18} />
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Paid Demands</span>
+          <span className="text-xl font-semibold text-slate-800">{paidDemands}</span>
+          <span className="text-xs text-slate-400">{formatAmount(totalPaidAmount)} collected</span>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-violet-50 to-white p-4 shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
+            <FiCreditCard size={18} />
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Payments</span>
+          <span className="text-xl font-semibold text-slate-800">{successPayments}</span>
+          <span className="text-xs text-slate-400">{paymentsList.length} total transactions</span>
+        </div>
+
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-cyan-50 to-white p-4 shadow-sm">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-100 text-cyan-600">
+            <FiPercent size={18} />
+          </div>
+          <span className="text-xs font-medium uppercase tracking-wide text-slate-500">Collection Rate</span>
+          <span className="text-xl font-semibold text-slate-800">{collectionRate.toFixed(1)}%</span>
+          <span className="text-xs text-slate-400">
+            {profile?.programId?.programName || profile?.branchId?.branchName || ""}
+          </span>
+        </div>
+      </div>
+
+      {/* Semester-wise demands table */}
+      {demandsList.length > 0 && (
+        <div className="relative z-10 mt-6 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <FiFileText className="text-blue-500" size={18} />
+            <h4 className="text-base font-semibold text-slate-700">Semester-wise Demands</h4>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <th className="pb-2 pr-4">Year</th>
+                  <th className="pb-2 pr-4">Sem</th>
+                  <th className="pb-2 pr-4">Total</th>
+                  <th className="pb-2 pr-4">Paid</th>
+                  <th className="pb-2 pr-4">Due</th>
+                  <th className="pb-2 pr-4">Status</th>
+                  <th className="pb-2">Due Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {demandsList.map((d) => (
+                  <tr key={d._id} className="border-t border-slate-50 transition hover:bg-slate-50">
+                    <td className="py-2.5 pr-4 text-slate-700">{d.academicYear || "-"}</td>
+                    <td className="py-2.5 pr-4 text-slate-700">{d.semesterNo || "-"}</td>
+                    <td className="py-2.5 pr-4 font-medium text-slate-800">{formatAmount(d.totalAmount)}</td>
+                    <td className="py-2.5 pr-4 text-emerald-600">{formatAmount(d.paidAmount)}</td>
+                    <td className="py-2.5 pr-4 text-red-500">{formatAmount(d.dueAmount)}</td>
+                    <td className="py-2.5 pr-4">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                        d.status === "PAID" ? "bg-emerald-50 text-emerald-700"
+                        : d.status === "PARTIAL" ? "bg-amber-50 text-amber-700"
+                        : d.status === "PENDING" ? "bg-blue-50 text-blue-700"
+                        : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {d.status === "PAID" && <FiCheckCircle size={12} />}
+                        {d.status === "PENDING" && <FiClock size={12} />}
+                        {d.status === "PARTIAL" && <FiAlertCircle size={12} />}
+                        {d.status || "N/A"}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-slate-500">
+                      {d.dueDate ? new Date(d.dueDate).toLocaleDateString("en-IN") : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Payment History */}
+      {paymentsList.length > 0 && (
+        <div className="relative z-10 mt-6 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center gap-2">
+            <FiCreditCard className="text-violet-500" size={18} />
+            <h4 className="text-base font-semibold text-slate-700">Payment History</h4>
+          </div>
+          <div className="mt-3 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
+                  <th className="pb-2 pr-4">Date</th>
+                  <th className="pb-2 pr-4">Amount</th>
+                  <th className="pb-2 pr-4">Mode</th>
+                  <th className="pb-2 pr-4">Status</th>
+                  <th className="pb-2 pr-4">Receipt</th>
+                  <th className="pb-2">Semester</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentsList.map((p) => (
+                  <tr key={p._id} className="border-t border-slate-50 transition hover:bg-slate-50">
+                    <td className="py-2.5 pr-4 text-slate-700">
+                      {p.paidAt ? new Date(p.paidAt).toLocaleDateString("en-IN") : p.createdAt ? new Date(p.createdAt).toLocaleDateString("en-IN") : "-"}
+                    </td>
+                    <td className="py-2.5 pr-4 font-medium text-slate-800">{formatAmount(p.amount)}</td>
+                    <td className="py-2.5 pr-4 text-slate-600">{p.mode || "-"}</td>
+                    <td className="py-2.5 pr-4">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${
+                        p.status === "SUCCESS" ? "bg-emerald-50 text-emerald-700"
+                        : p.status === "PENDING" ? "bg-amber-50 text-amber-700"
+                        : p.status === "FAILED" ? "bg-red-50 text-red-700"
+                        : "bg-slate-100 text-slate-600"
+                      }`}>
+                        {p.status === "SUCCESS" && <FiCheckCircle size={12} />}
+                        {p.status === "PENDING" && <FiClock size={12} />}
+                        {p.status === "FAILED" && <FiAlertCircle size={12} />}
+                        {p.status || "N/A"}
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-4 text-slate-500">{p.receiptNo || "-"}</td>
+                    <td className="py-2.5 text-slate-500">
+                      {p.demandId?.semesterNo ? `Sem ${p.demandId.semesterNo}` : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <form
+          onSubmit={submitDemandRequest}
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        >
+          <div className="flex items-center gap-2">
+            <FiDollarSign className="text-blue-600" size={22} />
+            <h4 className="text-lg font-semibold text-slate-800">Request New Fee Demand</h4>
+          </div>
+          <p className="mt-1 text-sm text-slate-500">Send a message to admin for demand generation.</p>
+
+          {/* Academic Details */}
+          <div className="mt-5">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+              <HiOutlineAcademicCap size={16} className="text-indigo-500" />
+              Academic Details
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="text-sm text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <FiCalendar size={14} className="text-slate-400" />
+                  Academic Year
+                </span>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  type="text"
+                  placeholder="2026-27"
+                  value={demandRequestForm.academicYear}
+                  onChange={(event) =>
+                    setDemandRequestForm((prev) => ({
+                      ...prev,
+                      academicYear: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <FiHash size={14} className="text-slate-400" />
+                  Semester
+                </span>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  type="number"
+                  min="1"
+                  max="20"
+                  value={demandRequestForm.semesterNo}
+                  onChange={(event) =>
+                    setDemandRequestForm((prev) => ({
+                      ...prev,
+                      semesterNo: event.target.value,
+                    }))
+                  }
+                  required
+                />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <FiCalendar size={14} className="text-slate-400" />
+                  Due Date (optional)
+                </span>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  type="date"
+                  value={demandRequestForm.dueDate}
+                  onChange={(event) =>
+                    setDemandRequestForm((prev) => ({
+                      ...prev,
+                      dueDate: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Fee Amounts */}
+          <div className="mt-5">
+            <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600">
+              <FiDollarSign size={16} className="text-emerald-500" />
+              Fee Amounts
+            </div>
+            <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="text-sm text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <HiOutlineBuildingOffice size={14} className="text-slate-400" />
+                  Hostel Amount
+                </span>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  type="number"
+                  min="0"
+                  value={demandRequestForm.hostelAmount}
+                  onChange={(event) =>
+                    setDemandRequestForm((prev) => ({
+                      ...prev,
+                      hostelAmount: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label className="text-sm text-slate-700">
+                <span className="flex items-center gap-1.5">
+                  <FiTruck size={14} className="text-slate-400" />
+                  Transport Amount
+                </span>
+                <input
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  type="number"
+                  min="0"
+                  value={demandRequestForm.transportAmount}
+                  onChange={(event) =>
+                    setDemandRequestForm((prev) => ({
+                      ...prev,
+                      transportAmount: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+            </div>
+          </div>
+
+          {/* Message */}
+          <div className="mt-5">
+            <label className="text-sm text-slate-700">
+              <span className="flex items-center gap-1.5">
+                <FiMessageSquare size={14} className="text-slate-400" />
+                Message to Admin
+              </span>
+              <textarea
+                className="mt-1 min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                placeholder="Write your request details..."
+                value={demandRequestForm.note}
+                onChange={(event) =>
+                  setDemandRequestForm((prev) => ({
+                    ...prev,
+                    note: event.target.value,
+                  }))
+                }
+                maxLength={500}
+              />
+            </label>
+          </div>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              type="submit"
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+              disabled={feeActionLoading}
+            >
+              <FiSend size={15} />
+              {feeActionLoading ? "Sending..." : "Send Demand Request"}
+            </button>
+            <button
+              type="button"
+              className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-slate-700 hover:bg-slate-50"
+              onClick={() => dispatch(fetchMyDemandRequests())}
+              disabled={feeLoading}
+            >
+              <FiRefreshCw size={15} className={feeLoading ? "animate-spin" : ""} />
+              {feeLoading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+        </form>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h4 className="text-lg font-semibold text-slate-800">My Demand Requests</h4>
+          <div className="mt-4 overflow-x-auto">
+            <table className="min-w-full text-sm">
+              <thead className="text-left text-slate-500">
+                <tr>
+                  <th className="pb-2 pr-4">Year</th>
+                  <th className="pb-2 pr-4">Sem</th>
+                  <th className="pb-2 pr-4">Status</th>
+                  <th className="pb-2 pr-4">Message</th>
+                  <th className="pb-2">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(myDemandRequests || []).map((row) => (
+                  <tr key={row._id} className="border-t border-slate-100">
+                    <td className="py-2 pr-4">{row.academicYear || "-"}</td>
+                    <td className="py-2 pr-4">{row.semesterNo || "-"}</td>
+                    <td className="py-2 pr-4">{row.status || "-"}</td>
+                    <td className="max-w-[220px] truncate py-2 pr-4">{row.note || "-"}</td>
+                    <td className="py-2">
+                      {row.createdAt
+                        ? new Date(row.createdAt).toLocaleDateString("en-IN")
+                        : "-"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {Array.isArray(myDemandRequests) && myDemandRequests.length === 0 && (
+              <p className="mt-3 text-sm text-slate-500">No demand requests submitted yet.</p>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
-  );
+    );
+  };
 
   const renderContent = () => {
     if (currentSection === "profile") {
       return <StudentDetails studentData={resolvedStudentData} />;
     }
     if (currentSection === "attendance") {
-      return renderDateWiseAttendance();
+      return renderAttendancePage();
     }
     if (currentSection === "courses") {
       return (
@@ -363,8 +1002,14 @@ const StudentDashboardShell = ({
     if (currentSection === "exams") {
       return <StudentExamCenter onExamFocusModeChange={setIsExamFocusMode} />;
     }
+    if (currentSection === "exam-registration") {
+      return <StudentExamRegistration />;
+    }
     if (currentSection === "fees") {
       return renderFees();
+    }
+    if (currentSection === "admit-card") {
+      return <StudentAdmitCard />;
     }
     if (currentSection === "hostel") {
       return <StudentHostel />;
@@ -533,6 +1178,3 @@ const StudentDashboardShell = ({
 };
 
 export default StudentDashboardShell;
-
-
-

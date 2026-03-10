@@ -1,4 +1,6 @@
 import jwt from "jsonwebtoken";
+import User from "../models/userModel.js";
+import { resolvePermissionsForUser } from "../utils/rolePermissions.js";
 
 const isAuth = async (req, res, next) => {
   try {
@@ -11,7 +13,7 @@ const isAuth = async (req, res, next) => {
       ? String(authHeader).split(/\s+/)[1]
       : "";
 
-    const candidates = [cookieToken, bearerToken].filter(Boolean);
+    const candidates = [bearerToken, cookieToken].filter(Boolean);
 
     if (!candidates.length) {
       return res.status(401).json({
@@ -22,8 +24,26 @@ const isAuth = async (req, res, next) => {
     for (const token of candidates) {
       try {
         const verifyToken = jwt.verify(token, process.env.JWT_SECRET);
+        const tokenRole = String(verifyToken?.role || "").trim().toLowerCase();
+
+        if (tokenRole === "parent") {
+          req.userId = verifyToken.userId;
+          req.role = "parent";
+          req.permissions = [];
+          return next();
+        }
+
+        const currentUser = await User.findById(verifyToken.userId).select(
+          "role permissions permissionRoles"
+        );
+
         req.userId = verifyToken.userId;
-        req.role = verifyToken.role;
+        req.role = currentUser?.role || verifyToken.role;
+        req.permissions = resolvePermissionsForUser({
+          role: req.role,
+          permissions: currentUser?.permissions,
+          permissionRoles: currentUser?.permissionRoles,
+        });
         return next();
       } catch (_) {
         // Try next token candidate.

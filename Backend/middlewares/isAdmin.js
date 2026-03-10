@@ -1,4 +1,6 @@
 import jwt from "jsonwebtoken";
+import User from "../models/userModel.js";
+import { hasPermission, resolvePermissionsForUser } from "../utils/rolePermissions.js";
 
 const isAdmin = async (req, res, next) => {
   try {
@@ -28,18 +30,27 @@ const isAdmin = async (req, res, next) => {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const currentUser = await User.findById(decoded.userId).select(
+        "role permissions"
+      );
+      const resolvedRole = currentUser?.role || decoded.role;
 
       console.log("[isAdmin] Decoded token", decoded);
 
-      if (decoded.role !== "admin") {
-        console.warn("[isAdmin] Non-admin role attempted access", decoded.role);
+      const permissions = resolvePermissionsForUser({
+        role: resolvedRole,
+        permissions: currentUser?.permissions,
+      });
+      if (!hasPermission(permissions, "portal.admin")) {
+        console.warn("[isAdmin] Non-admin-panel role attempted access", resolvedRole);
         return res.status(403).json({
-          message: "Access denied. Admin privileges required.",
+          message: "Access denied. Admin panel privileges required.",
         });
       }
 
       req.userId = decoded.userId;
-      req.role = decoded.role;
+      req.role = resolvedRole;
+      req.permissions = permissions;
 
       console.log("[isAdmin] Admin authorized", {
         userId: req.userId,

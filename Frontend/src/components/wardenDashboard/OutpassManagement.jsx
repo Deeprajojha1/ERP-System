@@ -11,8 +11,11 @@ import {
   Camera,
   X,
   Download,
+  Download,
 } from "lucide-react";
 import { Html5Qrcode } from "html5-qrcode";
+import * as XLSX from "xlsx";
+import toast from "react-hot-toast";
 import * as XLSX from "xlsx";
 import toast from "react-hot-toast";
 import Sidebar from "./Sidebar";
@@ -35,6 +38,7 @@ import {
   scanWardenOutpassQrApi,
   updateWardenOutpassApi,
 } from "./constants/wardenApi";
+import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 
 const normalizeScannedToken = (decodedText) => {
@@ -107,6 +111,10 @@ function OutpassManagement({ portalRole = "warden" }) {
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [isDetectingQr, setIsDetectingQr] = useState(false);
+  const [reportExporting, setReportExporting] = useState("");
+  const [reportRange, setReportRange] = useState("all");
+  const [reportSpecificDate, setReportSpecificDate] = useState("");
+  const [reportStatusFilter, setReportStatusFilter] = useState("all");
   const [reportExporting, setReportExporting] = useState("");
   const [reportRange, setReportRange] = useState("all");
   const [reportSpecificDate, setReportSpecificDate] = useState("");
@@ -609,6 +617,7 @@ function OutpassManagement({ portalRole = "warden" }) {
       await scanner.start(
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 340, height: 340 } },
+        { fps: 10, qrbox: { width: 340, height: 340 } },
         async (decodedText) => {
           if (scanProcessingRef.current) return;
           const token = normalizeScannedToken(decodedText);
@@ -871,10 +880,74 @@ function OutpassManagement({ portalRole = "warden" }) {
 	            <section aria-label="Outpass History">
 	              <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
 	                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+	                <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
 	                  <div className="flex items-center gap-2">
 	                    <FileText className="h-5 w-5 text-blue-600" aria-hidden="true" />
 	                    <h3 className="text-lg font-semibold text-gray-900">Outpass History</h3>
 	                  </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <select
+                        value={reportRange}
+                        onChange={(e) => setReportRange(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        aria-label="Select report period"
+                      >
+                        <option value="all">All</option>
+                        <option value="today">Today</option>
+                        <option value="week">Week</option>
+                        <option value="month">Month</option>
+                        <option value="year">Year</option>
+                        <option value="date">Choose Date</option>
+                      </select>
+                      <select
+                        value={reportStatusFilter}
+                        onChange={(e) => setReportStatusFilter(e.target.value)}
+                        className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                        aria-label="Select status for report download"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Approved">Approved</option>
+                        <option value="Rejected">Rejected</option>
+                      </select>
+                      {reportRange === "date" ? (
+                        <input
+                          type="date"
+                          value={reportSpecificDate}
+                          onChange={(e) => setReportSpecificDate(e.target.value)}
+                          className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                          aria-label="Select particular report date"
+                        />
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={handleDownloadPdfReport}
+                        disabled={
+                          loading ||
+                          reportExporting === "pdf" ||
+                          reportExporting === "excel" ||
+                          (reportRange === "date" && !reportSpecificDate)
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {reportExporting === "pdf" ? "Downloading PDF..." : "Download PDF"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDownloadExcelReport}
+                        disabled={
+                          loading ||
+                          reportExporting === "pdf" ||
+                          reportExporting === "excel" ||
+                          (reportRange === "date" && !reportSpecificDate)
+                        }
+                        className="inline-flex items-center gap-1 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {reportExporting === "excel" ? "Downloading Excel..." : "Download Excel"}
+                      </button>
+                    </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <select
                         value={reportRange}
@@ -995,6 +1068,12 @@ function OutpassManagement({ portalRole = "warden" }) {
                           Room No
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Student Name
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
+                          Room No
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                           From Date
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
@@ -1017,6 +1096,12 @@ function OutpassManagement({ portalRole = "warden" }) {
                     <tbody className="divide-y divide-gray-200">
                       {filteredOutpasses.map((outpass) => (
                         <tr key={outpass.id} className="transition-colors hover:bg-gray-50">
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {outpass?.student?.name || outpass?.studentName || "N/A"}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900">
+                            {outpass?.roomNumber || outpass?.room?.roomNumber || "N/A"}
+                          </td>
                           <td className="px-4 py-3 text-sm text-gray-900">
                             {outpass?.student?.name || outpass?.studentName || "N/A"}
                           </td>
@@ -1084,6 +1169,7 @@ function OutpassManagement({ portalRole = "warden" }) {
       {isCameraOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-4xl rounded-xl bg-white p-4 shadow-2xl">
+          <div className="w-full max-w-4xl rounded-xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-900">Scan Student QR</h3>
               <button
@@ -1096,6 +1182,7 @@ function OutpassManagement({ portalRole = "warden" }) {
               </button>
             </div>
             <div className="overflow-hidden rounded-lg border border-gray-200 bg-black">
+              <div id={scannerRegionId} className="min-h-[560px] w-full" />
               <div id={scannerRegionId} className="min-h-[560px] w-full" />
             </div>
             <p className="mt-3 text-sm text-gray-600">

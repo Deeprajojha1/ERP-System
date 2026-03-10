@@ -99,7 +99,7 @@ const Login = () => {
         navigate("/faculty/faculty-dashboard", { replace: true });
       } else if (res.data.user.role === "student") {
         navigate("/dashboard", { replace: true });
-      } else if (res.data.user.role === "admin") {
+      } else if (["admin", "accounts", "hod", "exam", "placement", "director", "vc"].includes(res.data.user.role)) {
         navigate("/admin/dashboard", { replace: true });
       } else if (res.data.user.role === "warden") {
         navigate("/warden-dashboard", { replace: true });
@@ -427,6 +427,11 @@ const Login = () => {
         <div className="login-register-row">
           <span>Don't have an account?</span>{" "}
           <Link to="/register">Register here</Link>
+        </div>
+
+        <div className="parent-login-row">
+          <span>Parent/Guardian?</span>{" "}
+          <Link to="/parent/login">Go to Parent Login</Link>
         </div>
       </div>
     </div>

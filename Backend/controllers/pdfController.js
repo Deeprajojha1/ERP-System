@@ -1,4 +1,4 @@
-import puppeteer from "puppeteer";
+import puppeteer from "puppeteer-core";
 
 const getLaunchArgs = () => [
   ...(process.platform === "linux"
@@ -11,15 +11,12 @@ const getLaunchArgs = () => [
 const getExecutableCandidates = () => {
   const candidates = [];
 
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    candidates.push(process.env.PUPPETEER_EXECUTABLE_PATH);
+  if (process.env.CHROMIUM_PATH) {
+    candidates.push(process.env.CHROMIUM_PATH);
   }
 
-  try {
-    const bundledPath = puppeteer.executablePath?.();
-    if (bundledPath) candidates.push(bundledPath);
-  } catch (_) {
-    // no-op
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    candidates.push(process.env.PUPPETEER_EXECUTABLE_PATH);
   }
 
   candidates.push(
@@ -57,17 +54,8 @@ const launchBrowser = async () => {
     }
   }
 
-  try {
-    return await puppeteer.launch({
-      headless: true,
-      args,
-    });
-  } catch (error) {
-    errors.push(`default: ${error.message}`);
-  }
-
   throw new Error(
-    `Unable to launch Chromium for PDF rendering. Tried: ${errors.join(" | ")}`
+    `Unable to launch system Chromium for PDF rendering. Tried: ${errors.join(" | ")}`
   );
 };
 
