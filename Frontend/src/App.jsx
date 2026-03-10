@@ -75,6 +75,7 @@ import ParentAssignments from "./components/parent/ParentAssignments";
 import ParentExams from "./components/parent/ParentExams";
 import ParentFees from "./components/parent/ParentFees";
 import { canAccessAdminPanel } from "./utils/permissions";
+import { normalizeRole } from "./utils/roles";
 
 const LAST_FAILED_ROUTE_KEY = "lastFailedRoute";
 const OFFLINE_REDIRECT_DELAY_MS = 1500;
@@ -84,9 +85,8 @@ function App() {
 
   const userData = useSelector((state) => state.user.userData);
   const isAdminPanelUser = canAccessAdminPanel(userData);
-  const currentRole = String(userData?.user?.role || "").trim();
-  const isGateSecurityUser = ["gateSecurity", "gate-security", "gate_security"].includes(currentRole);
-  console.log("Current User",userData);
+  const normalizedRole = normalizeRole(userData?.user?.role);
+  const isGateSecurityUser = normalizedRole === "gateSecurity";
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -102,7 +102,7 @@ function App() {
       return;
     }
 
-    const role = userData.user.role;
+    const role = normalizeRole(userData.user.role);
     const isAllowedRoute =
       savedRoute.startsWith("/network-error") ||
       savedRoute.startsWith("/page-not-found") ||
@@ -182,13 +182,13 @@ function App() {
           path="/"
           element={
             userData ? (
-              userData.user?.role === "faculty" ? (
+              normalizedRole === "faculty" ? (
                 <Navigate to="/faculty/faculty-dashboard" replace />
               ) : isAdminPanelUser ? (
                 <Navigate to="/admin/dashboard" replace />
-              ) : userData.user?.role === "warden" ? (
+              ) : normalizedRole === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
-              ) : userData.user?.role === "gateSecurity" ? (
+              ) : isGateSecurityUser ? (
                 <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
@@ -203,13 +203,13 @@ function App() {
           path="/login"
           element={
             userData ? (
-              userData.user?.role === "faculty" ? (
+              normalizedRole === "faculty" ? (
                 <Navigate to="/faculty/faculty-dashboard" replace />
               ) : isAdminPanelUser ? (
                 <Navigate to="/admin/dashboard" replace />
-              ) : userData.user?.role === "warden" ? (
+              ) : normalizedRole === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
-              ) : userData.user?.role === "gateSecurity" ? (
+              ) : isGateSecurityUser ? (
                 <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
@@ -224,13 +224,13 @@ function App() {
           path="/reset-password"
           element={
             userData ? (
-              userData.user?.role === "faculty" ? (
+              normalizedRole === "faculty" ? (
                 <Navigate to="/faculty/faculty-dashboard" replace />
               ) : isAdminPanelUser ? (
                 <Navigate to="/admin/dashboard" replace />
-              ) : userData.user?.role === "warden" ? (
+              ) : normalizedRole === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
-              ) : userData.user?.role === "gateSecurity" ? (
+              ) : isGateSecurityUser ? (
                 <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
@@ -245,13 +245,13 @@ function App() {
           path="/register"
           element={
             userData ? (
-              userData.user?.role === "faculty" ? (
+              normalizedRole === "faculty" ? (
                 <Navigate to="/faculty/faculty-dashboard" replace />
               ) : isAdminPanelUser ? (
                 <Navigate to="/admin/dashboard" replace />
-              ) : userData.user?.role === "warden" ? (
+              ) : normalizedRole === "warden" ? (
                 <Navigate to="/warden-dashboard" replace />
-              ) : userData.user?.role === "gateSecurity" ? (
+              ) : isGateSecurityUser ? (
                 <Navigate to="/gate-security-dashboard" replace />
               ) : (
                 <Navigate to="/dashboard" replace />
@@ -265,7 +265,7 @@ function App() {
         <Route
           path="/faculty/*"
           element={
-            userData?.user?.role === "faculty" ? (
+            normalizedRole === "faculty" ? (
               <Routes>
                 <Route path="faculty-dashboard" element={<FacultyErpDashboard />} />
                 <Route path="profile-edit" element={<FacultyEditProfile />} />
@@ -280,7 +280,7 @@ function App() {
         <Route
           path="/dashboard/*"
           element={
-            userData?.user?.role === "student" ? (
+            normalizedRole === "student" ? (
               <Dashboard />
             ) : (
               <Navigate to="/" replace />
@@ -291,7 +291,7 @@ function App() {
         <Route
           path="/warden-dashboard/*"
           element={
-            userData?.user?.role === "warden" ? (
+            normalizedRole === "warden" ? (
               <WardenDashboard />
             ) : (
               <Navigate to="/" replace />
@@ -301,7 +301,7 @@ function App() {
         <Route
           path="/warden-rooms/*"
           element={
-            userData?.user?.role === "warden" ? (
+            normalizedRole === "warden" ? (
               <RoomManagement />
             ) : (
               <Navigate to="/" replace />
@@ -311,7 +311,7 @@ function App() {
         <Route
           path="/warden-students/*"
           element={
-            userData?.user?.role === "warden" ? (
+            normalizedRole === "warden" ? (
               <StudentManagement />
             ) : (
               <Navigate to="/" replace />
@@ -321,7 +321,7 @@ function App() {
         <Route
           path="/warden-outpass/*"
           element={
-            userData?.user?.role === "warden" ? (
+            normalizedRole === "warden" ? (
               <OutpassManagement />
             ) : (
               <Navigate to="/" replace />
@@ -331,7 +331,7 @@ function App() {
         <Route
           path="/warden-complaints/*"
           element={
-            userData?.user?.role === "warden" ? (
+            normalizedRole === "warden" ? (
               <ComplaintManagement />
             ) : (
               <Navigate to="/" replace />
@@ -341,7 +341,7 @@ function App() {
         <Route
           path="/warden-menu/*"
           element={
-            userData?.user?.role === "warden" ? (
+            normalizedRole === "warden" ? (
               <FoodMenu />
             ) : (
               <Navigate to="/" replace />
@@ -351,7 +351,7 @@ function App() {
         <Route
           path="/warden-support/*"
           element={
-            userData?.user?.role === "warden" ? (
+            normalizedRole === "warden" ? (
               <WardenSupport />
             ) : (
               <Navigate to="/" replace />
@@ -361,7 +361,7 @@ function App() {
         <Route
           path="/warden-student-messages/*"
           element={
-            userData?.user?.role === "warden" ? (
+            normalizedRole === "warden" ? (
               <StudentMessages />
             ) : (
               <Navigate to="/" replace />
@@ -372,7 +372,7 @@ function App() {
         <Route
           path="/gate-security-dashboard/*"
           element={
-            userData?.user?.role === "gateSecurity" ? (
+            isGateSecurityUser ? (
               <GateSecurityDashboard />
             ) : (
               <Navigate to="/" replace />

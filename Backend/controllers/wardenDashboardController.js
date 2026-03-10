@@ -570,7 +570,6 @@ export const scanWardenOutpassQr = async (req, res) => {
     }
 
     outpass.logs = Array.isArray(outpass.logs) ? outpass.logs : [];
-    const scanActor = isGateSecurityRole(req.role) ? "Gate Security Scan" : "Warden Gate Scan";
     outpass.logs.push({
       action: phase === "EXIT" ? "Exited" : "Returned",
       by: scanActor,
