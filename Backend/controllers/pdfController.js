@@ -4,6 +4,8 @@ const getLaunchArgs = () => [
   ...(process.platform === "linux"
     ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
     : []),
+  "--single-process",
+  "--no-zygote",
   "--disable-gpu",
   "--no-first-run",
 ];
@@ -48,6 +50,8 @@ const launchBrowser = async () => {
         headless: true,
         executablePath,
         args,
+        timeout: 15000,
+        protocolTimeout: 45000,
       });
     } catch (error) {
       errors.push(`${executablePath}: ${error.message}`);

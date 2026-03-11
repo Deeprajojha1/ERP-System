@@ -54,14 +54,45 @@ const extractErrorMessage = async (error) => {
 };
 
 const openPrintFallback = (html) => {
-  const printWindow = window.open("", "_blank", "width=1000,height=800");
-  if (!printWindow) return false;
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  return true;
+  try {
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.setAttribute("aria-hidden", "true");
+
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      return false;
+    }
+
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    window.setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } finally {
+        window.setTimeout(() => {
+          if (iframe.parentNode) {
+            iframe.parentNode.removeChild(iframe);
+          }
+        }, 1200);
+      }
+    }, 300);
+
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 export const downloadPdfFromHtml = async (
