@@ -1,5 +1,7 @@
 import axios from "./axiosInstance";
 
+const TABULAR_EXPORT_TIMEOUT_MS = 120000;
+
 const sanitizeFileName = (name = "report") =>
   String(name)
     .replace(/[^\w.-]/g, "_")
@@ -55,7 +57,11 @@ export const downloadTabularFile = async (
         sheetName,
         reportMeta,
       },
-      { withCredentials: true, responseType: "blob" }
+      {
+        withCredentials: true,
+        responseType: "blob",
+        timeout: TABULAR_EXPORT_TIMEOUT_MS,
+      }
     );
 
     triggerBlobDownload(res.data, finalFileName);

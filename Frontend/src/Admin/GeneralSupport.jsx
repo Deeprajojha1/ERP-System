@@ -10,6 +10,8 @@ import { downloadTabularFile } from "../utils/tabularDownload";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 
+const REPORT_REQUEST_TIMEOUT_MS = 120000;
+
 const GeneralSupport = () => {
   const [reportType, setReportType] = useState("Attendance Report");
   const [department, setDepartment] = useState("All Departments");
@@ -288,6 +290,7 @@ const GeneralSupport = () => {
       case "Attendance Report": {
         const response = await axios.get(`${apiBase}/admin/attendance/export-report`, {
           withCredentials: true,
+          timeout: REPORT_REQUEST_TIMEOUT_MS,
           params: {
             fromDate: normalizeDateInput(fromDate),
             toDate: normalizeDateInput(toDate),
