@@ -82,6 +82,7 @@ function OutpassManagement({ portalRole = "warden" }) {
   // Filter states
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("");
+  const [toDateFilter, setToDateFilter] = useState("");
 
   const currentDate = useMemo(
     () =>
@@ -611,11 +612,18 @@ function OutpassManagement({ portalRole = "warden" }) {
       });
     }
 
+    if (toDateFilter) {
+      filtered = filtered.filter((op) => {
+        const opDate = new Date(op.fromDate).toISOString().split("T")[0];
+        return opDate <= toDateFilter;
+      });
+    }
+
     // Sort by most recent first
     filtered.sort((a, b) => new Date(b.appliedAt) - new Date(a.appliedAt));
 
     return filtered;
-  }, [outpasses, statusFilter, dateFilter]);
+  }, [outpasses, statusFilter, dateFilter, toDateFilter]);
 
   const handleViewDetails = (outpass) => {
     setSelectedOutpass(outpass);
@@ -868,7 +876,7 @@ function OutpassManagement({ portalRole = "warden" }) {
 	                )}
 
                 {/* Filters */}
-                <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   <div>
                     <label htmlFor="status-filter" className="mb-2 flex items-center gap-1 text-xs font-medium text-gray-600">
                       <Filter className="h-3.5 w-3.5" aria-hidden="true" />
@@ -899,6 +907,20 @@ function OutpassManagement({ portalRole = "warden" }) {
                       id="date-filter"
                       value={dateFilter}
                       onChange={(e) => setDateFilter(e.target.value)}
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label htmlFor="to-date-filter" className="mb-2 flex items-center gap-1 text-xs font-medium text-gray-600">
+                      <CalendarIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                      To Date
+                    </label>
+                    <input
+                      type="date"
+                      id="to-date-filter"
+                      value={toDateFilter}
+                      onChange={(e) => setToDateFilter(e.target.value)}
                       className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     />
                   </div>
