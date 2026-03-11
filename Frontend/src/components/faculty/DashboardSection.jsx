@@ -34,9 +34,57 @@ export default function DashboardSection({ facultyData, isScheduleLoading = fals
   const alerts = useSelector(selectFacultyAlerts);
   const alertsLoadState = useSelector(selectFacultyAlertsLoadState);
   
-  const todaySchedule = Array.isArray(facultyData?.todaySchedule)
+  const DAYS_OF_WEEK = [
+    { id: "monday", label: "Monday" },
+    { id: "tuesday", label: "Tuesday" },
+    { id: "wednesday", label: "Wednesday" },
+    { id: "thursday", label: "Thursday" },
+    { id: "friday", label: "Friday" },
+    { id: "saturday", label: "Saturday" },
+  ];
+
+  const getTodayId = () => {
+    const jsDay = new Date().getDay();
+    if (jsDay === 0) return DAYS_OF_WEEK[0]?.id || "monday";
+    return DAYS_OF_WEEK[Math.min(jsDay - 1, DAYS_OF_WEEK.length - 1)]?.id || "monday";
+  };
+
+  const rawTodaySchedule = Array.isArray(facultyData?.todaySchedule)
     ? facultyData.todaySchedule
     : [];
+
+  const routine =
+    facultyData?.roleDetails?.routine || facultyData?.facultyDetails?.routine || {};
+
+  const routineTodaySchedule = (() => {
+    const dayId = getTodayId();
+    const dayData =
+      routine[dayId] ||
+      routine[DAYS_OF_WEEK.find((d) => d.id === dayId)?.label] ||
+      routine[DAYS_OF_WEEK.find((d) => d.id === dayId)?.label?.toLowerCase()] ||
+      {};
+    return Object.entries(dayData || {})
+      .filter(([, item]) => item?.course && item?.group)
+      .map(([slot, item]) => ({
+        lectureNumber: Number(slot),
+        course: item.course,
+        group: item.group,
+      }));
+  })();
+
+  const todaySchedule = (() => {
+    if (!routineTodaySchedule.length) return rawTodaySchedule;
+    const map = new Map();
+    routineTodaySchedule.forEach((entry) => {
+      if (entry?.lectureNumber) map.set(String(entry.lectureNumber), entry);
+    });
+    rawTodaySchedule.forEach((entry) => {
+      if (entry?.lectureNumber) map.set(String(entry.lectureNumber), entry);
+    });
+    return Array.from(map.values()).sort(
+      (a, b) => Number(a.lectureNumber || 0) - Number(b.lectureNumber || 0)
+    );
+  })();
   const facultyName = facultyData?.user?.name || "Faculty";
   const departmentName = 
     facultyData?.facultyDetails?.department?.name || 
@@ -57,17 +105,6 @@ export default function DashboardSection({ facultyData, isScheduleLoading = fals
     dispatch(fetchFacultyAlerts({ apiBase }));
   }, [apiBase, alertsLoadState, dispatch]);
 
-  // Get current time to determine class status
-  const getCurrentStatus = (lectureNumber) => {
-    const currentHour = new Date().getHours();
-    const lectureStartHours = [8, 9, 10, 11, 13, 14, 15, 16];
-    const lectureHour = lectureStartHours[lectureNumber - 1] || 8;
-
-    if (currentHour > lectureHour) return { label: "Completed", color: "completed" };
-    if (currentHour === lectureHour) return { label: "Ongoing", color: "ongoing" };
-    return { label: "Scheduled", color: "scheduled" };
-  };
-
   const getLectureTime = (lectureNumber) => {
     const times = [
       ["08:30", "09:20"],
@@ -82,11 +119,50 @@ export default function DashboardSection({ facultyData, isScheduleLoading = fals
     return times[lectureNumber - 1] || ["--:--", "--:--"];
   };
 
+  const timeToMinutes = (timeText) => {
+    const [hours, minutes] = String(timeText || "00:00").split(":").map(Number);
+    if (Number.isNaN(hours) || Number.isNaN(minutes)) return 0;
+    return hours * 60 + minutes;
+  };
+
+  const getLectureRange = (lectureNumber) => {
+    const [startTime, endTime] = getLectureTime(lectureNumber);
+    return {
+      startMinutes: timeToMinutes(startTime),
+      endMinutes: timeToMinutes(endTime),
+      startTime,
+      endTime,
+    };
+  };
+
+  // Get current time to determine class status
+  const getCurrentStatus = (lectureNumber) => {
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const { startMinutes, endMinutes } = getLectureRange(lectureNumber);
+
+    if (nowMinutes > endMinutes) return { label: "Completed", color: "completed" };
+    if (nowMinutes >= startMinutes && nowMinutes <= endMinutes) {
+      return { label: "Ongoing", color: "ongoing" };
+    }
+    return { label: "Scheduled", color: "scheduled" };
+  };
+
   const nextClass = !todaySchedule.length
     ? null
-    : [...todaySchedule].sort(
-        (a, b) => Number(a.lectureNumber || 0) - Number(b.lectureNumber || 0)
-      )[0];
+    : (() => {
+        const now = new Date();
+        const nowMinutes = now.getHours() * 60 + now.getMinutes();
+        const sorted = [...todaySchedule].sort((a, b) => {
+          const aStart = getLectureRange(a.lectureNumber).startMinutes;
+          const bStart = getLectureRange(b.lectureNumber).startMinutes;
+          return aStart - bStart;
+        });
+        return sorted.find((lecture) => {
+          const { startMinutes } = getLectureRange(lecture.lectureNumber);
+          return startMinutes > nowMinutes;
+        }) || null;
+      })();
 
   const classesByStatus = todaySchedule.reduce(
     (acc, lecture) => {
@@ -98,6 +174,7 @@ export default function DashboardSection({ facultyData, isScheduleLoading = fals
     },
     { completed: 0, ongoing: 0, scheduled: 0 }
   );
+  const totalScheduledToday = todaySchedule.length;
 
   return (
     <section className={facultyUi.page}>
@@ -186,14 +263,14 @@ export default function DashboardSection({ facultyData, isScheduleLoading = fals
                   Ongoing: {classesByStatus.ongoing}
                 </span>
                 <span className="inline-flex items-center rounded-full bg-blue-50 px-[10px] py-1 text-[11px] font-bold tracking-[0.2px] text-blue-700">
-                  Scheduled: {classesByStatus.scheduled}
+                  Scheduled: {totalScheduledToday}
                 </span>
                 <span className="inline-flex items-center rounded-full bg-emerald-50 px-[10px] py-1 text-[11px] font-bold tracking-[0.2px] text-emerald-700">
                   Completed: {classesByStatus.completed}
                 </span>
               </div>
               {todaySchedule.map((lecture) => {
-                const [startTime, endTime] = getLectureTime(lecture.lectureNumber);
+                const { startTime, endTime } = getLectureRange(lecture.lectureNumber);
                 const status = getCurrentStatus(lecture.lectureNumber);
                 return (
                   <div key={lecture.lectureNumber} className="flex flex-col items-start gap-3 rounded-xl border border-slate-200 bg-gradient-to-br from-sky-50 to-slate-100 p-[14px] transition duration-200 hover:border-blue-200 hover:shadow-[0_2px_8px_rgba(15,23,42,0.06)] sm:flex-row sm:items-center sm:gap-4">

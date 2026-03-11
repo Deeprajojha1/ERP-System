@@ -721,6 +721,7 @@ function OutpassManagement({ portalRole = "warden" }) {
               </div>
             </section>
 
+            {isGateSecurity && (
             <section aria-label="QR Verification" className="mb-6">
               <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
                 <div className="mb-4 flex items-center gap-2">
@@ -803,6 +804,7 @@ function OutpassManagement({ portalRole = "warden" }) {
                 ) : null}
               </div>
             </section>
+            )}
 
             {/* Outpass History */}
 	            <section aria-label="Outpass History">
@@ -947,9 +949,6 @@ function OutpassManagement({ portalRole = "warden" }) {
                         <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
                           Status
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-600">
-                          Coming Status
-                        </th>
                         <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-gray-600">
                           Action
                         </th>
@@ -973,9 +972,6 @@ function OutpassManagement({ portalRole = "warden" }) {
 	                          <td className="px-4 py-3 text-sm text-gray-900">{outpass.destination || "-"}</td>
                           <td className="px-4 py-3">
                             <StatusBadge status={outpass.status} />
-                          </td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-700">
-                            {todayOutpassMap[outpass.id] || "-"}
                           </td>
                           <td className="px-4 py-3 text-center">
                             <button
@@ -1020,7 +1016,7 @@ function OutpassManagement({ portalRole = "warden" }) {
         onStatusChange={handleStatusChange}
       />
 
-      {isCameraOpen && (
+      {isGateSecurity && isCameraOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 p-4">
           <div className="w-full max-w-4xl rounded-xl bg-white p-4 shadow-2xl">
             <div className="mb-3 flex items-center justify-between">
