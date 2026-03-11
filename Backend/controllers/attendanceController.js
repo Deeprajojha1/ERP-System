@@ -8,6 +8,32 @@ import User from "../models/userModel.js";
 
 const normalizeId = (value) => String(value || "").trim();
 
+const escapeRegex = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const parseLocalDateBoundary = (value, boundary = "start") => {
+  const [yy, mm, dd] = String(value || "").split("-").map(Number);
+  if (!yy || !mm || !dd) return null;
+
+  const date = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
+  if (Number.isNaN(date.getTime())) return null;
+
+  if (boundary === "end") {
+    date.setHours(23, 59, 59, 999);
+  }
+
+  return date;
+};
+
+const toDateKey = (value) => {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return [
+    String(date.getFullYear()).padStart(4, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+};
+
 const resolveGroupStudentIdsForCourse = async ({ group, courseId }) => {
   const groupStudentIds = Array.isArray(group?.studentIds)
     ? group.studentIds.map((id) => normalizeId(id)).filter(Boolean)
@@ -692,9 +718,17 @@ export const getDailyAttendanceSummary = async (req, res) => {
     const { date } = req.query;
     if (!date) return res.status(400).json({ message: "date query param is required" });
 
-    const dayStart = new Date(date);
-    dayStart.setHours(0, 0, 0, 0);
-    const dayEnd = new Date(date);
+    const [yy, mm, dd] = String(date).split("-").map(Number);
+    if (!yy || !mm || !dd) {
+      return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+
+    const dayStart = new Date(yy, mm - 1, dd, 0, 0, 0, 0);
+    if (Number.isNaN(dayStart.getTime())) {
+      return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+
+    const dayEnd = new Date(dayStart);
     dayEnd.setHours(23, 59, 59, 999);
 
     const sessions = await AttendanceSession.find({
@@ -726,6 +760,229 @@ export const getDailyAttendanceSummary = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+export const getAttendanceExportReport = async (req, res) => {
+  try {
+    const todayKey = toDateKey(new Date());
+    const fromDateInput = String(req.query?.fromDate || req.query?.date || todayKey).trim();
+    const toDateInput = String(req.query?.toDate || fromDateInput).trim();
+    const departmentFilter = String(req.query?.department || "").trim().toLowerCase();
+    const groupFilter = String(req.query?.group || "").trim();
+    const semesterFilter = String(req.query?.semester || "").trim();
+
+    let dayStart = parseLocalDateBoundary(fromDateInput, "start");
+    let dayEnd = parseLocalDateBoundary(toDateInput, "end");
+
+    if (!dayStart || !dayEnd) {
+      return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+
+    if (dayStart > dayEnd) {
+      [dayStart, dayEnd] = [
+        parseLocalDateBoundary(toDateInput, "start"),
+        parseLocalDateBoundary(fromDateInput, "end"),
+      ];
+    }
+
+    const groupQuery = {};
+    if (groupFilter && groupFilter.toLowerCase() !== "all groups") {
+      groupQuery.name = new RegExp(`^${escapeRegex(groupFilter)}$`, "i");
+    }
+
+    const groups = await Group.find(groupQuery)
+      .select("name department roomNo studentIds courseFaculty")
+      .lean();
+
+    if (!groups.length) {
+      return res.json({
+        message: "Attendance export rows fetched successfully",
+        totalRows: 0,
+        rows: [],
+      });
+    }
+
+    const groupIds = groups.map((group) => group._id);
+    const rosterStudentIds = groups.flatMap((group) =>
+      Array.isArray(group?.studentIds) ? group.studentIds : []
+    );
+
+    const students = await Student.find({
+      $or: [{ group: { $in: groupIds } }, { _id: { $in: rosterStudentIds } }],
+    })
+      .populate("user", "name")
+      .populate("department", "name")
+      .select("enrollmentNumber user department program semester group")
+      .lean();
+
+    const filteredStudents = students.filter((student) => {
+      const departmentName = String(student?.department?.name || "").trim().toLowerCase();
+      if (departmentFilter && departmentFilter !== "all departments" && departmentName !== departmentFilter) {
+        return false;
+      }
+
+      if (semesterFilter && semesterFilter !== "All Semesters" && String(student?.semester || "") !== semesterFilter) {
+        return false;
+      }
+
+      return true;
+    });
+
+    const studentsById = new Map();
+    const studentsByUserId = new Map();
+    const studentsByGroupId = new Map();
+
+    filteredStudents.forEach((student) => {
+      const studentId = normalizeId(student?._id);
+      const userId = normalizeId(student?.user?._id);
+      const groupId = normalizeId(student?.group?._id || student?.group);
+
+      if (studentId) studentsById.set(studentId, student);
+      if (userId) studentsByUserId.set(userId, student);
+
+      if (groupId) {
+        if (!studentsByGroupId.has(groupId)) studentsByGroupId.set(groupId, []);
+        studentsByGroupId.get(groupId).push(student);
+      }
+    });
+
+    groups.forEach((group) => {
+      const groupId = normalizeId(group?._id);
+      if (!groupId) return;
+
+      const existing = studentsByGroupId.get(groupId) || [];
+      const existingIds = new Set(existing.map((student) => normalizeId(student?._id)));
+      const rosterMatches = (group?.studentIds || [])
+        .map((studentId) => studentsById.get(normalizeId(studentId)))
+        .filter(Boolean)
+        .filter((student) => !existingIds.has(normalizeId(student?._id)));
+
+      if (rosterMatches.length) {
+        studentsByGroupId.set(groupId, [...existing, ...rosterMatches]);
+      }
+    });
+
+    const facultyIds = groups.flatMap((group) =>
+      Array.isArray(group?.courseFaculty)
+        ? group.courseFaculty.map((entry) => entry?.faculty).filter(Boolean)
+        : []
+    );
+
+    const faculties = await Faculty.find({ _id: { $in: facultyIds } })
+      .populate("user", "name")
+      .select("user employeeId")
+      .lean();
+
+    const facultyById = new Map(
+      faculties.map((faculty) => [
+        normalizeId(faculty?._id),
+        faculty?.user?.name || faculty?.employeeId || "-",
+      ])
+    );
+
+    const groupCourseFacultyMap = new Map();
+    groups.forEach((group) => {
+      const groupId = normalizeId(group?._id);
+      (group?.courseFaculty || []).forEach((entry) => {
+        const courseId = normalizeId(entry?.course);
+        const facultyId = normalizeId(entry?.faculty);
+        if (!groupId || !courseId) return;
+        groupCourseFacultyMap.set(
+          `${groupId}:${courseId}`,
+          facultyById.get(facultyId) || "-"
+        );
+      });
+    });
+
+    const sessions = await AttendanceSession.find({
+      group: { $in: groupIds },
+      date: { $gte: dayStart, $lte: dayEnd },
+    })
+      .populate("course", "code courseName")
+      .select("date group course records")
+      .sort({ date: 1, createdAt: 1 })
+      .lean();
+
+    const sessionsByGroupDate = new Map();
+    sessions.forEach((session) => {
+      const groupId = normalizeId(session?.group);
+      const dateKey = toDateKey(session?.date);
+      if (!groupId || !dateKey) return;
+
+      const compoundKey = `${groupId}:${dateKey}`;
+      if (!sessionsByGroupDate.has(compoundKey)) sessionsByGroupDate.set(compoundKey, []);
+      sessionsByGroupDate.get(compoundKey).push(session);
+    });
+
+    const groupById = new Map(groups.map((group) => [normalizeId(group?._id), group]));
+    const rows = [];
+
+    sessionsByGroupDate.forEach((groupSessions, compoundKey) => {
+      const [groupId, dateKey] = compoundKey.split(":");
+      const group = groupById.get(groupId);
+      const roster = studentsByGroupId.get(groupId) || [];
+
+      if (!group || !roster.length) return;
+
+      roster.forEach((student) => {
+        const studentId = normalizeId(student?._id);
+        const userId = normalizeId(student?.user?._id);
+
+        const presentCount = groupSessions.filter((session) => {
+          const record = (session?.records || []).find((entry) => {
+            const recordId = normalizeId(entry?.student);
+            return recordId === studentId || (userId && recordId === userId);
+          });
+          return record?.status === "present";
+        }).length;
+
+        const dailyPercentage = groupSessions.length
+          ? Number(((presentCount / groupSessions.length) * 100).toFixed(2))
+          : 0;
+
+        groupSessions.forEach((session) => {
+          const record = (session?.records || []).find((entry) => {
+            const recordId = normalizeId(entry?.student);
+            return recordId === studentId || (userId && recordId === userId);
+          });
+
+          const courseCode = session?.course?.code || "-";
+          const courseName = session?.course?.courseName || "-";
+
+          rows.push({
+            "Student Name": student?.user?.name || "Unknown",
+            Program: student?.program || "-",
+            Department: student?.department?.name || "-",
+            Semester: student?.semester ?? "-",
+            Group: group?.name || "-",
+            "Student Code": student?.enrollmentNumber || "-",
+            "Subject / Period":
+              courseCode !== "-" || courseName !== "-"
+                ? `${courseCode}${courseName !== "-" ? ` - ${courseName}` : ""}`
+                : "-",
+            "Faculty Name":
+              groupCourseFacultyMap.get(`${groupId}:${normalizeId(session?.course?._id)}`) || "-",
+            Date: dateKey,
+            "Attendance Status":
+              record?.status === "present"
+                ? "Present"
+                : record?.status === "absent"
+                ? "Absent"
+                : "Not Marked",
+            "Attendance Percentage": dailyPercentage,
+          });
+        });
+      });
+    });
+
+    return res.json({
+      message: "Attendance export rows fetched successfully",
+      totalRows: rows.length,
+      rows,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to fetch attendance export" });
   }
 };
 
