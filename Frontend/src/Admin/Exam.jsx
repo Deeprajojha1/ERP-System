@@ -14,6 +14,7 @@ import {
 import { TailSpin, ThreeDots } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import { useSelector, useDispatch } from "react-redux";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./Exam.css";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import { downloadPdfFromHtml, openPdfFromHtml } from "../utils/pdfDownload";
@@ -2145,7 +2146,12 @@ const Exam = () => {
               <div className="exam-form-row">
                 <label>
                   Date *
-                  <input type="date" name="examDate" value={formData.examDate} onChange={handleFormChange} required />
+                  <ModernDatePicker 
+                    name="examDate" 
+                    value={formData.examDate} 
+                    onChange={(e) => handleFormChange({ target: { name: 'examDate', value: e.target.value } })}
+                    max={new Date().toISOString().slice(0, 10)}
+                  />
                 </label>
                 <label>
                   Start Time *

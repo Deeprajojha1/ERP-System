@@ -64,7 +64,7 @@
 }
 
 .subject-attendance-filter-group select,
-.subject-attendance-filter-group input[type="date"] {
+.subject-attendance-filter-group .modern-date-picker__trigger {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 10px 12px;
@@ -87,13 +87,13 @@
 }
 
 .subject-attendance-filter-group select:focus,
-.subject-attendance-filter-group input[type="date"]:focus {
+.subject-attendance-filter-group .modern-date-picker__trigger:focus-visible {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
   border-color: #2563eb;
 }
 
 .subject-attendance-filter-group select:disabled,
-.subject-attendance-filter-group input[type="date"]:disabled {
+.subject-attendance-filter-group .modern-date-picker__trigger:disabled {
   background: #f1f5f9;
   color: #94a3b8;
   cursor: not-allowed;

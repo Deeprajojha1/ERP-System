@@ -104,7 +104,7 @@
   background: #ffffff;
 }
 
-.attendance-select input[type="date"] {
+.attendance-select .modern-date-picker__trigger {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 10px 12px;
@@ -134,9 +134,7 @@
   pointer-events: none;
 }
 
-.attendance-date input[type="date"] {
-  padding-left: 32px;
-}
+/* ModernDatePicker has built-in icon layout, no extra left padding needed. */
 
 .attendance-chip {
   border: 1px solid #cbd5e1;
@@ -415,10 +413,12 @@
     border-radius: 9px;
   }
 
-  .attendance-select input[type="date"] {
-    padding: 8px 10px 8px 30px;
+  .attendance-select .modern-date-picker__trigger {
+    padding: 8px 10px;
     font-size: 13px;
     border-radius: 9px;
+    min-height: 38px;
+    height: 38px;
   }
 
   .attendance-chip {
@@ -449,9 +449,11 @@
     font-size: 12px;
   }
 
-  .attendance-select input[type="date"] {
-    padding: 7px 9px 7px 28px;
+  .attendance-select .modern-date-picker__trigger {
+    padding: 7px 9px;
     font-size: 12px;
+    min-height: 34px;
+    height: 34px;
   }
 
   .attendance-chip {

@@ -32,7 +32,7 @@
   align-self: flex-end;
 }
 
-.warden-support-report-controls .alerts-form-group input[type="date"] {
+.warden-support-report-controls .alerts-form-group .modern-date-picker__trigger {
   width: 100%;
   padding: 0.72rem 0.75rem;
   border: 1px solid rgba(148, 163, 184, 0.6);
@@ -41,7 +41,7 @@
   color: #0f172a;
 }
 
-.warden-support-report-controls .alerts-form-group input[type="date"]:focus {
+.warden-support-report-controls .alerts-form-group .modern-date-picker__trigger:focus-visible {
   outline: none;
   border-color: rgba(29, 78, 216, 0.6);
   box-shadow: 0 0 0 3px rgba(29, 78, 216, 0.12);

@@ -6,6 +6,7 @@ import { Oval } from "react-loader-spinner";
 import { FiPrinter } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./FacultyLectureReport.css";
 
 const FacultyLectureReport = () => {
@@ -345,11 +346,12 @@ const FacultyLectureReport = () => {
 
             <div className="faculty-lecture-report-filter-group">
               <label htmlFor="date-select">Select Date</label>
-              <input
-                type="date"
+              <ModernDatePicker
                 id="date-select"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
+                placeholder="Select date"
+                max={new Date().toISOString().split("T")[0]}
               />
             </div>
 
