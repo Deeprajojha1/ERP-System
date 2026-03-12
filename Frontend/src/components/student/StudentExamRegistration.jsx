@@ -324,6 +324,9 @@ const StudentExamRegistration = () => {
 
         <div className="ser-form-paper">
           <div className="ser-paper-header">
+            <button type="button" className="ser-paper-back-btn" onClick={goBack}>
+              <FiArrowLeft size={14} /> Back
+            </button>
             <h2>HARIDWAR UNIVERSITY, ROORKEE</h2>
             <p className="ser-paper-sub">(A University U/s 2(f) of the UGC Act 1956)</p>
             <h3>REGULAR EXAMINATION FORM</h3>
@@ -419,6 +422,9 @@ const StudentExamRegistration = () => {
 
       <form className="ser-form-paper" onSubmit={handleSubmit}>
         <div className="ser-paper-header">
+          <button type="button" className="ser-paper-back-btn" onClick={goBack}>
+            <FiArrowLeft size={14} /> Back
+          </button>
           <h2>HARIDWAR UNIVERSITY, ROORKEE</h2>
           <p className="ser-paper-sub">(A University U/s 2(f) of the UGC Act 1956 with the right to confer degree U/s 22(1) of the UGC Act)</p>
           <h3>REGULAR EXAMINATION FORM</h3>

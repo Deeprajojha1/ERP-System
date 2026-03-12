@@ -49,6 +49,7 @@ from "../controllers/feeController.js";
 import { getStudentAlerts } from "../controllers/alertController.js";
 import {
   analyzeProfile,
+  deleteLinkedinReport,
   getLinkedinReports,
 } from "../controllers/linkedinAnalyzerController.js";
 import { getMyIdCard } from "../controllers/studentIdCardController.js";
@@ -154,5 +155,11 @@ router.post(
   analyzeProfile
 );
 router.get("/linkedin-analyzer/reports", isAuth, isStudent, getLinkedinReports);
+router.delete(
+  "/linkedin-analyzer/reports/:reportId",
+  isAuth,
+  isStudent,
+  deleteLinkedinReport
+);
 
 export default router;

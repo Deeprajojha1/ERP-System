@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import zlib from "zlib";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 
 const GEMINI_API_KEY = String(process.env.GEMINI_API_KEY || "").trim();
@@ -289,6 +290,101 @@ const normalizeDimensionScores = (value = {}) => ({
   keywordAlignment: clampScore(value.keywordAlignment),
 });
 
+const decodePdfEscapes = (value = "") =>
+  String(value)
+    .replace(/\\n/g, "\n")
+    .replace(/\\r/g, "\r")
+    .replace(/\\t/g, "\t")
+    .replace(/\\\(/g, "(")
+    .replace(/\\\)/g, ")")
+    .replace(/\\\\/g, "\\");
+
+const parsePdfTextChunks = (rawText = "") => {
+  const chunks = [];
+  const textRegex = /\((?:\\.|[^\\)])*\)/g;
+  const matches = rawText.match(textRegex) || [];
+  matches.forEach((item) => {
+    const content = item.slice(1, -1);
+    const decoded = decodePdfEscapes(content);
+    const clean = normalizeWhitespace(decoded);
+    if (clean.length >= 2) chunks.push(clean);
+  });
+  return chunks;
+};
+
+const extractPdfTextFallback = (fileBuffer) => {
+  if (!fileBuffer || !fileBuffer.length) return "";
+
+  const textParts = [];
+  const collectFromBuffer = (buffer) => {
+    const asText = buffer.toString("latin1");
+    const chunks = parsePdfTextChunks(asText);
+    if (chunks.length) textParts.push(...chunks);
+  };
+
+  collectFromBuffer(fileBuffer);
+
+  const binaryText = fileBuffer.toString("latin1");
+  const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
+  let match = streamRegex.exec(binaryText);
+  while (match) {
+    const streamData = Buffer.from(match[1], "latin1");
+    try {
+      const inflated = zlib.inflateSync(streamData);
+      collectFromBuffer(inflated);
+    } catch (_) {
+      collectFromBuffer(streamData);
+    }
+    match = streamRegex.exec(binaryText);
+  }
+
+  const unique = Array.from(new Set(textParts.map((item) => item.trim()).filter(Boolean)));
+  return normalizeWhitespace(unique.join(" "));
+};
+
+const buildProfileFromFallbackText = (text = "", targetRole = "") => {
+  const normalizedText = normalizeWhitespace(text);
+  if (!normalizedText || normalizedText.length < 80) return null;
+
+  const headline = sanitizeText(normalizedText.split(/[.|\n]/)[0], MAX_HEADLINE_LENGTH);
+
+  const lowerText = normalizedText.toLowerCase();
+  const skillHints = [
+    "javascript",
+    "typescript",
+    "react",
+    "node",
+    "express",
+    "mongodb",
+    "sql",
+    "python",
+    "java",
+    "html",
+    "css",
+    "aws",
+    "git",
+    "docker",
+    "communication",
+    "leadership",
+  ];
+  const detectedSkills = sanitizeSkills(
+    skillHints.filter((item) => lowerText.includes(item))
+  );
+
+  const about = sanitizeText(normalizedText.slice(0, 1400), MAX_ABOUT_LENGTH);
+  const experience = sanitizeText(normalizedText.slice(1400, 3000), MAX_EXPERIENCE_LENGTH);
+
+  const fallbackProfile = sanitizeProfileInput({
+    headline,
+    about,
+    skills: detectedSkills,
+    experience,
+    targetRole,
+  });
+
+  return isMeaningfulProfile(fallbackProfile) ? fallbackProfile : null;
+};
+
 const fallbackAnalyzeProfile = (profile = {}) => {
   const detectedSkills = sanitizeSkills(profile.skills || []);
   const detectedSkillSet = new Set(detectedSkills.map((item) => item.toLowerCase()));
@@ -558,7 +654,10 @@ Rules:
     temperature: 0.1,
   });
 
-  if (!aiRaw || typeof aiRaw !== "object") return null;
+  if (!aiRaw || typeof aiRaw !== "object") {
+    const fallbackText = extractPdfTextFallback(fileBuffer);
+    return buildProfileFromFallbackText(fallbackText, targetRole);
+  }
 
   const extracted = sanitizeProfileInput({
     headline: aiRaw.headline || "",
@@ -570,7 +669,10 @@ Rules:
     yearsOfExperience: aiRaw.yearsOfExperience || "",
   });
 
-  return isMeaningfulProfile(extracted) ? extracted : null;
+  if (isMeaningfulProfile(extracted)) return extracted;
+
+  const fallbackText = extractPdfTextFallback(fileBuffer);
+  return buildProfileFromFallbackText(fallbackText, targetRole);
 };
 
 const buildCacheKey = (userId, profileFingerprint) =>
