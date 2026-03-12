@@ -1,4 +1,4 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   FiUpload,
   FiDownload,
@@ -8,6 +8,14 @@ import {
 } from "react-icons/fi";
 import "./BulkOperations.css";
 import ClipLoader from "./components/ClipLoader";
+import { useDispatch, useSelector } from "react-redux";
+import axios from "../utils/axiosInstance";
+import {
+  fetchFeeBulkJobs,
+  retryFeeBulkJob,
+  selectFeeBulkJobs,
+} from "../redux/feeSlice";
+import toast from "react-hot-toast";
 
 const BULK_STEPS = [
   {
@@ -34,54 +42,39 @@ const BULK_STEPS = [
   },
 ];
 
-const INITIAL_OPERATION_LOGS = [
-  {
-    id: "OPR-1098",
-    file: "semester-7-mappings.csv",
-    submittedBy: "Neha Sengar",
-    submittedOn: "19 Feb 2026, 10:42",
-    totalRecords: 240,
-    status: "Completed",
-  },
-  {
-    id: "OPR-1097",
-    file: "late-fee-adjustments.csv",
-    submittedBy: "Rahul Kumar",
-    submittedOn: "18 Feb 2026, 19:05",
-    totalRecords: 120,
-    status: "Validation Errors",
-    errors: 14,
-  },
-];
-
 const BulkOperations = () => {
-  const [operationLogs, setOperationLogs] = useState(INITIAL_OPERATION_LOGS);
+  const dispatch = useDispatch();
+  const apiBase = useSelector((state) => state.config.apiBase);
+  const operationLogs = useSelector(selectFeeBulkJobs);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef(null);
 
+  useEffect(() => {
+    dispatch(fetchFeeBulkJobs());
+  }, [dispatch]);
+
   const handleDownloadTemplate = () => {
-    const headers = [
-      "enrollment_id",
-      "student_name",
-      "program",
-      "cohort",
-      "fee_cycle",
-      "base_fee",
-      "discount",
-      "final_fee",
-    ];
-    const csvContent = `${headers.join(",")}\n`;
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "fee-mapping-template.csv";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    setUploadMessage("Template downloaded successfully.");
+    if (!apiBase) return;
+    axios
+      .get(`${apiBase}/admin/fee/bulk/template`, {
+        withCredentials: true,
+        responseType: "blob",
+      })
+      .then((response) => {
+        const url = URL.createObjectURL(response.data);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "fee-bulk-template.csv";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        setUploadMessage("Template downloaded successfully.");
+      })
+      .catch((error) => {
+        toast.error(error.response?.data?.message || "Failed to download template");
+      });
   };
 
   const handleTriggerUpload = () => {
@@ -94,52 +87,30 @@ const BulkOperations = () => {
     if (!file) return;
     event.target.value = "";
 
-    const uploadId = `OPR-${Date.now().toString().slice(-4)}`;
-    const now = new Date();
-    const totalRecords = Math.floor(Math.random() * 250) + 50;
-    const pendingLog = {
-      id: uploadId,
-      file: file.name,
-      submittedBy: "You",
-      submittedOn: now.toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      totalRecords,
-      status: "Processing",
-    };
-
-    setOperationLogs((previous) => [pendingLog, ...previous]);
     setIsUploading(true);
     setUploadMessage(`Uploading ${file.name}...`);
 
-    window.setTimeout(() => {
-      const hasErrors = file.name.toLowerCase().includes("error");
-      const finalStatus = hasErrors ? "Validation Errors" : "Completed";
-      const errors = hasErrors ? Math.floor(Math.random() * 8) + 1 : undefined;
+    const formData = new FormData();
+    formData.append("file", file);
 
-      setOperationLogs((previous) =>
-        previous.map((log) =>
-          log.id === uploadId
-            ? {
-                ...log,
-                status: finalStatus,
-                errors,
-              }
-            : log
-        )
-      );
-      setUploadMessage(
-        hasErrors
-          ? `Validation errors detected in ${file.name}`
-          : `Upload completed for ${file.name}`
-      );
-      setIsUploading(false);
-    }, 1800);
+    axios
+      .post(`${apiBase}/admin/fee/bulk/upload`, formData, {
+        withCredentials: true,
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then(() => {
+        setUploadMessage(`Upload completed for ${file.name}`);
+        dispatch(fetchFeeBulkJobs());
+      })
+      .catch((error) => {
+        setUploadMessage(`Upload failed for ${file.name}`);
+        toast.error(error.response?.data?.message || "Bulk upload failed");
+      })
+      .finally(() => {
+        setIsUploading(false);
+      });
   };
+
   return (
     <div className="bulk-ops-page">
       <header className="bo-hero">
@@ -234,34 +205,44 @@ const BulkOperations = () => {
           </div>
         </div>
         <div className="bo-log-table">
-          {operationLogs.map((log) => {
+          {(operationLogs || []).map((log) => {
             const statusClass =
-              log.status === "Completed"
+              log.status === "COMPLETED"
                 ? "is-success"
-                : log.status === "Validation Errors"
+                : log.status === "FAILED"
                 ? "is-error"
                 : "is-processing";
             const StatusIcon =
-              log.status === "Completed"
+              log.status === "COMPLETED"
                 ? FiCheckCircle
-                : log.status === "Validation Errors"
+                : log.status === "FAILED"
                 ? FiAlertCircle
                 : FiRefreshCw;
             const metaText =
-              log.status === "Validation Errors"
-                ? `${log.errors || 0} errors`
-                : log.status === "Completed"
+              log.status === "FAILED"
+                ? `${log.errorCount || 0} errors`
+                : log.status === "COMPLETED"
                 ? "Ready for sync"
                 : "Validating...";
             return (
-              <article key={log.id} className="bo-log-row">
+              <article key={log._id || log.id} className="bo-log-row">
                 <div>
-                  <p className="bo-log-file">{log.file}</p>
-                  <span className="bo-log-meta">{log.id}</span>
+                  <p className="bo-log-file">{log.fileName || log.file}</p>
+                  <span className="bo-log-meta">{log._id || log.id}</span>
                 </div>
                 <div>
-                  <p>{log.submittedBy}</p>
-                  <span className="bo-log-meta">{log.submittedOn}</span>
+                  <p>{log.createdBy?.name || "Admin"}</p>
+                  <span className="bo-log-meta">
+                    {log.createdAt
+                      ? new Date(log.createdAt).toLocaleString("en-IN", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : log.submittedOn}
+                  </span>
                 </div>
                 <div>
                   <p className="bo-log-count">{log.totalRecords} records</p>
@@ -273,9 +254,29 @@ const BulkOperations = () => {
                   </span>
                   <span className="bo-log-meta">{metaText}</span>
                 </div>
+                <div>
+                  {log.status === "FAILED" ? (
+                    <button
+                      type="button"
+                      className="bo-log-link"
+                      onClick={() => dispatch(retryFeeBulkJob(log._id))}
+                    >
+                      Retry
+                    </button>
+                  ) : (
+                    <button type="button" className="bo-log-link">
+                      View details
+                    </button>
+                  )}
+                </div>
               </article>
             );
           })}
+          {(operationLogs || []).length === 0 && (
+            <div className="bo-log-empty">
+              No bulk operations yet. Upload a CSV to get started.
+            </div>
+          )}
         </div>
       </section>
     </div>

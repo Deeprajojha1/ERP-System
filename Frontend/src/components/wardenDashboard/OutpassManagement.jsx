@@ -987,7 +987,6 @@ function OutpassManagement({ portalRole = "warden" }) {
                       ))}
                     </tbody>
 	                  </table>
-
 	                  {!loading && filteredOutpasses.length === 0 && (
 	                    <div className="py-12 text-center">
 	                      <FileText className="mx-auto mb-3 h-12 w-12 text-gray-400" aria-hidden="true" />

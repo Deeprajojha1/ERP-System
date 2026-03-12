@@ -204,6 +204,13 @@
   color: #0f172a;
 }
 
+.fee-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+
 .fee-card-note {
   margin: 0;
   color: #475569;
@@ -562,6 +569,8 @@
   display: grid;
   gap: 12px;
   align-items: center;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .fee-setup-form--program {
@@ -569,11 +578,22 @@
 }
 
 .fee-setup-form--branch {
-  grid-template-columns: minmax(180px, 1.2fr) minmax(180px, 1.2fr) minmax(240px, 1.7fr) auto;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.1fr) minmax(0, 1.3fr);
 }
 
 .fee-setup-form--batch {
-  grid-template-columns: minmax(120px, 0.8fr) minmax(190px, 1.1fr) minmax(250px, 1.7fr) auto;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.1fr) minmax(0, 1.5fr);
+}
+
+.fee-setup-form--branch .fee-setup-help,
+.fee-setup-form--batch .fee-setup-help {
+  grid-column: 1 / -1;
+}
+
+.fee-setup-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
 }
 
 .fee-setup-input {
@@ -604,7 +624,8 @@
 }
 
 .fee-setup-input--multi {
-  min-height: 116px;
+  height: 128px;
+  min-height: 128px;
   padding: 8px 10px;
 }
 
@@ -979,6 +1000,16 @@
 
   .fee-setup-submit-btn {
     width: 100%;
+  }
+
+  .fee-setup-actions {
+    justify-content: stretch;
+  }
+}
+
+@media (max-width: 1240px) {
+  .fee-setup-grid {
+    grid-template-columns: 1fr;
   }
 }
 

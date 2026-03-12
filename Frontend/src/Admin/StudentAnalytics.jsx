@@ -1,30 +1,35 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FiUsers, FiBook, FiAlertCircle } from "react-icons/fi";
 import "./StudentAnalytics.css";
-
-const STATUS = [
-  { label: "On Track", value: 74, color: "#10b981" },
-  { label: "Follow Up", value: 18, color: "#f59e0b" },
-  { label: "Critical", value: 8, color: "#ef4444" },
-];
-
-const SEGMENTS = [
-  { label: "Need-based aid", students: 120, avgDiscount: "₹18K" },
-  { label: "Merit scholarships", students: 86, avgDiscount: "₹24K" },
-  { label: "Transport waiver", students: 54, avgDiscount: "₹8K" },
-];
+import { useDispatch, useSelector } from "react-redux";
+import {
+  fetchStudentAnalyticsOverview,
+  fetchStudentSegments,
+  fetchStudentStatusDistribution,
+  selectStudentAnalyticsOverview,
+  selectStudentSegments,
+  selectStudentStatusDistribution,
+} from "../redux/feeSlice";
 
 const StudentAnalytics = () => {
+  const dispatch = useDispatch();
+  const overview = useSelector(selectStudentAnalyticsOverview);
+  const statusDistribution = useSelector(selectStudentStatusDistribution);
+  const segments = useSelector(selectStudentSegments);
+
   const [cohort, setCohort] = useState("2024-25");
   const [department, setDepartment] = useState("All Departments");
 
   const cohortOptions = ["2024-25", "2023-24", "2022-23"];
-  const departmentOptions = useMemo(
-    () => ["All Departments", "Computer Science", "Mechanical", "MBA"],
-    []
-  );
+  const departmentOptions = ["All Departments", "Computer Science", "Mechanical", "MBA"];
 
-  const statusTotal = STATUS.reduce((sum, item) => sum + item.value, 0);
+  useEffect(() => {
+    dispatch(fetchStudentAnalyticsOverview());
+    dispatch(fetchStudentStatusDistribution());
+    dispatch(fetchStudentSegments());
+  }, [dispatch]);
+
+  const statusTotal = statusDistribution.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div className="student-analytics-page">
@@ -62,7 +67,7 @@ const StudentAnalytics = () => {
           </span>
           <div>
             <p>Total students mapped</p>
-            <strong>3,520</strong>
+            <strong>{overview?.totalProfiles || 0}</strong>
             <small>{department}</small>
           </div>
         </article>
@@ -72,7 +77,7 @@ const StudentAnalytics = () => {
           </span>
           <div>
             <p>Discount programs</p>
-            <strong>12 active</strong>
+            <strong>{overview?.discountedProfiles || 0} active</strong>
             <small>{cohort}</small>
           </div>
         </article>
@@ -85,12 +90,9 @@ const StudentAnalytics = () => {
             <span>{statusTotal}% of mapped students</span>
           </div>
           <div className="sa-status-rings">
-            {STATUS.map((item) => (
+            {statusDistribution.map((item) => (
               <div key={item.label} className="sa-status-item">
-                <div
-                  className="sa-status-ring"
-                  style={{ borderColor: item.color }}
-                >
+                <div className="sa-status-ring">
                   <strong>{item.value}%</strong>
                 </div>
                 <p>{item.label}</p>
@@ -102,16 +104,16 @@ const StudentAnalytics = () => {
         <article className="sa-panel">
           <div className="sa-panel-head">
             <h2>Segment insights</h2>
-            <span>Avg discount per student</span>
+            <span>Current student counts</span>
           </div>
           <div className="sa-segment-list">
-            {SEGMENTS.map((segment) => (
+            {segments.map((segment) => (
               <div key={segment.label} className="sa-segment-row">
                 <div>
                   <p>{segment.label}</p>
                   <small>{segment.students} students</small>
                 </div>
-                <strong>{segment.avgDiscount}</strong>
+                <strong>{segment.students}</strong>
               </div>
             ))}
           </div>

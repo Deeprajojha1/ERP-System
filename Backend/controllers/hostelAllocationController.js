@@ -3,6 +3,7 @@ import Room from "../models/roomModel.js";
 import Hostel from "../models/hostelModel.js";
 import Student from "../models/Student.js";
 import { bumpNamespaceVersion } from "../utils/cacheNamespace.js";
+import { syncHostelFeeForStudentAcademicYear } from "./feeController.js";
 
 /**
  * ALLOCATE STUDENT TO ROOM
@@ -68,9 +69,26 @@ export const allocateStudent = async (req, res) => {
 
     await bumpNamespaceVersion("hostels");
 
+    let feeSync = null;
+    try {
+      feeSync = await syncHostelFeeForStudentAcademicYear({
+        enrollmentNumber: student.enrollmentNumber,
+      });
+    } catch (feeError) {
+      feeSync = {
+        profileUpdated: false,
+        demandsUpdated: 0,
+        hostelYearlyFee: 0,
+        hostelSharePerSemester: 0,
+        academicYear: String(student?.academicYear || ""),
+        reason: String(feeError?.message || "failed to sync hostel fee"),
+      };
+    }
+
     res.status(201).json({
       message: "Student allocated successfully",
       allocation,
+      feeSync,
     });
 
   } catch (error) {

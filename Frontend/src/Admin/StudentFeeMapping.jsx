@@ -4,6 +4,9 @@ import toast from "react-hot-toast";
 import axios from "../utils/axiosInstance";
 import {
   createStudentFeeDetails,
+  fetchStudentFeeDetails,
+  selectStudentFeeDetails,
+  updateStudentOptions,
   fetchFeePrograms,
   fetchFeeBatches,
   selectFeeActionLoading,
@@ -33,14 +36,19 @@ const StudentFeeMapping = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
   const programs = useSelector(selectFeePrograms);
   const batches = useSelector(selectFeeBatches);
+  const feeProfiles = useSelector(selectStudentFeeDetails);
   const submitting = useSelector(selectFeeActionLoading);
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [editProfileId, setEditProfileId] = useState("");
+  const [editHostelOpted, setEditHostelOpted] = useState(false);
+  const [editTransportOpted, setEditTransportOpted] = useState(false);
 
   useEffect(() => {
     dispatch(fetchFeePrograms());
     dispatch(fetchFeeBatches());
+    dispatch(fetchStudentFeeDetails());
   }, [dispatch]);
 
   useEffect(() => {
@@ -119,6 +127,34 @@ const StudentFeeMapping = () => {
       setForm(defaultForm);
     } catch (error) {
       toast.error(error || "Failed to create student fee mapping");
+    }
+  };
+
+  const selectProfileForEdit = (profileId) => {
+    const profile = feeProfiles.find((item) => String(item._id) === String(profileId));
+    if (!profile) return;
+    setEditProfileId(profile._id);
+    setEditHostelOpted(Boolean(profile.hostelOpted));
+    setEditTransportOpted(Boolean(profile.transportOpted));
+  };
+
+  const submitProfileUpdate = async (event) => {
+    event.preventDefault();
+    if (!editProfileId) {
+      toast.error("Select a fee profile to update");
+      return;
+    }
+    try {
+      await dispatch(
+        updateStudentOptions({
+          id: editProfileId,
+          hostelOpted: editHostelOpted,
+          transportOpted: editTransportOpted,
+        })
+      ).unwrap();
+      toast.success("Student fee options updated");
+    } catch (error) {
+      toast.error(error || "Failed to update student options");
     }
   };
 
@@ -356,6 +392,63 @@ const StudentFeeMapping = () => {
           <div className="sfm-form-actions">
             <button type="submit" className="sfm-export-btn" disabled={submitting}>
               {submitting ? "Saving..." : "Create Mapping"}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="sfm-detail-panel">
+        <div className="sfm-detail-top">
+          <div>
+            <p className="sfm-detail-eyebrow">Update Profile</p>
+            <h2>Transport & Hostel Options</h2>
+            <p className="sfm-supporting">
+              Select an existing fee profile and update hostel/transport opt-in.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={submitProfileUpdate} className="sfm-form-grid">
+          <label className="sfm-form-field">
+            <span>Fee profile</span>
+            <select
+              value={editProfileId}
+              onChange={(event) => {
+                setEditProfileId(event.target.value);
+                selectProfileForEdit(event.target.value);
+              }}
+              required
+            >
+              <option value="">Select student fee profile</option>
+              {feeProfiles.map((profile) => (
+                <option key={profile._id} value={profile._id}>
+                  {profile.studentId} ({profile.userId?.name || "Student"})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="sfm-form-field">
+            <span>Hostel opted</span>
+            <input
+              type="checkbox"
+              checked={editHostelOpted}
+              onChange={(event) => setEditHostelOpted(event.target.checked)}
+            />
+          </label>
+
+          <label className="sfm-form-field">
+            <span>Transport opted</span>
+            <input
+              type="checkbox"
+              checked={editTransportOpted}
+              onChange={(event) => setEditTransportOpted(event.target.checked)}
+            />
+          </label>
+
+          <div className="sfm-form-actions">
+            <button type="submit" className="sfm-export-btn" disabled={submitting}>
+              {submitting ? "Updating..." : "Update Options"}
             </button>
           </div>
         </form>

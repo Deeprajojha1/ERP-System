@@ -41,9 +41,13 @@ import {
   getMyPaymentHistory,
   getMyFeeDemandRequests,
   createMyFeeDemandRequest,
+  viewMyDemandLetterPdf,
+  downloadMyDemandLetterPdf,
   createMyPayment,
   createMyRazorpayOrder,
+  createMyRazorpayOrderForYear,
   verifyMyRazorpayPayment,
+  verifyMyRazorpayPaymentForYear,
 }
 from "../controllers/feeController.js";
 import { getStudentAlerts } from "../controllers/alertController.js";
@@ -133,8 +137,12 @@ router.get("/fee/me/demand", isAuth, isStudent, feeSecurityHeaders, feeRateLimit
 router.get("/fee/me/payment", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyPaymentHistory);
 router.get("/fee/me/demand-request", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, getMyFeeDemandRequests);
 router.post("/fee/me/demand-request", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyFeeDemandRequest);
+router.get("/fee/me/demand-request/:requestId/letter/view", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, viewMyDemandLetterPdf);
+router.get("/fee/me/demand-request/:requestId/letter/download", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, downloadMyDemandLetterPdf);
 router.post("/fee/me/payment/razorpay/order", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyRazorpayOrder);
+router.post("/fee/me/payment/razorpay/order-year", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, createMyRazorpayOrderForYear);
 router.post("/fee/me/payment/razorpay/verify", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, verifyMyRazorpayPayment);
+router.post("/fee/me/payment/razorpay/verify-year", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, verifyMyRazorpayPaymentForYear);
 router.post("/fee/me/payment", isAuth, isStudent, feeSecurityHeaders, feeRateLimit, verifyGatewaySignature, createMyPayment);
 
 /* LinkedIn Analyzer (Student) */

@@ -177,15 +177,23 @@ import {
   createFeeBatch,
   getFeeBatches,
   createFeeBranch,
+  getFeeBranches,
+  updateBranchAddOnFees,
+  upsertHostelYearlyFee,
+  getHostelYearlyFees,
+  upsertTransportYearlyFee,
+  getTransportYearlyFees,
   createStudentFeeDetails,
   getStudentFeeDetails,
   updateStudentFeeDetailsBenefits,
+  updateStudentFeeDetailsOptions,
   createFeeDemand,
   generateFeeDemandFromProfile,
   getFeeDemandRequests,
   approveFeeDemandRequest,
   rejectFeeDemandRequest,
   getFeeDemands,
+  updateFeeDemand,
   createPayment,
   updatePaymentStatus,
   getPaymentHistory,
@@ -220,6 +228,7 @@ import {
 import isAdmin from "../middlewares/isAdmin.js";
 import hasModuleAccess from "../middlewares/hasModuleAccess.js";
 import upload from "../config/multerConfig.js";
+import feeBulkUpload from "../config/feeBulkUpload.js";
 import feeRateLimit from "../middlewares/feeRateLimit.js";
 import feeSecurityHeaders from "../middlewares/feeSecurityHeaders.js";
 import verifyGatewaySignature from "../middlewares/verifyGatewaySignature.js";
@@ -508,15 +517,23 @@ router.get("/fee/program", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, g
 router.post("/fee/batch", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, createFeeBatch);
 router.get("/fee/batch", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeBatches);
 router.post("/fee/branch", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, createFeeBranch);
+router.get("/fee/branch", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeBranches);
+router.patch("/fee/branch/:id/addons", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, updateBranchAddOnFees);
+router.post("/fee/hostel-yearly", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, upsertHostelYearlyFee);
+router.get("/fee/hostel-yearly", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getHostelYearlyFees);
+router.post("/fee/transport-yearly", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, upsertTransportYearlyFee);
+router.get("/fee/transport-yearly", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getTransportYearlyFees);
 router.post("/fee/student-details", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, createStudentFeeDetails);
 router.get("/fee/student-details", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getStudentFeeDetails);
 router.patch("/fee/student-details/:id/benefits", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, updateStudentFeeDetailsBenefits);
+router.patch("/fee/student-details/:id/options", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, updateStudentFeeDetailsOptions);
 router.post("/fee/demand", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, createFeeDemand);
 router.post("/fee/demand/generate", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, generateFeeDemandFromProfile);
 router.get("/fee/demand-request", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeDemandRequests);
 router.patch("/fee/demand-request/:id/approve", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, approveFeeDemandRequest);
 router.patch("/fee/demand-request/:id/reject", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, rejectFeeDemandRequest);
 router.get("/fee/demand", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeDemands);
+router.patch("/fee/demand/:id", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, updateFeeDemand);
 router.post("/fee/payment", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, verifyGatewaySignature, createPayment);
 router.patch("/fee/payment/:paymentId/status", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, updatePaymentStatus);
 router.get("/fee/payment", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getPaymentHistory);
@@ -526,7 +543,15 @@ router.post("/fee/payment/sign", isAdmin, canFees, feeSecurityHeaders, feeRateLi
    FEES - BULK OPS (ADMIN)
 ========================= */
 router.get("/fee/bulk/template", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeBulkTemplate);
-router.post("/fee/bulk/upload", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, uploadFeeBulkFile);
+router.post(
+  "/fee/bulk/upload",
+  isAdmin,
+  canFees,
+  feeSecurityHeaders,
+  feeRateLimit,
+  feeBulkUpload.single("file"),
+  uploadFeeBulkFile
+);
 router.get("/fee/bulk/jobs", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeBulkJobs);
 router.get("/fee/bulk/jobs/:jobId", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeBulkJobById);
 router.post("/fee/bulk/jobs/:jobId/retry", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, retryFeeBulkJob);

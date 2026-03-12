@@ -6,6 +6,7 @@ import Group from "../models/Group.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
+import { ensureStudentFeeProfileForEnrollment } from "./feeController.js";
 
 const clearTimetableGroupCardsCache = async () => {
   await redisClient.del("admin:timetable:groups");
@@ -259,6 +260,12 @@ export const addStudent = async (req, res) => {
         .populate("user", "name email aadharNumber phoneNumber DOB role status")
         .populate("department")
         .populate("group");
+
+      try {
+        await ensureStudentFeeProfileForEnrollment(student.enrollmentNumber);
+      } catch (err) {
+        console.error("[Fee] auto profile create failed:", err.message || err);
+      }
 
       const responsePayload = {
         message: "Student added successfully",
