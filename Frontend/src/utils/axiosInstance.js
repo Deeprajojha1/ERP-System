@@ -31,6 +31,15 @@ const isPublicAuthRoute = (url = "") =>
 const isOffline = () =>
   typeof navigator !== "undefined" && navigator.onLine === false;
 
+const navigateToNetworkErrorRoute = () => {
+  if (typeof window === "undefined") return;
+  if (window.location.pathname === "/network-error") return;
+
+  // Use client-side navigation to avoid hard page reload loops.
+  window.history.replaceState({}, "", "/network-error");
+  window.dispatchEvent(new PopStateEvent("popstate"));
+};
+
 const redirectToNetworkError = () => {
   if (
     typeof window !== "undefined" &&
@@ -48,7 +57,7 @@ const redirectToNetworkError = () => {
           sessionStorage.setItem(LAST_FAILED_ROUTE_KEY, failedRoute);
         }
         sessionStorage.setItem(LAST_REDIRECT_AT_KEY, String(Date.now()));
-        window.location.href = "/network-error";
+        navigateToNetworkErrorRoute();
       }, OFFLINE_REDIRECT_DELAY_MS);
       return;
     }
@@ -64,7 +73,7 @@ const redirectToNetworkError = () => {
       sessionStorage.setItem(LAST_FAILED_ROUTE_KEY, failedRoute);
     }
     sessionStorage.setItem(LAST_REDIRECT_AT_KEY, String(now));
-    window.location.href = "/network-error";
+    navigateToNetworkErrorRoute();
   }
 };
 

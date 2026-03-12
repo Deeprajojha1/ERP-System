@@ -3,11 +3,25 @@ import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import axios from "../utils/axiosInstance";
 import {
+  FiBookOpen,
+  FiCalendar,
+  FiDollarSign,
+  FiGitBranch,
+  FiGrid,
+  FiHome,
+  FiLayers,
+  FiList,
+  FiSave,
+  FiTruck,
+} from "react-icons/fi";
+import {
   createFeeBatch,
   createFeeBranch,
+  fetchFeeBranches,
   fetchFeePrograms,
   fetchHostelYearlyFees,
   fetchTransportYearlyFees,
+  selectFeeBranches,
   selectHostelYearlyFees,
   selectFeePrograms,
   selectTransportYearlyFees,
@@ -37,12 +51,12 @@ const FeesAcademic = () => {
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
   const programs = useSelector(selectFeePrograms);
+  const feeBranches = useSelector(selectFeeBranches);
   const hostelYearlyFees = useSelector(selectHostelYearlyFees);
   const transportYearlyFees = useSelector(selectTransportYearlyFees);
   const [setupSubmitting, setSetupSubmitting] = useState(false);
   const [hostelSubmitting, setHostelSubmitting] = useState(false);
   const [transportSubmitting, setTransportSubmitting] = useState(false);
-  const [programRefreshing, setProgramRefreshing] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [branchForm, setBranchForm] = useState({
     programId: "",
@@ -64,12 +78,7 @@ const FeesAcademic = () => {
     departmentId: "",
     programIds: [],
   });
-
-  const normalizeLoose = (value = "") =>
-    String(value || "")
-      .trim()
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "");
+  const [useCustomBranchName, setUseCustomBranchName] = useState(false);
 
   const selectedDepartment = useMemo(
     () => departments.find((department) => String(department._id) === String(batchForm.departmentId)) || null,
@@ -87,7 +96,9 @@ const FeesAcademic = () => {
 
   const departmentPrograms = useMemo(() => {
     if (!batchForm.departmentId) return [];
-    return programs.filter((program) => departmentProgramSet.has(normalizeLoose(program?.programName)));
+    return programs.filter((program) =>
+      matchesDepartmentProgram(program?.programName, departmentProgramSet)
+    );
   }, [batchForm.departmentId, departmentProgramSet, programs]);
 
   const selectedBranchProgram = useMemo(
@@ -109,6 +120,11 @@ const FeesAcademic = () => {
     dispatch(fetchHostelYearlyFees());
     dispatch(fetchTransportYearlyFees());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!branchForm.programId) return;
+    dispatch(fetchFeeBranches({ programId: branchForm.programId }));
+  }, [dispatch, branchForm.programId]);
 
   useEffect(() => {
     if (!apiBase) return;
@@ -174,6 +190,7 @@ const FeesAcademic = () => {
       await dispatch(fetchFeePrograms()).unwrap();
       toast.success("Branch and batch saved");
       setBranchForm({ programId: "", branchName: "", totalCourseFee: "" });
+      setUseCustomBranchName(false);
       setBatchForm({
         batchYear: new Date().getFullYear().toString(),
         departmentId: "",
@@ -248,18 +265,6 @@ const FeesAcademic = () => {
     }
   };
 
-  const refreshPrograms = async () => {
-    if (programRefreshing) return;
-    setProgramRefreshing(true);
-    try {
-      await dispatch(fetchFeePrograms()).unwrap();
-    } catch {
-      // error toast is handled by slice consumers; keep refresh button silent here.
-    } finally {
-      setProgramRefreshing(false);
-    }
-  };
-
   const handleDepartmentChange = (value) => {
     const department = departments.find((row) => String(row._id) === String(value));
     const list = Array.isArray(department?.program)
@@ -270,7 +275,7 @@ const FeesAcademic = () => {
     const allowedProgramNameSet = new Set(list.map((item) => normalizeLoose(item)).filter(Boolean));
     const allowedProgramIds = new Set(
       programs
-        .filter((program) => allowedProgramNameSet.has(normalizeLoose(program?.programName)))
+        .filter((program) => matchesDepartmentProgram(program?.programName, allowedProgramNameSet))
         .map((program) => String(program._id))
     );
 
@@ -283,106 +288,47 @@ const FeesAcademic = () => {
     setBranchForm((prev) => ({
       ...prev,
       programId: value && allowedProgramIds.has(String(prev.programId)) ? prev.programId : "",
+      branchName: "",
     }));
+    setUseCustomBranchName(false);
   };
 
   return (
     <div className="fees-page">
       <header className="fee-structure-header">
         <div>
-          <h1>Fee Structure Management</h1>
+          <h1><FiLayers className="fee-header-icon" /> Fee Structure Management</h1>
           <p>Programs are auto-synced from the existing program list.</p>
         </div>
       </header>
 
       <section className="fee-table-section">
         <div className="fee-table-head">
-          <h2 className="fee-table-title">Available Programs</h2>
+          <h2 className="fee-table-title"><FiGrid className="fee-section-icon" /> Available Programs</h2>
         </div>
         <div className="fee-setup-form fee-setup-form--program">
           {programs.length === 0 ? (
-            <p className="fee-empty-copy">No programs found. Refresh to sync.</p>
+            <p className="fee-empty-copy">No programs found.</p>
           ) : (
             programs.map((program) => (
               <div key={program._id} className="fee-program-pill">
-                <strong>{program.programName}</strong>
+                <strong><FiBookOpen className="fee-pill-icon" /> {program.programName}</strong>
                 <span>
                   {program.durationYears} yrs • {program.totalSemesters} sems
                 </span>
               </div>
             ))
           )}
-          <button
-            className="fee-setup-submit-btn"
-            type="button"
-            onClick={refreshPrograms}
-            disabled={programRefreshing}
-          >
-            {programRefreshing ? "Refreshing..." : "Refresh Programs"}
-          </button>
         </div>
       </section>
 
       <section className="fee-table-section">
         <div className="fee-table-head">
-          <h2 className="fee-table-title">Branch & Batch Setup</h2>
+          <h2 className="fee-table-title"><FiGitBranch className="fee-section-icon" /> Branch & Batch Setup</h2>
         </div>
-        <form onSubmit={submitBranchAndBatch}>
-          <div className="fee-setup-grid">
-            <div className="fee-setup-form fee-setup-form--branch">
-            <select
-              className="fee-setup-input"
-              value={branchForm.programId}
-              onChange={(event) =>
-                setBranchForm((prev) => ({ ...prev, programId: event.target.value }))
-              }
-              disabled={!batchForm.departmentId}
-              required
-            >
-              <option value="">{batchForm.departmentId ? "Select program" : "Select department first"}</option>
-              {departmentPrograms.map((program) => (
-                <option key={program._id} value={program._id}>
-                  {program.programName}
-                </option>
-              ))}
-            </select>
-            <input
-              className="fee-setup-input"
-              type="text"
-              placeholder="Branch name"
-              value={branchForm.branchName}
-              onChange={(event) =>
-                setBranchForm((prev) => ({ ...prev, branchName: event.target.value }))
-              }
-              required
-            />
-            <input
-              className="fee-setup-input"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="Total course fee"
-              value={branchForm.totalCourseFee}
-              onChange={(event) =>
-                setBranchForm((prev) => ({ ...prev, totalCourseFee: event.target.value }))
-              }
-            />
-            {branchForm.programId && branchForm.totalCourseFee ? (
-              <p className="fee-setup-help">
-                {(() => {
-                  const selectedProgram = selectedBranchProgram;
-                  const semesters = Number(selectedProgram?.totalSemesters || 0);
-                  const totalCourseFee = Number(branchForm.totalCourseFee);
-                  if (!Number.isFinite(semesters) || semesters <= 0 || !Number.isFinite(totalCourseFee) || totalCourseFee <= 0) {
-                    return "Semester split will appear after selecting a program and total fee.";
-                  }
-                  const perSemester = (totalCourseFee / semesters).toFixed(2);
-                  return `Equal split: ${semesters} semesters x ${perSemester}`;
-                })()}
-              </p>
-            ) : null}
-            </div>
-            <div className="fee-setup-form fee-setup-form--batch">
+        <form onSubmit={submitBranchAndBatch} className="fee-branch-batch-form">
+          <div className="fee-form-group">
+            <p className="fee-form-group-label"><FiList className="fee-label-icon" /> Department</p>
             <select
               className="fee-setup-input"
               value={batchForm.departmentId}
@@ -396,58 +342,167 @@ const FeesAcademic = () => {
                 </option>
               ))}
             </select>
-            <select
-              className="fee-setup-input fee-setup-input--multi"
-              multiple
-              value={batchForm.programIds}
-              onChange={(event) => {
-                const values = Array.from(event.target.selectedOptions).map((option) => option.value);
-                setBatchForm((prev) => ({ ...prev, programIds: values }));
-              }}
-              disabled={!batchForm.departmentId}
-              required
-            >
-              {departmentPrograms.map((program) => (
-                <option key={program._id} value={program._id}>
-                  {program.programName}
+          </div>
+
+          <div className="fee-form-row-2">
+            <div className="fee-form-group">
+              <p className="fee-form-group-label"><FiBookOpen className="fee-label-icon" /> Program</p>
+              <select
+                className="fee-setup-input"
+                value={branchForm.programId}
+                onChange={(event) => {
+                  setBranchForm((prev) => ({
+                    ...prev,
+                    programId: event.target.value,
+                    branchName: "",
+                  }));
+                  setUseCustomBranchName(false);
+                }}
+                disabled={!batchForm.departmentId}
+                required
+              >
+                <option value="">{batchForm.departmentId ? "Select program" : "Select department first"}</option>
+                {departmentPrograms.map((program) => (
+                  <option key={program._id} value={program._id}>
+                    {program.programName}
+                    {Array.isArray(program?.branchIds) && program.branchIds.length
+                      ? ` (${program.branchIds.length} branches)`
+                      : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="fee-form-group">
+              <p className="fee-form-group-label"><FiGitBranch className="fee-label-icon" /> Branch Name</p>
+              <select
+                className="fee-setup-input"
+                value={useCustomBranchName ? "__custom__" : branchForm.branchName}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "__custom__") {
+                    setUseCustomBranchName(true);
+                    setBranchForm((prev) => ({ ...prev, branchName: "" }));
+                    return;
+                  }
+                  setUseCustomBranchName(false);
+                  setBranchForm((prev) => ({ ...prev, branchName: value }));
+                }}
+                disabled={!branchForm.programId}
+                required
+              >
+                <option value="">
+                  {branchForm.programId ? "Select branch" : "Select program first"}
                 </option>
-              ))}
-            </select>
-            <input
-              className="fee-setup-input"
-              type="number"
-              min="2000"
-              max="2100"
-              value={batchForm.batchYear}
-              onChange={(event) =>
-                setBatchForm((prev) => ({ ...prev, batchYear: event.target.value }))
-              }
-              required
-            />
-            <p className="fee-setup-help">For multiple programs, hold Ctrl/Cmd and select options.</p>
-            {(() => {
-              const batchYear = Number(batchForm.batchYear);
-              if (!Number.isFinite(batchYear) || !batchForm.programIds.length) return null;
-              const selected = programs.filter((program) =>
-                batchForm.programIds.some((id) => String(id) === String(program._id))
-              );
-              const maxDuration = selected.reduce(
-                (max, program) => Math.max(max, Number(program?.durationYears || 0)),
-                0
-              );
-              if (!maxDuration) return null;
-              const endYear = batchYear + maxDuration;
-              return (
-                <p className="fee-setup-help">
-                  Fee batch window: {batchYear}-{endYear} (based on selected program duration).
-                </p>
-              );
-            })()}
+                {programBranchOptions.map((branchName) => (
+                  <option key={branchName} value={branchName}>
+                    {branchName}
+                  </option>
+                ))}
+                <option value="__custom__">+ Add new branch</option>
+              </select>
+              {useCustomBranchName ? (
+                <input
+                  className="fee-setup-input"
+                  type="text"
+                  placeholder="Type new branch name"
+                  value={branchForm.branchName}
+                  onChange={(event) =>
+                    setBranchForm((prev) => ({ ...prev, branchName: event.target.value }))
+                  }
+                  required
+                />
+              ) : null}
             </div>
           </div>
+
+          <div className="fee-form-row-3">
+            <div className="fee-form-group">
+              <p className="fee-form-group-label"><FiDollarSign className="fee-label-icon" /> Total Course Fee</p>
+              <input
+                className="fee-setup-input"
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="e.g. 400000"
+                value={branchForm.totalCourseFee}
+                onChange={(event) =>
+                  setBranchForm((prev) => ({ ...prev, totalCourseFee: event.target.value }))
+                }
+              />
+              {branchForm.programId && branchForm.totalCourseFee ? (
+                <p className="fee-setup-help">
+                  {(() => {
+                    const selectedProgram = selectedBranchProgram;
+                    const semesters = Number(selectedProgram?.totalSemesters || 0);
+                    const totalCourseFee = Number(branchForm.totalCourseFee);
+                    if (!Number.isFinite(semesters) || semesters <= 0 || !Number.isFinite(totalCourseFee) || totalCourseFee <= 0) {
+                      return "Semester split will appear after selecting a program and total fee.";
+                    }
+                    const perSemester = (totalCourseFee / semesters).toFixed(2);
+                    return `Equal split: ${semesters} semesters × ₹${perSemester}`;
+                  })()}
+                </p>
+              ) : null}
+            </div>
+            <div className="fee-form-group">
+              <p className="fee-form-group-label"><FiCalendar className="fee-label-icon" /> Batch Year</p>
+              <input
+                className="fee-setup-input"
+                type="number"
+                min="2000"
+                max="2100"
+                value={batchForm.batchYear}
+                onChange={(event) =>
+                  setBatchForm((prev) => ({ ...prev, batchYear: event.target.value }))
+                }
+                required
+              />
+            </div>
+            <div className="fee-form-group">
+              <p className="fee-form-group-label"><FiLayers className="fee-label-icon" /> Batch Programs</p>
+              <select
+                className="fee-setup-input fee-setup-input--multi"
+                multiple
+                value={batchForm.programIds}
+                onChange={(event) => {
+                  const values = Array.from(event.target.selectedOptions).map((option) => option.value);
+                  setBatchForm((prev) => ({ ...prev, programIds: values }));
+                }}
+                disabled={!batchForm.departmentId}
+                required
+              >
+                {departmentPrograms.map((program) => (
+                  <option key={program._id} value={program._id}>
+                    {program.programName}
+                  </option>
+                ))}
+              </select>
+              <p className="fee-setup-help">Hold Ctrl/Cmd to select multiple programs.</p>
+              {(() => {
+                const batchYear = Number(batchForm.batchYear);
+                if (!Number.isFinite(batchYear) || !batchForm.programIds.length) return null;
+                const selected = programs.filter((program) =>
+                  batchForm.programIds.some((id) => String(id) === String(program._id))
+                );
+                const maxDuration = selected.reduce(
+                  (max, program) => Math.max(max, Number(program?.durationYears || 0)),
+                  0
+                );
+                if (!maxDuration) return null;
+                const endYear = batchYear + maxDuration;
+                return (
+                  <p className="fee-setup-help">
+                    Fee batch window: {batchYear}–{endYear} (based on selected program duration).
+                  </p>
+                );
+              })()}
+            </div>
+          </div>
+
           <div className="fee-setup-actions">
             <button className="fee-setup-submit-btn" type="submit" disabled={setupSubmitting}>
-              {setupSubmitting ? "Saving..." : "Save"}
+              <FiSave />
+              {setupSubmitting ? "Saving..." : "Save Branch & Batch"}
             </button>
           </div>
         </form>
@@ -455,7 +510,7 @@ const FeesAcademic = () => {
 
       <section className="fee-table-section">
         <div className="fee-table-head">
-          <h2 className="fee-table-title">Hostel Fees (Yearly)</h2>
+          <h2 className="fee-table-title"><FiHome className="fee-section-icon" /> Hostel Fees (Yearly)</h2>
         </div>
         <form
           onSubmit={submitHostelFee}
@@ -551,7 +606,7 @@ const FeesAcademic = () => {
 
       <section className="fee-table-section">
         <div className="fee-table-head">
-          <h2 className="fee-table-title">Transport Fees (Yearly)</h2>
+          <h2 className="fee-table-title"><FiTruck className="fee-section-icon" /> Transport Fees (Yearly)</h2>
         </div>
         <form
           onSubmit={submitTransportFee}
@@ -609,7 +664,7 @@ const FeesAcademic = () => {
 
       <section className="fee-table-section">
         <div className="fee-table-head">
-          <h2 className="fee-table-title">Configured Programs</h2>
+          <h2 className="fee-table-title"><FiGrid className="fee-section-icon" /> Configured Programs</h2>
         </div>
         <div className="fees-table-wrap">
           <table className="fees-table">

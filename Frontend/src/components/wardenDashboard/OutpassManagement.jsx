@@ -69,6 +69,7 @@ function OutpassManagement({ portalRole = "warden" }) {
   const [scanLoading, setScanLoading] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [, setIsMobileSidebarOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [isDetectingQr, setIsDetectingQr] = useState(false);
   const [reportExporting, setReportExporting] = useState("");

@@ -15,7 +15,19 @@ if (!redisEnabled) {
 } else if (!redisUrl) {
   console.warn("[Redis] REDIS_URL not set. Redis caching is disabled.");
 } else {
-  client = createClient({ url: redisUrl });
+  client = createClient({
+    url: redisUrl,
+    socket: {
+      connectTimeout: 5000,
+      reconnectStrategy: (retries) => {
+        if (retries >= 3) {
+          console.warn("[Redis] Reconnect retries exhausted. Redis disabled for this run.");
+          return new Error("Redis reconnect retries exhausted");
+        }
+        return Math.min((retries + 1) * 500, 2000);
+      },
+    },
+  });
 
   client.on("error", (err) => {
     console.error("[Redis] Client error:", err.message || err);

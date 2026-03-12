@@ -57,6 +57,7 @@ import {
   selectMyDemands,
   selectMyPayments,
 } from "../../redux/feeSlice";
+import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 import "./StudentDashboardShell.css";
 
 const buildProfileImageUrl = (apiBase, fileUrl, fileName) => {
@@ -108,6 +109,8 @@ const StudentDashboardShell = ({
   );
   const [isExamFocusMode, setIsExamFocusMode] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [isDownloadingAttendanceReport, setIsDownloadingAttendanceReport] = useState(false);
+  const [nowTime, setNowTime] = useState(() => new Date());
 
   // Keep existing profile image resolution behavior.
   const profileImage = buildProfileImageUrl(
@@ -181,10 +184,18 @@ const StudentDashboardShell = ({
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      setNowTime(new Date());
+    }, 60_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
+
   const currentSection = useMemo(() => {
     const path = location.pathname.toLowerCase();
     if (path.includes("/dashboard/profile")) return "profile";
     if (path.includes("/dashboard/attendance")) return "attendance";
+    if (path.includes("/dashboard/timetable")) return "timetable";
     if (path.includes("/dashboard/courses")) return "courses";
     if (path.includes("/dashboard/exam-registration")) return "exam-registration";
     if (path.includes("/dashboard/exams")) return "exams";
@@ -214,6 +225,7 @@ const StudentDashboardShell = ({
 
   const academicsMenuItems = [
     { id: "attendance", label: "Attendance", path: "/dashboard/attendance", icon: FiActivity },
+    { id: "timetable", label: "Timetable", path: "/dashboard/timetable", icon: FiCalendar },
     { id: "courses", label: "Courses", path: "/dashboard/courses", icon: FiBookOpen },
     { id: "exams", label: "Exams", path: "/dashboard/exams", icon: FiClipboard },
     { id: "exam-registration", label: "Exam Registration", path: "/dashboard/exam-registration", icon: FiFileText },
@@ -403,9 +415,60 @@ const StudentDashboardShell = ({
       : 0;
 
     const getColor = (pct) => {
-      if (pct >= 90) return "#e8590c";
-      if (pct >= 75) return "#e8590c";
+      if (pct >= 90) return "#16a34a";
+      if (pct >= 75) return "#f59e0b";
       return "#ef4444";
+    };
+
+    const getAccentSoftColor = (pct) => {
+      if (pct >= 90) return "#86efac";
+      if (pct >= 75) return "#fcd34d";
+      return "#fca5a5";
+    };
+
+    const getAccentShadowColor = (pct) => {
+      if (pct >= 90) return "rgba(22, 163, 74, 0.24)";
+      if (pct >= 75) return "rgba(245, 158, 11, 0.24)";
+      return "rgba(239, 68, 68, 0.24)";
+    };
+
+    const extractFacultyName = (entry = {}, course = {}) => {
+      const directCandidates = [
+        entry?.facultyName,
+        course?.facultyName,
+        course?.faculty?.name,
+        course?.faculty?.user?.name,
+      ];
+      const directHit = directCandidates.find(
+        (value) => String(value || "").trim() && String(value || "").trim() !== "N/A"
+      );
+      if (directHit) return String(directHit).trim();
+
+      const attendanceCourseId = String(course?._id || entry?.course?._id || "").trim();
+      const attendanceCode = String(course?.code || "").trim().toLowerCase();
+      const attendanceName = String(course?.courseName || "").trim().toLowerCase();
+
+      const match = (Array.isArray(coursesData) ? coursesData : []).find((courseItem) => {
+        const itemId = String(courseItem?.id || courseItem?._id || "").trim();
+        const itemCode = String(courseItem?.courseCode || courseItem?.code || "")
+          .trim()
+          .toLowerCase();
+        const itemName = String(courseItem?.courseName || courseItem?.name || "")
+          .trim()
+          .toLowerCase();
+
+        return (
+          (attendanceCourseId && itemId && attendanceCourseId === itemId) ||
+          (attendanceCode && itemCode && attendanceCode === itemCode) ||
+          (attendanceName && itemName && attendanceName === itemName)
+        );
+      });
+
+      const mappedFaculty = String(
+        match?.instructor || match?.facultyName || match?.faculty?.name || ""
+      ).trim();
+
+      return mappedFaculty || "-";
     };
 
     const subjectData = (attendanceData || []).map((entry) => {
@@ -428,6 +491,7 @@ const StudentDashboardShell = ({
       return {
         name: course.courseName || course.code || "Course",
         code: course.code || "",
+        faculty: extractFacultyName(entry, course),
         routeId,
         totalSessions: total,
         presentCount: present,
@@ -435,6 +499,108 @@ const StudentDashboardShell = ({
         sessions,
       };
     });
+
+    const downloadAttendanceReport = async () => {
+      if (isDownloadingAttendanceReport) return;
+      try {
+        setIsDownloadingAttendanceReport(true);
+        const esc = (value = "") =>
+          String(value)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#39;");
+
+        const rows = subjectData
+          .map(
+            (sub, index) => `
+              <tr>
+                <td>${index + 1}</td>
+                <td>${esc(sub.name)}</td>
+                <td>${esc(sub.code || "-")}</td>
+                <td>${esc(sub.faculty || "-")}</td>
+                <td>${sub.totalSessions}</td>
+                <td>${sub.presentCount}</td>
+                <td>${Number(sub.percentage || 0).toFixed(2)}%</td>
+              </tr>
+            `
+          )
+          .join("");
+
+        const now = new Date();
+        const html = `
+          <html>
+            <head>
+              <style>
+                body { font-family: Arial, sans-serif; padding: 20px; color: #1f2937; }
+                h1 { margin: 0 0 16px; font-size: 30px; color: #334155; }
+                .card { border: 1px solid #dbe4ee; border-radius: 12px; padding: 16px; margin-bottom: 16px; background: #f8fbff; }
+                .card h2 { margin: 0 0 10px; font-size: 24px; color: #334155; }
+                .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; font-size: 18px; }
+                .label { font-weight: 700; }
+                .meta { margin-top: 12px; font-size: 16px; color: #475569; text-align: center; }
+                table { width: 100%; border-collapse: collapse; border: 1px solid #d4dbe5; background: #ffffff; }
+                th, td { border: 1px solid #d4dbe5; padding: 10px; text-align: center; font-size: 15px; }
+                th { background: #f3f4f6; color: #6b7280; font-weight: 700; }
+                tfoot td { font-weight: 700; background: #f9fafb; }
+              </style>
+            </head>
+            <body>
+              <h1>Attendance Report</h1>
+              <section class="card">
+                <h2>Student Details</h2>
+                <div class="grid">
+                  <div><span class="label">Name:</span> ${esc(studentName || "-")}</div>
+                  <div><span class="label">Email:</span> ${esc(studentEmail || "-")}</div>
+                  <div><span class="label">Enrollment:</span> ${esc(roleDetails?.enrollmentNumber || resolvedStudentData?.personalInfo?.studentId || "-")}</div>
+                  <div><span class="label">Semester:</span> ${esc(roleDetails?.semester || resolvedStudentData?.academicInfo?.semester || "-")}</div>
+                  <div><span class="label">Department:</span> ${esc(roleDetails?.department?.name || resolvedStudentData?.academicInfo?.course || "-")}</div>
+                  <div><span class="label">Section:</span> ${esc(roleDetails?.group?.name || resolvedStudentData?.academicInfo?.section || "-")}</div>
+                </div>
+                <div class="meta">
+                  <span class="label">Date:</span> ${esc(now.toLocaleDateString())} &nbsp; | &nbsp;
+                  <span class="label">Time:</span> ${esc(now.toLocaleTimeString())}
+                </div>
+              </section>
+              <table>
+                <thead>
+                  <tr>
+                    <th>S.No</th>
+                    <th>Subject Name</th>
+                    <th>Subject Code</th>
+                    <th>Faculty</th>
+                    <th>Total Held</th>
+                    <th>Total Attended</th>
+                    <th>% Attendance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rows || '<tr><td colspan="7">No attendance records found</td></tr>'}
+                </tbody>
+                <tfoot>
+                  <tr>
+                    <td colspan="4">Overall</td>
+                    <td>${totalClasses}</td>
+                    <td>${attended}</td>
+                    <td>${Number(percentage || 0).toFixed(2)}%</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </body>
+          </html>
+        `;
+
+        await downloadPdfFromHtml(apiBase, {
+          html,
+          fileName: `${studentName || "Student"}_Attendance_Report.pdf`,
+        });
+      } catch (error) {
+        toast.error(error?.message || "Failed to download attendance report");
+      } finally {
+        setIsDownloadingAttendanceReport(false);
+      }
+    };
 
     const selectedRouteId = decodeURIComponent(
       String(location.pathname || "")
@@ -526,10 +692,32 @@ const StudentDashboardShell = ({
     }
 
     return (
-      <section className="stu-att-page">
-        {/* Overall Attendance Card */}
-        <div className="stu-att-overall-card">
-          <h3 className="stu-att-overall-title">Overall Attendance</h3>
+        <section className="stu-att-page">
+          {/* Overall Attendance Card */}
+          <div
+            className="stu-att-overall-card"
+            style={{
+              "--stu-att-accent": getColor(percentage),
+              "--stu-att-accent-soft": getAccentSoftColor(percentage),
+              "--stu-att-accent-shadow": getAccentShadowColor(percentage),
+            }}
+          >
+          <div className="stu-att-overall-head">
+            <h3 className="stu-att-overall-title">Overall Attendance</h3>
+            <button
+              type="button"
+              className="stu-att-download-btn"
+              onClick={downloadAttendanceReport}
+              disabled={isDownloadingAttendanceReport}
+              title="Download full attendance report"
+            >
+              {isDownloadingAttendanceReport ? (
+                <span className="stu-att-download-spinner" aria-hidden="true" />
+              ) : (
+                <FiDownload size={15} />
+              )}
+            </button>
+          </div>
           <div className="stu-att-circle-wrap">
             <svg viewBox="0 0 140 140" className="stu-att-circle-svg">
               <circle cx="70" cy="70" r="58" fill="none" stroke="#f1f5f9" strokeWidth="11" />
@@ -575,7 +763,7 @@ const StudentDashboardShell = ({
             </div>
             <div className="stu-att-subject-list">
               {subjectData.map((sub, idx) => {
-                const barColor = sub.percentage >= 75 ? "#e8590c" : "#ef4444";
+                const barColor = getColor(sub.percentage);
                 const isLow = sub.percentage < 75;
                 return (
                   <div
@@ -634,6 +822,128 @@ const StudentDashboardShell = ({
                 Attend the next {classesNeeded} {tipSubject.name} classes to reach the 75% goal.
               </span>
             </div>
+          </div>
+        )}
+      </section>
+    );
+  };
+
+  const renderTimetablePage = () => {
+    const todayScheduleList = Array.isArray(userData?.todaySchedule)
+      ? userData.todaySchedule
+      : Array.isArray(roleDetails?.todaySchedule)
+      ? roleDetails.todaySchedule
+      : [];
+
+    const slotByLecture = {
+      1: { start: "09:00", end: "09:50" },
+      2: { start: "09:50", end: "10:40" },
+      3: { start: "10:50", end: "11:40" },
+      4: { start: "11:40", end: "12:30" },
+      5: { start: "13:10", end: "14:00" },
+      6: { start: "14:00", end: "14:50" },
+      7: { start: "15:00", end: "15:50" },
+      8: { start: "15:50", end: "16:40" },
+    };
+
+    const toMinutes = (hhmm = "") => {
+      const [hh, mm] = String(hhmm).split(":").map(Number);
+      if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+      return hh * 60 + mm;
+    };
+
+    const nowMinutes = nowTime.getHours() * 60 + nowTime.getMinutes();
+    const dayClasses = [...todayScheduleList]
+      .map((entry) => {
+        const lectureNumber = Number(entry?.lectureNumber || 0);
+        const slot = slotByLecture[lectureNumber] || null;
+        const startMinutes = toMinutes(slot?.start);
+        const endMinutes = toMinutes(slot?.end);
+        const course = entry?.course || {};
+        const courseId = String(course?._id || entry?.courseId || "").trim();
+        const courseCode = String(course?.code || entry?.courseCode || "").trim().toLowerCase();
+        const courseName = String(course?.courseName || entry?.courseName || "").trim().toLowerCase();
+
+        const matchedCourse = (Array.isArray(coursesData) ? coursesData : []).find((item) => {
+          const itemId = String(item?.id || item?._id || "").trim();
+          const itemCode = String(item?.courseCode || item?.code || "").trim().toLowerCase();
+          const itemName = String(item?.courseName || item?.name || "").trim().toLowerCase();
+          return (
+            (courseId && itemId && courseId === itemId) ||
+            (courseCode && itemCode && courseCode === itemCode) ||
+            (courseName && itemName && courseName === itemName)
+          );
+        });
+
+        let status = "upcoming";
+        if (Number.isFinite(startMinutes) && Number.isFinite(endMinutes)) {
+          if (nowMinutes >= startMinutes && nowMinutes < endMinutes) status = "live";
+          else if (nowMinutes >= endMinutes) status = "completed";
+        }
+
+        return {
+          lectureNumber,
+          subject: matchedCourse?.courseName || course?.courseName || matchedCourse?.courseCode || course?.code || "Class",
+          code: matchedCourse?.courseCode || course?.code || "-",
+          teacher:
+            entry?.facultyName ||
+            matchedCourse?.instructor ||
+            matchedCourse?.facultyName ||
+            course?.facultyName ||
+            "Teacher not assigned",
+          timeLabel: slot ? `${slot.start} - ${slot.end}` : "Time not set",
+          status,
+        };
+      })
+      .sort((a, b) => a.lectureNumber - b.lectureNumber);
+
+    const liveCount = dayClasses.filter((item) => item.status === "live").length;
+    const completedCount = dayClasses.filter((item) => item.status === "completed").length;
+    const upcomingCount = dayClasses.filter((item) => item.status === "upcoming").length;
+
+    return (
+      <section className="stu-tt-page">
+        <div className="stu-tt-hero">
+          <div>
+            <h3 className="stu-tt-title">Today's Timetable</h3>
+            <p className="stu-tt-subtitle">
+              Track live class, completed lectures, and upcoming sessions for today.
+            </p>
+          </div>
+          <div className="stu-tt-kpis">
+            <span className="stu-tt-kpi live">Live {liveCount}</span>
+            <span className="stu-tt-kpi completed">Completed {completedCount}</span>
+            <span className="stu-tt-kpi upcoming">Upcoming {upcomingCount}</span>
+          </div>
+        </div>
+
+        {dayClasses.length === 0 ? (
+          <div className="stu-tt-empty">No classes scheduled for today.</div>
+        ) : (
+          <div className="stu-tt-list">
+            {dayClasses.map((item) => (
+              <article
+                key={`${item.lectureNumber}-${item.code}-${item.subject}`}
+                className={`stu-tt-card ${item.status}`}
+              >
+                <div className="stu-tt-slot">Lecture {item.lectureNumber}</div>
+                <div className="stu-tt-main">
+                  <h4>{item.subject}</h4>
+                  <p>{item.code}</p>
+                  <p className="stu-tt-teacher">{item.teacher}</p>
+                </div>
+                <div className="stu-tt-meta">
+                  <span className="stu-tt-time">{item.timeLabel}</span>
+                  <span className={`stu-tt-status ${item.status}`}>
+                    {item.status === "live"
+                      ? "Live"
+                      : item.status === "completed"
+                      ? "Completed"
+                      : "Upcoming"}
+                  </span>
+                </div>
+              </article>
+            ))}
           </div>
         )}
       </section>
@@ -1052,6 +1362,9 @@ const StudentDashboardShell = ({
     }
     if (currentSection === "attendance") {
       return renderAttendancePage();
+    }
+    if (currentSection === "timetable") {
+      return renderTimetablePage();
     }
     if (currentSection === "courses") {
       return (

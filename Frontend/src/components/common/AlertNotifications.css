@@ -165,3 +165,16 @@
   font-size: 0.75rem;
   color: #9ca3af;
 }
+
+@media (max-width: 768px) {
+  .alert-dropdown {
+    position: fixed;
+    top: 78px;
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
+    width: min(360px, calc(100vw - 20px));
+    max-height: min(70vh, 500px);
+    z-index: 1200;
+  }
+}

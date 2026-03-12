@@ -1,18 +1,13 @@
-import toast from "react-hot-toast";
-import { useSelector } from "react-redux";
 /**
  * AttendanceOverview.jsx - Attendance Summary Component
- * 
- * Displays overall attendance statistics and download functionality
- * 
+ *
+ * Displays overall attendance statistics.
+ *
  * Note: React 18+ with new JSX transform - no need to import React
  */
-import { FiDownload } from 'react-icons/fi';
 import './AttendanceOverview.css';
-import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 
-const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) => {
-  const apiBase = useSelector((state) => state.config.apiBase);
+const AttendanceOverview = ({ overallAttendance, attendanceData }) => {
   const summaryFromOverall = overallAttendance && typeof overallAttendance === 'object'
     ? {
         totalClasses: overallAttendance.totalSessions || 0,
@@ -58,69 +53,11 @@ const AttendanceOverview = ({ overallAttendance, attendanceData, studentData }) 
       ? 'On track for minimum criteria'
       : 'Needs improvement to reach 75%';
 
-  const exportToPDF = async () => {
-    try {
-      const esc = (value = "") =>
-        String(value)
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#39;");
-
-      const html = `
-        <html>
-          <head>
-            <style>
-              body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
-              h1 { margin: 0 0 6px; font-size: 24px; }
-              h2 { margin: 0 0 8px; color: #4b5563; font-weight: 500; }
-              .meta { color: #6b7280; margin-bottom: 18px; }
-              .stats { margin-top: 8px; }
-              .stats div { margin: 6px 0; }
-              .label { font-weight: 700; display: inline-block; width: 160px; }
-            </style>
-          </head>
-          <body>
-            <h1>Student Attendance Report</h1>
-            <h2>${esc(studentData?.personalInfo?.name || "Student")}</h2>
-            <div class="meta">
-              ID: ${esc(studentData?.personalInfo?.studentId || "-")} |
-              Roll: ${esc(studentData?.academicInfo?.rollNumber || "-")}
-            </div>
-            <div class="stats">
-              <div><span class="label">Total Classes:</span> ${esc(totalClasses)}</div>
-              <div><span class="label">Classes Attended:</span> ${esc(totalAttended)}</div>
-              <div><span class="label">Overall Attendance:</span> ${esc(overallPercentage)}%</div>
-            </div>
-            <div style="margin-top: 24px; color: #6b7280; font-size: 12px;">
-              Generated on: ${esc(new Date().toLocaleDateString())}
-            </div>
-          </body>
-        </html>
-      `;
-
-      await downloadPdfFromHtml(apiBase, {
-        html,
-        fileName: `${studentData?.personalInfo?.name || "Student"}_Attendance_Report.pdf`,
-      });
-      
-    } catch (error) {
-      console.error('Error generating PDF:', error);
-      toast.error('Error generating PDF. Please try again.', {
-        icon: '\u274C',
-      });
-    }
-  };
-
   return (
     <div className="attendance-overview">
       <div className="overall-attendance">
         <div className="attendance-overview-header">
           <h3>Overall Attendance</h3>
-          <button className="download-btn" onClick={exportToPDF} title="Download Attendance Report">
-            <FiDownload className="download-icon" />
-          </button>
         </div>
         
         <div className="attendance-circle">

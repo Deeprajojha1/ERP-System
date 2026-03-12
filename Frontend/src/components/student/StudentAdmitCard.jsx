@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import axios from "../../utils/axiosInstance";
 import { openPdfFromHtml } from "../../utils/pdfDownload";
+import "./StudentAdmitCard.css";
 import {
   FiFileText,
   FiCalendar,
   FiUser,
-  FiHash,
   FiBookOpen,
   FiChevronDown,
   FiChevronUp,
@@ -19,7 +19,6 @@ import {
   FiLayers,
   FiDownload,
 } from "react-icons/fi";
-import { HiOutlineAcademicCap } from "react-icons/hi2";
 import ClipLoader from "../../Admin/components/ClipLoader";
 import { ThreeDots } from "react-loader-spinner";
 
@@ -58,7 +57,7 @@ const StudentAdmitCard = () => {
   const [detailLoading, setDetailLoading] = useState(false);
   const [downloadingId, setDownloadingId] = useState(null);
 
-  const fetchAdmitCards = async () => {
+  const fetchAdmitCards = useCallback(async () => {
     if (!apiBase) return;
     try {
       setLoading(true);
@@ -71,11 +70,11 @@ const StudentAdmitCard = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [apiBase]);
 
   useEffect(() => {
     fetchAdmitCards();
-  }, [apiBase]);
+  }, [fetchAdmitCards]);
 
   const handleExpand = async (cardId) => {
     if (expandedId === cardId) {
@@ -321,389 +320,235 @@ const StudentAdmitCard = () => {
   const pendingCount = admitCards.length - verifiedCount;
 
   return (
-    <section className="student-fees-page">
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "20px" }}>
-        <h3 style={{ display: "flex", alignItems: "center", gap: "8px", margin: 0 }}>
-          <FiFileText size={20} /> Admit Cards
-        </h3>
+    <section className="student-admit-page">
+      <header className="student-admit-hero">
+        <div>
+          <p className="student-admit-eyebrow">Examination Access</p>
+          <h3 className="student-admit-title">
+            <FiFileText size={20} /> Student Admit Cards
+          </h3>
+          <p className="student-admit-subtitle">
+            View exam eligibility status, check issued details, and download your admit cards.
+          </p>
+        </div>
         <button
           type="button"
           onClick={fetchAdmitCards}
           disabled={loading}
-          style={{
-            display: "inline-flex", alignItems: "center", gap: "6px",
-            background: "linear-gradient(135deg, #f0f4ff 0%, #e8f0fe 100%)",
-            border: "1px solid #c7d6f0",
-            padding: "7px 16px", borderRadius: "10px", cursor: loading ? "not-allowed" : "pointer",
-            fontSize: "0.84rem", color: "#3b5998", fontWeight: 600,
-            transition: "all 0.2s",
-          }}
+          className="student-admit-refresh"
         >
-          <FiRefreshCw size={14} style={loading ? { animation: "spin 1s linear infinite" } : {}} />
+          <FiRefreshCw size={14} className={loading ? "spin" : ""} />
           {loading ? "Loading..." : "Refresh"}
         </button>
-      </div>
+      </header>
 
       {loading && admitCards.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "48px 20px", display: "flex", flexDirection: "column", alignItems: "center" }}>
+        <div className="student-admit-state">
           <ThreeDots height="40" width="50" color="#3b82f6" ariaLabel="loading" />
-          <p style={{ color: "#94a3b8", fontSize: "0.92rem", marginTop: "12px" }}>Loading your admit cards...</p>
+          <p>Loading your admit cards...</p>
         </div>
       ) : admitCards.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "48px 20px" }}>
-          <FiFileText size={44} style={{ color: "#cbd5e1", marginBottom: "12px" }} />
-          <p style={{ color: "#64748b", fontSize: "0.95rem", fontWeight: 500 }}>
-            No admit cards issued yet
-          </p>
-          <p style={{ color: "#94a3b8", fontSize: "0.84rem", marginTop: "4px" }}>
-            Your admit cards will appear here once issued by the admin.
-          </p>
+        <div className="student-admit-state">
+          <FiFileText size={44} className="student-admit-state-icon" />
+          <p>No admit cards issued yet</p>
+          <small>Your admit cards will appear here once issued by the admin.</small>
         </div>
       ) : (
         <>
-          {/* Summary cards row */}
-          <div className="student-home-fee-row" style={{ marginBottom: "22px" }}>
-            <article className="student-summary-card student-summary-card--fee-total">
-              <p style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                <FiLayers size={13} /> Total Cards
-              </p>
+          <section className="student-admit-summary">
+            <article className="student-admit-summary-card total">
+              <p><FiLayers size={13} /> Total Cards</p>
               <strong>{admitCards.length}</strong>
             </article>
-            <article className="student-summary-card student-summary-card--fee-paid">
-              <p style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                <FiCheckCircle size={13} /> Verified
-              </p>
+            <article className="student-admit-summary-card verified">
+              <p><FiCheckCircle size={13} /> Verified</p>
               <strong>{verifiedCount}</strong>
             </article>
-            <article className="student-summary-card student-summary-card--fee-remaining">
-              <p style={{ display: "flex", alignItems: "center", gap: "5px" }}>
-                <FiClock size={13} /> Pending Verification
-              </p>
+            <article className="student-admit-summary-card pending">
+              <p><FiClock size={13} /> Pending Verification</p>
               <strong>{pendingCount}</strong>
             </article>
-          </div>
+          </section>
 
-          {/* Admit cards list */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+          <div className="student-admit-list">
             {admitCards.map((card) => {
               const isExpanded = expandedId === card._id;
               const isVerified = card.invigilatorVerification?.status === "VERIFIED";
               return (
-                <div
-                  key={card._id}
-                  style={{
-                    background: "linear-gradient(165deg, #ffffff, #f8faff)",
-                    border: `1px solid ${isExpanded ? "#a5b4fc" : "rgba(182, 198, 220, 0.72)"}`,
-                    borderRadius: "16px",
-                    overflow: "hidden",
-                    transition: "all 0.25s ease",
-                    boxShadow: isExpanded
-                      ? "0 8px 28px rgba(15, 108, 247, 0.1)"
-                      : "0 4px 14px rgba(18, 43, 81, 0.06)",
-                  }}
-                >
-                  {/* Top accent bar */}
-                  <div style={{
-                    height: "3px",
-                    background: isVerified
-                      ? "linear-gradient(120deg, #0fa968, #34d399)"
-                      : "linear-gradient(120deg, #f59e0b, #fbbf24)",
-                  }} />
+                <div key={card._id} className={`student-admit-card ${isExpanded ? "expanded" : ""}`}>
+                  <div className={`student-admit-card-top ${isVerified ? "verified" : "pending"}`} />
 
-                  {/* Card header */}
-                  <div
-                    onClick={() => handleExpand(card._id)}
-                    style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      padding: "16px 20px", cursor: "pointer",
-                      transition: "background 0.2s",
-                    }}
-                  >
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: "14px", flex: 1 }}>
-                      {/* Icon circle */}
-                      <div style={{
-                        width: "44px", height: "44px", borderRadius: "12px", flexShrink: 0,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        background: isVerified
-                          ? "linear-gradient(135deg, #dcfce7, #bbf7d0)"
-                          : "linear-gradient(135deg, #fef9c3, #fde68a)",
-                        color: isVerified ? "#166534" : "#92400e",
-                      }}>
+                  <div onClick={() => handleExpand(card._id)} className="student-admit-card-head">
+                    <div className="student-admit-head-left">
+                      <div className={`student-admit-icon ${isVerified ? "verified" : "pending"}`}>
                         <FiAward size={20} />
                       </div>
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: "10px", flexWrap: "wrap", marginBottom: "6px" }}>
-                          <span style={{ fontWeight: 700, fontSize: "1rem", color: "#0f2d5c" }}>
-                            {card.exam?.examName || "Exam"}
-                          </span>
-                          <span style={{
-                            display: "inline-flex", alignItems: "center", gap: "4px",
-                            padding: "3px 12px", borderRadius: "999px",
-                            fontSize: "0.75rem", fontWeight: 600,
-                            background: isVerified ? "#dcfce7" : "#fef9c3",
-                            color: isVerified ? "#166534" : "#854d0e",
-                          }}>
+                      <div className="student-admit-head-content">
+                        <div className="student-admit-head-top">
+                          <span className="student-admit-exam-name">{card.exam?.examName || "Exam"}</span>
+                          <span className={`student-admit-chip ${isVerified ? "verified" : "pending"}`}>
                             {isVerified ? <FiCheckCircle size={12} /> : <FiClock size={12} />}
                             {isVerified ? "Verified" : "Pending"}
                           </span>
                         </div>
-                        <div style={{
-                          display: "flex", gap: "14px", fontSize: "0.8rem",
-                          color: "#64748b", flexWrap: "wrap",
-                        }}>
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                            <FiHash size={12} /> {card.admitCardNo}
-                          </span>
-                          {card.exam?.session && (
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                              <FiCalendar size={12} /> {card.exam.session}
-                            </span>
-                          )}
-                          {card.exam?.examDate && (
-                            <span style={{ display: "inline-flex", alignItems: "center", gap: "4px" }}>
-                              <FiCalendar size={12} /> {formatDate(card.exam.examDate)}
-                            </span>
-                          )}
+                        <div className="student-admit-meta">
+                          <span><FiFileText size={12} /> Admit Card No: {card.admitCardNo}</span>
+                          {card.exam?.session ? <span><FiCalendar size={12} /> {card.exam.session}</span> : null}
+                          {card.exam?.examDate ? <span><FiCalendar size={12} /> {formatDate(card.exam.examDate)}</span> : null}
                         </div>
                       </div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+
+                    <div className="student-admit-head-actions">
                       <button
                         type="button"
-                        onClick={(e) => { e.stopPropagation(); handleDownloadAdmitCard(card._id); }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDownloadAdmitCard(card._id);
+                        }}
                         title="Download Admit Card"
                         disabled={downloadingId === card._id}
-                        style={{
-                          width: "32px", height: "32px", borderRadius: "8px",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          background: downloadingId === card._id
-                            ? "linear-gradient(135deg, #e2e8f0, #cbd5e1)"
-                            : "linear-gradient(135deg, #dcfce7, #bbf7d0)",
-                          color: downloadingId === card._id ? "#64748b" : "#166534",
-                          border: `1px solid ${downloadingId === card._id ? "#cbd5e1" : "#86efac"}`,
-                          cursor: downloadingId === card._id ? "not-allowed" : "pointer",
-                          transition: "all 0.2s",
-                        }}
+                        className="student-admit-download"
                       >
                         {downloadingId === card._id
                           ? <ClipLoader size={14} color="#64748b" trackColor="rgba(100,116,139,0.25)" />
                           : <FiDownload size={15} />}
                       </button>
-                      <div style={{
-                        width: "32px", height: "32px", borderRadius: "8px",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        background: isExpanded ? "#e0e7ff" : "#f1f5f9",
-                        color: isExpanded ? "#4f46e5" : "#94a3b8",
-                        transition: "all 0.2s",
-                      }}>
+                      <div className={`student-admit-expand-icon ${isExpanded ? "expanded" : ""}`}>
                         {isExpanded ? <FiChevronUp size={16} /> : <FiChevronDown size={16} />}
                       </div>
                     </div>
                   </div>
 
-                  {/* Expanded detail */}
-                  {isExpanded && (
-                    <div style={{
-                      padding: "0 20px 22px",
-                      borderTop: "1px solid rgba(182, 198, 220, 0.4)",
-                    }}>
+                  {isExpanded ? (
+                    <div className="student-admit-detail-wrap">
                       {detailLoading ? (
-                        <div style={{ textAlign: "center", padding: "24px 0", display: "flex", flexDirection: "column", alignItems: "center" }}>
+                        <div className="student-admit-detail-loading">
                           <ClipLoader size={28} color="#3b82f6" trackColor="rgba(59,130,246,0.15)" />
-                          <p style={{ color: "#94a3b8", fontSize: "0.88rem", marginTop: "10px" }}>Loading details...</p>
+                          <p>Loading details...</p>
                         </div>
                       ) : detailCard ? (
-                        <div style={{ paddingTop: "18px" }}>
-                          {/* Photo + basic info header */}
-                          <div style={{
-                            display: "flex", gap: "20px", marginBottom: "20px",
-                            alignItems: "flex-start", flexWrap: "wrap",
-                          }}>
-                            {detailCard.snapshot?.photoUrl && (
-                              <img
-                                src={detailCard.snapshot.photoUrl}
-                                alt="Student"
-                                style={{
-                                  width: "90px", height: "110px", objectFit: "cover",
-                                  borderRadius: "12px", border: "2px solid #e2e8f0",
-                                  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                                }}
-                              />
-                            )}
-                            <div style={{ flex: 1, minWidth: "200px" }}>
-                              <h4 style={{
-                                margin: "0 0 4px", fontSize: "1.1rem",
-                                fontWeight: 700, color: "#0f2d5c",
-                              }}>
-                                {detailCard.snapshot?.candidateName || "N/A"}
-                              </h4>
-                              <p style={{ margin: "0 0 8px", fontSize: "0.84rem", color: "#64748b" }}>
+                        <div className="student-admit-detail">
+                          <div className="student-admit-profile-row">
+                            {detailCard.snapshot?.photoUrl ? (
+                              <img src={detailCard.snapshot.photoUrl} alt="Student" className="student-admit-photo" />
+                            ) : null}
+                            <div className="student-admit-profile-info">
+                              <h4>{detailCard.snapshot?.candidateName || "N/A"}</h4>
+                              <p>
                                 {detailCard.snapshot?.courseName}
-                                {detailCard.snapshot?.branchName ? ` — ${detailCard.snapshot.branchName}` : ""}
+                                {detailCard.snapshot?.branchName ? ` - ${detailCard.snapshot.branchName}` : ""}
                               </p>
-                              <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
-                                {detailCard.snapshot?.rollNo && (
-                                  <MiniTag icon={<FiHash size={11} />} label="Roll No" value={detailCard.snapshot.rollNo} />
-                                )}
-                                {detailCard.snapshot?.enrollmentNumber && (
-                                  <MiniTag icon={<FiHash size={11} />} label="Enrollment" value={detailCard.snapshot.enrollmentNumber} />
-                                )}
+                              <div className="student-admit-mini-tags">
+                                {detailCard.snapshot?.rollNo ? (
+                                  <MiniTag icon={<FiUser size={11} />} label="Roll No" value={detailCard.snapshot.rollNo} />
+                                ) : null}
+                                {detailCard.snapshot?.enrollmentNumber ? (
+                                  <MiniTag
+                                    icon={<FiUser size={11} />}
+                                    label="Enrollment"
+                                    value={detailCard.snapshot.enrollmentNumber}
+                                  />
+                                ) : null}
                               </div>
                             </div>
                           </div>
 
-                          {/* Info grid */}
-                          <div style={{
-                            display: "grid",
-                            gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-                            gap: "10px", marginBottom: "18px",
-                          }}>
-                            {detailCard.snapshot?.batchLabel && (
+                          <div className="student-admit-info-grid">
+                            {detailCard.snapshot?.batchLabel ? (
                               <InfoItem icon={<FiCalendar size={13} />} label="Batch" value={detailCard.snapshot.batchLabel} />
-                            )}
-                            {detailCard.snapshot?.year && (
+                            ) : null}
+                            {detailCard.snapshot?.year ? (
                               <InfoItem icon={<FiCalendar size={13} />} label="Year" value={detailCard.snapshot.year} />
-                            )}
-                            {detailCard.snapshot?.semester && (
+                            ) : null}
+                            {detailCard.snapshot?.semester ? (
                               <InfoItem icon={<FiCalendar size={13} />} label="Semester" value={detailCard.snapshot.semester} />
-                            )}
-                            {detailCard.snapshot?.examinationCentre && (
-                              <InfoItem icon={<FiMapPin size={13} />} label="Exam Centre" value={detailCard.snapshot.examinationCentre} />
-                            )}
-                            {detailCard.exam?.block && (
+                            ) : null}
+                            {detailCard.snapshot?.examinationCentre ? (
+                              <InfoItem
+                                icon={<FiMapPin size={13} />}
+                                label="Exam Centre"
+                                value={detailCard.snapshot.examinationCentre}
+                              />
+                            ) : null}
+                            {detailCard.exam?.block ? (
                               <InfoItem icon={<FiMapPin size={13} />} label="Block" value={detailCard.exam.block} />
-                            )}
-                            {detailCard.snapshot?.fatherName && (
+                            ) : null}
+                            {detailCard.snapshot?.fatherName ? (
                               <InfoItem icon={<FiUser size={13} />} label="Father's Name" value={detailCard.snapshot.fatherName} />
-                            )}
-                            {detailCard.snapshot?.motherName && (
+                            ) : null}
+                            {detailCard.snapshot?.motherName ? (
                               <InfoItem icon={<FiUser size={13} />} label="Mother's Name" value={detailCard.snapshot.motherName} />
-                            )}
+                            ) : null}
                           </div>
 
-                          {/* Exam timing bar */}
-                          {(detailCard.exam?.startTime || detailCard.exam?.endTime) && (
-                            <div style={{
-                              background: "linear-gradient(135deg, #eff6ff, #e0e7ff)",
-                              borderRadius: "10px", padding: "12px 16px",
-                              marginBottom: "18px", fontSize: "0.84rem", color: "#3b5998",
-                              display: "flex", gap: "20px", flexWrap: "wrap",
-                              alignItems: "center", fontWeight: 500,
-                            }}>
-                              <FiClock size={15} style={{ color: "#4f46e5" }} />
-                              {detailCard.exam.startTime && (
+                          {detailCard.exam?.startTime || detailCard.exam?.endTime ? (
+                            <div className="student-admit-timebar">
+                              <FiClock size={15} />
+                              {detailCard.exam.startTime ? (
                                 <span>Start: <strong>{detailCard.exam.startTime}</strong></span>
-                              )}
-                              {detailCard.exam.endTime && (
+                              ) : null}
+                              {detailCard.exam.endTime ? (
                                 <span>End: <strong>{detailCard.exam.endTime}</strong></span>
-                              )}
+                              ) : null}
                             </div>
-                          )}
+                          ) : null}
 
-                          {/* Subjects table */}
-                          {detailCard.snapshot?.subjects?.length > 0 && (
+                          {detailCard.snapshot?.subjects?.length > 0 ? (
                             <div>
-                              <h4 style={{
-                                fontSize: "0.9rem", fontWeight: 600, color: "#0f2d5c",
-                                marginBottom: "10px", display: "flex", alignItems: "center", gap: "6px",
-                              }}>
+                              <h4 className="student-admit-subject-title">
                                 <FiBookOpen size={15} /> Subjects ({detailCard.snapshot.subjects.length})
                               </h4>
-                              <div style={{
-                                overflowX: "auto", borderRadius: "10px",
-                                border: "1px solid rgba(182, 198, 220, 0.5)",
-                              }}>
-                                <table style={{
-                                  width: "100%", borderCollapse: "collapse", fontSize: "0.84rem",
-                                }}>
+                              <div className="student-admit-subject-table-wrap">
+                                <table className="student-admit-subject-table">
                                   <thead>
-                                    <tr style={{ background: "linear-gradient(135deg, #f0f4ff, #e8f0fe)" }}>
-                                      <th style={thStyle}>#</th>
-                                      <th style={thStyle}>Subject Code</th>
-                                      <th style={thStyle}>Subject Name</th>
+                                    <tr>
+                                      <th>S.No</th>
+                                      <th>Subject Code</th>
+                                      <th>Subject Name</th>
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {detailCard.snapshot.subjects.map((sub, idx) => (
-                                      <tr key={idx} style={{
-                                        borderBottom: "1px solid #f1f5f9",
-                                        background: idx % 2 === 0 ? "#fff" : "#fafbff",
-                                      }}>
-                                        <td style={tdStyle}>{idx + 1}</td>
-                                        <td style={{ ...tdStyle, fontWeight: 600, color: "#3b5998" }}>{sub.subjectCode}</td>
-                                        <td style={tdStyle}>{sub.subjectName}</td>
+                                      <tr key={idx}>
+                                        <td>{idx + 1}</td>
+                                        <td className="student-admit-code">{sub.subjectCode}</td>
+                                        <td>{sub.subjectName}</td>
                                       </tr>
                                     ))}
                                   </tbody>
                                 </table>
                               </div>
                             </div>
-                          )}
+                          ) : null}
                         </div>
                       ) : (
-                        <div style={{ textAlign: "center", padding: "24px 0" }}>
-                          <p style={{ color: "#94a3b8", fontSize: "0.88rem" }}>No details available.</p>
+                        <div className="student-admit-detail-empty">
+                          <p>No details available.</p>
                         </div>
                       )}
                     </div>
-                  )}
+                  ) : null}
                 </div>
               );
             })}
           </div>
         </>
       )}
-
-      <style>{`
-        @keyframes spin {
-          from { transform: rotate(0deg); }
-          to { transform: rotate(360deg); }
-        }
-      `}</style>
     </section>
   );
 };
 
 const InfoItem = ({ icon, label, value }) => (
-  <div style={{
-    background: "linear-gradient(165deg, #f8faff, #f1f5fb)",
-    borderRadius: "10px", padding: "10px 14px",
-    display: "flex", flexDirection: "column", gap: "3px",
-    border: "1px solid rgba(182, 198, 220, 0.35)",
-  }}>
-    <span style={{
-      fontSize: "0.72rem", color: "#7c8db5", display: "flex",
-      alignItems: "center", gap: "4px", textTransform: "uppercase",
-      letterSpacing: "0.03em", fontWeight: 600,
-    }}>
-      {icon} {label}
-    </span>
-    <span style={{ fontSize: "0.88rem", fontWeight: 600, color: "#0f2d5c" }}>
-      {value || "N/A"}
-    </span>
+  <div className="student-admit-info-item">
+    <span className="student-admit-info-label">{icon} {label}</span>
+    <span className="student-admit-info-value">{value || "N/A"}</span>
   </div>
 );
 
 const MiniTag = ({ icon, label, value }) => (
-  <span style={{
-    display: "inline-flex", alignItems: "center", gap: "4px",
-    background: "#f0f4ff", color: "#3b5998", padding: "4px 10px",
-    borderRadius: "8px", fontSize: "0.78rem", fontWeight: 600,
-    border: "1px solid #dbeafe",
-  }}>
-    {icon} {label}: {value}
-  </span>
+  <span className="student-admit-mini-tag">{icon} {label}: {value}</span>
 );
-
-const thStyle = {
-  textAlign: "left", padding: "10px 14px", fontWeight: 600,
-  color: "#3b5998", fontSize: "0.8rem", letterSpacing: "0.02em",
-};
-
-const tdStyle = {
-  padding: "10px 14px", color: "#334155",
-};
 
 export default StudentAdmitCard;

@@ -289,6 +289,28 @@
   margin-bottom: 24px;
   padding-bottom: 16px;
   border-bottom: 2px solid #1e293b;
+  position: relative;
+}
+
+.ser-paper-back-btn {
+  position: absolute;
+  left: 0;
+  top: -4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #475569;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ser-paper-back-btn:hover {
+  background: #e2e8f0;
 }
 
 .ser-paper-header h2 {
@@ -668,6 +690,11 @@
 
   .ser-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .ser-paper-back-btn {
+    position: static;
+    margin-bottom: 10px;
   }
 
   .ser-reg-card-body {
