@@ -103,6 +103,7 @@ import {
   getAttendanceById,
   getAttendanceByGroupAndCourse,
   getGroupStudentAttendanceByDate,
+  getGroupStudentAttendanceByDateRange,
   deleteAttendance,
   hardDeleteAttendance,
   getStudentsByGroup,
@@ -365,6 +366,12 @@ router.get("/attendance/export-report", isAdmin, canAttendance, getAttendanceExp
 router.get("/attendance/daily", isAdmin, canAttendance, getDailyAttendanceSummary);
 router.get("/attendance/group/:groupId/students", isAdmin, canAttendance, getStudentsByGroup);
 router.get("/attendance/group/:groupId/date/:date", isAdmin, canAttendance, getGroupStudentAttendanceByDate);
+router.get(
+  "/attendance/group/:groupId/date-range",
+  isAdmin,
+  canAttendance,
+  getGroupStudentAttendanceByDateRange,
+);
 router.get(
   "/attendance/group/:groupId/course/:courseId",
   isAdmin,

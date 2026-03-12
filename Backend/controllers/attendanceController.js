@@ -1090,3 +1090,109 @@ export const getGroupStudentAttendanceByDate = async (req, res) => {
     return res.status(500).json({ message: error.message });
   }
 };
+
+/* ================================================================
+   11. GROUP STUDENT ATTENDANCE BY DATE RANGE  (Admin)
+   GET /attendance/group/:groupId/date-range?fromDate=YYYY-MM-DD&toDate=YYYY-MM-DD
+   Returns all students in a group with aggregated attendance summary
+   for the selected date range (across all courses/sessions).
+   ================================================================ */
+export const getGroupStudentAttendanceByDateRange = async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const fromDateInput = String(req.query?.fromDate || "").trim();
+    const toDateInput = String(req.query?.toDate || fromDateInput).trim();
+
+    if (!groupId || !fromDateInput || !toDateInput) {
+      return res.status(400).json({ message: "groupId, fromDate and toDate are required" });
+    }
+
+    let dayStart = parseLocalDateBoundary(fromDateInput, "start");
+    let dayEnd = parseLocalDateBoundary(toDateInput, "end");
+
+    if (!dayStart || !dayEnd) {
+      return res.status(400).json({ message: "Invalid date format. Use YYYY-MM-DD" });
+    }
+
+    if (dayStart > dayEnd) {
+      [dayStart, dayEnd] = [
+        parseLocalDateBoundary(toDateInput, "start"),
+        parseLocalDateBoundary(fromDateInput, "end"),
+      ];
+    }
+
+    const group = await Group.findById(groupId).select("name roomNo studentIds");
+    if (!group) return res.status(404).json({ message: "Group not found" });
+
+    let students = await Student.find({ _id: { $in: group.studentIds } })
+      .populate("user", "name")
+      .select("enrollmentNumber user");
+
+    // Fallback: some datasets only maintain Student.group, not Group.studentIds.
+    if (students.length === 0) {
+      students = await Student.find({ group: groupId })
+        .populate("user", "name")
+        .select("enrollmentNumber user");
+    }
+
+    const sessions = await AttendanceSession.find({
+      group: groupId,
+      date: { $gte: dayStart, $lte: dayEnd },
+    }).sort({ date: 1, createdAt: 1 });
+
+    const responseStudents = students.map((student) => {
+      const studentObjectId = String(student._id);
+      const userObjectId = String(student.user?._id || "");
+
+      let presentCount = 0;
+      let absentCount = 0;
+      let notMarkedCount = 0;
+
+      sessions.forEach((session) => {
+        const record = session.records.find((r) => {
+          const recId = String(r.student);
+          return recId === studentObjectId || (userObjectId && recId === userObjectId);
+        });
+
+        if (record?.status === "present") {
+          presentCount += 1;
+          return;
+        }
+
+        if (record?.status === "absent") {
+          absentCount += 1;
+          return;
+        }
+
+        notMarkedCount += 1;
+      });
+
+      return {
+        studentId: student._id,
+        name: student.user?.name || "Unknown",
+        enrollmentNumber: student.enrollmentNumber || "",
+        summary: {
+          totalSessions: sessions.length,
+          presentCount,
+          absentCount,
+          notMarkedCount,
+        },
+      };
+    });
+
+    return res.json({
+      message: "Group student attendance range fetched successfully",
+      fromDate: toDateKey(dayStart),
+      toDate: toDateKey(dayEnd),
+      group: {
+        _id: group._id,
+        name: group.name,
+        roomNo: group.roomNo || null,
+      },
+      totalSessions: sessions.length,
+      students: responseStudents,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
