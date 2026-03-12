@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import axiosInstance from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 import { FiCheckCircle, FiEdit, FiXCircle } from "react-icons/fi";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./Attendance.css";
 import {
   fetchAdminDailySummary,
@@ -227,10 +228,11 @@ const Attendance = () => {
           <div className="attendance-filter">
             <label className="attendance-filter-label">
               Select date
-              <input
-                type="date"
+              <ModernDatePicker
                 value={dailyDate}
                 onChange={(event) => setDailyDate(event.target.value)}
+                placeholder="Select date"
+                max={DEFAULT_DATE}
               />
             </label>
           </div>
@@ -289,11 +291,11 @@ const Attendance = () => {
               <div className="group-head-meta">
                 <label>
                   
-                  <input
-                    type="date"
+                  <ModernDatePicker
                     value={dailyDate}
                     max={new Date().toISOString().slice(0, 10)}
                     onChange={(event) => setDailyDate(event.target.value)}
+                    placeholder="Select date"
                   />
                 </label>
               </div>

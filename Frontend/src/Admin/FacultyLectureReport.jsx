@@ -6,6 +6,7 @@ import { Oval } from "react-loader-spinner";
 import { FiPrinter } from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./FacultyLectureReport.css";
 
 const FacultyLectureReport = () => {
@@ -13,11 +14,9 @@ const FacultyLectureReport = () => {
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState("");
-  const [selectedBatch, setSelectedBatch] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [reportData, setReportData] = useState(null);
 
-  const batchOptions = ["2023-27", "2024-28", "2022-26", "2021-25", "2020-24"];
   const lectureSlots = [
     { id: 1, time: "09:00-10:00" },
     { id: 2, time: "10:00-11:00" },
@@ -209,7 +208,6 @@ const FacultyLectureReport = () => {
           <h3>Department Teacher Lectures Report</h3>
           <div class="meta">
             <p><strong>Department:</strong> ${esc(selectedDeptName || "N/A")}</p>
-            <p><strong>Batch:</strong> ${esc(selectedBatch || "N/A")}</p>
             <p><strong>Date:</strong> ${esc(formatDate(selectedDate) || "N/A")}</p>
           </div>
           <table>
@@ -328,28 +326,13 @@ const FacultyLectureReport = () => {
             </div>
 
             <div className="faculty-lecture-report-filter-group">
-              <label htmlFor="batch-select">Batch</label>
-              <select
-                id="batch-select"
-                value={selectedBatch}
-                onChange={(e) => setSelectedBatch(e.target.value)}
-              >
-                <option value="">Select Batch</option>
-                {batchOptions.map((batch) => (
-                  <option key={batch} value={batch}>
-                    {batch}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="faculty-lecture-report-filter-group">
               <label htmlFor="date-select">Select Date</label>
-              <input
-                type="date"
+              <ModernDatePicker
                 id="date-select"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
+                placeholder="Select date"
+                max={new Date().toISOString().split("T")[0]}
               />
             </div>
 

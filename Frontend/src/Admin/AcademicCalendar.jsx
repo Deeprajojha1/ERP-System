@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { FiCalendar, FiClock, FiPlus, FiTrash2 } from "react-icons/fi";
+import React, { useMemo, useState } from "react";
+import { FiCalendar, FiClock, FiPlus } from "react-icons/fi";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./AcademicCalendar.css";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -187,13 +188,11 @@ const AcademicCalendar = () => {
 
             <label className="ac-form-field">
               <span>Date</span>
-              <input
-                type="date"
+              <ModernDatePicker
                 value={formValues.date}
                 onChange={(event) =>
                   setFormValues((prev) => ({ ...prev, date: event.target.value }))
                 }
-                required
               />
             </label>
 

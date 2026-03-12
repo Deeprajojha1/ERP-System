@@ -10,15 +10,17 @@ import { downloadTabularFile } from "../utils/tabularDownload";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
 
+const REPORT_REQUEST_TIMEOUT_MS = 120000;
+
 const GeneralSupport = () => {
   const [reportType, setReportType] = useState("Attendance Report");
   const [department, setDepartment] = useState("All Departments");
   const [courseProgram, setCourseProgram] = useState("All Groups");
   const [semester, setSemester] = useState("All Semesters");
-  const [section, setSection] = useState("All Sections");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [format, setFormat] = useState("Excel");
+  const [isDownloading, setIsDownloading] = useState(false);
   const [recent, setRecent] = useState([]);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.PENDING);
   const [departments, setDepartments] = useState(["All Departments"]);
@@ -97,6 +99,23 @@ const GeneralSupport = () => {
       return String(value.name || value.departmentName || value.code || "").trim();
     }
     return String(value).trim();
+  };
+
+  const normalizeDateInput = (value) => {
+    const normalized = String(value || "").trim();
+    if (!normalized) return "";
+
+    const [year, month, day] = normalized.split("-").map(Number);
+    if (!year || !month || !day) return "";
+
+    const localDate = new Date(year, month - 1, day, 12, 0, 0, 0);
+    if (Number.isNaN(localDate.getTime())) return "";
+
+    return [
+      String(localDate.getFullYear()).padStart(4, "0"),
+      String(localDate.getMonth() + 1).padStart(2, "0"),
+      String(localDate.getDate()).padStart(2, "0"),
+    ].join("-");
   };
 
   const downloadPDF = async (rows, filename) => {
@@ -200,10 +219,6 @@ const GeneralSupport = () => {
     () => String(courseProgram || "").trim().toLowerCase(),
     [courseProgram]
   );
-  const normalizedSectionFilter = useMemo(
-    () => String(section || "").trim().toLowerCase(),
-    [section]
-  );
 
   const courseProgramOptions = useMemo(() => {
     const options = new Set();
@@ -235,17 +250,6 @@ const GeneralSupport = () => {
     return ["All Semesters", ...Array.from(semesters).sort((a, b) => a - b)];
   }, [courses, matchesDepartment]);
 
-  const sectionOptions = useMemo(() => {
-    const options = new Set(["All Sections"]);
-    groups
-      .filter((group) => matchesDepartment(group?.department?.name || group?.department))
-      .forEach((group) => {
-        const name = String(group?.name || "").trim();
-        if (name) options.add(name);
-      });
-    return Array.from(options);
-  }, [groups, matchesDepartment]);
-
   useEffect(() => {
     if (!courseProgramOptions.includes(courseProgram)) {
       setCourseProgram("All Groups");
@@ -260,12 +264,6 @@ const GeneralSupport = () => {
       setSemester("All Semesters");
     }
   }, [semesterOptions, semester]);
-
-  useEffect(() => {
-    if (!sectionOptions.includes(section)) {
-      setSection("All Sections");
-    }
-  }, [sectionOptions, section]);
 
   const matchesCourseProgram = (...candidates) => {
     if (normalizedCourseProgramFilter === "all groups") return true;
@@ -287,151 +285,22 @@ const GeneralSupport = () => {
     return String(value) === String(semester);
   };
 
-  const matchesSection = (...candidates) => {
-    if (normalizedSectionFilter === "all sections") return true;
-
-    return candidates.some((candidate) => {
-      const value = String(candidate || "").trim().toLowerCase();
-      if (!value) return false;
-      return (
-        value === normalizedSectionFilter ||
-        value.includes(normalizedSectionFilter) ||
-        normalizedSectionFilter.includes(value)
-      );
-    });
-  };
-
   const fetchReportRows = async () => {
     switch (reportType) {
       case "Attendance Report": {
-        const date = fromDate || toDate || new Date().toISOString().slice(0, 10);
-        const [dailyRes, studentsRes] = await Promise.all([
-          axios.get(`${apiBase}/admin/attendance/daily`, {
-            withCredentials: true,
-            params: { date },
-          }),
-          axios.get(`${apiBase}/admin/student`, {
-            withCredentials: true,
-            params: { noCache: "true", full: "true" },
-          }),
-        ]);
-
-        const summary = dailyRes.data?.summary || [];
-        const students = studentsRes.data?.students || [];
-        const studentById = new Map(
-          students.map((student) => [String(student?._id || ""), student])
-        );
-
-        const groupIds = Array.from(
-          new Set(summary.map((item) => String(item?.group?._id || item?.group || "")).filter(Boolean))
-        );
-
-        const detailResponses = await Promise.all(
-          groupIds.map(async (groupId) => {
-            try {
-              const response = await axios.get(
-                `${apiBase}/admin/attendance/group/${groupId}/date/${date}`,
-                { withCredentials: true }
-              );
-              return { groupId, data: response.data };
-            } catch {
-              return { groupId, data: null };
-            }
-          })
-        );
-
-        const facultyByGroupCourse = new Map();
-        groups.forEach((group) => {
-          const gId = String(group?._id || "");
-          (group?.courseFaculty || []).forEach((cf) => {
-            const courseId = String(cf?.course?._id || cf?.course || "");
-            if (!gId || !courseId) return;
-            const facultyName =
-              cf?.faculty?.user?.name ||
-              cf?.faculty?.name ||
-              cf?.faculty?.employeeId ||
-              "-";
-            facultyByGroupCourse.set(`${gId}:${courseId}`, facultyName);
-          });
+        const response = await axios.get(`${apiBase}/admin/attendance/export-report`, {
+          withCredentials: true,
+          timeout: REPORT_REQUEST_TIMEOUT_MS,
+          params: {
+            fromDate: normalizeDateInput(fromDate),
+            toDate: normalizeDateInput(toDate),
+            department,
+            group: courseProgram,
+            semester,
+          },
         });
 
-        const rows = [];
-        detailResponses.forEach((item) => {
-          const groupData = item?.data;
-          if (!groupData || !Array.isArray(groupData.students)) return;
-
-          const groupName = groupData?.group?.name || "-";
-          const groupId = String(groupData?.group?._id || item.groupId || "");
-
-          groupData.students.forEach((entry) => {
-            const studentId = String(entry?.studentId || "");
-            const studentMaster = studentById.get(studentId) || {};
-            const departmentName = toDepartmentName(studentMaster?.department) || "-";
-            const studentProgram =
-              studentMaster?.program ||
-              studentMaster?.course ||
-              "-";
-            const studentSemester = studentMaster?.semester ?? "-";
-            const studentSection = studentMaster?.section || groupName;
-            const studentCode = entry?.enrollmentNumber || studentMaster?.rollNo || "-";
-            const studentAttendancePct =
-              entry?.summary?.totalSessions > 0
-                ? Number(
-                    ((entry.summary.presentCount / entry.summary.totalSessions) * 100).toFixed(2)
-                  )
-                : 0;
-
-            if (!matchesDepartment(departmentName)) return;
-            if (!matchesSemester(studentSemester)) return;
-            if (!matchesSection(studentSection, groupName)) return;
-
-            const attendanceEntries = entry?.attendanceEntries || [];
-            attendanceEntries.forEach((attendance) => {
-              const courseCode = attendance?.course?.code || "-";
-              const courseName = attendance?.course?.courseName || "-";
-              const subjectPeriod =
-                courseCode !== "-" || courseName !== "-"
-                  ? `${courseCode}${courseName !== "-" ? ` - ${courseName}` : ""}`
-                  : "-";
-              const facultyName =
-                facultyByGroupCourse.get(
-                  `${groupId}:${String(attendance?.course?._id || "")}`
-                ) || "-";
-
-              if (
-                !matchesCourseProgram(
-                  studentProgram,
-                  courseCode,
-                  courseName,
-                  groupName
-                )
-              ) {
-                return;
-              }
-
-              rows.push({
-                "Student Name": entry?.name || "Unknown",
-                Program: studentProgram,
-                Department: departmentName,
-                Semester: studentSemester,
-                Group: groupName,
-                "Student Code": studentCode,
-                "Subject / Period": subjectPeriod,
-                "Faculty Name": facultyName,
-                Date: date,
-                "Attendance Status":
-                  attendance?.status === "present"
-                    ? "Present"
-                    : attendance?.status === "absent"
-                    ? "Absent"
-                    : "Not Marked",
-                "Attendance Percentage": studentAttendancePct,
-              });
-            });
-          });
-        });
-
-        return rows.map((row, index) => ({
+        return (response.data?.rows || []).map((row, index) => ({
           "SN.": index + 1,
           ...row,
         }));
@@ -448,7 +317,6 @@ const GeneralSupport = () => {
             matchesCourseProgram(student?.program, student?.course, student?.group?.name)
           )
           .filter((student) => matchesSemester(student?.semester))
-          .filter((student) => matchesSection(student?.section, student?.group?.name))
           .map((student, index) => {
             const dob = student?.user?.DOB ? new Date(student.user.DOB) : null;
             const admissionDate = student?.createdAt ? new Date(student.createdAt) : null;
@@ -570,8 +438,7 @@ const GeneralSupport = () => {
           .filter((student) =>
             matchesCourseProgram(student?.program, student?.course, student?.group?.name)
           )
-          .filter((student) => matchesSemester(student?.semester))
-          .filter((student) => matchesSection(student?.section, student?.group?.name));
+          .filter((student) => matchesSemester(student?.semester));
 
         const byDepartment = filtered.reduce((acc, student) => {
           const dept = toDepartmentName(student?.department) || "Unknown";
@@ -673,9 +540,6 @@ const GeneralSupport = () => {
               student?.program
             )
           )
-          .filter((student) =>
-            matchesSection(student?.section, student?.group?.name)
-          )
           .map((student, index) => ({
             "S.No": index + 1,
             Name: student?.user?.name || student?.studentName || "-",
@@ -703,6 +567,8 @@ const GeneralSupport = () => {
   const handleGenerate = async () => {
     const stamp = new Date().toISOString().slice(0, 10);
     const base = `${reportType.replace(/\s+/g, "_")}_${stamp}`;
+
+    setIsDownloading(true);
 
     try {
       const data = await fetchReportRows();
@@ -768,6 +634,8 @@ const GeneralSupport = () => {
     } catch (error) {
       toast.error(error.message || "Failed to generate report");
       return;
+    } finally {
+      setIsDownloading(false);
     }
 
     setRecent((prev) => [
@@ -833,7 +701,6 @@ const GeneralSupport = () => {
                   setDepartment(e.target.value);
                   setCourseProgram("All Groups");
                   setSemester("All Semesters");
-                  setSection("All Sections");
                 }}
               >
                 {departments.map((d) => (
@@ -878,17 +745,6 @@ const GeneralSupport = () => {
               </select>
             </label>
 
-            <label>
-              Section
-              <select value={section} onChange={(e) => setSection(e.target.value)}>
-                {sectionOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
-              </select>
-            </label>
-
             <div className="gs-row">
               <label>
                 From Date
@@ -918,9 +774,32 @@ const GeneralSupport = () => {
               </label>
             </div>
 
-            <button className="gs-generate" type="button" onClick={handleGenerate}>
-              <FiDownload />
-              <span>Generate & Download Report</span>
+            <button
+              className="gs-generate"
+              type="button"
+              onClick={handleGenerate}
+              disabled={isDownloading}
+            >
+              {isDownloading ? (
+                <>
+                  <Oval
+                    height={18}
+                    width={18}
+                    color="#ffffff"
+                    secondaryColor="rgba(255,255,255,0.35)"
+                    strokeWidth={5}
+                    strokeWidthSecondary={5}
+                    ariaLabel="Downloading report"
+                    visible
+                  />
+                  <span>Downloading Report...</span>
+                </>
+              ) : (
+                <>
+                  <FiDownload />
+                  <span>Generate & Download Report</span>
+                </>
+              )}
             </button>
           </div>
         </div>

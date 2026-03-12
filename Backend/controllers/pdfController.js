@@ -1,9 +1,30 @@
 import puppeteer from "puppeteer-core";
 
+let activePdfRenders = 0;
+
+const getMaxConcurrentPdfRenders = () => {
+  const configured = Number(process.env.PDF_MAX_CONCURRENT || 1);
+  if (!Number.isFinite(configured) || configured < 1) return 1;
+  return Math.floor(configured);
+};
+
+const getMaxRssBytes = () => {
+  const configuredMb = Number(process.env.PDF_MAX_RSS_MB || 420);
+  if (!Number.isFinite(configuredMb) || configuredMb <= 0) return 420 * 1024 * 1024;
+  return configuredMb * 1024 * 1024;
+};
+
+const hasMemoryHeadroomForPdf = () => {
+  const currentRss = Number(process.memoryUsage?.().rss || 0);
+  return currentRss < getMaxRssBytes();
+};
+
 const getLaunchArgs = () => [
   ...(process.platform === "linux"
     ? ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"]
     : []),
+  "--single-process",
+  "--no-zygote",
   "--disable-gpu",
   "--no-first-run",
 ];
@@ -48,6 +69,8 @@ const launchBrowser = async () => {
         headless: true,
         executablePath,
         args,
+        timeout: 15000,
+        protocolTimeout: 45000,
       });
     } catch (error) {
       errors.push(`${executablePath}: ${error.message}`);
@@ -110,6 +133,20 @@ export const renderPdfFromHtml = async (req, res) => {
       });
     }
 
+    if (activePdfRenders >= getMaxConcurrentPdfRenders()) {
+      return res.status(429).json({
+        message: "PDF renderer is busy. Please retry in a few seconds.",
+      });
+    }
+
+    if (!hasMemoryHeadroomForPdf()) {
+      return res.status(503).json({
+        message: "PDF rendering temporarily unavailable due to memory pressure.",
+      });
+    }
+
+    activePdfRenders += 1;
+
     const pdfBuffer = await renderPdfBufferFromHtml(html, options);
 
     const safeFileName = String(fileName || "report.pdf")
@@ -128,5 +165,9 @@ export const renderPdfFromHtml = async (req, res) => {
     return res.status(500).json({
       message: error.message || "Failed to generate PDF",
     });
+  } finally {
+    if (activePdfRenders > 0) {
+      activePdfRenders -= 1;
+    }
   }
 };

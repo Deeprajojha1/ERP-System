@@ -4,6 +4,7 @@ import toast from "react-hot-toast";
 import { FiSearch } from "react-icons/fi";
 import { ThreeDots } from "react-loader-spinner";
 import axios from "../utils/axiosInstance";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import ClipLoader from "./components/ClipLoader";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import "./StudentDisciplineCenter.css";
@@ -257,16 +258,14 @@ const StudentDisciplineCenter = () => {
                       />
                     </td>
                     <td>
-                      <input
-                        type="date"
+                      <ModernDatePicker
                         value={form.startDate}
                         onChange={(event) => updateForm(student._id, "startDate", event.target.value)}
                         disabled={status === "clear"}
                       />
                     </td>
                     <td>
-                      <input
-                        type="date"
+                      <ModernDatePicker
                         value={form.endDate}
                         onChange={(event) => updateForm(student._id, "endDate", event.target.value)}
                         disabled={status === "clear"}

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Menu, PencilLine } from "lucide-react";
 import axios from "../../utils/axiosInstance";
 import toast from "react-hot-toast";
+import ModernDatePicker from "../common/ModernDatePicker";
 import Sidebar from "./Sidebar";
 import NavBar from "./NavBar";
 import {
@@ -152,12 +153,11 @@ export default function FacultyEditProfile({ embedded = false, onClose = null, o
 
           <label className="flex flex-col gap-1.5 md:col-span-6">
             <span className="text-sm font-semibold text-slate-700">Date of Birth</span>
-            <input
+            <ModernDatePicker
               name="DOB"
-              type="date"
               value={activeForm.DOB}
               onChange={handleChange}
-              className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
+              max={new Date().toISOString().slice(0, 10)}
             />
           </label>
 

@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import {
   setFaculty,
   setFacultyError,
@@ -687,12 +688,12 @@ const Faculty = () => {
                   </label>
                   <label>
                     DOB
-                    <input
+                    <ModernDatePicker
                       placeholder="1988-11-02"
-                      type="date"
                       name="DOB"
                       value={formData.DOB}
                       onChange={handleChange}
+                      max={new Date().toISOString().slice(0, 10)}
                     />
                   </label>
                 </div>
@@ -782,12 +783,12 @@ const Faculty = () => {
               <div className="faculty-form-row">
                 <label>
                   Joining Date
-                  <input
+                  <ModernDatePicker
                     placeholder="2020-07-15"
-                    type="date"
                     name="joiningDate"
                     value={formData.joiningDate}
                     onChange={handleChange}
+                    max={new Date().toISOString().slice(0, 10)}
                   />
                 </label>
               </div>

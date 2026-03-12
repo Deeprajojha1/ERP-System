@@ -22,6 +22,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useDispatch } from 'react-redux';
 import { useSelector } from 'react-redux';
 import axios from '../../utils/axiosInstance';
+import toast from "react-hot-toast";
 import { clearUserData, setUserData } from '../../redux/userSlice';
 import { useNavigate } from 'react-router-dom';
 import { ADMIN_LOAD_STATES } from '../../Admin/constants/loadStates';
@@ -104,9 +105,12 @@ const Dashboard = () => {
    * Clears user session and redirects to login
    */
   const handleLogout = async () => {
+    let logoutFailed = false;
+
     try {
       await axios.post(`${apiBase}/user/logout`, {});
     } catch (error) {
+      logoutFailed = true;
       console.error(
         'Logout failed:',
         error.response?.data || error.message
@@ -117,6 +121,11 @@ const Dashboard = () => {
       dispatch(clearUserData());
       sessionStorage.removeItem("lastFailedRoute");
       sessionStorage.removeItem("lastNetworkRedirectAt");
+      if (logoutFailed) {
+        toast.error("Logged out locally. Server logout failed.");
+      } else {
+        toast.success("Logged out successfully");
+      }
       navigate("/", { replace: true });
     }
   };

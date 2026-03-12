@@ -3,6 +3,7 @@ import { useSelector } from "react-redux";
 import axios from "../../utils/axiosInstance";
 import toast from "react-hot-toast";
 import { FiX } from "react-icons/fi";
+import ModernDatePicker from "../../components/common/ModernDatePicker";
 import "./AddJobModal.css";
 
 const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
@@ -414,8 +415,7 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
             <div className="add-job-form-row">
               <div className="add-job-form-group">
                 <label>Expiration Date *</label>
-                <input
-                  type="date"
+                <ModernDatePicker
                   value={formData.expirationDate}
                   onChange={(e) => handleInputChange("expirationDate", e.target.value)}
                   className={errors.expirationDate ? "error" : ""}

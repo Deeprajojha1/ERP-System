@@ -4,6 +4,7 @@ import { HiOutlineTrash } from "react-icons/hi";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import axios from "../utils/axiosInstance";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import emptyStateImg from "../assets/empty-state.svg";
 import ClipLoader from "./components/ClipLoader";
 import "./Library.css";
@@ -641,14 +642,12 @@ const Library = () => {
 
               <label>
                 Due Date
-                <input
+                <ModernDatePicker
                   name="dueDate"
-                  type="date"
                   value={issueForm.dueDate}
                   onChange={(event) =>
                     setIssueForm((prev) => ({ ...prev, dueDate: event.target.value }))
                   }
-                  required
                 />
               </label>
 

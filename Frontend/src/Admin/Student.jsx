@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { FiEdit2, FiLoader, FiSearch, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import toast from "react-hot-toast";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import {
   setStudents,
   setStudentsError,
@@ -724,11 +725,11 @@ const Student = () => {
                 </label>
                 <label>
                   DOB
-                  <input
-                    type="date"
+                  <ModernDatePicker
                     name="DOB"
                     value={formData.DOB}
                     onChange={handleChange}
+                    max={new Date().toISOString().slice(0, 10)}
                     disabled={!!editTarget}
                   />
                 </label>
