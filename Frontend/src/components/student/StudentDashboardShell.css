@@ -1424,8 +1424,18 @@
     gap: 14px;
   }
 
+  .student-home-image-wrap {
+    width: min(168px, 54vw);
+    margin: 0 auto;
+    padding: 6px;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.95);
+  }
+
   .student-home-image {
-    max-height: 190px;
+    max-height: 128px;
+    object-fit: contain;
+    transform: none;
   }
 
   .student-home-fee-row,
@@ -1521,6 +1531,15 @@
   .student-home-hero {
     border-radius: 16px;
     padding: 14px;
+  }
+
+  .student-home-image-wrap {
+    width: min(148px, 56vw);
+    padding: 5px;
+  }
+
+  .student-home-image {
+    max-height: 110px;
   }
 
   .student-home-hero-copy p {
