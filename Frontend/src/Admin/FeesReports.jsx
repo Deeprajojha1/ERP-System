@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   FiDownloadCloud,
   FiCalendar,
@@ -10,6 +10,15 @@ import {
 import { MdOutlineSecurity } from "react-icons/md";
 import { HiOutlineCloudUpload } from "react-icons/hi";
 import "./Fees.css";
+import { useDispatch, useSelector } from "react-redux";
+import axios from "../utils/axiosInstance";
+import {
+  createFeeReportExport,
+  fetchFeeReportExports,
+  selectFeeReportExports,
+  shareFeeReportExport,
+} from "../redux/feeSlice";
+import toast from "react-hot-toast";
 
 const rangeOptions = [
   "This Month",
@@ -51,41 +60,6 @@ const destinationProfiles = [
   },
 ];
 
-const historyRecords = [
-  {
-    id: 1,
-    title: "Quarterly Fee Summary",
-    range: "Apr - Jun 2025",
-    size: "4.2 MB CSV",
-    triggered: "2 min ago",
-    status: "Completed",
-  },
-  {
-    id: 2,
-    title: "Department Ledger",
-    range: "FY 2024-25",
-    size: "6.8 MB XLSX",
-    triggered: "1 hr ago",
-    status: "Processing",
-  },
-  {
-    id: 3,
-    title: "Scholarship Disbursal",
-    range: "2023-24",
-    size: "3.1 MB CSV",
-    triggered: "Yesterday",
-    status: "Completed",
-  },
-  {
-    id: 4,
-    title: "Backpaper Outstanding",
-    range: "Last month",
-    size: "1.8 MB CSV",
-    triggered: "3 days ago",
-    status: "Failed",
-  },
-];
-
 const recipients = [
   "finance@university.edu",
   "dean.office@university.edu",
@@ -93,6 +67,9 @@ const recipients = [
 ];
 
 const FeesReports = () => {
+  const dispatch = useDispatch();
+  const apiBase = useSelector((state) => state.config.apiBase);
+  const reportExports = useSelector(selectFeeReportExports);
   const [range, setRange] = useState(rangeOptions[0]);
   const [dataset, setDataset] = useState(datasetOptions[0]);
   const [format, setFormat] = useState(formatOptions[0]);
@@ -100,6 +77,63 @@ const FeesReports = () => {
   const [includeBreakdown, setIncludeBreakdown] = useState(true);
   const [sharePortal, setSharePortal] = useState(false);
   const [autoSchedule, setAutoSchedule] = useState(true);
+  const [selectedRecipients] = useState(recipients);
+
+  useEffect(() => {
+    dispatch(fetchFeeReportExports());
+  }, [dispatch]);
+
+  const handleGenerate = async () => {
+    try {
+      await dispatch(
+        createFeeReportExport({
+          range,
+          dataset,
+          format,
+          destination,
+          title: `${dataset} Export`,
+          includeBreakdown,
+          sharePortal,
+          autoSchedule,
+        })
+      ).unwrap();
+      toast.success("Report export generated");
+    } catch (error) {
+      toast.error(error || "Failed to generate export");
+    }
+  };
+
+  const handleDownload = async (exportId, exportFormat) => {
+    if (!apiBase) return;
+    try {
+      const response = await axios.get(
+        `${apiBase}/admin/fee/reports/export/${exportId}/download`,
+        { withCredentials: true, responseType: "blob" }
+      );
+      const url = URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      const ext = String(exportFormat || format || "csv").toLowerCase();
+      link.download = `fee-export-${exportId}.${ext}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to download export");
+    }
+  };
+
+  const handleShare = async (exportId) => {
+    try {
+      await dispatch(
+        shareFeeReportExport({ exportId, recipients: selectedRecipients })
+      ).unwrap();
+      toast.success("Export shared");
+    } catch (error) {
+      toast.error(error || "Failed to share export");
+    }
+  };
 
   return (
     <div className="fees-page fee-export-page">
@@ -132,7 +166,7 @@ const FeesReports = () => {
             <strong>4.2 MB</strong>
             <small>+12% vs last month</small>
           </div>
-          <button type="button" className="fee-export-primary">
+          <button type="button" className="fee-export-primary" onClick={handleGenerate}>
             <FiDownloadCloud /> Generate Export
           </button>
         </div>
@@ -227,8 +261,6 @@ const FeesReports = () => {
 
       <section className="fee-export-share">
         <div className="fee-share-main">
-          <h2>Sharing preferences</h2>
-          <p>Send secure links to stakeholders and the compliance archive.</p>
           <div className="fee-checkbox-grid">
             <label className="fee-checkbox">
               <input
@@ -236,7 +268,15 @@ const FeesReports = () => {
                 checked={includeBreakdown}
                 onChange={(event) => setIncludeBreakdown(event.target.checked)}
               />
-              <span>Include department level breakdown</span>
+              <span>Include breakdown rows</span>
+            </label>
+            <label className="fee-checkbox">
+              <input
+                type="checkbox"
+                checked={autoSchedule}
+                onChange={(event) => setAutoSchedule(event.target.checked)}
+              />
+              <span>Auto-schedule future exports</span>
             </label>
             <label className="fee-checkbox">
               <input
@@ -245,14 +285,6 @@ const FeesReports = () => {
                 onChange={(event) => setSharePortal(event.target.checked)}
               />
               <span>Publish to admin fee portal</span>
-            </label>
-            <label className="fee-checkbox">
-              <input
-                type="checkbox"
-                checked={autoSchedule}
-                onChange={(event) => setAutoSchedule(event.target.checked)}
-              />
-              <span>Create recurring weekly export</span>
             </label>
           </div>
         </div>
@@ -265,16 +297,12 @@ const FeesReports = () => {
               </span>
             ))}
             <button type="button" className="fee-chip fee-chip--ghost">
-              + Add recipient
+              <FiShare2 /> Invite more
             </button>
           </div>
           <div className="fee-share-meta">
-            <span>
-              <FiShare2 /> Links expire after 7 days
-            </span>
-            <span>
-              <MdOutlineSecurity /> Access is audited
-            </span>
+            <FiCalendar />
+            <span>Next scheduled export: Friday, 06:00 AM</span>
           </div>
         </div>
       </section>
@@ -283,28 +311,43 @@ const FeesReports = () => {
         <div className="fee-history-head">
           <div>
             <h2>Export history</h2>
-            <p>Recently generated datasets with delivery status.</p>
+            <p>Monitor past exports and share logs.</p>
           </div>
-          <button type="button" className="fee-link-btn">
-            View automation rules
+          <button type="button" className="fee-link-btn" onClick={() => dispatch(fetchFeeReportExports())}>
+            Refresh
           </button>
         </div>
         <div className="fee-history-list">
-          {historyRecords.map((record) => (
-            <article className="fee-history-item" key={record.id}>
+          {(reportExports || []).map((record) => (
+            <article className="fee-history-item" key={record._id}>
               <div>
                 <p className="fee-history-title">{record.title}</p>
                 <span className="fee-history-subtitle">{record.range}</span>
               </div>
               <div className="fee-history-meta">
-                <span>{record.size}</span>
-                <span>{record.triggered}</span>
-                <span className={`fee-history-status status-${record.status.toLowerCase()}`}>
+                <span className={`fee-history-status status-${String(record.status || "completed").toLowerCase()}`}>
                   {record.status}
                 </span>
+                <span>{record.format}</span>
+                <span>{new Date(record.createdAt).toLocaleString()}</span>
+              </div>
+              <div className="fee-history-actions">
+                <button
+                  type="button"
+                  className="fee-link-btn"
+                  onClick={() => handleDownload(record._id, record.format)}
+                >
+                  Download
+                </button>
+                <button type="button" className="fee-link-btn" onClick={() => handleShare(record._id)}>
+                  Share
+                </button>
               </div>
             </article>
           ))}
+          {(reportExports || []).length === 0 && (
+            <div className="fee-history-empty">No exports yet.</div>
+          )}
         </div>
       </section>
     </div>

@@ -59,7 +59,7 @@
 }
 
 .faculty-lecture-report-filter-group select,
-.faculty-lecture-report-filter-group input[type="date"] {
+.faculty-lecture-report-filter-group .modern-date-picker__trigger {
   border: 1px solid #cbd5e1;
   border-radius: 10px;
   padding: 10px 12px;
@@ -82,13 +82,13 @@
 }
 
 .faculty-lecture-report-filter-group select:focus,
-.faculty-lecture-report-filter-group input[type="date"]:focus {
+.faculty-lecture-report-filter-group .modern-date-picker__trigger:focus-visible {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
   border-color: #2563eb;
 }
 
 .faculty-lecture-report-filter-group select:disabled,
-.faculty-lecture-report-filter-group input[type="date"]:disabled {
+.faculty-lecture-report-filter-group .modern-date-picker__trigger:disabled {
   background: #f1f5f9;
   color: #94a3b8;
   cursor: not-allowed;

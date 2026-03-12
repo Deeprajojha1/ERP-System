@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { FiSearch, FiCheck, FiX, FiClock, FiInbox } from "react-icons/fi";
 import toast from "react-hot-toast";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import {
   fetchDemandRequests,
   approveDemandRequest,
@@ -240,8 +241,7 @@ const FeeDemandRequests = () => {
               </p>
               <label className="fdr-modal-field">
                 <span>Due Date (optional, defaults to today)</span>
-                <input
-                  type="date"
+                <ModernDatePicker
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
                 />

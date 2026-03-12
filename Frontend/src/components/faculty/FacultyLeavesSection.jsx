@@ -66,6 +66,7 @@ export default function FacultyLeavesSection({ facultyData }) {
 
   const isLoading = loadState === ADMIN_LOAD_STATES.PENDING;
   const isApplying = applyState === ADMIN_LOAD_STATES.PENDING;
+  const todayIso = new Date().toISOString().split("T")[0];
   const recentLeaves = [...leaves]
     .sort((a, b) => {
       const aDate = new Date(a?.createdAt || a?.dateFrom || 0).getTime();
@@ -89,6 +90,14 @@ export default function FacultyLeavesSection({ facultyData }) {
     e.preventDefault();
     if (!formData.dateFrom || !formData.dateTo || !formData.reason.trim()) {
       toast.error("Please fill all required fields");
+      return;
+    }
+    if (formData.dateFrom < todayIso) {
+      toast.error("Leave start date cannot be in the past");
+      return;
+    }
+    if (formData.dateTo < formData.dateFrom) {
+      toast.error("Leave end date cannot be before start date");
       return;
     }
 
@@ -189,8 +198,16 @@ export default function FacultyLeavesSection({ facultyData }) {
                   <input
                     type="date"
                     value={formData.dateFrom}
-                    onChange={(e) => setFormData({ ...formData, dateFrom: e.target.value })}
+                    onChange={(e) => {
+                      const nextFrom = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        dateFrom: nextFrom,
+                        dateTo: prev.dateTo && prev.dateTo < nextFrom ? nextFrom : prev.dateTo,
+                      }));
+                    }}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
+                    min={todayIso}
                     required
                   />
                 </div>
@@ -201,7 +218,7 @@ export default function FacultyLeavesSection({ facultyData }) {
                     value={formData.dateTo}
                     onChange={(e) => setFormData({ ...formData, dateTo: e.target.value })}
                     className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
-                    min={formData.dateFrom}
+                    min={formData.dateFrom || todayIso}
                     required
                   />
                 </div>

@@ -25,16 +25,6 @@ import {
 } from "../redux/feeSlice";
 import "./PaymentMethods.css";
 
-const PAYMENT_MODES = [
-  "UPI",
-  "NETBANKING",
-  "CARD",
-  "CASH",
-  "CHEQUE",
-  "DD",
-  "BANK_TRANSFER",
-];
-
 const STATUS_OPTIONS = ["SUCCESS", "FAILED", "CANCELLED", "REFUNDED"];
 
 const getStatusClass = (status = "") => {
@@ -54,8 +44,7 @@ const PaymentMethods = () => {
   const [paymentForm, setPaymentForm] = useState({
     demandId: "",
     amount: "",
-    mode: "UPI",
-    transactionId: "",
+    mode: "CASH",
     gateway: "NONE",
     receiptNo: "",
   });
@@ -66,6 +55,15 @@ const PaymentMethods = () => {
     dispatch(fetchFeePayments());
   }, [dispatch]);
 
+  useEffect(() => {
+    const refresh = () => {
+      dispatch(fetchFeePayments());
+      dispatch(fetchFeeDemands());
+    };
+    const interval = setInterval(refresh, 15000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
+
   const pendingDemands = useMemo(
     () => demands.filter((demand) => Number(demand.dueAmount || 0) > 0),
     [demands]
@@ -73,8 +71,8 @@ const PaymentMethods = () => {
 
   const submitPayment = async (event) => {
     event.preventDefault();
-    if (!paymentForm.demandId || !paymentForm.amount || !paymentForm.mode) {
-      toast.error("Demand, amount and mode are required");
+    if (!paymentForm.demandId || !paymentForm.amount) {
+      toast.error("Demand and amount are required");
       return;
     }
 
@@ -83,9 +81,8 @@ const PaymentMethods = () => {
         createFeePayment({
           demandId: paymentForm.demandId,
           amount: Number(paymentForm.amount),
-          mode: paymentForm.mode,
-          transactionId: paymentForm.transactionId || undefined,
-          gateway: paymentForm.gateway || "NONE",
+          mode: "CASH",
+          gateway: "NONE",
           receiptNo: paymentForm.receiptNo || undefined,
           createdBy: "ACCOUNTS",
         })
@@ -94,8 +91,7 @@ const PaymentMethods = () => {
       setPaymentForm({
         demandId: "",
         amount: "",
-        mode: "UPI",
-        transactionId: "",
+        mode: "CASH",
         gateway: "NONE",
         receiptNo: "",
       });
@@ -147,7 +143,7 @@ const PaymentMethods = () => {
           <h3>
             <FiDollarSign /> Record New Payment
           </h3>
-          <p>Use this for cash/counter/manual settlement entries.</p>
+          <p>Manual entry is enabled only for cash payments. Online payments are auto-recorded.</p>
         </div>
         <form onSubmit={submitPayment} className="pm-cash-form-grid">
           <label>
@@ -189,43 +185,7 @@ const PaymentMethods = () => {
             <span className="pm-field-label">
               <FiCreditCard /> Mode
             </span>
-            <select
-              value={paymentForm.mode}
-              onChange={(event) =>
-                setPaymentForm((prev) => ({ ...prev, mode: event.target.value }))
-              }
-            >
-              {PAYMENT_MODES.map((mode) => (
-                <option key={mode} value={mode}>
-                  {mode}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="pm-field-label">
-              <FiActivity /> Gateway
-            </span>
-            <input
-              type="text"
-              value={paymentForm.gateway}
-              onChange={(event) =>
-                setPaymentForm((prev) => ({ ...prev, gateway: event.target.value }))
-              }
-              placeholder="NONE / RAZORPAY / PAYU..."
-            />
-          </label>
-          <label>
-            <span className="pm-field-label">
-              <FiHash /> Transaction Id
-            </span>
-            <input
-              type="text"
-              value={paymentForm.transactionId}
-              onChange={(event) =>
-                setPaymentForm((prev) => ({ ...prev, transactionId: event.target.value }))
-              }
-            />
+            <input type="text" value="CASH" readOnly />
           </label>
           <label>
             <span className="pm-field-label">
@@ -300,6 +260,7 @@ const PaymentMethods = () => {
               </p>
               <div className="pm-status-actions">
                 <select
+                  disabled={String(payment.mode || "").toUpperCase() !== "CASH" || String(payment.createdBy || "").toUpperCase() !== "ACCOUNTS"}
                   value={statusForm[payment._id] || ""}
                   onChange={(event) =>
                     setStatusForm((prev) => ({ ...prev, [payment._id]: event.target.value }))
@@ -312,7 +273,12 @@ const PaymentMethods = () => {
                     </option>
                   ))}
                 </select>
-                <button type="button" className="pm-toggle-btn" onClick={() => updateStatus(payment._id)}>
+                <button
+                  type="button"
+                  className="pm-toggle-btn"
+                  disabled={String(payment.mode || "").toUpperCase() !== "CASH" || String(payment.createdBy || "").toUpperCase() !== "ACCOUNTS"}
+                  onClick={() => updateStatus(payment._id)}
+                >
                   Update
                 </button>
               </div>

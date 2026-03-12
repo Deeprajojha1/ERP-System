@@ -365,8 +365,13 @@ export const getWardenOutpasses = async (req, res) => {
     const studentId = String(req.query?.studentId || "").trim();
     const roomId = String(req.query?.roomId || "").trim();
     const query = { hostel: { $in: hostelIds } };
+    if (isGateSecurityRole(req.role)) {
+      query.status = { $in: ["Approved", "Exited", "Returned"] };
+    }
     if (status && ["Pending", "Approved", "Exited", "Returned", "Rejected", "Cancelled"].includes(status)) {
-      query.status = status;
+      if (!isGateSecurityRole(req.role)) {
+        query.status = status;
+      }
     }
     if (studentId) query.student = studentId;
     if (roomId) query.room = roomId;

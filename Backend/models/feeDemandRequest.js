@@ -71,6 +71,19 @@ const FeeDemandRequestSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    demandLetterRefNo: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    demandLetterIssuedAt: {
+      type: Date,
+      default: null,
+    },
+    demandLetterSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true }
 );

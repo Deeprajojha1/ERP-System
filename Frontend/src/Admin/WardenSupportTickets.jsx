@@ -5,6 +5,7 @@ import { useSearchParams } from "react-router-dom";
 import axiosInstance from "../utils/axiosInstance";
 import emptyStateImg from "../assets/empty-state.svg";
 import { getHostelSummaryApi } from "./constants/hostelApi";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./Alert.css";
 import "./WardenSupportTickets.css";
 
@@ -191,21 +192,23 @@ export default function WardenSupportTickets() {
         <div className="warden-support-report-controls no-print">
           <div className="alerts-form-group warden-support-filter">
             <label htmlFor="warden-report-from-date">From Date</label>
-            <input
+            <ModernDatePicker
               id="warden-report-from-date"
-              type="date"
               value={reportFromDate}
               onChange={(e) => setReportFromDate(e.target.value)}
+              placeholder="From date"
+              max={formatDateInput(new Date())}
             />
           </div>
 
           <div className="alerts-form-group warden-support-filter">
             <label htmlFor="warden-report-to-date">To Date</label>
-            <input
+            <ModernDatePicker
               id="warden-report-to-date"
-              type="date"
               value={reportToDate}
               onChange={(e) => setReportToDate(e.target.value)}
+              placeholder="To date"
+              max={formatDateInput(new Date())}
             />
           </div>
 

@@ -7,6 +7,7 @@ import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import axios from "../utils/axiosInstance";
 import { useSelector, useDispatch } from "react-redux";
 import toast from "react-hot-toast";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import { buildUniversityPdfHtml } from "../utils/universityPdfLayout";
 import ClipLoader from "./components/ClipLoader";
@@ -949,13 +950,13 @@ const Result = () => {
 
                 <label>
                   Result Date
-                  <input
-                    type="date"
+                  <ModernDatePicker
                     name="resultDate"
                     value={formData.resultDate}
                     onChange={(event) =>
                       setFormData((prev) => ({ ...prev, resultDate: event.target.value }))
                     }
+                    max={new Date().toISOString().slice(0, 10)}
                   />
                 </label>
               </div>

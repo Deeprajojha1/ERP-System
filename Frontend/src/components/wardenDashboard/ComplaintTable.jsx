@@ -1,5 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { Eye, Filter, Calendar } from 'lucide-react';
+import ModernDatePicker from '../common/ModernDatePicker';
+
+const formatDateForInput = (date = new Date()) => date.toISOString().slice(0, 10);
 import StatusBadge from './StatusBadge';
 
 const ComplaintTable = ({ complaints, onViewDetails }) => {
@@ -112,16 +115,12 @@ const ComplaintTable = ({ complaints, onViewDetails }) => {
             <label htmlFor="date-from" className="mb-1 block text-xs font-medium text-gray-600">
               From Date
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                id="date-from"
-                value={dateFrom}
-                onChange={(e) => setDateFrom(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-              <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            </div>
+            <ModernDatePicker
+              id="date-from"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              max={formatDateForInput()}
+            />
           </div>
 
           {/* Date To */}
@@ -129,16 +128,12 @@ const ComplaintTable = ({ complaints, onViewDetails }) => {
             <label htmlFor="date-to" className="mb-1 block text-xs font-medium text-gray-600">
               To Date
             </label>
-            <div className="relative">
-              <input
-                type="date"
-                id="date-to"
-                value={dateTo}
-                onChange={(e) => setDateTo(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-              <Calendar className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-            </div>
+            <ModernDatePicker
+              id="date-to"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              max={formatDateForInput()}
+            />
           </div>
         </div>
 

@@ -5,42 +5,40 @@ import axios from "../utils/axiosInstance";
 import {
   createFeeBatch,
   createFeeBranch,
-  createFeeProgram,
   fetchFeePrograms,
-  selectFeeActionLoading,
+  fetchHostelYearlyFees,
+  fetchTransportYearlyFees,
+  selectHostelYearlyFees,
   selectFeePrograms,
+  selectTransportYearlyFees,
+  upsertHostelYearlyFee,
+  upsertTransportYearlyFee,
 } from "../redux/feeSlice";
 import "./Fees.css";
-
-const parseSemesterBaseFees = (value) => {
-  const parts = String(value || "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-
-  return parts.map((part) => {
-    const [semesterNo, baseFee] = part.split(":").map((token) => token.trim());
-    return {
-      semesterNo: Number(semesterNo),
-      baseFee: Number(baseFee),
-    };
-  });
-};
 
 const FeesAcademic = () => {
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
   const programs = useSelector(selectFeePrograms);
-  const actionLoading = useSelector(selectFeeActionLoading);
+  const hostelYearlyFees = useSelector(selectHostelYearlyFees);
+  const transportYearlyFees = useSelector(selectTransportYearlyFees);
+  const [setupSubmitting, setSetupSubmitting] = useState(false);
+  const [hostelSubmitting, setHostelSubmitting] = useState(false);
+  const [transportSubmitting, setTransportSubmitting] = useState(false);
+  const [programRefreshing, setProgramRefreshing] = useState(false);
   const [departments, setDepartments] = useState([]);
-  const [programForm, setProgramForm] = useState({
-    programName: "",
-    durationYears: "4",
-  });
   const [branchForm, setBranchForm] = useState({
     programId: "",
     branchName: "",
-    semesterBaseFees: "",
+    totalCourseFee: "",
+  });
+  const [hostelForm, setHostelForm] = useState({
+    academicYear: "",
+    hostelYearlyFee: "",
+  });
+  const [transportForm, setTransportForm] = useState({
+    academicYear: "",
+    transportYearlyFee: "",
   });
   const [batchForm, setBatchForm] = useState({
     batchYear: new Date().getFullYear().toString(),
@@ -48,8 +46,40 @@ const FeesAcademic = () => {
     programIds: [],
   });
 
+  const normalizeLoose = (value = "") =>
+    String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+
+  const selectedDepartment = useMemo(
+    () => departments.find((department) => String(department._id) === String(batchForm.departmentId)) || null,
+    [departments, batchForm.departmentId]
+  );
+
+  const departmentProgramSet = useMemo(() => {
+    const programList = Array.isArray(selectedDepartment?.program)
+      ? selectedDepartment.program
+      : Array.isArray(selectedDepartment?.programs)
+      ? selectedDepartment.programs
+      : [];
+    return new Set(programList.map((item) => normalizeLoose(item)).filter(Boolean));
+  }, [selectedDepartment]);
+
+  const departmentPrograms = useMemo(() => {
+    if (!batchForm.departmentId) return [];
+    return programs.filter((program) => departmentProgramSet.has(normalizeLoose(program?.programName)));
+  }, [batchForm.departmentId, departmentProgramSet, programs]);
+
+  const selectedBranchProgram = useMemo(
+    () => programs.find((program) => String(program._id) === String(branchForm.programId)) || null,
+    [programs, branchForm.programId]
+  );
+
   useEffect(() => {
     dispatch(fetchFeePrograms());
+    dispatch(fetchHostelYearlyFees());
+    dispatch(fetchTransportYearlyFees());
   }, [dispatch]);
 
   useEffect(() => {
@@ -66,58 +96,20 @@ const FeesAcademic = () => {
     })();
   }, [apiBase]);
 
-  const totalSemesters = useMemo(
-    () => Number(programForm.durationYears || 0) * 2,
-    [programForm.durationYears]
-  );
-
-  const submitProgram = async (event) => {
+  const submitBranchAndBatch = async (event) => {
     event.preventDefault();
-    if (!programForm.programName.trim() || !Number(programForm.durationYears)) {
-      toast.error("Program name and duration are required");
+    if (setupSubmitting) return;
+
+    if (!batchForm.departmentId) {
+      toast.error("Department is required");
       return;
     }
-    try {
-      await dispatch(
-        createFeeProgram({
-          programName: programForm.programName.trim(),
-          durationYears: Number(programForm.durationYears),
-          totalSemesters,
-        })
-      ).unwrap();
-      toast.success("Program created");
-      setProgramForm({ programName: "", durationYears: "4" });
-      dispatch(fetchFeePrograms());
-    } catch (error) {
-      toast.error(error || "Failed to create program");
-    }
-  };
 
-  const submitBranch = async (event) => {
-    event.preventDefault();
-    const semesterBaseFees = parseSemesterBaseFees(branchForm.semesterBaseFees);
-    if (!branchForm.programId || !branchForm.branchName.trim() || !semesterBaseFees.length) {
-      toast.error("Program, branch and semester fees are required");
+    const totalCourseFee = Number(branchForm.totalCourseFee);
+    if (!branchForm.programId || !branchForm.branchName.trim() || !Number.isFinite(totalCourseFee) || totalCourseFee <= 0) {
+      toast.error("Program, branch and total course fee are required");
       return;
     }
-    try {
-      await dispatch(
-        createFeeBranch({
-          programId: branchForm.programId,
-          branchName: branchForm.branchName.trim(),
-          semesterBaseFees,
-        })
-      ).unwrap();
-      toast.success("Branch created");
-      setBranchForm({ programId: "", branchName: "", semesterBaseFees: "" });
-      dispatch(fetchFeePrograms());
-    } catch (error) {
-      toast.error(error || "Failed to create branch");
-    }
-  };
-
-  const submitBatch = async (event) => {
-    event.preventDefault();
     if (
       !batchForm.departmentId ||
       !Number(batchForm.batchYear) ||
@@ -127,7 +119,23 @@ const FeesAcademic = () => {
       toast.error("Batch year, department and program(s) are required");
       return;
     }
+    if (!departmentPrograms.some((program) => String(program._id) === String(branchForm.programId))) {
+      toast.error("Branch program must belong to selected department");
+      return;
+    }
+
+    setSetupSubmitting(true);
+    let branchSaved = false;
     try {
+      await dispatch(
+        createFeeBranch({
+          programId: branchForm.programId,
+          branchName: branchForm.branchName.trim(),
+          totalCourseFee,
+        })
+      ).unwrap();
+      branchSaved = true;
+
       await dispatch(
         createFeeBatch({
           batchYear: Number(batchForm.batchYear),
@@ -135,11 +143,109 @@ const FeesAcademic = () => {
           programIds: batchForm.programIds,
         })
       ).unwrap();
-      toast.success("Batch created");
-      setBatchForm((prev) => ({ ...prev, programIds: [] }));
+      await dispatch(fetchFeePrograms()).unwrap();
+      toast.success("Branch and batch saved");
+      setBranchForm({ programId: "", branchName: "", totalCourseFee: "" });
+      setBatchForm({
+        batchYear: new Date().getFullYear().toString(),
+        departmentId: "",
+        programIds: [],
+      });
     } catch (error) {
-      toast.error(error || "Failed to create batch");
+      if (branchSaved) {
+        toast.error(error || "Branch saved, but batch save failed");
+      } else {
+        toast.error(error || "Failed to save branch and batch");
+      }
+    } finally {
+      setSetupSubmitting(false);
     }
+  };
+
+  const submitHostelFee = async (event) => {
+    event.preventDefault();
+    if (hostelSubmitting) return;
+    if (!hostelForm.academicYear || hostelForm.hostelYearlyFee === "") {
+      toast.error("Academic year and hostel fee are required");
+      return;
+    }
+    setHostelSubmitting(true);
+    try {
+      await dispatch(
+        upsertHostelYearlyFee({
+          academicYear: hostelForm.academicYear.trim(),
+          hostelYearlyFee: Number(hostelForm.hostelYearlyFee),
+        })
+      ).unwrap();
+      toast.success("Hostel fee saved");
+      setHostelForm({ academicYear: "", hostelYearlyFee: "" });
+    } catch (error) {
+      toast.error(error || "Failed to save hostel fee");
+    } finally {
+      setHostelSubmitting(false);
+    }
+  };
+
+  const submitTransportFee = async (event) => {
+    event.preventDefault();
+    if (transportSubmitting) return;
+    if (!transportForm.academicYear || transportForm.transportYearlyFee === "") {
+      toast.error("Academic year and transport fee are required");
+      return;
+    }
+    setTransportSubmitting(true);
+    try {
+      await dispatch(
+        upsertTransportYearlyFee({
+          academicYear: transportForm.academicYear.trim(),
+          transportYearlyFee: Number(transportForm.transportYearlyFee),
+        })
+      ).unwrap();
+      toast.success("Transport fee saved");
+      setTransportForm({ academicYear: "", transportYearlyFee: "" });
+    } catch (error) {
+      toast.error(error || "Failed to save transport fee");
+    } finally {
+      setTransportSubmitting(false);
+    }
+  };
+
+  const refreshPrograms = async () => {
+    if (programRefreshing) return;
+    setProgramRefreshing(true);
+    try {
+      await dispatch(fetchFeePrograms()).unwrap();
+    } catch {
+      // error toast is handled by slice consumers; keep refresh button silent here.
+    } finally {
+      setProgramRefreshing(false);
+    }
+  };
+
+  const handleDepartmentChange = (value) => {
+    const department = departments.find((row) => String(row._id) === String(value));
+    const list = Array.isArray(department?.program)
+      ? department.program
+      : Array.isArray(department?.programs)
+      ? department.programs
+      : [];
+    const allowedProgramNameSet = new Set(list.map((item) => normalizeLoose(item)).filter(Boolean));
+    const allowedProgramIds = new Set(
+      programs
+        .filter((program) => allowedProgramNameSet.has(normalizeLoose(program?.programName)))
+        .map((program) => String(program._id))
+    );
+
+    setBatchForm((prev) => ({
+      ...prev,
+      departmentId: value,
+      programIds: value ? prev.programIds.filter((id) => allowedProgramIds.has(String(id))) : [],
+    }));
+
+    setBranchForm((prev) => ({
+      ...prev,
+      programId: value && allowedProgramIds.has(String(prev.programId)) ? prev.programId : "",
+    }));
   };
 
   return (
@@ -147,150 +253,282 @@ const FeesAcademic = () => {
       <header className="fee-structure-header">
         <div>
           <h1>Fee Structure Management</h1>
-          <p>Live integration with program, branch, and batch endpoints.</p>
+          <p>Programs are auto-synced from the existing program list.</p>
         </div>
       </header>
 
       <section className="fee-table-section">
         <div className="fee-table-head">
-          <h2 className="fee-table-title">Create Program</h2>
+          <h2 className="fee-table-title">Available Programs</h2>
         </div>
-        <form
-          onSubmit={submitProgram}
-          className="fee-setup-form fee-setup-form--program"
-        >
-          <input
-            className="fee-setup-input"
-            type="text"
-            placeholder="Program name (e.g. B.Tech)"
-            value={programForm.programName}
-            onChange={(event) =>
-              setProgramForm((prev) => ({ ...prev, programName: event.target.value }))
-            }
-            required
-          />
-          <input
-            className="fee-setup-input"
-            type="number"
-            min="1"
-            placeholder="Duration years"
-            value={programForm.durationYears}
-            onChange={(event) =>
-              setProgramForm((prev) => ({ ...prev, durationYears: event.target.value }))
-            }
-            required
-          />
-          <input className="fee-setup-input fee-setup-input--readonly" type="number" value={totalSemesters} readOnly />
-          <button className="fee-setup-submit-btn" type="submit" disabled={actionLoading}>
-            {actionLoading ? "Saving..." : "Create Program"}
+        <div className="fee-setup-form fee-setup-form--program">
+          {programs.length === 0 ? (
+            <p className="fee-empty-copy">No programs found. Refresh to sync.</p>
+          ) : (
+            programs.map((program) => (
+              <div key={program._id} className="fee-program-pill">
+                <strong>{program.programName}</strong>
+                <span>
+                  {program.durationYears} yrs • {program.totalSemesters} sems
+                </span>
+              </div>
+            ))
+          )}
+          <button
+            className="fee-setup-submit-btn"
+            type="button"
+            onClick={refreshPrograms}
+            disabled={programRefreshing}
+          >
+            {programRefreshing ? "Refreshing..." : "Refresh Programs"}
           </button>
+        </div>
+      </section>
+
+      <section className="fee-table-section">
+        <div className="fee-table-head">
+          <h2 className="fee-table-title">Branch & Batch Setup</h2>
+        </div>
+        <form onSubmit={submitBranchAndBatch}>
+          <div className="fee-setup-grid">
+            <div className="fee-setup-form fee-setup-form--branch">
+            <select
+              className="fee-setup-input"
+              value={branchForm.programId}
+              onChange={(event) =>
+                setBranchForm((prev) => ({ ...prev, programId: event.target.value }))
+              }
+              disabled={!batchForm.departmentId}
+              required
+            >
+              <option value="">{batchForm.departmentId ? "Select program" : "Select department first"}</option>
+              {departmentPrograms.map((program) => (
+                <option key={program._id} value={program._id}>
+                  {program.programName}
+                </option>
+              ))}
+            </select>
+            <input
+              className="fee-setup-input"
+              type="text"
+              placeholder="Branch name"
+              value={branchForm.branchName}
+              onChange={(event) =>
+                setBranchForm((prev) => ({ ...prev, branchName: event.target.value }))
+              }
+              required
+            />
+            <input
+              className="fee-setup-input"
+              type="number"
+              min="0"
+              step="0.01"
+              placeholder="Total course fee"
+              value={branchForm.totalCourseFee}
+              onChange={(event) =>
+                setBranchForm((prev) => ({ ...prev, totalCourseFee: event.target.value }))
+              }
+            />
+            {branchForm.programId && branchForm.totalCourseFee ? (
+              <p className="fee-setup-help">
+                {(() => {
+                  const selectedProgram = selectedBranchProgram;
+                  const semesters = Number(selectedProgram?.totalSemesters || 0);
+                  const totalCourseFee = Number(branchForm.totalCourseFee);
+                  if (!Number.isFinite(semesters) || semesters <= 0 || !Number.isFinite(totalCourseFee) || totalCourseFee <= 0) {
+                    return "Semester split will appear after selecting a program and total fee.";
+                  }
+                  const perSemester = (totalCourseFee / semesters).toFixed(2);
+                  return `Equal split: ${semesters} semesters x ${perSemester}`;
+                })()}
+              </p>
+            ) : null}
+            </div>
+            <div className="fee-setup-form fee-setup-form--batch">
+            <select
+              className="fee-setup-input"
+              value={batchForm.departmentId}
+              onChange={(event) => handleDepartmentChange(event.target.value)}
+              required
+            >
+              <option value="">Select department</option>
+              {departments.map((department) => (
+                <option key={department._id} value={department._id}>
+                  {department.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="fee-setup-input fee-setup-input--multi"
+              multiple
+              value={batchForm.programIds}
+              onChange={(event) => {
+                const values = Array.from(event.target.selectedOptions).map((option) => option.value);
+                setBatchForm((prev) => ({ ...prev, programIds: values }));
+              }}
+              disabled={!batchForm.departmentId}
+              required
+            >
+              {departmentPrograms.map((program) => (
+                <option key={program._id} value={program._id}>
+                  {program.programName}
+                </option>
+              ))}
+            </select>
+            <input
+              className="fee-setup-input"
+              type="number"
+              min="2000"
+              max="2100"
+              value={batchForm.batchYear}
+              onChange={(event) =>
+                setBatchForm((prev) => ({ ...prev, batchYear: event.target.value }))
+              }
+              required
+            />
+            <p className="fee-setup-help">For multiple programs, hold Ctrl/Cmd and select options.</p>
+            {(() => {
+              const batchYear = Number(batchForm.batchYear);
+              if (!Number.isFinite(batchYear) || !batchForm.programIds.length) return null;
+              const selected = programs.filter((program) =>
+                batchForm.programIds.some((id) => String(id) === String(program._id))
+              );
+              const maxDuration = selected.reduce(
+                (max, program) => Math.max(max, Number(program?.durationYears || 0)),
+                0
+              );
+              if (!maxDuration) return null;
+              const endYear = batchYear + maxDuration;
+              return (
+                <p className="fee-setup-help">
+                  Fee batch window: {batchYear}-{endYear} (based on selected program duration).
+                </p>
+              );
+            })()}
+            </div>
+          </div>
+          <div className="fee-setup-actions">
+            <button className="fee-setup-submit-btn" type="submit" disabled={setupSubmitting}>
+              {setupSubmitting ? "Saving..." : "Save"}
+            </button>
+          </div>
         </form>
       </section>
 
       <section className="fee-table-section">
         <div className="fee-table-head">
-          <h2 className="fee-table-title">Create Branch</h2>
+          <h2 className="fee-table-title">Hostel Fees (Yearly)</h2>
         </div>
         <form
-          onSubmit={submitBranch}
+          onSubmit={submitHostelFee}
           className="fee-setup-form fee-setup-form--branch"
         >
-          <select
-            className="fee-setup-input"
-            value={branchForm.programId}
-            onChange={(event) =>
-              setBranchForm((prev) => ({ ...prev, programId: event.target.value }))
-            }
-            required
-          >
-            <option value="">Select program</option>
-            {programs.map((program) => (
-              <option key={program._id} value={program._id}>
-                {program.programName}
-              </option>
-            ))}
-          </select>
           <input
             className="fee-setup-input"
             type="text"
-            placeholder="Branch name"
-            value={branchForm.branchName}
+            placeholder="Academic year (e.g. 2024-2025)"
+            value={hostelForm.academicYear}
             onChange={(event) =>
-              setBranchForm((prev) => ({ ...prev, branchName: event.target.value }))
+              setHostelForm((prev) => ({ ...prev, academicYear: event.target.value }))
             }
             required
           />
           <input
             className="fee-setup-input"
-            type="text"
-            placeholder="Semester fees (e.g. 1:50000,2:50000)"
-            value={branchForm.semesterBaseFees}
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Hostel yearly fee"
+            value={hostelForm.hostelYearlyFee}
             onChange={(event) =>
-              setBranchForm((prev) => ({ ...prev, semesterBaseFees: event.target.value }))
+              setHostelForm((prev) => ({ ...prev, hostelYearlyFee: event.target.value }))
             }
             required
           />
-          <button className="fee-setup-submit-btn" type="submit" disabled={actionLoading}>
-            {actionLoading ? "Saving..." : "Create Branch"}
+          <button className="fee-setup-submit-btn" type="submit" disabled={hostelSubmitting}>
+            {hostelSubmitting ? "Saving..." : "Save Hostel Fee"}
           </button>
         </form>
+        {hostelYearlyFees.length ? (
+          <div className="fees-table-wrap">
+            <table className="fees-table">
+              <thead>
+                <tr>
+                  <th>Academic Year</th>
+                  <th>Hostel Yearly Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                {hostelYearlyFees.map((row) => (
+                  <tr key={row._id}>
+                    <td>{row.academicYear}</td>
+                    <td>{row.hostelYearlyFee}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="fee-setup-help">No hostel fees configured yet.</p>
+        )}
       </section>
 
       <section className="fee-table-section">
         <div className="fee-table-head">
-          <h2 className="fee-table-title">Create Batch</h2>
+          <h2 className="fee-table-title">Transport Fees (Yearly)</h2>
         </div>
         <form
-          onSubmit={submitBatch}
-          className="fee-setup-form fee-setup-form--batch"
+          onSubmit={submitTransportFee}
+          className="fee-setup-form fee-setup-form--branch"
         >
           <input
             className="fee-setup-input"
-            type="number"
-            min="2000"
-            max="2100"
-            value={batchForm.batchYear}
+            type="text"
+            placeholder="Academic year (e.g. 2024-2025)"
+            value={transportForm.academicYear}
             onChange={(event) =>
-              setBatchForm((prev) => ({ ...prev, batchYear: event.target.value }))
+              setTransportForm((prev) => ({ ...prev, academicYear: event.target.value }))
             }
             required
           />
-          <select
+          <input
             className="fee-setup-input"
-            value={batchForm.departmentId}
+            type="number"
+            min="0"
+            step="0.01"
+            placeholder="Transport yearly fee"
+            value={transportForm.transportYearlyFee}
             onChange={(event) =>
-              setBatchForm((prev) => ({ ...prev, departmentId: event.target.value }))
+              setTransportForm((prev) => ({ ...prev, transportYearlyFee: event.target.value }))
             }
             required
-          >
-            <option value="">Select department</option>
-            {departments.map((department) => (
-              <option key={department._id} value={department._id}>
-                {department.name}
-              </option>
-            ))}
-          </select>
-          <select
-            className="fee-setup-input fee-setup-input--multi"
-            multiple
-            value={batchForm.programIds}
-            onChange={(event) => {
-              const values = Array.from(event.target.selectedOptions).map((option) => option.value);
-              setBatchForm((prev) => ({ ...prev, programIds: values }));
-            }}
-            required
-          >
-            {programs.map((program) => (
-              <option key={program._id} value={program._id}>
-                {program.programName}
-              </option>
-            ))}
-          </select>
-          <button className="fee-setup-submit-btn" type="submit" disabled={actionLoading}>
-            {actionLoading ? "Saving..." : "Create Batch"}
+          />
+          <button className="fee-setup-submit-btn" type="submit" disabled={transportSubmitting}>
+            {transportSubmitting ? "Saving..." : "Save Transport Fee"}
           </button>
         </form>
-        <p className="fee-setup-help">For multiple programs, hold Ctrl/Cmd and select options.</p>
+        {transportYearlyFees.length ? (
+          <div className="fees-table-wrap">
+            <table className="fees-table">
+              <thead>
+                <tr>
+                  <th>Academic Year</th>
+                  <th>Transport Yearly Fee</th>
+                </tr>
+              </thead>
+              <tbody>
+                {transportYearlyFees.map((row) => (
+                  <tr key={row._id}>
+                    <td>{row.academicYear}</td>
+                    <td>{row.transportYearlyFee}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="fee-setup-help">No transport fees configured yet.</p>
+        )}
       </section>
 
       <section className="fee-table-section">

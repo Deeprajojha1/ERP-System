@@ -4,6 +4,7 @@ import { FiPrinter } from "react-icons/fi";
 import toast from "react-hot-toast";
 import axios from "../utils/axiosInstance";
 import emptyStateImg from "../assets/empty-state.svg";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./Subjectattendance.css";
 
 const formatDateInput = (date = new Date()) => date.toISOString().slice(0, 10);
@@ -165,27 +166,29 @@ const SubjectAttendance = () => {
 
             <div className="subject-attendance-filter-group">
               <label htmlFor="from-date">From Date</label>
-              <input
+              <ModernDatePicker
                 id="from-date"
-                type="date"
                 value={fromDate}
                 onChange={(event) => {
                   setFromDate(event.target.value);
                   setReport(null);
                 }}
+                placeholder="From date"
+                max={formatDateInput()}
               />
             </div>
 
             <div className="subject-attendance-filter-group">
               <label htmlFor="to-date">To Date</label>
-              <input
+              <ModernDatePicker
                 id="to-date"
-                type="date"
                 value={toDate}
                 onChange={(event) => {
                   setToDate(event.target.value);
                   setReport(null);
                 }}
+                placeholder="To date"
+                max={formatDateInput()}
               />
             </div>
 

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { ClipLoader } from "react-spinners";
 import toast from "react-hot-toast";
+import ModernDatePicker from "../common/ModernDatePicker";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
 import { facultyUi } from "./uiTokens";
 import { EmptyState, LoadingState } from "./SectionState";
@@ -431,11 +432,10 @@ export default function AttendanceSection({ facultyData }) {
               <label className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
                 <CalendarDays size={14} /> Date
               </label>
-              <input
-                type="date"
+              <ModernDatePicker
                 value={attendanceDate}
                 onChange={(e) => setAttendanceDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
+                max={new Date().toISOString().slice(0, 10)}
               />
             </div>
           </div>

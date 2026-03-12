@@ -13,6 +13,11 @@ function OutpassForm({ onSubmit, hasActiveOutpass = false }) {
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const nowLocal = (() => {
+    const now = new Date();
+    const pad = (value) => String(value).padStart(2, "0");
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  })();
 
   const validatePhone = (phone) => {
     const phoneRegex = /^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{4,10}$/;
@@ -41,7 +46,7 @@ function OutpassForm({ onSubmit, hasActiveOutpass = false }) {
       // Check if from date is in the past
       const now = new Date();
       if (fromDate < now) {
-        newErrors.fromDateTime = "Cannot apply for past dates";
+        newErrors.fromDateTime = "Cannot apply for past date/time";
       }
     }
 
@@ -104,7 +109,13 @@ function OutpassForm({ onSubmit, hasActiveOutpass = false }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+    setFormData((prev) => {
+      if (name === "fromDateTime") {
+        const nextTo = prev.toDateTime && prev.toDateTime < value ? value : prev.toDateTime;
+        return { ...prev, fromDateTime: value, toDateTime: nextTo };
+      }
+      return { ...prev, [name]: value };
+    });
     // Clear error for this field
     if (errors[name]) {
       setErrors((prev) => ({ ...prev, [name]: "" }));
@@ -141,6 +152,7 @@ function OutpassForm({ onSubmit, hasActiveOutpass = false }) {
             value={formData.fromDateTime}
             onChange={handleChange}
             disabled={hasActiveOutpass}
+            min={nowLocal}
             className={`w-full rounded-lg border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 ${
               errors.fromDateTime
                 ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/20"
@@ -165,6 +177,7 @@ function OutpassForm({ onSubmit, hasActiveOutpass = false }) {
             value={formData.toDateTime}
             onChange={handleChange}
             disabled={hasActiveOutpass}
+            min={formData.fromDateTime || nowLocal}
             className={`w-full rounded-lg border px-3 py-2 text-sm transition-colors focus:outline-none focus:ring-2 ${
               errors.toDateTime
                 ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/20"

@@ -25,6 +25,10 @@ import {
   FiPercent,
   FiArrowLeft,
   FiDownload,
+<<<<<<< HEAD
+=======
+  FiEye,
+>>>>>>> 723aa7d493c5492f27c6321f69f20cff5e0f0ca4
 } from "react-icons/fi";
 import { HiOutlineAcademicCap, HiOutlineBuildingOffice } from "react-icons/hi2";
 import { FaLinkedin } from "react-icons/fa";
@@ -304,6 +308,42 @@ const StudentDashboardShell = ({
       setDemandRequestForm((prev) => ({ ...prev, note: "", dueDate: "" }));
     } catch (error) {
       toast.error(error || "Failed to submit demand request");
+    }
+  };
+
+  const handleViewDemandLetter = (requestId) => {
+    if (!apiBase || !requestId) {
+      toast.error("Demand letter is not available");
+      return;
+    }
+    const url = `${apiBase}/student/fee/me/demand-request/${requestId}/letter/view`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const handleDownloadDemandLetter = async (requestId) => {
+    if (!apiBase || !requestId) {
+      toast.error("Demand letter is not available");
+      return;
+    }
+    try {
+      const response = await axiosInstance.get(
+        `${apiBase}/student/fee/me/demand-request/${requestId}/letter/download`,
+        {
+          withCredentials: true,
+          responseType: "blob",
+        }
+      );
+      const blob = new Blob([response.data], { type: "application/pdf" });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `demand_letter_${requestId}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Failed to download demand letter");
     }
   };
 
@@ -1266,6 +1306,7 @@ const StudentDashboardShell = ({
                   <th className="pb-2 pr-4">Status</th>
                   <th className="pb-2 pr-4">Message</th>
                   <th className="pb-2">Date</th>
+                  <th className="pb-2 pl-4">Letter</th>
                 </tr>
               </thead>
               <tbody>
@@ -1279,6 +1320,30 @@ const StudentDashboardShell = ({
                       {row.createdAt
                         ? new Date(row.createdAt).toLocaleDateString("en-IN")
                         : "-"}
+                    </td>
+                    <td className="py-2 pl-4">
+                      {String(row.status || "").toUpperCase() === "APPROVED" ? (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                            onClick={() => handleViewDemandLetter(row._id)}
+                          >
+                            <FiEye size={13} />
+                            View
+                          </button>
+                          <button
+                            type="button"
+                            className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                            onClick={() => handleDownloadDemandLetter(row._id)}
+                          >
+                            <FiDownload size={13} />
+                            Download
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400">-</span>
+                      )}
                     </td>
                   </tr>
                 ))}
