@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Room from "../models/roomModel.js";
 import ExamRegistration from "../models/ExamRegistration.js";
+import FeeHostelYearly from "../models/feeHostelYearly.js";
 
 dotenv.config();
 
@@ -43,12 +44,30 @@ const ensureExamRegistrationIndexes = async () => {
   }
 };
 
+const ensureFeeHostelYearlyIndexes = async () => {
+  try {
+    const indexes = await FeeHostelYearly.collection.indexes().catch(() => []);
+    const oldIndex = indexes.find(
+      (idx) => idx?.unique === true && idx?.key?.academicYear === 1 && idx?.key?.roomType !== 1
+    );
+    if (oldIndex?.name) {
+      await FeeHostelYearly.collection.dropIndex(oldIndex.name);
+      console.log(`[DB] Dropped old FeeHostelYearly index: ${oldIndex.name}`);
+    }
+    await FeeHostelYearly.syncIndexes();
+    console.log("[DB] FeeHostelYearly indexes synced");
+  } catch (error) {
+    console.warn("[DB] FeeHostelYearly index check failed:", error?.message || error);
+  }
+};
+
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGODB_URI);
     console.log("✅ Successfully connected to MongoDB");
     await ensureRoomIndexes();
     await ensureExamRegistrationIndexes();
+    await ensureFeeHostelYearlyIndexes();
   } catch (error) {
     console.error("❌ Error connecting to MongoDB:", error.message);
     process.exit(1);

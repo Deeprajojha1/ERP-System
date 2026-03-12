@@ -16,6 +16,23 @@ import {
 } from "../redux/feeSlice";
 import "./Fees.css";
 
+const HOSTEL_ROOM_TYPE_OPTIONS = [
+  "2 SEATER",
+  "3 SEATER",
+];
+const CUSTOM_ROOM_TYPE_OPTION = "__CUSTOM__";
+const EXCLUDED_ROOM_TYPES = new Set(["GENERAL", "1 SEATER", "4 SEATER"]);
+
+const formatHostelRoomTypeLabel = (value = "") => {
+  const raw = String(value || "").trim().toUpperCase();
+  if (raw === "2 SEATER" || raw === "TWO-TIER" || raw === "TWO TIER") return "Two Tier (2 Seater)";
+  if (raw === "3 SEATER" || raw === "THREE-TIER" || raw === "THREE TIER") return "Three Tier (3 Seater)";
+  if (raw === "1 SEATER" || raw === "SINGLE") return "Single (1 Seater)";
+  if (raw === "4 SEATER" || raw === "FOUR-TIER" || raw === "FOUR TIER") return "Four Tier (4 Seater)";
+  if (raw === "GENERAL") return "General";
+  return value || "-";
+};
+
 const FeesAcademic = () => {
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -34,6 +51,8 @@ const FeesAcademic = () => {
   });
   const [hostelForm, setHostelForm] = useState({
     academicYear: "",
+    roomType: "",
+    customRoomType: "",
     hostelYearlyFee: "",
   });
   const [transportForm, setTransportForm] = useState({
@@ -75,6 +94,15 @@ const FeesAcademic = () => {
     () => programs.find((program) => String(program._id) === String(branchForm.programId)) || null,
     [programs, branchForm.programId]
   );
+
+  const hostelRoomTypeOptions = useMemo(() => {
+    const set = new Set(HOSTEL_ROOM_TYPE_OPTIONS);
+    (hostelYearlyFees || []).forEach((row) => {
+      const type = String(row?.roomType || "").trim().toUpperCase();
+      if (type && !EXCLUDED_ROOM_TYPES.has(type)) set.add(type);
+    });
+    return Array.from(set);
+  }, [hostelYearlyFees]);
 
   useEffect(() => {
     dispatch(fetchFeePrograms());
@@ -165,8 +193,12 @@ const FeesAcademic = () => {
   const submitHostelFee = async (event) => {
     event.preventDefault();
     if (hostelSubmitting) return;
-    if (!hostelForm.academicYear || hostelForm.hostelYearlyFee === "") {
-      toast.error("Academic year and hostel fee are required");
+    const resolvedRoomType =
+      hostelForm.roomType === CUSTOM_ROOM_TYPE_OPTION
+        ? hostelForm.customRoomType
+        : hostelForm.roomType;
+    if (!hostelForm.academicYear || !resolvedRoomType || hostelForm.hostelYearlyFee === "") {
+      toast.error("Academic year, room type and hostel fee are required");
       return;
     }
     setHostelSubmitting(true);
@@ -174,11 +206,17 @@ const FeesAcademic = () => {
       await dispatch(
         upsertHostelYearlyFee({
           academicYear: hostelForm.academicYear.trim(),
+          roomType: String(resolvedRoomType).trim().toUpperCase(),
           hostelYearlyFee: Number(hostelForm.hostelYearlyFee),
         })
       ).unwrap();
       toast.success("Hostel fee saved");
-      setHostelForm({ academicYear: "", hostelYearlyFee: "" });
+      setHostelForm({
+        academicYear: "",
+        roomType: "",
+        customRoomType: "",
+        hostelYearlyFee: "",
+      });
     } catch (error) {
       toast.error(error || "Failed to save hostel fee");
     } finally {
@@ -433,6 +471,42 @@ const FeesAcademic = () => {
             }
             required
           />
+          <select
+            className="fee-setup-input"
+            value={hostelForm.roomType}
+            onChange={(event) =>
+              setHostelForm((prev) => ({
+                ...prev,
+                roomType: event.target.value,
+                customRoomType:
+                  event.target.value === CUSTOM_ROOM_TYPE_OPTION ? prev.customRoomType : "",
+              }))
+            }
+            required
+          >
+            <option value="">Select room type</option>
+            {hostelRoomTypeOptions.map((type) => (
+              <option key={type} value={type}>
+                {formatHostelRoomTypeLabel(type)}
+              </option>
+            ))}
+            <option value={CUSTOM_ROOM_TYPE_OPTION}>+ Create room type</option>
+          </select>
+          {hostelForm.roomType === CUSTOM_ROOM_TYPE_OPTION ? (
+            <input
+              className="fee-setup-input"
+              type="text"
+              placeholder="New room type (e.g. 5 SEATER)"
+              value={hostelForm.customRoomType}
+              onChange={(event) =>
+                setHostelForm((prev) => ({
+                  ...prev,
+                  customRoomType: event.target.value.toUpperCase(),
+                }))
+              }
+              required
+            />
+          ) : null}
           <input
             className="fee-setup-input"
             type="number"
@@ -455,6 +529,7 @@ const FeesAcademic = () => {
               <thead>
                 <tr>
                   <th>Academic Year</th>
+                  <th>Room Type</th>
                   <th>Hostel Yearly Fee</th>
                 </tr>
               </thead>
@@ -462,6 +537,7 @@ const FeesAcademic = () => {
                 {hostelYearlyFees.map((row) => (
                   <tr key={row._id}>
                     <td>{row.academicYear}</td>
+                    <td>{formatHostelRoomTypeLabel(row.roomType)}</td>
                     <td>{row.hostelYearlyFee}</td>
                   </tr>
                 ))}

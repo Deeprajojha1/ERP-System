@@ -71,8 +71,13 @@ export const allocateStudent = async (req, res) => {
 
     let feeSync = null;
     try {
+      const roomTypeHint =
+        Number.isFinite(Number(room?.capacity)) && Number(room?.capacity) > 0
+          ? `${Number(room.capacity)} SEATER`
+          : String(room?.bedTier || "");
       feeSync = await syncHostelFeeForStudentAcademicYear({
         enrollmentNumber: student.enrollmentNumber,
+        roomType: roomTypeHint,
       });
     } catch (feeError) {
       feeSync = {
@@ -80,6 +85,7 @@ export const allocateStudent = async (req, res) => {
         demandsUpdated: 0,
         hostelYearlyFee: 0,
         hostelSharePerSemester: 0,
+        hostelRoomType: "",
         academicYear: String(student?.academicYear || ""),
         reason: String(feeError?.message || "failed to sync hostel fee"),
       };

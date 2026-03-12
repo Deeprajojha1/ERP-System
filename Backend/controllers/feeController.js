@@ -11,6 +11,7 @@ import PaymentHistory from "../models/feePaymentHistory.js";
 import FeeDemandRequest from "../models/feeDemandRequest.js";
 import Student from "../models/Student.js";
 import Department from "../models/Department.js";
+import HostelAllocation from "../models/hostelAllocationModel.js";
 import FeeAuditLog from "../models/feeAuditLog.js";
 import FeeCounter from "../models/feeCounter.js";
 import FeeBulkJob from "../models/feeBulkJob.js";
@@ -71,6 +72,115 @@ const getAcademicYearCandidates = (value) => {
     set.add(`${start}-${String(next).slice(-2)}`);
   }
   return Array.from(set);
+};
+
+const normalizeHostelRoomType = (value, { fallback = "GENERAL" } = {}) => {
+  const raw = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ");
+  if (!raw) return fallback;
+
+  const wordsToNumber = {
+    ONE: "1",
+    TWO: "2",
+    THREE: "3",
+    FOUR: "4",
+    FIVE: "5",
+    SIX: "6",
+  };
+  const wordMatch = raw.match(/^(ONE|TWO|THREE|FOUR|FIVE|SIX)(?:\s+(?:SEATER|SEAT|BED|BEDS?))?$/);
+  if (wordMatch) return `${wordsToNumber[wordMatch[1]]} SEATER`;
+
+  const digitMatch = raw.match(/^(\d+)(?:\s*(?:SEATER|SEAT|BED|BEDS?))?$/);
+  if (digitMatch) return `${digitMatch[1]} SEATER`;
+  const digitTierMatch = raw.match(/^(\d+)\s*TIER$/);
+  if (digitTierMatch) return `${digitTierMatch[1]} SEATER`;
+
+  if (/^SINGLE\b/.test(raw) || /\b1\s*SEATER\b/.test(raw)) return "1 SEATER";
+  if (/^TWO\s+TIER\b/.test(raw) || /\b2\s*SEATER\b/.test(raw)) return "2 SEATER";
+  if (/^THREE\s+TIER\b/.test(raw) || /\b3\s*SEATER\b/.test(raw)) return "3 SEATER";
+  if (/^FOUR\s+TIER\b/.test(raw) || /\b4\s*SEATER\b/.test(raw)) return "4 SEATER";
+  if (/^FIVE\s+TIER\b/.test(raw) || /\b5\s*SEATER\b/.test(raw)) return "5 SEATER";
+  if (/^SIX\s+TIER\b/.test(raw) || /\b6\s*SEATER\b/.test(raw)) return "6 SEATER";
+
+  if (raw === "SINGLE" || raw === "SINGLE SEATER") return "1 SEATER";
+  if (raw === "TWO TIER") return "2 SEATER";
+  if (raw === "THREE TIER") return "3 SEATER";
+  if (raw === "FOUR TIER") return "4 SEATER";
+
+  if (!SAFE_TEXT_RE.test(raw)) return fallback;
+  return raw;
+};
+
+const deriveHostelRoomTypeFromRoom = (room) => {
+  const capacity = Number(room?.capacity);
+  if (Number.isFinite(capacity) && capacity > 0) return `${capacity} SEATER`;
+
+  const tier = String(room?.bedTier || "")
+    .trim()
+    .toLowerCase();
+  if (tier === "single") return "1 SEATER";
+  if (tier === "two-tier") return "2 SEATER";
+  if (tier === "three-tier") return "3 SEATER";
+  if (tier === "four-tier") return "4 SEATER";
+
+  return "GENERAL";
+};
+
+const resolveActiveHostelRoomTypeForStudent = async (studentMongoId) => {
+  if (!studentMongoId || !isValidId(studentMongoId)) return "";
+  const allocation = await HostelAllocation.findOne({
+    student: studentMongoId,
+    status: "Active",
+  }).populate("room", "capacity bedTier");
+  if (!allocation?.room) return "";
+  return normalizeHostelRoomType(deriveHostelRoomTypeFromRoom(allocation.room), { fallback: "" });
+};
+
+const getConfiguredHostelYearlyFee = async ({ academicYear, roomType = "" }) => {
+  const year = String(academicYear || "").trim();
+  if (!year) return { hostelYearlyFee: 0, roomType: "", matchedBy: "NONE" };
+  const yearCandidates = getAcademicYearCandidates(year);
+  const normalizedRoomType = normalizeHostelRoomType(roomType, { fallback: "" });
+
+  if (normalizedRoomType) {
+    const roomTypeRow = await FeeHostelYearly.findOne({
+      academicYear: { $in: yearCandidates },
+      roomType: normalizedRoomType,
+    }).select("hostelYearlyFee roomType");
+    if (roomTypeRow) {
+      return {
+        hostelYearlyFee: round2(Number(roomTypeRow.hostelYearlyFee || 0)),
+        roomType: String(roomTypeRow.roomType || normalizedRoomType),
+        matchedBy: "ROOM_TYPE",
+      };
+    }
+  }
+
+  const generalRow = await FeeHostelYearly.findOne({
+    academicYear: { $in: yearCandidates },
+    roomType: "GENERAL",
+  }).select("hostelYearlyFee roomType");
+  if (generalRow) {
+    return {
+      hostelYearlyFee: round2(Number(generalRow.hostelYearlyFee || 0)),
+      roomType: "GENERAL",
+      matchedBy: "GENERAL",
+    };
+  }
+
+  // Backward compatibility for historical documents created before roomType support.
+  const legacyRow = await FeeHostelYearly.findOne({
+    academicYear: { $in: yearCandidates },
+    $or: [{ roomType: { $exists: false } }, { roomType: "" }],
+  }).select("hostelYearlyFee");
+  return {
+    hostelYearlyFee: round2(Number(legacyRow?.hostelYearlyFee || 0)),
+    roomType: normalizedRoomType || "GENERAL",
+    matchedBy: legacyRow ? "LEGACY" : "NONE",
+  };
 };
 
 const PROGRAM_DEFAULTS = {
@@ -430,16 +540,16 @@ const getSemesterDueDate = async ({ academicYear, semesterNo }) => {
   return row?.eventDate ? new Date(row.eventDate) : null;
 };
 
-const getYearlyAddOnFees = async (academicYear) => {
+const getYearlyAddOnFees = async (academicYear, { hostelRoomType = "" } = {}) => {
   const year = String(academicYear || "").trim();
   if (!year) return { hostelYearlyFee: 0, transportYearlyFee: 0 };
   const yearCandidates = getAcademicYearCandidates(year);
-  const [hostelRow, transportRow] = await Promise.all([
-    FeeHostelYearly.findOne({ academicYear: { $in: yearCandidates } }).select("hostelYearlyFee"),
+  const [hostelCfg, transportRow] = await Promise.all([
+    getConfiguredHostelYearlyFee({ academicYear: year, roomType: hostelRoomType }),
     FeeTransportYearly.findOne({ academicYear: { $in: yearCandidates } }).select("transportYearlyFee"),
   ]);
   return {
-    hostelYearlyFee: round2(Number(hostelRow?.hostelYearlyFee || 0)),
+    hostelYearlyFee: round2(Number(hostelCfg?.hostelYearlyFee || 0)),
     transportYearlyFee: round2(Number(transportRow?.transportYearlyFee || 0)),
   };
 };
@@ -626,7 +736,7 @@ export const ensureStudentFeeProfileForEnrollment = async (studentId) => {
   return createdProfile;
 };
 
-export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) => {
+export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber, roomType = "" }) => {
   const safeEnrollment = String(enrollmentNumber || "").trim();
   if (!safeEnrollment) {
     return {
@@ -634,6 +744,7 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
       demandsUpdated: 0,
       hostelYearlyFee: 0,
       hostelSharePerSemester: 0,
+      hostelRoomType: "",
       academicYear: "",
       reason: "enrollmentNumber is required",
     };
@@ -649,6 +760,7 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
       demandsUpdated: 0,
       hostelYearlyFee: 0,
       hostelSharePerSemester: 0,
+      hostelRoomType: "",
       academicYear: "",
       reason: "student not found",
     };
@@ -662,6 +774,7 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
       demandsUpdated: 0,
       hostelYearlyFee: 0,
       hostelSharePerSemester: 0,
+      hostelRoomType: "",
       academicYear,
       reason: "fee profile not available",
     };
@@ -674,18 +787,25 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
     profileUpdated = true;
   }
 
-  const hostelFeeRow = await FeeHostelYearly.findOne({
-    academicYear: { $in: getAcademicYearCandidates(academicYear) },
-  }).select("hostelYearlyFee");
-  const hostelYearlyFee = round2(Number(hostelFeeRow?.hostelYearlyFee || 0));
+  const requestedRoomType = normalizeHostelRoomType(roomType, { fallback: "" });
+  const activeRoomType = requestedRoomType || (await resolveActiveHostelRoomTypeForStudent(student._id));
+  const hostelConfig = await getConfiguredHostelYearlyFee({
+    academicYear,
+    roomType: activeRoomType,
+  });
+  const hostelYearlyFee = round2(Number(hostelConfig?.hostelYearlyFee || 0));
+  const hostelRoomType = String(hostelConfig?.roomType || activeRoomType || "GENERAL");
   if (hostelYearlyFee <= 0) {
     return {
       profileUpdated,
       demandsUpdated: 0,
       hostelYearlyFee,
       hostelSharePerSemester: 0,
+      hostelRoomType,
       academicYear,
-      reason: "hostel yearly fee not configured for academic year",
+      reason: activeRoomType
+        ? "hostel yearly fee not configured for selected room type/academic year"
+        : "hostel yearly fee not configured for academic year",
     };
   }
 
@@ -722,6 +842,7 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
     demandsUpdated,
     hostelYearlyFee,
     hostelSharePerSemester: hostelShare,
+    hostelRoomType,
     academicYear,
     reason: "",
   };
@@ -1351,6 +1472,7 @@ export const upsertHostelYearlyFee = async (req, res) => {
   try {
     const academicYear = String(req.body?.academicYear || "").trim();
     const hostelYearlyFee = Number(req.body?.hostelYearlyFee);
+    const roomType = normalizeHostelRoomType(req.body?.roomType);
     if (!academicYear || !/^\d{4}-\d{4}$/.test(academicYear)) {
       return res.status(400).json({ message: "academicYear must be in YYYY-YYYY format" });
     }
@@ -1359,8 +1481,8 @@ export const upsertHostelYearlyFee = async (req, res) => {
     }
 
     const row = await FeeHostelYearly.findOneAndUpdate(
-      { academicYear },
-      { hostelYearlyFee: round2(hostelYearlyFee) },
+      { academicYear, roomType },
+      { hostelYearlyFee: round2(hostelYearlyFee), roomType },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
@@ -1368,7 +1490,7 @@ export const upsertHostelYearlyFee = async (req, res) => {
       action: "FEE_HOSTEL_YEARLY_UPSERT",
       entityType: "FeeHostelYearly",
       entityId: row._id,
-      metadata: { academicYear, hostelYearlyFee: row.hostelYearlyFee },
+      metadata: { academicYear, roomType: row.roomType, hostelYearlyFee: row.hostelYearlyFee },
     });
 
     return res.status(200).json({ message: "Hostel yearly fee saved", data: row });
@@ -1380,8 +1502,11 @@ export const upsertHostelYearlyFee = async (req, res) => {
 export const getHostelYearlyFees = async (req, res) => {
   try {
     const academicYear = String(req.query?.academicYear || "").trim();
-    const query = academicYear ? { academicYear } : {};
-    const rows = await FeeHostelYearly.find(query).sort({ academicYear: -1, createdAt: -1 });
+    const roomType = String(req.query?.roomType || "").trim();
+    const query = {};
+    if (academicYear) query.academicYear = academicYear;
+    if (roomType) query.roomType = normalizeHostelRoomType(roomType);
+    const rows = await FeeHostelYearly.find(query).sort({ academicYear: -1, roomType: 1, createdAt: -1 });
     return res.status(200).json({ message: "Hostel yearly fees retrieved", data: rows });
   } catch (error) {
     return res.status(500).json({ message: sanitizeError(error) });
@@ -2356,10 +2481,13 @@ export const getMyFeeProfile = async (req, res) => {
       yearlyMap.set(yearNo, current);
     });
     const studentRow = await Student.findOne({ user: req.userId, isDeleted: { $ne: true } }).select(
-      "academicYear"
+      "_id academicYear"
     );
     const studentAcademicYear = String(studentRow?.academicYear || "").trim();
-    const { hostelYearlyFee, transportYearlyFee } = await getYearlyAddOnFees(studentAcademicYear);
+    const hostelRoomType = await resolveActiveHostelRoomTypeForStudent(studentRow?._id);
+    const { hostelYearlyFee, transportYearlyFee } = await getYearlyAddOnFees(studentAcademicYear, {
+      hostelRoomType,
+    });
     const yearWise = Array.from(yearlyMap.values())
       .sort((a, b) => a.yearNo - b.yearNo)
       .map((row) => {

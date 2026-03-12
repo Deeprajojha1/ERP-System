@@ -51,7 +51,6 @@ const EMPTY_FORM = {
   studentNameHindi: "",
   rollNo: "",
   enrollmentNumber: "",
-  formSerialNumber: "",
   fatherName: "",
   motherName: "",
   studentEmail: "",
@@ -147,7 +146,6 @@ const StudentExamRegistration = () => {
       studentNameHindi: reg.studentNameHindi || "",
       rollNo: reg.rollNo || "",
       enrollmentNumber: reg.enrollmentNumber || "",
-      formSerialNumber: reg.formSerialNumber || "",
       fatherName: reg.fatherName || "",
       motherName: reg.motherName || "",
       studentEmail: reg.studentEmail || "",
@@ -344,7 +342,6 @@ const StudentExamRegistration = () => {
               <h4>Academic Details</h4>
               <div className="ser-detail-row"><span>Roll No.</span><strong>{viewingReg.rollNo || "-"}</strong></div>
               <div className="ser-detail-row"><span>Enrollment No.</span><strong>{viewingReg.enrollmentNumber || "-"}</strong></div>
-              <div className="ser-detail-row"><span>S. No.</span><strong>{viewingReg.formSerialNumber || "-"}</strong></div>
               <div className="ser-detail-row"><span>Course Name</span><strong>{viewingReg.courseName || "-"}</strong></div>
               <div className="ser-detail-row"><span>Branch Name</span><strong>{viewingReg.branchName || "-"}</strong></div>
               <div className="ser-detail-row"><span>Semester</span><strong>{viewingReg.semester || "-"}</strong></div>
@@ -513,10 +510,6 @@ const StudentExamRegistration = () => {
             <div className="ser-field">
               <label>Enrollment No. <span className="ser-req">*</span></label>
               <input type="text" value={formData.enrollmentNumber} onChange={handleChange("enrollmentNumber")} required />
-            </div>
-            <div className="ser-field">
-              <label>S. No.</label>
-              <input type="text" value={formData.formSerialNumber} onChange={handleChange("formSerialNumber")} />
             </div>
             <div className="ser-field">
               <label>Course Name</label>

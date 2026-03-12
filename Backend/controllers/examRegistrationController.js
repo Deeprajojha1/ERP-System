@@ -50,7 +50,6 @@ const buildRegistrationPayload = ({ body, student, exam }) => {
     studentNameHindi: String(body.studentNameHindi || "").trim(),
     rollNo: String(body.rollNo || student.enrollmentNumber || "").trim(),
     enrollmentNumber: String(body.enrollmentNumber || student.enrollmentNumber || "").trim(),
-    formSerialNumber: String(body.formSerialNumber || "").trim(),
     fatherName: String(body.fatherName || student.fatherName || "").trim(),
     motherName: String(body.motherName || "").trim(),
     studentEmail: String(body.studentEmail || student.user?.email || student.collegeEmail || "").trim().toLowerCase(),
@@ -274,6 +273,7 @@ export const updateExamRegistration = async (req, res) => {
     }
 
     const updateData = { ...payload };
+    delete updateData.formSerialNumber;
 
     if (payload.registrationStatus) {
       const nextStatus = String(payload.registrationStatus).toUpperCase();

@@ -108,7 +108,6 @@ const buildRegistrationPayload = ({ body, student, resolvedSubjects = [], resolv
     studentNameHindi: String(body.studentNameHindi || "").trim(),
     rollNo: String(body.rollNo || student.enrollmentNumber || "").trim(),
     enrollmentNumber: String(body.enrollmentNumber || student.enrollmentNumber || "").trim(),
-    formSerialNumber: String(body.formSerialNumber || "").trim(),
     fatherName: String(body.fatherName || student.fatherName || "").trim(),
     motherName: String(body.motherName || "").trim(),
     studentEmail: String(body.studentEmail || student.user?.email || student.collegeEmail || "").trim().toLowerCase(),
@@ -362,6 +361,7 @@ export const updateMyExamRegistration = async (req, res) => {
       resolvedSubjects: resolved.subjects,
       resolvedCourse: resolved.primaryCourse,
     });
+    updatePayload.formSerialNumber = existing.formSerialNumber || "";
 
     const updated = await ExamRegistration.findByIdAndUpdate(
       id,

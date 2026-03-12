@@ -8,14 +8,37 @@ const BED_TIER_CAPACITY = Object.freeze({
   "three-tier": 3,
   "four-tier": 4,
 });
-const ALLOWED_CAPACITY = new Set([1, 2, 3, 4]);
+const ALLOWED_CAPACITY_MIN = 1;
+const ALLOWED_CAPACITY_MAX = 20;
 
 const normalizeBedTier = (value = "") => {
-  const normalized = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return "single";
+
+  const normalized = raw.replace(/\s+/g, "-");
+  const digitTierMatch = normalized.match(/^(\d+)-tier$/);
+  if (digitTierMatch) return `${Number(digitTierMatch[1])}-tier`;
+
   if (normalized === "2-tier" || normalized === "two-tier") return "two-tier";
   if (normalized === "3-tier" || normalized === "three-tier") return "three-tier";
   if (normalized === "4-tier" || normalized === "four-tier") return "four-tier";
+
+  const seaterMatch = raw.match(/^(\d+)\s*(seater|seat|bed|beds?)$/);
+  if (seaterMatch) return `${Number(seaterMatch[1])}-tier`;
+
+  if (raw === "single" || raw === "1-seater" || raw === "1 seater") return "single";
+  if (raw === "five-tier" || raw === "5-tier") return "5-tier";
+  if (raw === "six-tier" || raw === "6-tier") return "6-tier";
   return "single";
+};
+
+const getCapacityFromBedTier = (bedTier = "") => {
+  const mapped = BED_TIER_CAPACITY[String(bedTier || "").trim().toLowerCase()];
+  if (Number.isFinite(mapped) && mapped > 0) return mapped;
+  const match = String(bedTier || "").trim().toLowerCase().match(/^(\d+)-tier$/);
+  if (!match) return null;
+  const capacity = Number(match[1]);
+  return Number.isInteger(capacity) && capacity > 0 ? capacity : null;
 };
 
 const parseFloorNumber = (value) => {
@@ -63,14 +86,18 @@ export const createRoom = async (req, res) => {
     }
 
     const normalizedBedTier = normalizeBedTier(bedTier);
-    const resolvedCapacityFromTier = BED_TIER_CAPACITY[normalizedBedTier] || 1;
+    const resolvedCapacityFromTier = getCapacityFromBedTier(normalizedBedTier) || 1;
     const normalizedCapacity =
       Number.isFinite(Number(capacity)) && Number(capacity) > 0
         ? Number(capacity)
         : resolvedCapacityFromTier;
-    if (!ALLOWED_CAPACITY.has(Number(normalizedCapacity))) {
+    if (
+      !Number.isInteger(Number(normalizedCapacity)) ||
+      Number(normalizedCapacity) < ALLOWED_CAPACITY_MIN ||
+      Number(normalizedCapacity) > ALLOWED_CAPACITY_MAX
+    ) {
       return res.status(400).json({
-        message: "Invalid capacity. Allowed values are 1, 2, 3, or 4.",
+        message: `Invalid capacity. Allowed values are ${ALLOWED_CAPACITY_MIN}-${ALLOWED_CAPACITY_MAX}.`,
       });
     }
 
@@ -175,15 +202,19 @@ export const updateRoom = async (req, res) => {
     if (Object.prototype.hasOwnProperty.call(updatePayload, "bedTier")) {
       updatePayload.bedTier = normalizeBedTier(updatePayload.bedTier);
       if (!Object.prototype.hasOwnProperty.call(updatePayload, "capacity")) {
-        updatePayload.capacity = BED_TIER_CAPACITY[updatePayload.bedTier] || room.capacity;
+        updatePayload.capacity = getCapacityFromBedTier(updatePayload.bedTier) || room.capacity;
       }
     }
 
     if (Object.prototype.hasOwnProperty.call(updatePayload, "capacity")) {
       const parsedCapacity = Number(updatePayload.capacity);
-      if (!ALLOWED_CAPACITY.has(parsedCapacity)) {
+      if (
+        !Number.isInteger(parsedCapacity) ||
+        parsedCapacity < ALLOWED_CAPACITY_MIN ||
+        parsedCapacity > ALLOWED_CAPACITY_MAX
+      ) {
         return res.status(400).json({
-          message: "Invalid capacity. Allowed values are 1, 2, 3, or 4.",
+          message: `Invalid capacity. Allowed values are ${ALLOWED_CAPACITY_MIN}-${ALLOWED_CAPACITY_MAX}.`,
         });
       }
       updatePayload.capacity = parsedCapacity;

@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import FeeCounter from "./feeCounter.js";
 
 const examRegistrationSchema = new mongoose.Schema(
   {
@@ -151,6 +152,28 @@ examRegistrationSchema.index(
     partialFilterExpression: { isDeleted: false },
   }
 );
+
+const EXAM_REG_SERIAL_KEY = "exam_registration_form_serial";
+
+const getNextExamRegistrationSerial = async () => {
+  const counter = await FeeCounter.findOneAndUpdate(
+    { key: EXAM_REG_SERIAL_KEY },
+    { $inc: { seq: 1 } },
+    { new: true, upsert: true, setDefaultsOnInsert: true }
+  ).lean();
+  return String(counter?.seq || 0).padStart(6, "0");
+};
+
+examRegistrationSchema.pre("validate", async function autoAssignFormSerial(next) {
+  try {
+    if (!this.isNew) return next();
+    if (String(this.formSerialNumber || "").trim()) return next();
+    this.formSerialNumber = await getNextExamRegistrationSerial();
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+});
 examRegistrationSchema.index({ exam: 1, registrationStatus: 1, isDeleted: 1 });
 examRegistrationSchema.index({ rollNo: 1, isDeleted: 1 });
 
