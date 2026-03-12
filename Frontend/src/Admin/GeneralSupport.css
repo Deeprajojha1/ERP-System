@@ -71,6 +71,12 @@
   gap: 8px;
 }
 
+.gs-generate:disabled {
+  cursor: not-allowed;
+  opacity: 0.9;
+  background: #15803d;
+}
+
 .gs-recent {
   border: 1px solid #e2e8f0;
   border-radius: 12px;

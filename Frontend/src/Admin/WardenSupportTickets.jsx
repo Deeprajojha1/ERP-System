@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { FiLifeBuoy, FiRefreshCw } from "react-icons/fi";
+import { FiFileText, FiLifeBuoy, FiPrinter } from "react-icons/fi";
 import toast from "react-hot-toast";
 import { useSearchParams } from "react-router-dom";
 import axiosInstance from "../utils/axiosInstance";
@@ -18,6 +18,16 @@ const formatDateTime = (value) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatDateInput = (value) => {
+  const date = new Date(value || Date.now());
+  if (Number.isNaN(date.getTime())) return "";
+  return [
+    String(date.getFullYear()).padStart(4, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
 };
 
 const STATUS_OPTIONS = [
@@ -43,6 +53,10 @@ export default function WardenSupportTickets() {
   const [hostelFilter, setHostelFilter] = useState("");
   const [hostelOptions, setHostelOptions] = useState([]);
   const [updatingById, setUpdatingById] = useState({});
+  const [showReportControls, setShowReportControls] = useState(false);
+  const [reportFromDate, setReportFromDate] = useState(formatDateInput(new Date()));
+  const [reportToDate, setReportToDate] = useState(formatDateInput(new Date()));
+  const [isPrinting, setIsPrinting] = useState(false);
 
   useEffect(() => {
     const status = String(searchParams.get("status") || "all");
@@ -114,6 +128,48 @@ export default function WardenSupportTickets() {
     return byStatus;
   }, [tickets]);
 
+  const reportTickets = useMemo(() => {
+    if (!reportFromDate || !reportToDate) return [];
+
+    const from = new Date(reportFromDate);
+    from.setHours(0, 0, 0, 0);
+
+    const to = new Date(reportToDate);
+    to.setHours(23, 59, 59, 999);
+
+    if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) return [];
+
+    const start = from <= to ? from : to;
+    const end = from <= to ? to : from;
+
+    return tickets.filter((ticket) => {
+      const created = new Date(ticket?.createdAt);
+      if (Number.isNaN(created.getTime())) return false;
+      return created >= start && created <= end;
+    });
+  }, [reportFromDate, reportToDate, tickets]);
+
+  const handlePrintReport = () => {
+    if (!reportFromDate || !reportToDate) {
+      toast.error("Please select from and to dates.");
+      return;
+    }
+
+    if (reportTickets.length === 0) {
+      toast.error("No tickets found in selected date range.");
+      return;
+    }
+
+    setIsPrinting(true);
+    const onAfterPrint = () => {
+      setIsPrinting(false);
+      window.removeEventListener("afterprint", onAfterPrint);
+    };
+    window.addEventListener("afterprint", onAfterPrint);
+    // Small delay so React re-renders the print layout before browser dialog opens
+    setTimeout(() => window.print(), 80);
+  };
+
   return (
     <div className="alerts-container">
       <div className="alerts-header">
@@ -121,11 +177,55 @@ export default function WardenSupportTickets() {
           <h2>Warden Support Tickets</h2>
           <p className="alerts-subtitle">Complaints/issues raised by wardens to admin.</p>
         </div>
-        <button type="button" className="btn-create-alert" onClick={fetchTickets} disabled={loading}>
-          <FiRefreshCw />
-          Refresh
+        <button
+          type="button"
+          className="warden-report-toggle-btn"
+          onClick={() => setShowReportControls((prev) => !prev)}
+        >
+          <FiFileText />
+          {showReportControls ? "Hide Report" : "Generate Report"}
         </button>
       </div>
+
+      {showReportControls ? (
+        <div className="warden-support-report-controls no-print">
+          <div className="alerts-form-group warden-support-filter">
+            <label htmlFor="warden-report-from-date">From Date</label>
+            <input
+              id="warden-report-from-date"
+              type="date"
+              value={reportFromDate}
+              onChange={(e) => setReportFromDate(e.target.value)}
+            />
+          </div>
+
+          <div className="alerts-form-group warden-support-filter">
+            <label htmlFor="warden-report-to-date">To Date</label>
+            <input
+              id="warden-report-to-date"
+              type="date"
+              value={reportToDate}
+              onChange={(e) => setReportToDate(e.target.value)}
+            />
+          </div>
+
+          <div className="warden-report-print-wrap">
+            <button
+            type="button"
+            className="warden-report-print-btn"
+            onClick={handlePrintReport}
+            disabled={isPrinting}
+          >
+            {isPrinting ? (
+              <span className="warden-btn-spinner" aria-hidden="true" />
+            ) : (
+              <FiPrinter />
+            )}
+            {isPrinting ? "Printing…" : "Print Report"}
+          </button>
+          </div>
+        </div>
+      ) : null}
 
       <div className="warden-support-filters">
         <div className="alerts-form-group warden-support-filter">
@@ -234,6 +334,61 @@ export default function WardenSupportTickets() {
           ))}
         </div>
       )}
+
+      <div className="warden-report-print-layout print-only">
+        <div className="print-header">
+          <h2>HARIDWAR UNIVERSITY</h2>
+          <h3>Warden Support Ticket Report</h3>
+          <h4>
+            Date Range: {reportFromDate || "N/A"} to {reportToDate || "N/A"}
+          </h4>
+          <p>Total Tickets: {reportTickets.length}</p>
+          <p>Generated On: {formatDateTime(new Date())}</p>
+        </div>
+
+        <table className="warden-print-table">
+          <thead>
+            <tr>
+              <th>SR NO.</th>
+              <th>Ticket ID</th>
+              <th>Subject</th>
+              <th>Message</th>
+              <th>Warden</th>
+              <th>Email</th>
+              <th>Hostel</th>
+              <th>Priority</th>
+              <th>Status</th>
+              <th>Created</th>
+              <th>Handled By</th>
+              <th>Handled At</th>
+              <th>Latest Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {reportTickets.map((ticket, index) => (
+              <tr key={ticket._id || index}>
+                <td>{index + 1}</td>
+                <td>{ticket._id || "—"}</td>
+                <td>{ticket.subject || "—"}</td>
+                <td>{ticket.message || "—"}</td>
+                <td>{ticket.createdBy?.name || "—"}</td>
+                <td>{ticket.createdBy?.email || "—"}</td>
+                <td>{ticket.hostel?.name || "—"}</td>
+                <td>{String(ticket.priority || "medium").toUpperCase()}</td>
+                <td>{String(ticket.status || "open")}</td>
+                <td>{formatDateTime(ticket.createdAt)}</td>
+                <td>{ticket.handledBy?.name || "—"}</td>
+                <td>{formatDateTime(ticket.handledAt)}</td>
+                <td>
+                  {(Array.isArray(ticket.timeline) && ticket.timeline.length
+                    ? ticket.timeline[ticket.timeline.length - 1]?.note
+                    : "") || "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

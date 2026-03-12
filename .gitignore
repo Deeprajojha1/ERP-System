@@ -5,3 +5,4 @@ node_modules*
 !Frontend/.env.example
 tmpclaude-*
 .prettierrc
+render.yaml

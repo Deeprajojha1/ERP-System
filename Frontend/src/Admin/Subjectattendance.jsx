@@ -8,19 +8,14 @@ import "./Subjectattendance.css";
 
 const formatDateInput = (date = new Date()) => date.toISOString().slice(0, 10);
 
-const STATUS_LABEL = {
-  present: "P",
-  absent: "A",
-  "not-marked": "-",
-};
-
 const SubjectAttendance = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
   const [departments, setDepartments] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedGroup, setSelectedGroup] = useState("");
-  const [selectedDate, setSelectedDate] = useState(formatDateInput());
+  const [fromDate, setFromDate] = useState(formatDateInput());
+  const [toDate, setToDate] = useState(formatDateInput());
   const [loading, setLoading] = useState(false);
   const [report, setReport] = useState(null);
 
@@ -45,23 +40,6 @@ const SubjectAttendance = () => {
     () => filteredGroups.find((group) => group._id === selectedGroup)?.name || "",
     [filteredGroups, selectedGroup]
   );
-
-  const subjectColumns = useMemo(() => {
-    if (!report?.students?.length) return [];
-    const byId = new Map();
-    report.students.forEach((student) => {
-      (student.attendanceEntries || []).forEach((entry) => {
-        const courseId = entry.course?._id;
-        if (!courseId || byId.has(courseId)) return;
-        byId.set(courseId, {
-          _id: courseId,
-          code: entry.course?.code || "SUBJ",
-          courseName: entry.course?.courseName || "Subject",
-        });
-      });
-    });
-    return Array.from(byId.values());
-  }, [report]);
 
   const fetchMasterData = async () => {
     if (!apiBase) return;
@@ -100,16 +78,22 @@ const SubjectAttendance = () => {
   }, [selectedDepartment, selectedGroup, filteredGroups]);
 
   const fetchAttendanceReport = async () => {
-    if (!selectedDepartment || !selectedGroup || !selectedDate) {
-      toast.error("Department, group, and date are required");
+    if (!selectedDepartment || !selectedGroup || !fromDate || !toDate) {
+      toast.error("Department, group, from date, and to date are required");
       return;
     }
 
     try {
       setLoading(true);
       const response = await axios.get(
-        `${apiBase}/admin/attendance/group/${selectedGroup}/date/${selectedDate}`,
-        { withCredentials: true }
+        `${apiBase}/admin/attendance/group/${selectedGroup}/date-range`,
+        {
+          withCredentials: true,
+          params: {
+            fromDate,
+            toDate,
+          },
+        }
       );
       setReport(response.data || null);
     } catch (error) {
@@ -118,14 +102,6 @@ const SubjectAttendance = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const getEntryStatus = (student, subjectId) => {
-    const entry = (student.attendanceEntries || []).find(
-      (item) => String(item.course?._id) === String(subjectId)
-    );
-    const status = String(entry?.status || "not-marked");
-    return STATUS_LABEL[status] || "-";
   };
 
   const handlePrint = () => {
@@ -139,7 +115,7 @@ const SubjectAttendance = () => {
         <div>
           <h1 className="subject-attendance-title">Subject-wise Attendance Report</h1>
           <p className="subject-attendance-subtitle">
-            Backend route: <code>/api/admin/attendance/group/:groupId/date/:date</code>
+            Backend route: <code>/api/admin/attendance/group/:groupId/date-range?fromDate=&amp;toDate=</code>
           </p>
         </div>
       </div>
@@ -188,13 +164,26 @@ const SubjectAttendance = () => {
             </div>
 
             <div className="subject-attendance-filter-group">
-              <label htmlFor="report-date">Date</label>
+              <label htmlFor="from-date">From Date</label>
               <input
-                id="report-date"
+                id="from-date"
                 type="date"
-                value={selectedDate}
+                value={fromDate}
                 onChange={(event) => {
-                  setSelectedDate(event.target.value);
+                  setFromDate(event.target.value);
+                  setReport(null);
+                }}
+              />
+            </div>
+
+            <div className="subject-attendance-filter-group">
+              <label htmlFor="to-date">To Date</label>
+              <input
+                id="to-date"
+                type="date"
+                value={toDate}
+                onChange={(event) => {
+                  setToDate(event.target.value);
                   setReport(null);
                 }}
               />
@@ -223,7 +212,7 @@ const SubjectAttendance = () => {
           <div className="subject-attendance-empty no-print">
             <img src={emptyStateImg} alt="Select filters" />
             <h3>Select filters to view report</h3>
-            <p>Choose department, group, and date.</p>
+            <p>Choose department, group, and date range.</p>
           </div>
         ) : (
           <>
@@ -231,7 +220,9 @@ const SubjectAttendance = () => {
               <h2>HARIDWAR UNIVERSITY</h2>
               <h3>Department: {selectedDeptName || "N/A"}</h3>
               <h4>Group: {selectedGroupName || "N/A"}</h4>
-              <p>Date: {selectedDate}</p>
+              <p>
+                Date Range: {report.fromDate || fromDate} to {report.toDate || toDate}
+              </p>
               <p>Total Sessions: {report.totalSessions || 0}</p>
             </div>
 
@@ -241,15 +232,8 @@ const SubjectAttendance = () => {
                   <tr>
                     <th className="sr-no-col">SR NO.</th>
                     <th className="student-col">Student</th>
-                    {subjectColumns.map((subject) => (
-                      <th key={subject._id} className="subject-col">
-                        <div className="subject-code">{subject.code}</div>
-                        <div className="subject-name">{subject.courseName}</div>
-                      </th>
-                    ))}
-                    <th className="total-col">Present</th>
-                    <th className="total-col">Absent</th>
-                    <th className="total-col">Not Marked</th>
+                    <th className="total-col">Total Days Present</th>
+                    <th className="total-col">Total Days Absent</th>
                     <th className="percentage-col">%</th>
                   </tr>
                 </thead>
@@ -263,14 +247,8 @@ const SubjectAttendance = () => {
                           Enrollment: {student.enrollmentNumber || "N/A"}
                         </div>
                       </td>
-                      {subjectColumns.map((subject) => (
-                        <td key={`${student.studentId}-${subject._id}`} className="attendance-cell">
-                          {getEntryStatus(student, subject._id)}
-                        </td>
-                      ))}
                       <td className="total-present">{student.summary?.presentCount || 0}</td>
                       <td className="total-classes">{student.summary?.absentCount || 0}</td>
-                      <td className="total-classes">{student.summary?.notMarkedCount || 0}</td>
                       <td className="percentage">
                         {student.summary?.totalSessions
                           ? Math.round(

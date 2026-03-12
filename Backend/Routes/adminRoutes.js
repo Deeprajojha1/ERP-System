@@ -103,12 +103,14 @@ import {
   getAttendanceById,
   getAttendanceByGroupAndCourse,
   getGroupStudentAttendanceByDate,
+  getGroupStudentAttendanceByDateRange,
   deleteAttendance,
   hardDeleteAttendance,
   getStudentsByGroup,
   getStudentAttendanceReport,
   getStudentOverallAttendance,
   getDailyAttendanceSummary,
+  getAttendanceExportReport,
 } from "../controllers/attendanceController.js";
 
 import {
@@ -360,9 +362,16 @@ router.get("/teaching-load", isAdmin, canTeachingLoadReport, getTeachingLoad);
 ========================= */
 router.post("/attendance", isAdmin, canAttendance, markAttendance);
 router.put("/attendance/:sessionId", isAdmin, canAttendance, updateAttendance);
+router.get("/attendance/export-report", isAdmin, canAttendance, getAttendanceExportReport);
 router.get("/attendance/daily", isAdmin, canAttendance, getDailyAttendanceSummary);
 router.get("/attendance/group/:groupId/students", isAdmin, canAttendance, getStudentsByGroup);
 router.get("/attendance/group/:groupId/date/:date", isAdmin, canAttendance, getGroupStudentAttendanceByDate);
+router.get(
+  "/attendance/group/:groupId/date-range",
+  isAdmin,
+  canAttendance,
+  getGroupStudentAttendanceByDateRange,
+);
 router.get(
   "/attendance/group/:groupId/course/:courseId",
   isAdmin,

@@ -1,5 +1,5 @@
 import dotenv from "dotenv";
-import sgMail from "@sendgrid/mail";
+import { BrevoClient } from "@getbrevo/brevo";
 
 dotenv.config();
 
@@ -17,52 +17,47 @@ const normalizeEnvValue = (value = "") => {
   return normalized;
 };
 
-const SENDGRID_API_KEY = normalizeEnvValue(process.env.SENDGRID_API_KEY);
-const SENDGRID_FROM_EMAIL = normalizeEnvValue(process.env.SENDGRID_FROM_EMAIL);
+const BREVO_API_KEY = normalizeEnvValue(process.env.BREVO_API_KEY);
+const BREVO_FROM_EMAIL = normalizeEnvValue(process.env.BREVO_FROM_EMAIL);
 const EMAIL_FROM_NAME = normalizeEnvValue(process.env.EMAIL_FROM_NAME);
 
-let sendGridReady = false;
+let transactionalEmailsApi = null;
 
-if (!SENDGRID_API_KEY) {
-  console.warn("[sendMail] SENDGRID_API_KEY is not set. Emails will fail.");
-} else if (!SENDGRID_API_KEY.startsWith("SG.")) {
-  console.warn("[sendMail] SENDGRID_API_KEY format looks invalid. It should start with 'SG.'");
+if (!BREVO_API_KEY) {
+  console.warn("[sendMail] BREVO_API_KEY is not set. Emails will fail.");
 } else {
   try {
-    sgMail.setApiKey(SENDGRID_API_KEY);
-    sendGridReady = true;
+    const client = new BrevoClient({ apiKey: BREVO_API_KEY });
+    transactionalEmailsApi = client.transactionalEmails;
   } catch (error) {
-    console.warn("[sendMail] Failed to initialize SendGrid client:", error?.message || error);
+    console.warn("[sendMail] Failed to initialize Brevo client:", error?.message || error);
   }
 }
 
 const sendEmail = async (to, otp) => {
-  if (!sendGridReady) {
+  if (!transactionalEmailsApi) {
     return {
       ok: false,
-      code: "SENDGRID_NOT_CONFIGURED",
+      code: "BREVO_NOT_CONFIGURED",
       message: "Email provider is not configured.",
     };
   }
 
-  if (!SENDGRID_FROM_EMAIL) {
+  if (!BREVO_FROM_EMAIL) {
     return {
       ok: false,
-      code: "SENDGRID_FROM_MISSING",
+      code: "BREVO_FROM_MISSING",
       message: "Sender email is not configured.",
     };
   }
 
   try {
-    const msg = {
-      from: {
-        email: SENDGRID_FROM_EMAIL,
-        name: EMAIL_FROM_NAME || "Haridwar University ERP",
-      },
-      to,
+    const response = await transactionalEmailsApi.sendTransacEmail({
+      sender: { name: EMAIL_FROM_NAME || "Haridwar University ERP", email: BREVO_FROM_EMAIL },
+      to: [{ email: to }],
       subject: "Reset Your Password - OTP",
-      text: `Your OTP is: ${otp}`,
-      html: `
+      textContent: `Your OTP is: ${otp}`,
+      htmlContent: `
         <div style="font-family: Arial, sans-serif; padding: 15px;">
           <h2 style="color: #2563eb;">Password Reset OTP</h2>
           <p>Hello,</p>
@@ -72,44 +67,26 @@ const sendEmail = async (to, otp) => {
           <p>Thanks,<br/>ERP Team</p>
         </div>
       `,
-    };
-
-    const [response] = await sgMail.send(msg);
-    console.log("Email Sent Successfully:", response.statusCode);
+    });
+    console.log("Email Sent Successfully:", response?.body?.messageId);
     return { ok: true };
   } catch (error) {
-    const statusCode = Number(
-      error?.code || error?.response?.statusCode || error?.response?.status || 0
-    );
-    const providerMessage =
-      error?.response?.body?.errors?.[0]?.message || error?.message || "SendGrid send failed";
+    const statusCode = Number(error?.statusCode || error?.status || 0);
+    const providerMessage = error?.message || "Brevo send failed";
     const isUnauthorized =
       statusCode === 401 ||
-      /authorization grant is invalid|unauthorized|invalid api key|revoked|expired/i.test(
-        String(providerMessage)
-      );
-    const isSenderUnverified =
-      statusCode === 403 &&
-      /verified sender identity|sender identity/i.test(String(providerMessage));
+      /unauthorized|invalid api key|revoked|expired/i.test(String(providerMessage));
 
     console.error("Email Send Error:", providerMessage);
-    if (error.response && error.response.body) {
-      console.error("SendGrid response body:", error.response.body);
-    } else if (process.env.NODE_ENV !== "production") {
+    if (process.env.NODE_ENV !== "production") {
       console.error("Email error stack:", error.stack || error);
     }
 
     return {
       ok: false,
-      code: isUnauthorized
-        ? "SENDGRID_AUTH_FAILED"
-        : isSenderUnverified
-          ? "SENDGRID_SENDER_UNVERIFIED"
-          : "SENDGRID_SEND_FAILED",
+      code: isUnauthorized ? "BREVO_AUTH_FAILED" : "BREVO_SEND_FAILED",
       message: isUnauthorized
-        ? "SendGrid authentication failed. API key is invalid, expired, or revoked."
-        : isSenderUnverified
-          ? "SendGrid sender identity is not verified. Verify SENDGRID_FROM_EMAIL in SendGrid."
+        ? "Brevo authentication failed. API key is invalid, expired, or revoked."
         : providerMessage,
       statusCode,
     };
