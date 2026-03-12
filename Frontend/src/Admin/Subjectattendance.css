@@ -371,15 +371,25 @@
     visibility: hidden !important;
   }
 
+  body * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   .print-header {
     display: block !important;
     visibility: visible !important;
     position: static !important;
+    width: 100% !important;
+    page-break-after: avoid !important;
+    break-after: avoid-page !important;
     text-align: center !important;
     padding: 15px !important;
     margin-bottom: 15px !important;
     border-bottom: 2px solid #000000 !important;
     background: #ffffff !important;
+    color: #000000 !important;
+    z-index: 2 !important;
   }
 
   .print-header h2,
@@ -445,6 +455,11 @@
     position: static !important;
   }
 
+  .subject-attendance-panel > .print-header {
+    display: block !important;
+    visibility: visible !important;
+  }
+
   .subject-attendance-table {
     width: 100% !important;
     box-shadow: none !important;
@@ -462,6 +477,11 @@
     border-bottom: 2px solid #000000 !important;
   }
 
+  .subject-attendance-table thead tr {
+    display: table-row !important;
+    visibility: visible !important;
+  }
+
   .subject-attendance-table tbody {
     display: table-row-group !important;
   }
@@ -475,8 +495,24 @@
     display: table-cell !important;
     border: 1px solid #000000 !important;
     color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    opacity: 1 !important;
     padding: 4px 3px !important;
     background: #f0f0f0 !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    line-height: 1.25 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.2px !important;
+    visibility: visible !important;
+    white-space: nowrap !important;
+  }
+
+  .subject-attendance-table th * {
+    color: #000000 !important;
+    -webkit-text-fill-color: #000000 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
   }
 
   .subject-attendance-table td {
