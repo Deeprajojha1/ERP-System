@@ -25,10 +25,7 @@ import {
   FiPercent,
   FiArrowLeft,
   FiDownload,
-<<<<<<< HEAD
-=======
   FiEye,
->>>>>>> 723aa7d493c5492f27c6321f69f20cff5e0f0ca4
 } from "react-icons/fi";
 import { HiOutlineAcademicCap, HiOutlineBuildingOffice } from "react-icons/hi2";
 import { FaLinkedin } from "react-icons/fa";

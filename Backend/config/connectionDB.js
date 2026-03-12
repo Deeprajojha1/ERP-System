@@ -43,15 +43,48 @@ const ensureExamRegistrationIndexes = async () => {
   }
 };
 
+const MONGO_RETRY_DELAY_MS = Number(process.env.MONGO_RETRY_DELAY_MS) || 10000;
+let retryTimer = null;
+let retryCount = 0;
+
 const connectDB = async () => {
+  const uri = String(process.env.MONGODB_URI || "").trim();
+  if (!uri) {
+    console.error("[DB] MONGODB_URI is missing. MongoDB connection skipped.");
+    return;
+  }
+
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
-    console.log("✅ Successfully connected to MongoDB");
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+    });
+
+    retryCount = 0;
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
+
+    console.log("[DB] Successfully connected to MongoDB");
     await ensureRoomIndexes();
     await ensureExamRegistrationIndexes();
   } catch (error) {
-    console.error("❌ Error connecting to MongoDB:", error.message);
-    process.exit(1);
+    retryCount += 1;
+    console.error(
+      `[DB] MongoDB connection failed (attempt ${retryCount}):`,
+      error?.message || error
+    );
+    console.error(
+      "[DB] Check Atlas IP whitelist/network and MONGODB_URI. Auto-retrying..."
+    );
+
+    if (!retryTimer) {
+      retryTimer = setTimeout(() => {
+        retryTimer = null;
+        connectDB();
+      }, MONGO_RETRY_DELAY_MS);
+    }
   }
 };
 
