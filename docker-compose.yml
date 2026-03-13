@@ -8,6 +8,10 @@ services:
     container_name: hu-erp-backend
     env_file:
       - ./Backend/.env
+    environment:
+      # Override the PYTHON_BIN from .env so Docker always uses the venv Python
+      # that has opencv-python-headless installed (set in the Dockerfile).
+      - PYTHON_BIN=/opt/face-verify-venv/bin/python3
     ports:
       - "3000:3000"
     restart: unless-stopped

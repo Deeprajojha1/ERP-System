@@ -1,0 +1,10 @@
+# Python dependencies for Backend/scripts/face_verify.py
+# Installed inside Docker at /opt/face-verify-venv (see Dockerfile).
+#
+# For local development run:
+#   pip install -r requirements.txt
+#
+# opencv-python-headless is used instead of opencv-python because the backend
+# has no display/GUI; the headless variant is smaller and has no libGL dependency.
+opencv-python-headless>=4.8.0
+numpy>=1.26.0
