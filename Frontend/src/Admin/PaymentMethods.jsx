@@ -11,7 +11,9 @@ import {
   FiHash,
   FiLayers,
   FiRefreshCw,
+  FiSearch,
   FiUser,
+  FiUserCheck,
   FiXCircle,
 } from "react-icons/fi";
 import {
@@ -25,17 +27,48 @@ import {
 } from "../redux/feeSlice";
 import "./PaymentMethods.css";
 
-const PAYMENT_MODES = [
-  "UPI",
-  "NETBANKING",
-  "CARD",
-  "CASH",
-  "CHEQUE",
-  "DD",
-  "BANK_TRANSFER",
-];
-
 const STATUS_OPTIONS = ["SUCCESS", "FAILED", "CANCELLED", "REFUNDED"];
+
+const formatSemesterLabel = (semesterNo, scope) => {
+  const normalizedScope = String(scope || "").toUpperCase();
+  const sem = Number(semesterNo);
+  if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+  if (Number.isFinite(sem) && sem > 0) return `Sem ${sem}`;
+  return "-";
+};
+
+const getStudentName = (demand) => {
+  const name =
+    demand?.studentName ||
+    demand?.studentMongoId?.userId?.name ||
+    demand?.studentMongoId?.user?.name ||
+    demand?.student?.name ||
+    "";
+  return String(name || "").trim();
+};
+
+const getFatherName = (demand) => {
+  const name =
+    demand?.studentFatherName ||
+    demand?.fatherName ||
+    demand?.student?.fatherName ||
+    "";
+  return String(name || "").trim();
+};
+
+const buildDemandOptionLabel = (demand) => {
+  const name = getStudentName(demand);
+  const fatherName = getFatherName(demand);
+  const parts = [
+    demand?.studentId,
+    name || null,
+    fatherName ? `Father: ${fatherName}` : null,
+    demand?.academicYear,
+    formatSemesterLabel(demand?.semesterNo, demand?.scope),
+    `Due ${demand?.dueAmount ?? 0}`,
+  ].filter(Boolean);
+  return parts.join(" - ");
+};
 
 const getStatusClass = (status = "") => {
   const normalized = String(status || "").toUpperCase();
@@ -54,11 +87,11 @@ const PaymentMethods = () => {
   const [paymentForm, setPaymentForm] = useState({
     demandId: "",
     amount: "",
-    mode: "UPI",
-    transactionId: "",
+    mode: "CASH",
     gateway: "NONE",
     receiptNo: "",
   });
+  const [demandSearch, setDemandSearch] = useState("");
   const [statusForm, setStatusForm] = useState({});
 
   useEffect(() => {
@@ -66,15 +99,59 @@ const PaymentMethods = () => {
     dispatch(fetchFeePayments());
   }, [dispatch]);
 
+  useEffect(() => {
+    const refresh = () => {
+      dispatch(fetchFeePayments());
+      dispatch(fetchFeeDemands());
+    };
+    const interval = setInterval(refresh, 15000);
+    return () => clearInterval(interval);
+  }, [dispatch]);
+
   const pendingDemands = useMemo(
-    () => demands.filter((demand) => Number(demand.dueAmount || 0) > 0),
+    () =>
+      demands.filter(
+        (demand) =>
+          Number(demand.dueAmount || 0) > 0 &&
+          demand?.studentMongoId &&
+          demand?.studentMongoId?.userId
+      ),
     [demands]
   );
 
+  const normalizedDemandSearch = demandSearch.trim().toLowerCase();
+  const filteredDemands = useMemo(() => {
+    if (!normalizedDemandSearch) return pendingDemands;
+    return pendingDemands.filter((demand) => {
+      const haystack = [
+        demand?.studentId,
+        getStudentName(demand),
+        getFatherName(demand),
+        demand?.academicYear,
+        formatSemesterLabel(demand?.semesterNo, demand?.scope),
+        demand?.dueAmount,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalizedDemandSearch);
+    });
+  }, [pendingDemands, normalizedDemandSearch]);
+
+  const bestMatchedDemand = useMemo(
+    () => filteredDemands[0] || null,
+    [filteredDemands]
+  );
+
+  const selectDemand = (demand) => {
+    setPaymentForm((prev) => ({ ...prev, demandId: demand._id }));
+    setDemandSearch(buildDemandOptionLabel(demand));
+  };
+
   const submitPayment = async (event) => {
     event.preventDefault();
-    if (!paymentForm.demandId || !paymentForm.amount || !paymentForm.mode) {
-      toast.error("Demand, amount and mode are required");
+    if (!paymentForm.demandId || !paymentForm.amount) {
+      toast.error("Demand and amount are required");
       return;
     }
 
@@ -83,9 +160,8 @@ const PaymentMethods = () => {
         createFeePayment({
           demandId: paymentForm.demandId,
           amount: Number(paymentForm.amount),
-          mode: paymentForm.mode,
-          transactionId: paymentForm.transactionId || undefined,
-          gateway: paymentForm.gateway || "NONE",
+          mode: "CASH",
+          gateway: "NONE",
           receiptNo: paymentForm.receiptNo || undefined,
           createdBy: "ACCOUNTS",
         })
@@ -94,11 +170,11 @@ const PaymentMethods = () => {
       setPaymentForm({
         demandId: "",
         amount: "",
-        mode: "UPI",
-        transactionId: "",
+        mode: "CASH",
         gateway: "NONE",
         receiptNo: "",
       });
+      setDemandSearch("");
     } catch (error) {
       toast.error(error || "Failed to record payment");
     }
@@ -121,10 +197,7 @@ const PaymentMethods = () => {
         <div>
           <p className="pm-eyebrow">Fees - Payment Processing</p>
           <h1>Payment Methods & Status</h1>
-          <p>
-            Integrated endpoints: <code>/api/admin/fee/payment</code> and{" "}
-            <code>/api/admin/fee/payment/:paymentId/status</code>.
-          </p>
+          <p>Track pending fee demands and quickly record cash payments for students.</p>
         </div>
         <div className="pm-hero-stats">
           <article>
@@ -147,28 +220,57 @@ const PaymentMethods = () => {
           <h3>
             <FiDollarSign /> Record New Payment
           </h3>
-          <p>Use this for cash/counter/manual settlement entries.</p>
+          <p>Manual entry is enabled only for cash payments. Online payments are auto-recorded.</p>
         </div>
         <form onSubmit={submitPayment} className="pm-cash-form-grid">
-          <label>
+          <label className="pm-demand-field">
             <span className="pm-field-label">
-              <FiUser /> Demand
+              <FiSearch /> Search Student
             </span>
-            <select
-              value={paymentForm.demandId}
-              onChange={(event) =>
-                setPaymentForm((prev) => ({ ...prev, demandId: event.target.value }))
-              }
-              required
-            >
-              <option value="">Select demand</option>
-              {pendingDemands.map((demand) => (
-                <option key={demand._id} value={demand._id}>
-                  {demand.studentId} - {demand.academicYear} - Sem {demand.semesterNo} - Due{" "}
-                  {demand.dueAmount}
-                </option>
-              ))}
-            </select>
+            <div className="pm-demand-combobox">
+              <FiSearch className="pm-input-icon" />
+              <input
+                type="text"
+                placeholder="Search by student name or ID"
+                value={demandSearch}
+                onChange={(event) => {
+                  setDemandSearch(event.target.value);
+                  setPaymentForm((prev) => ({ ...prev, demandId: "" }));
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    if (bestMatchedDemand) {
+                      selectDemand(bestMatchedDemand);
+                    }
+                  }
+                }}
+              />
+            </div>
+            <input type="hidden" required value={paymentForm.demandId} readOnly />
+            {bestMatchedDemand ? (
+              <button
+                type="button"
+                className="pm-demand-match"
+                onClick={() => selectDemand(bestMatchedDemand)}
+              >
+                <span className="pm-demand-primary">
+                  <FiUserCheck />
+                  {bestMatchedDemand.studentId} - {getStudentName(bestMatchedDemand)}
+                </span>
+                <span className="pm-demand-secondary">
+                  {bestMatchedDemand.academicYear} -{" "}
+                  {formatSemesterLabel(bestMatchedDemand.semesterNo, bestMatchedDemand.scope)} - Due{" "}
+                  {bestMatchedDemand.dueAmount}
+                </span>
+              </button>
+            ) : (
+              <small className="pm-demand-hint">No matching pending demand found for this search.</small>
+            )}
+            <small className="pm-demand-hint">
+              Matches: {filteredDemands.length} of {pendingDemands.length}. Press Enter to select top
+              match.
+            </small>
           </label>
           <label>
             <span className="pm-field-label">
@@ -189,43 +291,7 @@ const PaymentMethods = () => {
             <span className="pm-field-label">
               <FiCreditCard /> Mode
             </span>
-            <select
-              value={paymentForm.mode}
-              onChange={(event) =>
-                setPaymentForm((prev) => ({ ...prev, mode: event.target.value }))
-              }
-            >
-              {PAYMENT_MODES.map((mode) => (
-                <option key={mode} value={mode}>
-                  {mode}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            <span className="pm-field-label">
-              <FiActivity /> Gateway
-            </span>
-            <input
-              type="text"
-              value={paymentForm.gateway}
-              onChange={(event) =>
-                setPaymentForm((prev) => ({ ...prev, gateway: event.target.value }))
-              }
-              placeholder="NONE / RAZORPAY / PAYU..."
-            />
-          </label>
-          <label>
-            <span className="pm-field-label">
-              <FiHash /> Transaction Id
-            </span>
-            <input
-              type="text"
-              value={paymentForm.transactionId}
-              onChange={(event) =>
-                setPaymentForm((prev) => ({ ...prev, transactionId: event.target.value }))
-              }
-            />
+            <input type="text" value="CASH" readOnly />
           </label>
           <label>
             <span className="pm-field-label">
@@ -300,6 +366,10 @@ const PaymentMethods = () => {
               </p>
               <div className="pm-status-actions">
                 <select
+                  disabled={
+                    String(payment.mode || "").toUpperCase() !== "CASH" ||
+                    String(payment.createdBy || "").toUpperCase() !== "ACCOUNTS"
+                  }
                   value={statusForm[payment._id] || ""}
                   onChange={(event) =>
                     setStatusForm((prev) => ({ ...prev, [payment._id]: event.target.value }))
@@ -312,7 +382,15 @@ const PaymentMethods = () => {
                     </option>
                   ))}
                 </select>
-                <button type="button" className="pm-toggle-btn" onClick={() => updateStatus(payment._id)}>
+                <button
+                  type="button"
+                  className="pm-toggle-btn"
+                  disabled={
+                    String(payment.mode || "").toUpperCase() !== "CASH" ||
+                    String(payment.createdBy || "").toUpperCase() !== "ACCOUNTS"
+                  }
+                  onClick={() => updateStatus(payment._id)}
+                >
                   Update
                 </button>
               </div>

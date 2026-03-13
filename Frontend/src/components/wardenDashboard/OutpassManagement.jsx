@@ -69,6 +69,7 @@ function OutpassManagement({ portalRole = "warden" }) {
   const [scanLoading, setScanLoading] = useState(false);
   const [scanResult, setScanResult] = useState(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
+  const [, setIsMobileSidebarOpen] = useState(false);
   const [cameraError, setCameraError] = useState("");
   const [isDetectingQr, setIsDetectingQr] = useState(false);
   const [reportExporting, setReportExporting] = useState("");
@@ -987,7 +988,6 @@ function OutpassManagement({ portalRole = "warden" }) {
                       ))}
                     </tbody>
 	                  </table>
-
 	                  {!loading && filteredOutpasses.length === 0 && (
 	                    <div className="py-12 text-center">
 	                      <FileText className="mx-auto mb-3 h-12 w-12 text-gray-400" aria-hidden="true" />

@@ -1,6 +1,24 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { FiSearch } from "react-icons/fi";
+import {
+  FiActivity,
+  FiBookOpen,
+  FiCalendar,
+  FiCheckCircle,
+  FiClock,
+  FiCreditCard,
+  FiDollarSign,
+  FiEdit3,
+  FiFilePlus,
+  FiFileText,
+  FiPlusCircle,
+  FiRefreshCw,
+  FiRotateCcw,
+  FiSearch,
+  FiUser,
+  FiUsers,
+  FiZap,
+} from "react-icons/fi";
 import {
   createFeeDemand,
   createFeePayment,
@@ -18,6 +36,14 @@ import "./StudentRecords.css";
 
 const formatCurrency = (value = 0) =>
   `Rs ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+const formatSemesterLabel = (semesterNo, scope) => {
+  const normalizedScope = String(scope || "").toUpperCase();
+  const sem = Number(semesterNo);
+  if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+  if (Number.isFinite(sem) && sem > 0) return `Semester ${sem}`;
+  return "-";
+};
 
 const PAYMENT_MODES = ["UPI", "NETBANKING", "CARD", "CASH", "CHEQUE", "DD", "BANK_TRANSFER"];
 
@@ -222,7 +248,9 @@ const StudentRecords = () => {
       <header className="sr-hero">
         <div>
           <p className="sr-eyebrow">Student Fee Records</p>
-          <h1>Demands & Payments</h1>
+          <h1>
+            <FiUsers /> Demands & Payments
+          </h1>
         </div>
       </header>
 
@@ -232,14 +260,14 @@ const StudentRecords = () => {
           className={`sr-tab ${activeTab === "demands" ? "sr-tab-active" : ""}`}
           onClick={() => setActiveTab("demands")}
         >
-          Demands ({demands.length})
+          <FiFileText /> Demands ({demands.length})
         </button>
         <button
           type="button"
           className={`sr-tab ${activeTab === "payments" ? "sr-tab-active" : ""}`}
           onClick={() => setActiveTab("payments")}
         >
-          Payments ({payments.length})
+          <FiCreditCard /> Payments ({payments.length})
         </button>
       </div>
 
@@ -273,21 +301,23 @@ const StudentRecords = () => {
         <>
           <section className="sr-table-card sr-demand-card">
             <div className="sr-demand-head">
-              <p>Create Fee Demand</p>
+              <p>
+                <FiFilePlus /> Create Fee Demand
+              </p>
               <div className="sr-demand-mode-toggle">
                 <button
                   type="button"
                   className={`sr-tab ${demandMode === "manual" ? "sr-tab-active" : ""}`}
                   onClick={() => setDemandMode("manual")}
                 >
-                  Manual
+                  <FiEdit3 /> Manual
                 </button>
                 <button
                   type="button"
                   className={`sr-tab ${demandMode === "auto" ? "sr-tab-active" : ""}`}
                   onClick={() => setDemandMode("auto")}
                 >
-                  Auto (From Profile)
+                  <FiZap /> Auto (From Profile)
                 </button>
               </div>
             </div>
@@ -326,7 +356,15 @@ const StudentRecords = () => {
                 />
                 <div className="sr-demand-actions">
                   <button type="submit" className="sr-primary-btn" disabled={actionLoading}>
-                    {actionLoading ? "Creating..." : "Create Demand"}
+                    {actionLoading ? (
+                      <>
+                        <FiRefreshCw /> Creating...
+                      </>
+                    ) : (
+                      <>
+                        <FiPlusCircle /> Create Demand
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -362,7 +400,15 @@ const StudentRecords = () => {
                 />
                 <div className="sr-demand-actions">
                   <button type="submit" className="sr-primary-btn" disabled={actionLoading}>
-                    {actionLoading ? "Generating..." : "Generate Demand"}
+                    {actionLoading ? (
+                      <>
+                        <FiRefreshCw /> Generating...
+                      </>
+                    ) : (
+                      <>
+                        <FiZap /> Generate Demand
+                      </>
+                    )}
                   </button>
                 </div>
               </form>
@@ -371,13 +417,13 @@ const StudentRecords = () => {
 
           <section className="sr-table-card">
             <div className="sr-table-head">
-              <p>Student</p>
-              <p>Academic</p>
-              <p>Total</p>
-              <p>Paid</p>
-              <p>Due</p>
-              <p>Status</p>
-              <p>Action</p>
+              <p><FiUser /> Student</p>
+              <p><FiBookOpen /> Academic</p>
+              <p><FiDollarSign /> Total</p>
+              <p><FiCheckCircle /> Paid</p>
+              <p><FiClock /> Due</p>
+              <p><FiActivity /> Status</p>
+              <p><FiEdit3 /> Action</p>
             </div>
             <div className="sr-table-body">
               {loading ? (
@@ -399,7 +445,7 @@ const StudentRecords = () => {
                       </div>
                       <div>
                         <p>{demand.academicYear}</p>
-                        <span className="sr-pill">Semester {demand.semesterNo}</span>
+                        <span className="sr-pill">{formatSemesterLabel(demand.semesterNo, demand.scope)}</span>
                       </div>
                       <p className="sr-text-strong">{formatCurrency(demand.totalAmount)}</p>
                       <p>{formatCurrency(demand.paidAmount)}</p>
@@ -416,7 +462,7 @@ const StudentRecords = () => {
                             className="sr-action-btn"
                             onClick={() => selectDemandForPayment(demand)}
                           >
-                            Record Payment
+                            <FiPlusCircle /> Record Payment
                           </button>
                         )}
                       </div>
@@ -433,7 +479,9 @@ const StudentRecords = () => {
         <>
           <section className="sr-table-card sr-demand-card">
             <div className="sr-demand-head">
-              <p>Record Payment</p>
+              <p>
+                <FiCreditCard /> Record Payment
+              </p>
             </div>
             <form onSubmit={submitPayment} className="sr-demand-form">
               <input className="sr-demand-input" type="text" placeholder="studentId (enrollment)"
@@ -465,7 +513,15 @@ const StudentRecords = () => {
               />
               <div className="sr-demand-actions">
                 <button type="submit" className="sr-primary-btn" disabled={actionLoading}>
-                  {actionLoading ? "Recording..." : "Record Payment"}
+                  {actionLoading ? (
+                    <>
+                      <FiRefreshCw /> Recording...
+                    </>
+                  ) : (
+                    <>
+                      <FiCheckCircle /> Record Payment
+                    </>
+                  )}
                 </button>
               </div>
             </form>
@@ -473,12 +529,12 @@ const StudentRecords = () => {
 
           <section className="sr-table-card">
             <div className="sr-table-head">
-              <p>Student</p>
-              <p>Amount</p>
-              <p>Mode</p>
-              <p>Status</p>
-              <p>Created</p>
-              <p>Action</p>
+              <p><FiUser /> Student</p>
+              <p><FiDollarSign /> Amount</p>
+              <p><FiCreditCard /> Mode</p>
+              <p><FiActivity /> Status</p>
+              <p><FiCalendar /> Created</p>
+              <p><FiEdit3 /> Action</p>
             </div>
             <div className="sr-table-body">
               {loading ? (
@@ -508,14 +564,14 @@ const StudentRecords = () => {
                         <button type="button" className="sr-action-btn" disabled={actionLoading}
                           onClick={() => handleStatusChange(p._id, "SUCCESS")}
                         >
-                          Mark Success
+                          <FiCheckCircle /> Mark Success
                         </button>
                       )}
                       {p.status === "SUCCESS" && (
                         <button type="button" className="sr-action-btn sr-action-btn-danger" disabled={actionLoading}
                           onClick={() => handleStatusChange(p._id, "REFUNDED")}
                         >
-                          Refund
+                          <FiRotateCcw /> Refund
                         </button>
                       )}
                     </div>

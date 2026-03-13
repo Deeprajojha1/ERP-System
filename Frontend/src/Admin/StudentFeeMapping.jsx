@@ -1,9 +1,31 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import toast from "react-hot-toast";
+import {
+  FiBookOpen,
+  FiBriefcase,
+  FiCheckCircle,
+  FiCreditCard,
+  FiEdit3,
+  FiGitBranch,
+  FiHome,
+  FiLayers,
+  FiList,
+  FiMapPin,
+  FiPercent,
+  FiPlusCircle,
+  FiSave,
+  FiTruck,
+  FiUser,
+  FiUserCheck,
+  FiUsers,
+} from "react-icons/fi";
 import axios from "../utils/axiosInstance";
 import {
   createStudentFeeDetails,
+  fetchStudentFeeDetails,
+  selectStudentFeeDetails,
+  updateStudentOptions,
   fetchFeePrograms,
   fetchFeeBatches,
   selectFeeActionLoading,
@@ -33,14 +55,19 @@ const StudentFeeMapping = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
   const programs = useSelector(selectFeePrograms);
   const batches = useSelector(selectFeeBatches);
+  const feeProfiles = useSelector(selectStudentFeeDetails);
   const submitting = useSelector(selectFeeActionLoading);
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [editProfileId, setEditProfileId] = useState("");
+  const [editHostelOpted, setEditHostelOpted] = useState(false);
+  const [editTransportOpted, setEditTransportOpted] = useState(false);
 
   useEffect(() => {
     dispatch(fetchFeePrograms());
     dispatch(fetchFeeBatches());
+    dispatch(fetchStudentFeeDetails());
   }, [dispatch]);
 
   useEffect(() => {
@@ -122,23 +149,53 @@ const StudentFeeMapping = () => {
     }
   };
 
+  const selectProfileForEdit = (profileId) => {
+    const profile = feeProfiles.find((item) => String(item._id) === String(profileId));
+    if (!profile) return;
+    setEditProfileId(profile._id);
+    setEditHostelOpted(Boolean(profile.hostelOpted));
+    setEditTransportOpted(Boolean(profile.transportOpted));
+  };
+
+  const submitProfileUpdate = async (event) => {
+    event.preventDefault();
+    if (!editProfileId) {
+      toast.error("Select a fee profile to update");
+      return;
+    }
+    try {
+      await dispatch(
+        updateStudentOptions({
+          id: editProfileId,
+          hostelOpted: editHostelOpted,
+          transportOpted: editTransportOpted,
+        })
+      ).unwrap();
+      toast.success("Student fee options updated");
+    } catch (error) {
+      toast.error(error || "Failed to update student options");
+    }
+  };
+
   return (
     <div className="student-fee-mapping-page">
       <header className="sfm-hero">
         <div>
           <p className="sfm-eyebrow">Student Fee Mapping</p>
-          <h1>Create student fee profile</h1>
+          <h1>
+            <FiUserCheck /> Create student fee profile
+          </h1>
         </div>
       </header>
 
       <section className="sfm-table-card">
         <div className="sfm-table-head">
-          <p>Enrollment</p>
-          <p>Name</p>
-          <p>Department</p>
-          <p>Program</p>
-          <p>Semester</p>
-          <p>Action</p>
+          <p><FiCreditCard /> Enrollment</p>
+          <p><FiUser /> Name</p>
+          <p><FiBriefcase /> Department</p>
+          <p><FiLayers /> Program</p>
+          <p><FiBookOpen /> Semester</p>
+          <p><FiCheckCircle /> Action</p>
         </div>
         <div className="sfm-table-body">
           {students.slice(0, 20).map((student) => (
@@ -158,7 +215,15 @@ const StudentFeeMapping = () => {
                   className="sfm-action-btn"
                   onClick={() => selectStudent(student)}
                 >
-                  {String(student._id || "") === selectedStudentId ? "Selected" : "Use"}
+                  {String(student._id || "") === selectedStudentId ? (
+                    <>
+                      <FiCheckCircle /> Selected
+                    </>
+                  ) : (
+                    <>
+                      <FiPlusCircle /> Use
+                    </>
+                  )}
                 </button>
               </div>
             </article>
@@ -173,7 +238,9 @@ const StudentFeeMapping = () => {
         <div className="sfm-detail-top">
           <div>
             <p className="sfm-detail-eyebrow">Create Mapping</p>
-            <h2>Student Fee Details</h2>
+            <h2>
+              <FiEdit3 /> Student Fee Details
+            </h2>
             <p className="sfm-supporting">
               Select the student and fill in the mapping details below.
             </p>
@@ -185,7 +252,7 @@ const StudentFeeMapping = () => {
           className="sfm-form-grid"
         >
           <label className="sfm-form-field">
-            <span>Student document id (optional)</span>
+            <span><FiList /> Student document id (optional)</span>
             <input
               type="text"
               placeholder="Student document id"
@@ -196,7 +263,7 @@ const StudentFeeMapping = () => {
             />
           </label>
           <label className="sfm-form-field">
-            <span>User id</span>
+            <span><FiUsers /> User id</span>
             <input
               type="text"
               placeholder="User id"
@@ -208,7 +275,7 @@ const StudentFeeMapping = () => {
             />
           </label>
           <label className="sfm-form-field">
-            <span>Student enrollment id</span>
+            <span><FiCreditCard /> Student enrollment id</span>
             <input
               type="text"
               placeholder="Student enrollment id"
@@ -220,7 +287,7 @@ const StudentFeeMapping = () => {
             />
           </label>
           <label className="sfm-form-field">
-            <span>Batch</span>
+            <span><FiLayers /> Batch</span>
             <select
               value={form.batchId}
               onChange={(event) =>
@@ -237,7 +304,7 @@ const StudentFeeMapping = () => {
             </select>
           </label>
           <label className="sfm-form-field">
-            <span>Program</span>
+            <span><FiBookOpen /> Program</span>
             <select
               value={form.programId}
               onChange={(event) =>
@@ -254,7 +321,7 @@ const StudentFeeMapping = () => {
             </select>
           </label>
           <label className="sfm-form-field">
-            <span>Branch</span>
+            <span><FiGitBranch /> Branch</span>
             <select
               value={form.branchId}
               onChange={(event) =>
@@ -271,7 +338,7 @@ const StudentFeeMapping = () => {
             </select>
           </label>
           <label className="sfm-form-field">
-            <span>Current semester</span>
+            <span><FiBookOpen /> Current semester</span>
             <input
               type="number"
               min="1"
@@ -284,7 +351,7 @@ const StudentFeeMapping = () => {
             />
           </label>
           <label className="sfm-form-field">
-            <span>Scholarship Type</span>
+            <span><FiPercent /> Scholarship Type</span>
             <select
               value={form.scholarshipType}
               onChange={(event) =>
@@ -297,7 +364,7 @@ const StudentFeeMapping = () => {
             </select>
           </label>
           <label className="sfm-form-field">
-            <span>Scholarship value</span>
+            <span><FiPercent /> Scholarship value</span>
             <input
               type="number"
               min="0"
@@ -309,7 +376,7 @@ const StudentFeeMapping = () => {
             />
           </label>
           <label className="sfm-form-field">
-            <span>Discount Type</span>
+            <span><FiPercent /> Discount Type</span>
             <select
               value={form.discountType}
               onChange={(event) =>
@@ -322,7 +389,7 @@ const StudentFeeMapping = () => {
             </select>
           </label>
           <label className="sfm-form-field">
-            <span>Discount value</span>
+            <span><FiPercent /> Discount value</span>
             <input
               type="number"
               min="0"
@@ -341,7 +408,7 @@ const StudentFeeMapping = () => {
                 setForm((prev) => ({ ...prev, hostelOpted: event.target.checked }))
               }
             />
-            <span>Hostel opted</span>
+            <span><FiHome /> Hostel opted</span>
           </label>
           <label className="sfm-checkbox-field">
             <input
@@ -351,11 +418,94 @@ const StudentFeeMapping = () => {
                 setForm((prev) => ({ ...prev, transportOpted: event.target.checked }))
               }
             />
-            <span>Transport opted</span>
+            <span><FiTruck /> Transport opted</span>
           </label>
           <div className="sfm-form-actions">
             <button type="submit" className="sfm-export-btn" disabled={submitting}>
-              {submitting ? "Saving..." : "Create Mapping"}
+              {submitting ? (
+                <>
+                  <FiSave /> Saving...
+                </>
+              ) : (
+                <>
+                  <FiPlusCircle /> Create Mapping
+                </>
+              )}
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <section className="sfm-detail-panel">
+        <div className="sfm-detail-top">
+          <div>
+            <p className="sfm-detail-eyebrow">Update Profile</p>
+            <h2>
+              <FiMapPin /> Transport & Hostel Options
+            </h2>
+            <p className="sfm-supporting">
+              Select an existing fee profile and update hostel/transport opt-in.
+            </p>
+          </div>
+        </div>
+
+        <form onSubmit={submitProfileUpdate} className="sfm-form-grid sfm-update-form-grid">
+          <label className="sfm-form-field sfm-profile-select-field">
+            <span><FiUser /> Fee profile</span>
+            <select
+              value={editProfileId}
+              onChange={(event) => {
+                setEditProfileId(event.target.value);
+                selectProfileForEdit(event.target.value);
+              }}
+              required
+            >
+              <option value="">Select student fee profile</option>
+              {feeProfiles.map((profile) => (
+                <option key={profile._id} value={profile._id}>
+                  {profile.studentId} ({profile.userId?.name || "Student"})
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="sfm-form-field sfm-option-field">
+            <span><FiHome /> Hostel opted</span>
+            <div className="sfm-option-toggle">
+              <input
+                type="checkbox"
+                checked={editHostelOpted}
+                onChange={(event) => setEditHostelOpted(event.target.checked)}
+              />
+              <span className="sfm-switch" />
+              <p>{editHostelOpted ? "Enabled" : "Disabled"}</p>
+            </div>
+          </label>
+
+          <label className="sfm-form-field sfm-option-field">
+            <span><FiTruck /> Transport opted</span>
+            <div className="sfm-option-toggle">
+              <input
+                type="checkbox"
+                checked={editTransportOpted}
+                onChange={(event) => setEditTransportOpted(event.target.checked)}
+              />
+              <span className="sfm-switch" />
+              <p>{editTransportOpted ? "Enabled" : "Disabled"}</p>
+            </div>
+          </label>
+
+          <div className="sfm-form-actions sfm-update-actions">
+            <button type="submit" className="sfm-export-btn" disabled={submitting}>
+              {submitting ? (
+                <>
+                  <FiSave /> Updating...
+                </>
+              ) : (
+                <>
+                  <FiEdit3 /> Update Options
+                </>
+              )}
             </button>
           </div>
         </form>

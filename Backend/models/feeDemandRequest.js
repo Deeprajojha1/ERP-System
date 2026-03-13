@@ -15,12 +15,17 @@ const FeeDemandRequestSchema = new mongoose.Schema(
     academicYear: {
       type: String,
       required: true,
-      match: /^\d{4}-\d{2}$/,
+      match: /^\d{4}-(?:\d{2}|\d{4})$/,
+    },
+    scope: {
+      type: String,
+      enum: ["SEMESTER", "YEAR"],
+      default: "SEMESTER",
     },
     semesterNo: {
       type: Number,
       required: true,
-      min: 1,
+      min: 0,
       max: 20,
     },
     dueDate: {
@@ -28,6 +33,11 @@ const FeeDemandRequestSchema = new mongoose.Schema(
       default: null,
     },
     hostelAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    academicAmount: {
       type: Number,
       default: 0,
       min: 0,
@@ -71,12 +81,25 @@ const FeeDemandRequestSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    demandLetterRefNo: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+    demandLetterIssuedAt: {
+      type: Date,
+      default: null,
+    },
+    demandLetterSnapshot: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 FeeDemandRequestSchema.index(
-  { studentMongoId: 1, academicYear: 1, semesterNo: 1, status: 1 },
+  { studentMongoId: 1, academicYear: 1, scope: 1, semesterNo: 1, status: 1 },
   { unique: true, partialFilterExpression: { status: "PENDING" } }
 );
 

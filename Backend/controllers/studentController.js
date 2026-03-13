@@ -3,9 +3,12 @@ import Student from "../models/Student.js";
 import User from "../models/userModel.js";
 import Department from "../models/Department.js";
 import Group from "../models/Group.js";
+import Batch from "../models/feeBatch.js";
 import Course from "../models/Course.js";
 import bcrypt from "bcryptjs";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
+import { ensureStudentFeeProfileForEnrollment } from "./feeController.js";
+import { normalizeProgramValue } from "../utils/programNormalization.js";
 
 const clearTimetableGroupCardsCache = async () => {
   await redisClient.del("admin:timetable:groups");
@@ -42,7 +45,8 @@ export const getAllStudents = async (req, res) => {
           : "name status",
       })
       .populate("department", full ? "" : "name")
-      .populate("group");
+      .populate("group")
+      .populate("batchId", "batchYear");
 
     const responseStudents = full
       ? students
@@ -95,7 +99,8 @@ export const getStudentById = async (req, res) => {
           : "name status",
       })
       .populate("department", full ? "" : "name")
-      .populate("group");
+      .populate("group")
+      .populate("batchId", "batchYear");
 
     if (!student) {
       return res.status(404).json({
@@ -145,6 +150,7 @@ export const addStudent = async (req, res) => {
       enrollmentNumber,
       department,
       program,
+      batchId,
       semester,
       academicYear,
       fatherName,
@@ -163,13 +169,31 @@ export const addStudent = async (req, res) => {
       !enrollmentNumber ||
       !department ||
       !program ||
+      !batchId ||
       !semester ||
       !academicYear
     ) {
       return res.status(400).json({
         message:
-          "Name, email, password, enrollment number, department, program, semester and academic year are required",
+          "Name, email, password, enrollment number, department, program, batchId, semester and academic year are required",
       });
+    }
+
+    const batchDoc = await Batch.findById(batchId)
+      .select("_id batchYear departmentId programIds")
+      .populate("programIds", "programName");
+    if (!batchDoc) {
+      return res.status(400).json({ message: "Invalid batchId" });
+    }
+    if (String(batchDoc.departmentId || "") !== String(department || "")) {
+      return res.status(400).json({ message: "Selected batch does not belong to selected department" });
+    }
+    const normalizedProgram = normalizeProgramValue(program);
+    const hasProgram = (batchDoc.programIds || []).some(
+      (p) => normalizeProgramValue(p?.programName) === normalizedProgram
+    );
+    if (!hasProgram) {
+      return res.status(400).json({ message: "Selected batch does not include selected program" });
     }
 
     if (passwordValue.length < 6) {
@@ -234,6 +258,7 @@ export const addStudent = async (req, res) => {
             enrollmentNumber,
             department,
             program,
+            batchId,
             semester,
             academicYear,
             fatherName,
@@ -258,7 +283,14 @@ export const addStudent = async (req, res) => {
       const populatedStudent = await Student.findById(student._id)
         .populate("user", "name email aadharNumber phoneNumber DOB role status")
         .populate("department")
-        .populate("group");
+        .populate("group")
+        .populate("batchId", "batchYear");
+
+      try {
+        await ensureStudentFeeProfileForEnrollment(student.enrollmentNumber);
+      } catch (err) {
+        console.error("[Fee] auto profile create failed:", err.message || err);
+      }
 
       const responsePayload = {
         message: "Student added successfully",
@@ -350,13 +382,35 @@ export const updateStudent = async (req, res) => {
     const { id } = req.params;
     const updateData = req.body;
 
+    if (updateData?.batchId) {
+      const batchDoc = await Batch.findById(updateData.batchId)
+        .select("_id departmentId programIds")
+        .populate("programIds", "programName");
+      if (!batchDoc) {
+        return res.status(400).json({ message: "Invalid batchId" });
+      }
+      if (updateData?.department && String(batchDoc.departmentId || "") !== String(updateData.department || "")) {
+        return res.status(400).json({ message: "Selected batch does not belong to selected department" });
+      }
+      if (updateData?.program) {
+        const normalizedProgram = normalizeProgramValue(updateData.program);
+        const hasProgram = (batchDoc.programIds || []).some(
+          (p) => normalizeProgramValue(p?.programName) === normalizedProgram
+        );
+        if (!hasProgram) {
+          return res.status(400).json({ message: "Selected batch does not include selected program" });
+        }
+      }
+    }
+
     const student = await Student.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     })
       .populate("user", "name email aadharNumber phoneNumber DOB status")
       .populate("department")
-      .populate("group");
+      .populate("group")
+      .populate("batchId", "batchYear");
 
     if (!student) {
       return res.status(404).json({

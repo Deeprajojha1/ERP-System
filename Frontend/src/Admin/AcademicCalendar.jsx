@@ -2,38 +2,19 @@ import React, { useMemo, useState } from "react";
 import { FiCalendar, FiClock, FiPlus } from "react-icons/fi";
 import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./AcademicCalendar.css";
+import { useDispatch, useSelector } from "react-redux";
+import {
+  createFeeCalendarEvent,
+  deleteFeeCalendarEvent,
+  fetchFeeCalendarEvents,
+  selectFeeCalendarEvents,
+} from "../redux/feeSlice";
+import toast from "react-hot-toast";
 
-const INITIAL_CALENDAR_EVENTS = [
-  {
-    id: 1,
-    title: "Semester Fee Deadline",
-    description: "Final date for Sem 4 installments",
-    date: "15 Mar 2026",
-    time: "11:59 PM",
-    type: "Financial",
-  },
-  {
-    id: 2,
-    title: "Scholarship Review",
-    description: "Scholarship committee review for new applicants",
-    date: "22 Mar 2026",
-    time: "02:00 PM",
-    type: "Scholarship",
-  },
-  {
-    id: 3,
-    title: "Transport Renewal",
-    description: "Window opens for transport pass renewals",
-    date: "01 Apr 2026",
-    time: "09:00 AM",
-    type: "Operations",
-  },
-];
+const EVENT_TYPES = ["Financial", "Scholarship", "Operations", "General", "Semester Due Date"];
 
-const EVENT_TYPES = ["Financial", "Scholarship", "Operations", "General"];
-
-const toTimestamp = ({ date, time }) => {
-  const parsed = new Date(`${date} ${time}`);
+const toTimestamp = (event) => {
+  const parsed = new Date(event?.eventDate || "");
   const ms = parsed.getTime();
   return Number.isNaN(ms) ? Number.MAX_SAFE_INTEGER : ms;
 };
@@ -49,9 +30,9 @@ const formatDateLabel = (dateValue) => {
   });
 };
 
-const formatTimeLabel = (timeValue) => {
-  if (!timeValue) return "";
-  const parsed = new Date(`1970-01-01T${timeValue}`);
+const formatTimeLabel = (dateValue) => {
+  if (!dateValue) return "";
+  const parsed = new Date(dateValue);
   if (Number.isNaN(parsed.getTime())) return "";
   return parsed.toLocaleTimeString("en-US", {
     hour: "2-digit",
@@ -60,7 +41,8 @@ const formatTimeLabel = (timeValue) => {
 };
 
 const AcademicCalendar = () => {
-  const [events, setEvents] = useState(INITIAL_CALENDAR_EVENTS);
+  const dispatch = useDispatch();
+  const events = useSelector(selectFeeCalendarEvents);
   const [showForm, setShowForm] = useState(false);
   const [formError, setFormError] = useState("");
   const [formValues, setFormValues] = useState({
@@ -69,7 +51,13 @@ const AcademicCalendar = () => {
     date: "",
     time: "",
     type: EVENT_TYPES[0],
+    academicYear: "",
+    semesterNo: "",
   });
+
+  useEffect(() => {
+    dispatch(fetchFeeCalendarEvents());
+  }, [dispatch]);
 
   const sortedEvents = useMemo(() => {
     return [...events].sort((a, b) => toTimestamp(a) - toTimestamp(b));
@@ -82,35 +70,58 @@ const AcademicCalendar = () => {
       date: "",
       time: "",
       type: EVENT_TYPES[0],
+      academicYear: "",
+      semesterNo: "",
     });
     setFormError("");
   };
 
-  const handleAddEvent = (event) => {
+  const handleAddEvent = async (event) => {
     event.preventDefault();
     const title = String(formValues.title || "").trim();
     const description = String(formValues.description || "").trim();
     const date = String(formValues.date || "").trim();
     const time = String(formValues.time || "").trim();
     const type = String(formValues.type || EVENT_TYPES[0]).trim();
+    const academicYear = String(formValues.academicYear || "").trim();
+    const semesterNo = String(formValues.semesterNo || "").trim();
 
     if (!title || !date || !time || !type) {
       setFormError("Title, date, time, and type are required.");
       return;
     }
+    if (type === "Semester Due Date" && (!academicYear || !semesterNo)) {
+      setFormError("Academic year and semester are required for due dates.");
+      return;
+    }
 
-    const nextEvent = {
-      id: Date.now(),
-      title,
-      description: description || "No description provided.",
-      date: formatDateLabel(date),
-      time: formatTimeLabel(time),
-      type,
-    };
+    try {
+      await dispatch(
+        createFeeCalendarEvent({
+          title,
+          description,
+          date,
+          time,
+          type,
+          academicYear: type === "Semester Due Date" ? academicYear : undefined,
+          semesterNo: type === "Semester Due Date" ? Number(semesterNo) : undefined,
+        })
+      ).unwrap();
+      toast.success("Calendar event created");
+      resetForm();
+      setShowForm(false);
+    } catch (error) {
+      toast.error(error || "Failed to create calendar event");
+    }
+  };
 
-    setEvents((prev) => [...prev, nextEvent]);
-    resetForm();
-    setShowForm(false);
+  const handleDelete = async (id) => {
+    try {
+      await dispatch(deleteFeeCalendarEvent(id)).unwrap();
+      toast.success("Event deleted");
+    } catch (error) {
+      toast.error(error || "Failed to delete event");
+    }
   };
 
   return (
@@ -197,6 +208,36 @@ const AcademicCalendar = () => {
               />
             </label>
 
+            {formValues.type === "Semester Due Date" && (
+              <>
+                <label className="ac-form-field">
+                  <span>Academic Year</span>
+                  <input
+                    type="text"
+                    placeholder="e.g. 2026-27"
+                    value={formValues.academicYear}
+                    onChange={(event) =>
+                      setFormValues((prev) => ({ ...prev, academicYear: event.target.value }))
+                    }
+                    required
+                  />
+                </label>
+                <label className="ac-form-field">
+                  <span>Semester No</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={formValues.semesterNo}
+                    onChange={(event) =>
+                      setFormValues((prev) => ({ ...prev, semesterNo: event.target.value }))
+                    }
+                    required
+                  />
+                </label>
+              </>
+            )}
+
             <label className="ac-form-field ac-form-field--full">
               <span>Description</span>
               <textarea
@@ -233,24 +274,37 @@ const AcademicCalendar = () => {
 
       <section className="ac-timeline">
         {sortedEvents.map((event) => (
-          <article key={event.id} className="ac-event-card">
+          <article key={event._id} className="ac-event-card">
             <div className="ac-event-date">
-              <span>{event.date}</span>
+              <span>{formatDateLabel(event.eventDate)}</span>
               <small>
-                <FiClock /> {event.time}
+                <FiClock /> {formatTimeLabel(event.eventDate)}
               </small>
             </div>
             <div className="ac-event-detail">
               <p className="ac-event-title">{event.title}</p>
               <p className="ac-event-description">{event.description}</p>
+              {event.eventType === "Semester Due Date" && (
+                <p className="ac-event-meta">
+                  Semester {event.semesterNo} • {event.academicYear}
+                </p>
+              )}
             </div>
             <span
-              className={`ac-event-tag tag-${String(event.type || "general")
+              className={`ac-event-tag tag-${String(event.eventType || "general")
                 .toLowerCase()
                 .replace(/\s+/g, "-")}`}
             >
-              {event.type}
+              {event.eventType}
             </span>
+            <button
+              type="button"
+              className="ac-event-delete"
+              onClick={() => handleDelete(event._id)}
+              aria-label="Delete event"
+            >
+              <FiTrash2 />
+            </button>
           </article>
         ))}
       </section>

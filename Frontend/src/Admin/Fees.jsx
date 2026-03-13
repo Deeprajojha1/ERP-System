@@ -1,11 +1,16 @@
 import React, { useEffect, useMemo } from "react";
 import { FiRefreshCw } from "react-icons/fi";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   fetchFeeBootstrap,
+  fetchFeeReportExports,
+  fetchFinancialSummary,
   selectFeeDemands,
+  selectFeeReportExports,
   selectFeeLoading,
   selectFeePayments,
+  selectFinancialSummary,
   selectFeePrograms,
 } from "../redux/feeSlice";
 import "./Fees.css";
@@ -13,15 +18,28 @@ import "./Fees.css";
 const formatCurrency = (value = 0) =>
   `Rs ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
+const formatSemesterLabel = (semesterNo, scope) => {
+  const normalizedScope = String(scope || "").toUpperCase();
+  const sem = Number(semesterNo);
+  if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+  if (Number.isFinite(sem) && sem > 0) return `Sem ${sem}`;
+  return "-";
+};
+
 const Fees = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const programs = useSelector(selectFeePrograms);
   const demands = useSelector(selectFeeDemands);
   const payments = useSelector(selectFeePayments);
+  const reportExports = useSelector(selectFeeReportExports);
+  const financialSummary = useSelector(selectFinancialSummary);
   const loading = useSelector(selectFeeLoading);
 
   useEffect(() => {
     dispatch(fetchFeeBootstrap());
+    dispatch(fetchFeeReportExports());
+    dispatch(fetchFinancialSummary());
   }, [dispatch]);
 
   const summary = useMemo(() => {
@@ -43,6 +61,16 @@ const Fees = () => {
   const recentPayments = useMemo(
     () => (payments || []).slice(0, 8),
     [payments]
+  );
+
+  const analyticsSnapshot = useMemo(
+    () => ({
+      demand: Number(financialSummary?.totalAmount || 0),
+      paid: Number(financialSummary?.paidAmount || 0),
+      due: Number(financialSummary?.dueAmount || 0),
+      exports: Array.isArray(reportExports) ? reportExports.length : 0,
+    }),
+    [financialSummary, reportExports]
   );
 
   return (
@@ -92,6 +120,61 @@ const Fees = () => {
         </article>
       </section>
 
+      <section className="fee-table-section fees-feature-section">
+        <div className="fee-table-head">
+          <div>
+            <h2 className="fee-table-title">Analytics & Reports</h2>
+            <p className="fee-table-subtitle">
+              Integrated fee intelligence modules with real-time API data.
+            </p>
+          </div>
+        </div>
+
+        <div className="fees-feature-grid">
+          <article className="fees-feature-card">
+            <div className="fees-feature-head">
+              <h3>Reports Hub</h3>
+              <span>{analyticsSnapshot.exports} exports</span>
+            </div>
+            <p>
+              Generate, track, and download fee exports from the centralized reports pipeline.
+            </p>
+            <div className="fees-feature-metrics">
+              <span>Latest module: /admin/fees/reports</span>
+            </div>
+            <button
+              type="button"
+              className="fee-export-btn"
+              onClick={() => navigate("/admin/fees/reports")}
+            >
+              Open Reports Hub
+            </button>
+          </article>
+
+          <article className="fees-feature-card fees-feature-card--analytics">
+            <div className="fees-feature-head">
+              <h3>Financial Analytics</h3>
+              <span>Live</span>
+            </div>
+            <p>
+              Program-wise demand, collection, and due trend insights from financial analytics APIs.
+            </p>
+            <div className="fees-feature-metrics">
+              <strong>Demand: {formatCurrency(analyticsSnapshot.demand)}</strong>
+              <strong>Collected: {formatCurrency(analyticsSnapshot.paid)}</strong>
+              <strong>Outstanding: {formatCurrency(analyticsSnapshot.due)}</strong>
+            </div>
+            <button
+              type="button"
+              className="fee-export-btn"
+              onClick={() => navigate("/admin/fees/financial")}
+            >
+              Open Financial Analytics
+            </button>
+          </article>
+        </div>
+      </section>
+
       <section className="fee-table-section">
         <div className="fee-table-head">
           <div>
@@ -119,7 +202,7 @@ const Fees = () => {
                 <tr key={demand._id}>
                   <td className="fees-name">{demand.studentId}</td>
                   <td>{demand.academicYear}</td>
-                  <td>{demand.semesterNo}</td>
+                  <td>{formatSemesterLabel(demand.semesterNo, demand.scope)}</td>
                   <td>{formatCurrency(demand.totalAmount)}</td>
                   <td>{formatCurrency(demand.paidAmount)}</td>
                   <td>{formatCurrency(demand.dueAmount)}</td>

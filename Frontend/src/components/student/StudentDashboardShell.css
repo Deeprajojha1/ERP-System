@@ -638,62 +638,84 @@
 .student-home-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(180px, 260px) minmax(0, 1fr);
-  gap: 18px;
-  padding: 18px;
-  border: 1px solid rgba(182, 198, 220, 0.62);
+  grid-template-columns: minmax(120px, 170px) minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+  padding: 22px 24px;
+  border: 1px solid rgba(157, 184, 221, 0.65);
   border-radius: 22px;
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(245, 251, 255, 0.92)),
-    radial-gradient(420px 240px at 95% 0%, rgba(15, 108, 247, 0.16), transparent 70%);
-  box-shadow: 0 14px 38px rgba(24, 53, 95, 0.12);
+    linear-gradient(126deg, #f8fbff 0%, #eef5ff 45%, #e9f3ff 100%),
+    radial-gradient(440px 250px at 96% 6%, rgba(45, 106, 221, 0.18), transparent 72%),
+    radial-gradient(320px 210px at 2% 100%, rgba(20, 184, 166, 0.11), transparent 72%);
+  box-shadow: 0 14px 30px rgba(24, 53, 95, 0.12);
   overflow: hidden;
 }
 
+.student-home-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.08));
+  pointer-events: none;
+}
+
+.student-home-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
 .student-home-image-wrap {
+  width: clamp(96px, 11vw, 140px);
+  aspect-ratio: 1 / 1;
+  margin-inline: auto;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 12px 24px rgba(15, 35, 66, 0.18);
+  box-shadow: none;
+  background: transparent;
 }
 
 .student-home-image {
   width: 100%;
   height: 100%;
-  max-height: 160px;
-  object-fit: cover;
+  max-height: 132px;
+  object-fit: contain;
   display: block;
-  transform: scale(1.01);
+  transform: none;
+  background: transparent;
 }
 
 .student-home-hero-copy h3 {
   margin: 0;
   font-size: clamp(1.08rem, 1.9vw, 1.5rem);
   line-height: 1.2;
+  color: #18263d;
 }
 
 .student-home-hero-copy p {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
   max-width: 56ch;
-  color: var(--student-muted);
+  color: #4b5d78;
   font-size: 0.9rem;
   line-height: 1.55;
 }
 
 .student-home-hero-chips {
-  margin-top: 14px;
+  margin-top: 16px;
   display: flex;
   flex-wrap: wrap;
-  gap: 9px;
+  gap: 10px;
 }
 
 .student-home-hero-chips span {
-  border: 1px solid #cfe0f5;
+  border: 1px solid #c8daf4;
   border-radius: 999px;
-  padding: 6px 10px;
-  font-size: 0.72rem;
+  padding: 7px 12px;
+  font-size: 0.74rem;
   font-weight: 700;
-  color: #1f4279;
-  background: linear-gradient(160deg, #ffffff, #eff6ff);
+  color: #234577;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.92), rgba(235, 245, 255, 0.88));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
 }
 
 .student-home-summary-stack {
@@ -821,6 +843,9 @@
 
 /* Overall Attendance Card */
 .stu-att-overall-card {
+  --stu-att-accent: #f59e0b;
+  --stu-att-accent-soft: #fcd34d;
+  --stu-att-accent-shadow: rgba(245, 158, 11, 0.24);
   background: linear-gradient(160deg, #ffffff 0%, #f8faff 100%);
   border: 1px solid rgba(182,198,220,0.38);
   border-radius: 22px;
@@ -838,7 +863,7 @@
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 3px;
-  background: linear-gradient(90deg, #e8590c 0%, #f59e0b 50%, #e8590c 100%);
+  background: linear-gradient(90deg, var(--stu-att-accent) 0%, var(--stu-att-accent-soft) 50%, var(--stu-att-accent) 100%);
   background-size: 200% 100%;
   animation: stuAttShimmer 3s ease infinite;
   border-radius: 22px 22px 0 0;
@@ -848,7 +873,7 @@
   100% { background-position: -200% 0; }
 }
 .stu-att-overall-title {
-  margin: 0 0 22px;
+  margin: 0;
   font-size: 1.1rem;
   font-weight: 600;
   color: #334155;
@@ -856,12 +881,61 @@
   letter-spacing: 0.01em;
 }
 
+.stu-att-overall-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.stu-att-download-btn {
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(140deg, #ffffff, #f1f5f9);
+  color: #1e40af;
+  border-radius: 10px;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.stu-att-download-btn:hover {
+  border-color: rgba(59, 130, 246, 0.35);
+  background: linear-gradient(140deg, #eff6ff, #dbeafe);
+}
+
+.stu-att-download-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.stu-att-download-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(37, 99, 235, 0.25);
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: stuAttSpin 0.8s linear infinite;
+}
+
+@keyframes stuAttSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .stu-att-circle-wrap {
   position: relative;
   width: 185px;
   height: 185px;
   margin-bottom: 28px;
-  filter: drop-shadow(0 5px 14px rgba(232,89,12,0.1));
+  filter: drop-shadow(0 5px 14px var(--stu-att-accent-shadow));
 }
 .stu-att-circle-svg {
   width: 100%;
@@ -878,8 +952,9 @@
 .stu-att-circle-pct {
   font-size: 2.3rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--stu-att-accent);
   line-height: 1;
+  transition: color 0.25s ease;
 }
 .stu-att-circle-label {
   font-size: 0.68rem;
@@ -1238,6 +1313,195 @@
   color: #334155;
 }
 
+/* Timetable Section */
+.stu-tt-page {
+  display: grid;
+  gap: 16px;
+}
+
+.stu-tt-hero {
+  border: 1px solid rgba(182, 198, 220, 0.45);
+  border-radius: 18px;
+  padding: 18px 20px;
+  background:
+    linear-gradient(128deg, #f9fcff 0%, #eef6ff 55%, #e8f2ff 100%),
+    radial-gradient(360px 220px at 95% 2%, rgba(37, 99, 235, 0.16), transparent 72%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.stu-tt-title {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 700;
+  color: #1f3558;
+}
+
+.stu-tt-subtitle {
+  margin: 6px 0 0;
+  color: #516887;
+  font-size: 0.88rem;
+}
+
+.stu-tt-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.stu-tt-kpi {
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  border: 1px solid;
+}
+
+.stu-tt-kpi.live {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+}
+
+.stu-tt-kpi.completed {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #bfdbfe;
+}
+
+.stu-tt-kpi.upcoming {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.stu-tt-empty {
+  border: 1px dashed #bfd2ea;
+  border-radius: 16px;
+  padding: 26px 18px;
+  text-align: center;
+  color: #5f7391;
+  background: #f8fbff;
+  font-weight: 600;
+}
+
+.stu-tt-list {
+  display: grid;
+  gap: 12px;
+}
+
+.stu-tt-card {
+  border: 1px solid rgba(182, 198, 220, 0.48);
+  border-radius: 16px;
+  background: #ffffff;
+  display: grid;
+  grid-template-columns: 112px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  box-shadow: 0 8px 20px rgba(18, 43, 81, 0.05);
+}
+
+.stu-tt-slot {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #5a6d89;
+  border-radius: 10px;
+  border: 1px solid #d7e4f3;
+  background: #f8fbff;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.stu-tt-main h4 {
+  margin: 0;
+  color: #1e2f48;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.stu-tt-main p {
+  margin: 3px 0 0;
+  color: #5f6f83;
+  font-size: 0.78rem;
+}
+
+.stu-tt-main .stu-tt-teacher {
+  margin-top: 4px;
+  color: #334e77;
+  font-weight: 600;
+}
+
+.stu-tt-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.stu-tt-time {
+  font-size: 0.74rem;
+  color: #6b7f99;
+  font-weight: 600;
+}
+
+.stu-tt-status {
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border: 1px solid;
+}
+
+.stu-tt-status.live {
+  color: #047857;
+  background: #ecfdf5;
+  border-color: #86efac;
+}
+
+.stu-tt-status.completed {
+  color: #1d4ed8;
+  background: #eff6ff;
+  border-color: #93c5fd;
+}
+
+.stu-tt-status.upcoming {
+  color: #92400e;
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
+.stu-tt-card.live {
+  border-color: rgba(16, 185, 129, 0.45);
+  box-shadow: 0 10px 24px rgba(16, 185, 129, 0.1);
+}
+
+@media (max-width: 760px) {
+  .stu-tt-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .stu-tt-kpis {
+    justify-content: flex-start;
+  }
+
+  .stu-tt-card {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .stu-tt-meta {
+    align-items: flex-start;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
 .student-attendance-table-card {
   border: 1px solid rgba(182, 198, 220, 0.72);
   border-radius: 18px;
@@ -1421,19 +1685,23 @@
 
   .student-home-hero {
     grid-template-columns: 1fr;
-    gap: 14px;
+    gap: 12px;
+    padding: 16px;
+    justify-items: center;
+    text-align: center;
   }
 
   .student-home-image-wrap {
-    width: min(168px, 54vw);
+    width: min(124px, 44vw);
     margin: 0 auto;
-    padding: 6px;
+    padding: 0;
     border-radius: 14px;
-    background: rgba(255, 255, 255, 0.95);
+    background: transparent;
+    box-shadow: none;
   }
 
   .student-home-image {
-    max-height: 128px;
+    max-height: 108px;
     object-fit: contain;
     transform: none;
   }
@@ -1534,12 +1802,12 @@
   }
 
   .student-home-image-wrap {
-    width: min(148px, 56vw);
-    padding: 5px;
+    width: min(106px, 40vw);
+    padding: 0;
   }
 
   .student-home-image {
-    max-height: 110px;
+    max-height: 92px;
   }
 
   .student-home-hero-copy p {

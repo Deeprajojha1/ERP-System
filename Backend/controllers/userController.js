@@ -299,15 +299,29 @@ export const login = async (req, res) => {
         .populate("department", "name code")
         .populate({
           path: "group",
-          select: "name roomNo department courseIds",
-          populate: {
-            path: "courseIds",
-            select: "code courseName department semester branch credit",
-            populate: {
-              path: "department",
-              select: "name code"
-            }
-          }
+          select: "name roomNo department courseIds courseFaculty",
+          populate: [
+            {
+              path: "courseIds",
+              select: "code courseName department semester branch credit",
+              populate: {
+                path: "department",
+                select: "name code",
+              },
+            },
+            {
+              path: "courseFaculty.course",
+              select: "code courseName",
+            },
+            {
+              path: "courseFaculty.faculty",
+              select: "user employeeId",
+              populate: {
+                path: "user",
+                select: "name",
+              },
+            },
+          ],
         });
 
       if (studentDetails) {
@@ -333,6 +347,17 @@ export const login = async (req, res) => {
           group: studentDetails.group,
           disciplineStatus: studentDetails.disciplineStatus,
         };
+
+        const groupCourseFacultyMap = new Map();
+        (studentDetails?.group?.courseFaculty || []).forEach((entry) => {
+          const courseId = String(entry?.course?._id || entry?.course || "").trim();
+          const facultyName = String(
+            entry?.faculty?.user?.name || entry?.faculty?.employeeId || ""
+          ).trim();
+          if (courseId && facultyName) {
+            groupCourseFacultyMap.set(courseId, facultyName);
+          }
+        });
 
         /* Fetch enrolled courses from group or enrollment collection */
         let enrolledCourses = [];
@@ -402,13 +427,16 @@ export const login = async (req, res) => {
             const attendancePercentage = totalSessions > 0
               ? ((presentCount / totalSessions) * 100).toFixed(2)
               : 0;
+            const facultyName = groupCourseFacultyMap.get(String(course._id)) || "N/A";
 
             return {
               course: {
                 _id: course._id,
                 code: course.code,
                 courseName: course.courseName,
+                facultyName,
               },
+              facultyName,
               totalSessions,
               presentCount,
               absentCount,
@@ -1289,15 +1317,29 @@ export const getUser = async (req, res) => {
             .populate("department", "name code")
             .populate({
               path: "group",
-              select: "name roomNo department courseIds",
-              populate: {
-                path: "courseIds",
-                select: "code courseName department semester branch credit",
-                populate: {
-                  path: "department",
-                  select: "name code",
+              select: "name roomNo department courseIds courseFaculty",
+              populate: [
+                {
+                  path: "courseIds",
+                  select: "code courseName department semester branch credit",
+                  populate: {
+                    path: "department",
+                    select: "name code",
+                  },
                 },
-              },
+                {
+                  path: "courseFaculty.course",
+                  select: "code courseName",
+                },
+                {
+                  path: "courseFaculty.faculty",
+                  select: "user employeeId",
+                  populate: {
+                    path: "user",
+                    select: "name",
+                  },
+                },
+              ],
             });
 
           if (studentDetails) {
@@ -1316,6 +1358,17 @@ export const getUser = async (req, res) => {
             };
 
             let enrolledCourses = [];
+            const groupCourseFacultyMap = new Map();
+
+            (studentDetails?.group?.courseFaculty || []).forEach((entry) => {
+              const courseId = String(entry?.course?._id || entry?.course || "").trim();
+              const facultyName = String(
+                entry?.faculty?.user?.name || entry?.faculty?.employeeId || ""
+              ).trim();
+              if (courseId && facultyName) {
+                groupCourseFacultyMap.set(courseId, facultyName);
+              }
+            });
 
             if (studentDetails.group && studentDetails.group.courseIds) {
               enrolledCourses = studentDetails.group.courseIds;
@@ -1380,13 +1433,17 @@ export const getUser = async (req, res) => {
                   totalSessions > 0
                     ? ((presentCount / totalSessions) * 100).toFixed(2)
                     : 0;
+                const facultyName =
+                  groupCourseFacultyMap.get(String(course._id)) || "N/A";
 
                 return {
                   course: {
                     _id: course._id,
                     code: course.code,
                     courseName: course.courseName,
+                    facultyName,
                   },
+                  facultyName,
                   totalSessions,
                   presentCount,
                   absentCount,

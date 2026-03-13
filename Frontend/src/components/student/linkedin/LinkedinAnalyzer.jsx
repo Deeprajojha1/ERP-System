@@ -5,19 +5,12 @@ import {
   FiChevronRight,
   FiCpu,
   FiFilter,
+  FiTrash2,
   FiUpload,
   FiZap,
 } from "react-icons/fi";
 import axios from "../../../utils/axiosInstance";
 import "./LinkedinAnalyzer.css";
-
-const INITIAL_FORM = {
-  targetRole: "",
-  headline: "",
-  skills: "",
-  yearsOfExperience: "",
-  targetIndustry: "",
-};
 
 const ANALYSIS_MESSAGES = [
   "Evaluating your experience against current industry standards...",
@@ -67,26 +60,6 @@ const SECTION_META = {
     ],
     keys: ["headline", "title", "keyword"],
   },
-  certifications: {
-    title: "License & Certifications",
-    why: "Certifications strengthen trust for skill-based and technical roles.",
-    reminder: "List only relevant certifications and keep them up to date.",
-    editTips: [
-      "Add role-relevant certificates with completion dates.",
-      "Highlight applied learning from those certifications.",
-    ],
-    keys: ["certification", "license", "credential"],
-  },
-  location: {
-    title: "Location",
-    why: "Location influences recruiter filtering and regional opportunity matching.",
-    reminder: "Keep preferred work location and relocation openness clear.",
-    editTips: [
-      "Set accurate current location and preferred job region.",
-      "Mention remote/hybrid preference if relevant.",
-    ],
-    keys: ["location", "city", "region"],
-  },
   skills: {
     title: "Skills",
     why: "Skill tags drive search ranking and profile-role matching.",
@@ -114,8 +87,6 @@ const SECTION_ORDER = [
   "education",
   "experience",
   "headline",
-  "certifications",
-  "location",
   "skills",
   "volunteering",
 ];
@@ -234,23 +205,21 @@ const getOverallLabel = (score = 0) => {
 
 const LinkedinAnalyzer = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
-  const [formData, setFormData] = useState(INITIAL_FORM);
   const [pdfFile, setPdfFile] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [error, setError] = useState("");
+  const [historyError, setHistoryError] = useState("");
   const [report, setReport] = useState(null);
   const [history, setHistory] = useState([]);
   const [sortBy, setSortBy] = useState("latest");
   const [viewMode, setViewMode] = useState("form");
   const [activeSectionId, setActiveSectionId] = useState("about");
   const [analysisMessageIndex, setAnalysisMessageIndex] = useState(0);
+  const [deletingReportId, setDeletingReportId] = useState("");
   const fileInputRef = useRef(null);
 
-  const canSubmit = useMemo(
-    () => Boolean(formData.targetRole.trim() && pdfFile),
-    [formData.targetRole, pdfFile]
-  );
+  const canSubmit = useMemo(() => Boolean(pdfFile), [pdfFile]);
 
   const sortedHistory = useMemo(() => {
     const list = [...history];
@@ -283,11 +252,12 @@ const LinkedinAnalyzer = () => {
         const reports = Array.isArray(response?.data?.reports) ? response.data.reports : [];
         setHistory(reports);
         setReport((prev) => prev || reports[0] || null);
+        if (!silent) setHistoryError("");
       } catch (historyError) {
         if (!silent) {
-          setError(
+          setHistoryError(
             historyError?.response?.data?.message ||
-              "Could not load LinkedIn analysis history."
+              "Could not load LinkedIn analysis history. You can still analyze a new PDF."
           );
         }
       } finally {
@@ -309,11 +279,6 @@ const LinkedinAnalyzer = () => {
     return () => window.clearInterval(interval);
   }, [isSubmitting]);
 
-  const handleChange = (event) => {
-    const { name, value } = event.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
   const handlePdfSelect = (event) => {
     const file = event.target.files?.[0] || null;
     if (!file) {
@@ -334,7 +299,7 @@ const LinkedinAnalyzer = () => {
   const handleAnalyze = async (event) => {
     event.preventDefault();
     if (!canSubmit) {
-      setError("Target role and LinkedIn PDF are required.");
+      setError("LinkedIn PDF is required.");
       return;
     }
 
@@ -348,19 +313,6 @@ const LinkedinAnalyzer = () => {
 
       const payload = new FormData();
       payload.append("profilePdf", pdfFile);
-      payload.append("targetRole", formData.targetRole);
-      if (String(formData.headline || "").trim()) {
-        payload.append("headline", formData.headline.trim());
-      }
-      if (String(formData.skills || "").trim()) {
-        payload.append("skills", formData.skills.trim());
-      }
-      if (String(formData.yearsOfExperience || "").trim()) {
-        payload.append("yearsOfExperience", formData.yearsOfExperience.trim());
-      }
-      if (String(formData.targetIndustry || "").trim()) {
-        payload.append("targetIndustry", formData.targetIndustry.trim());
-      }
 
       response = await axios.post(
         `${apiBase}/student/linkedin-analyzer/analyze-profile`,
@@ -377,7 +329,6 @@ const LinkedinAnalyzer = () => {
       setReport(nextReport);
       setActiveSectionId("about");
       setViewMode("report");
-      setFormData(INITIAL_FORM);
       setPdfFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
@@ -397,6 +348,32 @@ const LinkedinAnalyzer = () => {
     setReport(item);
     setActiveSectionId("about");
     setViewMode("report");
+  };
+
+  const handleDeleteReport = async (reportId) => {
+    if (!apiBase || !reportId) return;
+    const shouldDelete = window.confirm("Delete this LinkedIn report?");
+    if (!shouldDelete) return;
+
+    setDeletingReportId(reportId);
+    setError("");
+
+    try {
+      await axios.delete(`${apiBase}/student/linkedin-analyzer/reports/${reportId}`, {
+        withCredentials: true,
+      });
+
+      setHistory((prev) => prev.filter((item) => String(item.reportId) !== String(reportId)));
+      setReport((prev) =>
+        String(prev?.reportId || "") === String(reportId) ? null : prev
+      );
+    } catch (deleteError) {
+      setError(
+        deleteError?.response?.data?.message || "Could not delete LinkedIn report."
+      );
+    } finally {
+      setDeletingReportId("");
+    }
   };
 
   if (viewMode === "report" && report && activeSection) {
@@ -532,34 +509,17 @@ const LinkedinAnalyzer = () => {
 
       <div className="linkedin-analyzer-header">
         <h2>AI LinkedIn Analyzer</h2>
-        <p>Get clear insights on your profile strengths and areas to improve.</p>
+        <p>Upload your LinkedIn PDF and get a complete AI profile analysis instantly.</p>
       </div>
 
       <form className="linkedin-form-card linkedin-form-card-v2" onSubmit={handleAnalyze}>
         <div className="linkedin-upload-grid">
-          <div className="linkedin-upload-col linkedin-upload-col-role">
-            <label htmlFor="targetRole" className="linkedin-field-title">
-              Job Title <span>*</span>
-            </label>
-            <p className="linkedin-field-help">
-              Enter the role you&apos;re aiming for (e.g., UX Designer, Data Analyst).
-            </p>
-            <input
-              id="targetRole"
-              name="targetRole"
-              value={formData.targetRole}
-              onChange={handleChange}
-              className="linkedin-target-input"
-              placeholder="e.g., UX Designer, Data Analyst, MERN Developer"
-            />
-          </div>
-
-          <div className="linkedin-upload-col linkedin-upload-col-file">
+          <div className="linkedin-upload-col linkedin-upload-col-file linkedin-upload-col-full">
             <label htmlFor="profilePdf" className="linkedin-field-title">
               Upload LinkedIn Profile PDF <span>*</span>
             </label>
             <p className="linkedin-field-help">
-              On your LinkedIn profile, go to Resources - Save to PDF to instantly download your
+              On your LinkedIn profile, go to Resources - Save to PDF to download your
               profile as a PDF.
             </p>
             <input
@@ -572,52 +532,11 @@ const LinkedinAnalyzer = () => {
             />
             <label htmlFor="profilePdf" className="linkedin-upload-dropzone">
               <FiUpload />
-              <span>Click to upload</span>
+              <span>{pdfFile ? "Replace PDF" : "Click to upload LinkedIn PDF"}</span>
             </label>
-            <p className="linkedin-file-name">{pdfFile ? pdfFile.name : "No file selected"}</p>
-          </div>
-        </div>
-
-        <div className="linkedin-helper-grid">
-          <div className="linkedin-helper-col">
-            <label htmlFor="headlineOptional">Current Headline (optional)</label>
-            <input
-              id="headlineOptional"
-              name="headline"
-              value={formData.headline}
-              onChange={handleChange}
-              placeholder="e.g., Frontend Developer | React | UI Engineer"
-            />
-          </div>
-          <div className="linkedin-helper-col">
-            <label htmlFor="skillsOptional">Top Skills (optional)</label>
-            <input
-              id="skillsOptional"
-              name="skills"
-              value={formData.skills}
-              onChange={handleChange}
-              placeholder="e.g., React, TypeScript, Node.js"
-            />
-          </div>
-          <div className="linkedin-helper-col">
-            <label htmlFor="yearsOfExperience">Years of Experience (optional)</label>
-            <input
-              id="yearsOfExperience"
-              name="yearsOfExperience"
-              value={formData.yearsOfExperience}
-              onChange={handleChange}
-              placeholder="e.g., 2 years"
-            />
-          </div>
-          <div className="linkedin-helper-col">
-            <label htmlFor="targetIndustry">Target Industry/Domain (optional)</label>
-            <input
-              id="targetIndustry"
-              name="targetIndustry"
-              value={formData.targetIndustry}
-              onChange={handleChange}
-              placeholder="e.g., Fintech, EdTech, SaaS"
-            />
+            <p className="linkedin-file-name">
+              {pdfFile ? pdfFile.name : "No file selected. Only PDF is supported."}
+            </p>
           </div>
         </div>
 
@@ -654,23 +573,40 @@ const LinkedinAnalyzer = () => {
         <article className="linkedin-history-card">
           <h3>Report History</h3>
           {isHistoryLoading ? <p className="linkedin-muted">Loading history...</p> : null}
+          {!isHistoryLoading && historyError ? (
+            <p className="linkedin-error">{historyError}</p>
+          ) : null}
           {!isHistoryLoading && !history.length ? (
             <p className="linkedin-muted">No reports yet.</p>
           ) : null}
           <div className="linkedin-history-list">
             {sortedHistory.map((item) => (
-              <button
+              <div
                 key={item.reportId}
-                type="button"
                 className={`linkedin-history-item ${
                   String(report?.reportId || "") === String(item.reportId) ? "active" : ""
                 }`}
-                onClick={() => openReportFromHistory(item)}
               >
-                <strong>Score {Number(item.profileScore || 0)}</strong>
-                <span>{item?.profile?.targetRole || "General Role"}</span>
-                <small>{formatDate(item.analyzedAt)}</small>
-              </button>
+                <button
+                  type="button"
+                  className="linkedin-history-open"
+                  onClick={() => openReportFromHistory(item)}
+                >
+                  <strong>Score {Number(item.profileScore || 0)}</strong>
+                  <span>{item?.profile?.targetRole || "General Role"}</span>
+                  <small>{formatDate(item.analyzedAt)}</small>
+                </button>
+                <button
+                  type="button"
+                  className="linkedin-history-delete"
+                  aria-label="Delete report"
+                  title="Delete report"
+                  disabled={deletingReportId === item.reportId}
+                  onClick={() => handleDeleteReport(item.reportId)}
+                >
+                  <FiTrash2 />
+                </button>
+              </div>
             ))}
           </div>
         </article>

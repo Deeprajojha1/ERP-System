@@ -55,6 +55,14 @@ const formatDateTime = (value) => {
 };
 
 const StudentHostel = () => {
+  const authToken =
+    typeof window !== "undefined"
+      ? String(localStorage.getItem("authToken") || localStorage.getItem("token") || "").trim()
+      : "";
+  const authHeaders = useMemo(
+    () => (authToken ? { Authorization: `Bearer ${authToken}` } : {}),
+    [authToken]
+  );
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
   const [contextLoading, setContextLoading] = useState(true);
   const [contextError, setContextError] = useState("");
@@ -99,7 +107,9 @@ const StudentHostel = () => {
       setContextLoading(true);
       setLoadState(ADMIN_LOAD_STATES.PENDING);
       setContextError("");
-      const response = await axiosInstance.get("/api/student/hostel/context");
+      const response = await axiosInstance.get("/api/student/hostel/context", {
+        headers: authHeaders,
+      });
       const nextAllocation = response?.data?.allocation || null;
       setAllocation(nextAllocation);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
@@ -122,7 +132,9 @@ const StudentHostel = () => {
     }
     try {
       setMenuLoading(true);
-      const response = await axiosInstance.get(`/api/hostels/${normalizedId}/menu`);
+      const response = await axiosInstance.get(`/api/hostels/${normalizedId}/menu`, {
+        headers: authHeaders,
+      });
       setMenu(response?.data || null);
     } catch (error) {
       void error;
@@ -135,7 +147,9 @@ const StudentHostel = () => {
 	  const fetchHolidayList = useCallback(async () => {
 	    try {
 	      setHolidayListLoading(true);
-	      const response = await axiosInstance.get("/api/student/hostel/holiday");
+      const response = await axiosInstance.get("/api/student/hostel/holiday", {
+        headers: authHeaders,
+      });
 	      setHolidayList(Array.isArray(response?.data?.outpasses) ? response.data.outpasses : []);
 	    } catch (error) {
 	      void error;
@@ -148,7 +162,9 @@ const StudentHostel = () => {
 	  const fetchComplaintList = useCallback(async () => {
 	    try {
 	      setComplaintListLoading(true);
-	      const response = await axiosInstance.get("/api/student/hostel/complaints");
+      const response = await axiosInstance.get("/api/student/hostel/complaints", {
+        headers: authHeaders,
+      });
 	      setComplaintList(Array.isArray(response?.data?.complaints) ? response.data.complaints : []);
 	    } catch (error) {
 	      void error;
@@ -163,7 +179,9 @@ const StudentHostel = () => {
     activeQrRequestSeqRef.current = requestSeq;
     try {
       setActiveQrLoading(true);
-      const response = await axiosInstance.get("/api/student/hostel/holiday/active-qr");
+      const response = await axiosInstance.get("/api/student/hostel/holiday/active-qr", {
+        headers: authHeaders,
+      });
       if (requestSeq === activeQrRequestSeqRef.current) {
         setActiveQr(response?.data || null);
       }
@@ -258,7 +276,9 @@ const StudentHostel = () => {
 
     try {
 	      setHolidayLoading(true);
-	      await axiosInstance.post("/api/student/hostel/holiday", payload);
+	      await axiosInstance.post("/api/student/hostel/holiday", payload, {
+        headers: authHeaders,
+      });
 	      setHolidayForm((prev) => ({
           ...prev,
           destination: "",
@@ -288,7 +308,9 @@ const StudentHostel = () => {
 
 	    try {
 	      setComplaintLoading(true);
-	      await axiosInstance.post("/api/student/hostel/complaints", payload);
+	      await axiosInstance.post("/api/student/hostel/complaints", payload, {
+        headers: authHeaders,
+      });
 	      setComplaintForm((prev) => ({ ...prev, description: "" }));
 	      await fetchComplaintList();
 	    } catch (error) {

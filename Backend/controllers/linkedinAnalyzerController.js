@@ -93,10 +93,10 @@ export const analyzeProfile = async (req, res) => {
       extractedProfile: extractedProfile || {},
     });
 
-    if (!hasProfileContent(mergedProfile) && !String(manualProfile.targetRole || "").trim()) {
+    if (!hasProfileContent(mergedProfile)) {
       return res.status(400).json({
         message:
-          "Could not extract enough profile data from PDF. Add a target role or richer profile content.",
+          "Could not extract readable profile content from PDF. Please upload a text-based LinkedIn PDF (Resources > Save to PDF).",
       });
     }
 
@@ -234,6 +234,47 @@ export const getLinkedinReports = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       message: error.message || "Failed to fetch LinkedIn analyzer reports",
+    });
+  }
+};
+
+export const deleteLinkedinReport = async (req, res) => {
+  try {
+    const reportId = String(req.params?.reportId || "").trim();
+    if (!reportId) {
+      return res.status(400).json({ message: "Report id is required" });
+    }
+
+    const report = await LinkedInReport.findOneAndDelete({
+      _id: reportId,
+      userId: req.userId,
+    });
+
+    if (!report) {
+      return res.status(404).json({ message: "LinkedIn report not found" });
+    }
+
+    const linkedProfileId = report?.profileId || null;
+    if (linkedProfileId) {
+      const profileRefCount = await LinkedInReport.countDocuments({
+        userId: req.userId,
+        profileId: linkedProfileId,
+      });
+      if (profileRefCount === 0) {
+        await LinkedInProfile.deleteOne({
+          _id: linkedProfileId,
+          userId: req.userId,
+        });
+      }
+    }
+
+    return res.json({
+      message: "LinkedIn report deleted successfully",
+      reportId,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to delete LinkedIn report",
     });
   }
 };

@@ -27,6 +27,12 @@ const studentSchema = new mongoose.Schema(
       required: true,
     },
 
+    batchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Batch",
+      default: null,
+    },
+
     semester: { type: Number, required: true, min: 1, max: 12 },
 
     academicYear: { type: String, required: true, trim: true }, // e.g. "2024-2025"
