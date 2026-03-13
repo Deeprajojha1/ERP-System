@@ -76,11 +76,7 @@ function FinancialAnalytics() {
         <div>
           <p className="fa-eyebrow">Fees Intelligence</p>
           <h1>Financial Analytics</h1>
-          <p>
-            Comprehensive fee collection analytics from live
-            <code> /admin/fee/analytics/financial/* </code>
-            APIs.
-          </p>
+          <p>Comprehensive fee collection analytics with real-time institutional insights.</p>
         </div>
         <button
           type="button"
