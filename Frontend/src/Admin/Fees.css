@@ -1434,6 +1434,9 @@ select.fee-setup-input {
   margin: 8px 0;
   font-size: clamp(26px, 3vw, 34px);
   color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .fee-export-hero p {
@@ -1497,6 +1500,9 @@ select.fee-setup-input {
 }
 
 .fee-mini-stat span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   color: #64748b;
   letter-spacing: 0.08em;
@@ -1554,6 +1560,9 @@ select.fee-setup-input {
 }
 
 .fee-form-field label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   font-weight: 700;
   color: #0f172a;
@@ -1618,6 +1627,9 @@ select.fee-setup-input {
 }
 
 .fee-destination-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 13px;
   letter-spacing: 0.1em;
   color: #64748b;
@@ -1675,6 +1687,14 @@ select.fee-setup-input {
   background: linear-gradient(135deg, #ffffff, #f8fbff);
   box-shadow: 0 24px 50px rgba(15, 23, 42, 0.08);
   flex-wrap: wrap;
+}
+
+.fee-export-options {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .fee-share-main {
@@ -1771,6 +1791,9 @@ select.fee-setup-input {
 .fee-history-head h2 {
   margin: 0;
   font-size: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .fee-history-list {

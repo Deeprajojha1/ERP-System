@@ -507,10 +507,11 @@ export const shareFeeReportExport = createAsyncThunk(
 
 export const fetchFinancialSummary = createAsyncThunk(
   "fee/fetchFinancialSummary",
-  async (_, { getState, rejectWithValue }) => {
+  async (query = {}, { getState, rejectWithValue }) => {
     try {
       const apiBase = getState().config.apiBase;
       const response = await axios.get(`${apiBase}/admin/fee/analytics/financial/summary`, {
+        params: query,
         withCredentials: true,
       });
       return extractDataObject(response.data);
@@ -524,12 +525,12 @@ export const fetchFinancialSummary = createAsyncThunk(
 
 export const fetchFinancialProgramBreakup = createAsyncThunk(
   "fee/fetchFinancialProgramBreakup",
-  async (_, { getState, rejectWithValue }) => {
+  async (query = {}, { getState, rejectWithValue }) => {
     try {
       const apiBase = getState().config.apiBase;
       const response = await axios.get(
         `${apiBase}/admin/fee/analytics/financial/program-breakup`,
-        { withCredentials: true }
+        { params: query, withCredentials: true }
       );
       return extractDataArray(response.data);
     } catch (error) {
@@ -542,12 +543,12 @@ export const fetchFinancialProgramBreakup = createAsyncThunk(
 
 export const fetchFinancialCashflow = createAsyncThunk(
   "fee/fetchFinancialCashflow",
-  async (_, { getState, rejectWithValue }) => {
+  async (query = {}, { getState, rejectWithValue }) => {
     try {
       const apiBase = getState().config.apiBase;
       const response = await axios.get(
         `${apiBase}/admin/fee/analytics/financial/cashflow`,
-        { withCredentials: true }
+        { params: query, withCredentials: true }
       );
       return extractDataArray(response.data);
     } catch (error) {

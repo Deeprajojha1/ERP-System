@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import "./FinancialAnalytics.css";
 import { useDispatch, useSelector } from "react-redux";
 import { FiBarChart2, FiRefreshCw, FiTrendingUp } from "react-icons/fi";
@@ -8,10 +8,10 @@ import {
   fetchFinancialSummary,
   selectCashflow,
   selectFeeError,
-  selectFeeLoading,
   selectFinancialSummary,
   selectProgramBreakup,
 } from "../redux/feeSlice";
+import toast from "react-hot-toast";
 
 const formatCurrency = (value = 0) =>
   `Rs ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -21,17 +21,32 @@ function FinancialAnalytics() {
   const summary = useSelector(selectFinancialSummary);
   const breakup = useSelector(selectProgramBreakup);
   const cashflow = useSelector(selectCashflow);
-  const loading = useSelector(selectFeeLoading);
   const error = useSelector(selectFeeError);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const refreshAnalytics = useCallback(() => {
-    dispatch(fetchFinancialSummary());
-    dispatch(fetchFinancialProgramBreakup());
-    dispatch(fetchFinancialCashflow());
+  const refreshAnalytics = useCallback(async (showToast = false) => {
+    setRefreshing(true);
+    const noCache = Date.now();
+    try {
+      await Promise.all([
+        dispatch(fetchFinancialSummary({ noCache })).unwrap(),
+        dispatch(fetchFinancialProgramBreakup({ noCache })).unwrap(),
+        dispatch(fetchFinancialCashflow({ noCache })).unwrap(),
+      ]);
+      if (showToast) {
+        toast.success("Financial analytics refreshed");
+      }
+    } catch (refreshError) {
+      if (showToast) {
+        toast.error(refreshError || "Failed to refresh analytics");
+      }
+    } finally {
+      setRefreshing(false);
+    }
   }, [dispatch]);
 
   useEffect(() => {
-    refreshAnalytics();
+    refreshAnalytics(false);
   }, [refreshAnalytics]);
 
   const metrics = useMemo(() => {
@@ -70,11 +85,11 @@ function FinancialAnalytics() {
         <button
           type="button"
           className="fa-export-btn"
-          onClick={refreshAnalytics}
-          disabled={loading}
+          onClick={() => refreshAnalytics(true)}
+          disabled={refreshing}
         >
-          <FiRefreshCw className={loading ? "fa-spin" : ""} />
-          <span>{loading ? "Refreshing..." : "Refresh Data"}</span>
+          <FiRefreshCw className={refreshing ? "fa-spin" : ""} />
+          <span>{refreshing ? "Refreshing..." : "Refresh Data"}</span>
         </button>
       </header>
 

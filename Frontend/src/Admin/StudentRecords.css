@@ -26,6 +26,9 @@
 .sr-hero h1 {
   font-size: 2rem;
   margin-bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .sr-supporting {
@@ -162,6 +165,9 @@
   letter-spacing: 0.08em;
   font-size: 0.8rem;
   color: #94a3b8;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sr-demand-form {
@@ -216,6 +222,13 @@
   letter-spacing: 0.08em;
   font-size: 0.8rem;
   color: #94a3b8;
+}
+
+.sr-table-head p {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .sr-table-body {
@@ -361,6 +374,9 @@
 }
 
 .sr-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border-radius: 999px;
   border: 1px solid #dbeafe;
   background: #f8fbff;
