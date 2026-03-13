@@ -27,6 +27,47 @@ import "./PaymentMethods.css";
 
 const STATUS_OPTIONS = ["SUCCESS", "FAILED", "CANCELLED", "REFUNDED"];
 
+const formatSemesterLabel = (semesterNo, scope) => {
+  const normalizedScope = String(scope || "").toUpperCase();
+  const sem = Number(semesterNo);
+  if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+  if (Number.isFinite(sem) && sem > 0) return `Sem ${sem}`;
+  return "-";
+};
+
+const getStudentName = (demand) => {
+  const name =
+    demand?.studentName ||
+    demand?.studentMongoId?.userId?.name ||
+    demand?.studentMongoId?.user?.name ||
+    demand?.student?.name ||
+    "";
+  return String(name || "").trim();
+};
+
+const getFatherName = (demand) => {
+  const name =
+    demand?.studentFatherName ||
+    demand?.fatherName ||
+    demand?.student?.fatherName ||
+    "";
+  return String(name || "").trim();
+};
+
+const buildDemandOptionLabel = (demand) => {
+  const name = getStudentName(demand);
+  const fatherName = getFatherName(demand);
+  const parts = [
+    demand?.studentId,
+    name || null,
+    fatherName ? `Father: ${fatherName}` : null,
+    demand?.academicYear,
+    formatSemesterLabel(demand?.semesterNo, demand?.scope),
+    `Due ${demand?.dueAmount ?? 0}`,
+  ].filter(Boolean);
+  return parts.join(" - ");
+};
+
 const getStatusClass = (status = "") => {
   const normalized = String(status || "").toUpperCase();
   if (normalized === "SUCCESS") return "is-success";
@@ -48,6 +89,8 @@ const PaymentMethods = () => {
     gateway: "NONE",
     receiptNo: "",
   });
+  const [demandSearch, setDemandSearch] = useState("");
+  const [isDemandOpen, setIsDemandOpen] = useState(false);
   const [statusForm, setStatusForm] = useState({});
 
   useEffect(() => {
@@ -65,9 +108,48 @@ const PaymentMethods = () => {
   }, [dispatch]);
 
   const pendingDemands = useMemo(
-    () => demands.filter((demand) => Number(demand.dueAmount || 0) > 0),
+    () =>
+      demands.filter(
+        (demand) =>
+          Number(demand.dueAmount || 0) > 0 &&
+          demand?.studentMongoId &&
+          demand?.studentMongoId?.userId
+      ),
     [demands]
   );
+
+  const normalizedDemandSearch = demandSearch.trim().toLowerCase();
+  const filteredDemands = useMemo(() => {
+    if (!normalizedDemandSearch) return pendingDemands;
+    return pendingDemands.filter((demand) => {
+      const haystack = [
+        demand?.studentId,
+        getStudentName(demand),
+        getFatherName(demand),
+        demand?.academicYear,
+        formatSemesterLabel(demand?.semesterNo, demand?.scope),
+        demand?.dueAmount,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(normalizedDemandSearch);
+    });
+  }, [pendingDemands, normalizedDemandSearch]);
+
+  const selectDemand = (demand) => {
+    setPaymentForm((prev) => ({ ...prev, demandId: demand._id }));
+    setDemandSearch(buildDemandOptionLabel(demand));
+    setIsDemandOpen(false);
+  };
+
+  useEffect(() => {
+    if (!paymentForm.demandId) return;
+    const selected = pendingDemands.find((demand) => String(demand._id) === String(paymentForm.demandId));
+    if (selected && !demandSearch) {
+      setDemandSearch(buildDemandOptionLabel(selected));
+    }
+  }, [paymentForm.demandId, pendingDemands, demandSearch]);
 
   const submitPayment = async (event) => {
     event.preventDefault();
@@ -146,25 +228,60 @@ const PaymentMethods = () => {
           <p>Manual entry is enabled only for cash payments. Online payments are auto-recorded.</p>
         </div>
         <form onSubmit={submitPayment} className="pm-cash-form-grid">
-          <label>
+          <label className="pm-demand-field">
             <span className="pm-field-label">
               <FiUser /> Demand
             </span>
-            <select
-              value={paymentForm.demandId}
-              onChange={(event) =>
-                setPaymentForm((prev) => ({ ...prev, demandId: event.target.value }))
-              }
-              required
-            >
-              <option value="">Select demand</option>
-              {pendingDemands.map((demand) => (
-                <option key={demand._id} value={demand._id}>
-                  {demand.studentId} - {demand.academicYear} - Sem {demand.semesterNo} - Due{" "}
-                  {demand.dueAmount}
-                </option>
-              ))}
-            </select>
+            <div className="pm-demand-combobox">
+              <input
+                type="text"
+                placeholder="Search by student ID or name"
+                value={demandSearch}
+                onChange={(event) => {
+                  setDemandSearch(event.target.value);
+                  setIsDemandOpen(true);
+                }}
+                onFocus={() => setIsDemandOpen(true)}
+                onBlur={() => {
+                  setTimeout(() => setIsDemandOpen(false), 120);
+                }}
+                required
+              />
+              {isDemandOpen ? (
+                <div className="pm-demand-dropdown">
+                  {filteredDemands.length === 0 ? (
+                    <button className="pm-demand-empty" type="button" disabled>
+                      No demands match the search
+                    </button>
+                  ) : (
+                    filteredDemands.map((demand) => (
+                      <button
+                        key={demand._id}
+                        type="button"
+                        className={`pm-demand-option ${
+                          String(paymentForm.demandId) === String(demand._id) ? "is-selected" : ""
+                        }`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => selectDemand(demand)}
+                      >
+                        <span className="pm-demand-primary">
+                          {demand.studentId}
+                          {getStudentName(demand) ? ` · ${getStudentName(demand)}` : ""}
+                          {getFatherName(demand) ? ` · ${getFatherName(demand)}` : ""}
+                        </span>
+                        <span className="pm-demand-secondary">
+                          {demand.academicYear} · {formatSemesterLabel(demand.semesterNo, demand.scope)} · Due {demand.dueAmount}
+                        </span>
+                      </button>
+                    ))
+                  )}
+                </div>
+              ) : null}
+            </div>
+            <input type="hidden" required value={paymentForm.demandId} readOnly />
+            <small className="pm-demand-hint">
+              Showing {filteredDemands.length} of {pendingDemands.length} pending demands
+            </small>
           </label>
           <label>
             <span className="pm-field-label">

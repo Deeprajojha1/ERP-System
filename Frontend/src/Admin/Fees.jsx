@@ -18,6 +18,14 @@ import "./Fees.css";
 const formatCurrency = (value = 0) =>
   `Rs ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
+const formatSemesterLabel = (semesterNo, scope) => {
+  const normalizedScope = String(scope || "").toUpperCase();
+  const sem = Number(semesterNo);
+  if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+  if (Number.isFinite(sem) && sem > 0) return `Sem ${sem}`;
+  return "-";
+};
+
 const Fees = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -194,7 +202,7 @@ const Fees = () => {
                 <tr key={demand._id}>
                   <td className="fees-name">{demand.studentId}</td>
                   <td>{demand.academicYear}</td>
-                  <td>{demand.semesterNo}</td>
+                  <td>{formatSemesterLabel(demand.semesterNo, demand.scope)}</td>
                   <td>{formatCurrency(demand.totalAmount)}</td>
                   <td>{formatCurrency(demand.paidAmount)}</td>
                   <td>{formatCurrency(demand.dueAmount)}</td>

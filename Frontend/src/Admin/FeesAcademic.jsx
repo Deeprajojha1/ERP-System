@@ -30,20 +30,42 @@ import {
 } from "../redux/feeSlice";
 import "./Fees.css";
 
+const HOSTEL_ROOM_TYPE_OPTIONS = [
+  "2 SEATER",
+  "3 SEATER",
+];
+const CUSTOM_ROOM_TYPE_OPTION = "__CUSTOM__";
+const EXCLUDED_ROOM_TYPES = new Set(["GENERAL", "1 SEATER", "4 SEATER"]);
+
+const formatHostelRoomTypeLabel = (value = "") => {
+  const raw = String(value || "").trim().toUpperCase();
+  if (raw === "2 SEATER" || raw === "TWO-TIER" || raw === "TWO TIER") return "Two Tier (2 Seater)";
+  if (raw === "3 SEATER" || raw === "THREE-TIER" || raw === "THREE TIER") return "Three Tier (3 Seater)";
+  if (raw === "1 SEATER" || raw === "SINGLE") return "Single (1 Seater)";
+  if (raw === "4 SEATER" || raw === "FOUR-TIER" || raw === "FOUR TIER") return "Four Tier (4 Seater)";
+  if (raw === "GENERAL") return "General";
+  return value || "-";
+};
+
 const normalizeLoose = (value = "") =>
-  String(value || "")
+  String(value ?? "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 
-const matchesDepartmentProgram = (programName = "", allowedProgramSet = new Set()) => {
-  const normalizedProgramName = normalizeLoose(programName);
-  if (!normalizedProgramName || !allowedProgramSet.size) return false;
-  if (allowedProgramSet.has(normalizedProgramName)) return true;
-  return Array.from(allowedProgramSet).some(
-    (allowed) =>
-      normalizedProgramName.includes(allowed) || allowed.includes(normalizedProgramName)
-  );
+const matchesDepartmentProgram = (programName, departmentProgramSet) => {
+  const programNorm = normalizeLoose(programName);
+  if (!programNorm || !(departmentProgramSet instanceof Set) || !departmentProgramSet.size) {
+    return false;
+  }
+  return departmentProgramSet.has(programNorm);
+};
+const parseYear = (value = "") => {
+  const raw = String(value || "").trim();
+  if (!/^\d{4}$/.test(raw)) return NaN;
+  const year = Number(raw);
+  if (!Number.isFinite(year) || year < 2000 || year > 2100) return NaN;
+  return year;
 };
 
 const FeesAcademic = () => {
@@ -64,6 +86,8 @@ const FeesAcademic = () => {
   });
   const [hostelForm, setHostelForm] = useState({
     academicYear: "",
+    roomType: "",
+    customRoomType: "",
     hostelYearlyFee: "",
   });
   const [transportForm, setTransportForm] = useState({
@@ -71,9 +95,9 @@ const FeesAcademic = () => {
     transportYearlyFee: "",
   });
   const [batchForm, setBatchForm] = useState({
-    batchYear: new Date().getFullYear().toString(),
+    batchStartYear: "",
+    batchEndYear: "",
     departmentId: "",
-    programIds: [],
   });
   const [useCustomBranchName, setUseCustomBranchName] = useState(false);
 
@@ -104,31 +128,34 @@ const FeesAcademic = () => {
   );
 
   const programBranchOptions = useMemo(() => {
-    const branchMap = new Map();
-    (feeBranches || []).forEach((branch) => {
-      if (String(branch?.programId?._id || branch?.programId) !== String(branchForm.programId)) return;
-      const branchName = String(branch?.branchName || "").trim();
-      if (!branchName) return;
-      const key = normalizeLoose(branchName);
-      if (!branchMap.has(key)) {
-        branchMap.set(key, branchName);
-      }
-    });
+    if (!branchForm.programId) return [];
+    const set = new Set();
 
-    (selectedBranchProgram?.branchIds || []).forEach((branch) => {
-      const branchName =
-        typeof branch === "string"
-          ? ""
-          : String(branch?.branchName || "").trim();
-      if (!branchName) return;
-      const key = normalizeLoose(branchName);
-      if (!branchMap.has(key)) {
-        branchMap.set(key, branchName);
-      }
-    });
+    const addBranchName = (item) => {
+      const name =
+        typeof item === "string"
+          ? item
+          : item && typeof item === "object"
+          ? item.branchName || item.name
+          : "";
+      const trimmed = String(name || "").trim();
+      if (trimmed) set.add(trimmed);
+    };
 
-    return Array.from(branchMap.values()).sort((a, b) => a.localeCompare(b));
-  }, [feeBranches, selectedBranchProgram, branchForm.programId]);
+    (selectedBranchProgram?.branchIds || []).forEach(addBranchName);
+    feeBranches.forEach((branch) => addBranchName(branch));
+
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [branchForm.programId, selectedBranchProgram, feeBranches]);
+
+  const hostelRoomTypeOptions = useMemo(() => {
+    const set = new Set(HOSTEL_ROOM_TYPE_OPTIONS);
+    (hostelYearlyFees || []).forEach((row) => {
+      const type = String(row?.roomType || "").trim().toUpperCase();
+      if (type && !EXCLUDED_ROOM_TYPES.has(type)) set.add(type);
+    });
+    return Array.from(set);
+  }, [hostelYearlyFees]);
 
   useEffect(() => {
     dispatch(fetchFeePrograms());
@@ -165,17 +192,20 @@ const FeesAcademic = () => {
     }
 
     const totalCourseFee = Number(branchForm.totalCourseFee);
+    const parsedBatchStartYear = parseYear(batchForm.batchStartYear);
+    const parsedBatchEndYear = parseYear(batchForm.batchEndYear);
     if (!branchForm.programId || !branchForm.branchName.trim() || !Number.isFinite(totalCourseFee) || totalCourseFee <= 0) {
       toast.error("Program, branch and total course fee are required");
       return;
     }
     if (
       !batchForm.departmentId ||
-      !Number(batchForm.batchYear) ||
-      !Array.isArray(batchForm.programIds) ||
-      batchForm.programIds.length === 0
+      !Number.isFinite(parsedBatchStartYear) ||
+      !Number.isFinite(parsedBatchEndYear) ||
+      parsedBatchEndYear < parsedBatchStartYear ||
+      !branchForm.programId
     ) {
-      toast.error("Batch year, department and program(s) are required");
+      toast.error("Batch start/end year, department and program are required");
       return;
     }
     if (!departmentPrograms.some((program) => String(program._id) === String(branchForm.programId))) {
@@ -197,9 +227,9 @@ const FeesAcademic = () => {
 
       await dispatch(
         createFeeBatch({
-          batchYear: Number(batchForm.batchYear),
+          batchYear: `${parsedBatchStartYear}-${parsedBatchEndYear}`,
           departmentId: batchForm.departmentId,
-          programIds: batchForm.programIds,
+          programIds: [branchForm.programId],
         })
       ).unwrap();
       await dispatch(fetchFeePrograms()).unwrap();
@@ -207,9 +237,9 @@ const FeesAcademic = () => {
       setBranchForm({ programId: "", branchName: "", totalCourseFee: "" });
       setUseCustomBranchName(false);
       setBatchForm({
-        batchYear: new Date().getFullYear().toString(),
+        batchStartYear: "",
+        batchEndYear: "",
         departmentId: "",
-        programIds: [],
       });
     } catch (error) {
       if (branchSaved) {
@@ -225,8 +255,12 @@ const FeesAcademic = () => {
   const submitHostelFee = async (event) => {
     event.preventDefault();
     if (hostelSubmitting) return;
-    if (!hostelForm.academicYear || hostelForm.hostelYearlyFee === "") {
-      toast.error("Academic year and hostel fee are required");
+    const resolvedRoomType =
+      hostelForm.roomType === CUSTOM_ROOM_TYPE_OPTION
+        ? hostelForm.customRoomType
+        : hostelForm.roomType;
+    if (!hostelForm.academicYear || !resolvedRoomType || hostelForm.hostelYearlyFee === "") {
+      toast.error("Academic year, room type and hostel fee are required");
       return;
     }
     setHostelSubmitting(true);
@@ -234,11 +268,17 @@ const FeesAcademic = () => {
       await dispatch(
         upsertHostelYearlyFee({
           academicYear: hostelForm.academicYear.trim(),
+          roomType: String(resolvedRoomType).trim().toUpperCase(),
           hostelYearlyFee: Number(hostelForm.hostelYearlyFee),
         })
       ).unwrap();
       toast.success("Hostel fee saved");
-      setHostelForm({ academicYear: "", hostelYearlyFee: "" });
+      setHostelForm({
+        academicYear: "",
+        roomType: "",
+        customRoomType: "",
+        hostelYearlyFee: "",
+      });
     } catch (error) {
       toast.error(error || "Failed to save hostel fee");
     } finally {
@@ -287,7 +327,6 @@ const FeesAcademic = () => {
     setBatchForm((prev) => ({
       ...prev,
       departmentId: value,
-      programIds: value ? prev.programIds.filter((id) => allowedProgramIds.has(String(id))) : [],
     }));
 
     setBranchForm((prev) => ({
@@ -319,7 +358,7 @@ const FeesAcademic = () => {
               <div key={program._id} className="fee-program-pill">
                 <strong><FiBookOpen className="fee-pill-icon" /> {program.programName}</strong>
                 <span>
-                  {program.durationYears} yrs • {program.totalSemesters} sems
+                  {program.durationYears} yrs * {program.totalSemesters} sems
                 </span>
               </div>
             ))
@@ -356,9 +395,10 @@ const FeesAcademic = () => {
                 className="fee-setup-input"
                 value={branchForm.programId}
                 onChange={(event) => {
+                  const selectedProgramId = event.target.value;
                   setBranchForm((prev) => ({
                     ...prev,
-                    programId: event.target.value,
+                    programId: selectedProgramId,
                     branchName: "",
                   }));
                   setUseCustomBranchName(false);
@@ -444,64 +484,60 @@ const FeesAcademic = () => {
                       return "Semester split will appear after selecting a program and total fee.";
                     }
                     const perSemester = (totalCourseFee / semesters).toFixed(2);
-                    return `Equal split: ${semesters} semesters × ₹${perSemester}`;
+                    return `Equal split: ${semesters} semesters x Rs.${perSemester}`;
                   })()}
                 </p>
               ) : null}
             </div>
             <div className="fee-form-group">
               <p className="fee-form-group-label"><FiCalendar className="fee-label-icon" /> Batch Year</p>
-              <input
-                className="fee-setup-input"
-                type="number"
-                min="2000"
-                max="2100"
-                value={batchForm.batchYear}
-                onChange={(event) =>
-                  setBatchForm((prev) => ({ ...prev, batchYear: event.target.value }))
-                }
-                required
-              />
+              <div className="fee-batch-year-inline">
+                <input
+                  className="fee-setup-input fee-setup-input--compact"
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  placeholder="Start year"
+                  value={batchForm.batchStartYear}
+                  onChange={(event) =>
+                    setBatchForm((prev) => ({ ...prev, batchStartYear: event.target.value }))
+                  }
+                  required
+                />
+                <input
+                  className="fee-setup-input fee-setup-input--compact"
+                  type="number"
+                  min="2000"
+                  max="2100"
+                  placeholder="End year"
+                  value={batchForm.batchEndYear}
+                  onChange={(event) =>
+                    setBatchForm((prev) => ({ ...prev, batchEndYear: event.target.value }))
+                  }
+                  required
+                />
+              </div>
             </div>
-            <div className="fee-form-group">
-              <p className="fee-form-group-label"><FiLayers className="fee-label-icon" /> Batch Programs</p>
-              <select
-                className="fee-setup-input fee-setup-input--multi"
-                multiple
-                value={batchForm.programIds}
-                onChange={(event) => {
-                  const values = Array.from(event.target.selectedOptions).map((option) => option.value);
-                  setBatchForm((prev) => ({ ...prev, programIds: values }));
-                }}
-                disabled={!batchForm.departmentId}
-                required
-              >
-                {departmentPrograms.map((program) => (
-                  <option key={program._id} value={program._id}>
-                    {program.programName}
-                  </option>
-                ))}
-              </select>
-              <p className="fee-setup-help">Hold Ctrl/Cmd to select multiple programs.</p>
-              {(() => {
-                const batchYear = Number(batchForm.batchYear);
-                if (!Number.isFinite(batchYear) || !batchForm.programIds.length) return null;
-                const selected = programs.filter((program) =>
-                  batchForm.programIds.some((id) => String(id) === String(program._id))
-                );
-                const maxDuration = selected.reduce(
-                  (max, program) => Math.max(max, Number(program?.durationYears || 0)),
-                  0
-                );
-                if (!maxDuration) return null;
-                const endYear = batchYear + maxDuration;
-                return (
+            {(() => {
+              const batchYear = parseYear(batchForm.batchStartYear);
+              const batchEndYear = parseYear(batchForm.batchEndYear);
+              const duration = Number(selectedBranchProgram?.durationYears || 0);
+              if (!Number.isFinite(batchYear) || !Number.isFinite(duration) || duration <= 0) return null;
+              const endYear = batchYear + duration;
+              return (
+                <div className="fee-form-group">
+                  <p className="fee-form-group-label"><FiLayers className="fee-label-icon" /> Batch Window</p>
                   <p className="fee-setup-help">
-                    Fee batch window: {batchYear}–{endYear} (based on selected program duration).
+                    Fee batch window: {batchYear}-{endYear} (based on selected program duration).
                   </p>
-                );
-              })()}
-            </div>
+                  {Number.isFinite(batchEndYear) && batchEndYear !== endYear ? (
+                    <p className="fee-setup-help">
+                      Entered end year {batchEndYear} differs from expected {endYear}.
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })()}
           </div>
 
           <div className="fee-setup-actions">
@@ -531,6 +567,42 @@ const FeesAcademic = () => {
             }
             required
           />
+          <select
+            className="fee-setup-input"
+            value={hostelForm.roomType}
+            onChange={(event) =>
+              setHostelForm((prev) => ({
+                ...prev,
+                roomType: event.target.value,
+                customRoomType:
+                  event.target.value === CUSTOM_ROOM_TYPE_OPTION ? prev.customRoomType : "",
+              }))
+            }
+            required
+          >
+            <option value="">Select room type</option>
+            {hostelRoomTypeOptions.map((type) => (
+              <option key={type} value={type}>
+                {formatHostelRoomTypeLabel(type)}
+              </option>
+            ))}
+            <option value={CUSTOM_ROOM_TYPE_OPTION}>+ Create room type</option>
+          </select>
+          {hostelForm.roomType === CUSTOM_ROOM_TYPE_OPTION ? (
+            <input
+              className="fee-setup-input"
+              type="text"
+              placeholder="New room type (e.g. 5 SEATER)"
+              value={hostelForm.customRoomType}
+              onChange={(event) =>
+                setHostelForm((prev) => ({
+                  ...prev,
+                  customRoomType: event.target.value.toUpperCase(),
+                }))
+              }
+              required
+            />
+          ) : null}
           <input
             className="fee-setup-input"
             type="number"
@@ -553,6 +625,7 @@ const FeesAcademic = () => {
               <thead>
                 <tr>
                   <th>Academic Year</th>
+                  <th>Room Type</th>
                   <th>Hostel Yearly Fee</th>
                 </tr>
               </thead>
@@ -560,6 +633,7 @@ const FeesAcademic = () => {
                 {hostelYearlyFees.map((row) => (
                   <tr key={row._id}>
                     <td>{row.academicYear}</td>
+                    <td>{formatHostelRoomTypeLabel(row.roomType)}</td>
                     <td>{row.hostelYearlyFee}</td>
                   </tr>
                 ))}

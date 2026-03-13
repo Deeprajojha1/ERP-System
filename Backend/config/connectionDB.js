@@ -2,8 +2,13 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import Room from "../models/roomModel.js";
 import ExamRegistration from "../models/ExamRegistration.js";
+import FeeHostelYearly from "../models/feeHostelYearly.js";
 
 dotenv.config();
+
+const MONGO_RETRY_DELAY_MS = Number(process.env.MONGO_RETRY_DELAY_MS || 5000);
+let retryCount = 0;
+let retryTimer = null;
 
 const ensureRoomIndexes = async () => {
   try {
@@ -43,9 +48,22 @@ const ensureExamRegistrationIndexes = async () => {
   }
 };
 
-const MONGO_RETRY_DELAY_MS = Number(process.env.MONGO_RETRY_DELAY_MS) || 10000;
-let retryTimer = null;
-let retryCount = 0;
+const ensureFeeHostelYearlyIndexes = async () => {
+  try {
+    const indexes = await FeeHostelYearly.collection.indexes().catch(() => []);
+    const oldIndex = indexes.find(
+      (idx) => idx?.unique === true && idx?.key?.academicYear === 1 && idx?.key?.roomType !== 1
+    );
+    if (oldIndex?.name) {
+      await FeeHostelYearly.collection.dropIndex(oldIndex.name);
+      console.log(`[DB] Dropped old FeeHostelYearly index: ${oldIndex.name}`);
+    }
+    await FeeHostelYearly.syncIndexes();
+    console.log("[DB] FeeHostelYearly indexes synced");
+  } catch (error) {
+    console.warn("[DB] FeeHostelYearly index check failed:", error?.message || error);
+  }
+};
 
 const connectDB = async () => {
   const uri = String(process.env.MONGODB_URI || "").trim();
@@ -69,6 +87,7 @@ const connectDB = async () => {
     console.log("[DB] Successfully connected to MongoDB");
     await ensureRoomIndexes();
     await ensureExamRegistrationIndexes();
+    await ensureFeeHostelYearlyIndexes();
   } catch (error) {
     retryCount += 1;
     console.error(

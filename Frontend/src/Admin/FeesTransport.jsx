@@ -12,6 +12,14 @@ import "./Fees.css";
 const formatCurrency = (value = 0) =>
   `Rs ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 
+const formatSemesterLabel = (semesterNo, scope) => {
+  const normalizedScope = String(scope || "").toUpperCase();
+  const sem = Number(semesterNo);
+  if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+  if (Number.isFinite(sem) && sem > 0) return `Sem ${sem}`;
+  return "-";
+};
+
 const FeesTransport = () => {
   const dispatch = useDispatch();
   const demands = useSelector(selectFeeDemands);
@@ -112,7 +120,7 @@ const FeesTransport = () => {
                   <tr key={d._id}>
                     <td className="fees-name">{d.studentId}</td>
                     <td>{d.academicYear}</td>
-                    <td>{d.semesterNo}</td>
+                    <td>{formatSemesterLabel(d.semesterNo, d.scope)}</td>
                     <td>{formatCurrency(transport?.amount)}</td>
                     <td>{formatCurrency(transport?.paid)}</td>
                     <td>{d.status}</td>

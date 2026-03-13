@@ -11,6 +11,7 @@ import PaymentHistory from "../models/feePaymentHistory.js";
 import FeeDemandRequest from "../models/feeDemandRequest.js";
 import Student from "../models/Student.js";
 import Department from "../models/Department.js";
+import HostelAllocation from "../models/hostelAllocationModel.js";
 import FeeAuditLog from "../models/feeAuditLog.js";
 import FeeCounter from "../models/feeCounter.js";
 import FeeBulkJob from "../models/feeBulkJob.js";
@@ -28,7 +29,8 @@ const toNum = (value) => {
 };
 const round2 = (value) => Number(Number(value).toFixed(2));
 const SAFE_TEXT_RE = /^[a-zA-Z0-9 _./&@()#+-]+$/;
-const ACADEMIC_YEAR_RE = /^\d{4}-\d{2}$/;
+const ACADEMIC_YEAR_RE = /^\d{4}-(?:\d{2}|\d{4})$/;
+const ACADEMIC_YEAR_ERROR_MESSAGE = "Invalid academicYear format. Use YYYY-YYYY or YYYY-YY";
 const ALLOWED_BREAKDOWN_HEADS = new Set([
   "TUITION",
   "HOSTEL",
@@ -52,7 +54,42 @@ const MODES_REQUIRING_RECEIPT = new Set(["CASH", "CHEQUE", "DD"]);
 const ONLINE_PAYMENT_MODES = new Set(["UPI", "NETBANKING", "CARD", "BANK_TRANSFER"]);
 const RAZORPAY_API_BASE = "https://api.razorpay.com/v1";
 
-const isValidAcademicYear = (value) => ACADEMIC_YEAR_RE.test(String(value || "").trim());
+const parseAcademicYear = (value) => {
+  const raw = String(value || "").trim();
+  const shortMatch = raw.match(/^(\d{4})-(\d{2})$/);
+  if (shortMatch) {
+    const startYear = Number(shortMatch[1]);
+    const endSuffix = Number(shortMatch[2]);
+    if (!Number.isFinite(startYear) || !Number.isFinite(endSuffix)) return null;
+    let endYear = Math.floor(startYear / 100) * 100 + endSuffix;
+    if (endYear < startYear) endYear += 100;
+    if (endYear !== startYear + 1) return null;
+    return { startYear, endYear };
+  }
+
+  const fullMatch = raw.match(/^(\d{4})-(\d{4})$/);
+  if (fullMatch) {
+    const startYear = Number(fullMatch[1]);
+    const endYear = Number(fullMatch[2]);
+    if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) return null;
+    if (endYear !== startYear + 1) return null;
+    return { startYear, endYear };
+  }
+
+  return null;
+};
+
+const normalizeAcademicYear = (value, { format = "full" } = {}) => {
+  const parsed = parseAcademicYear(value);
+  if (!parsed) return "";
+  const { startYear, endYear } = parsed;
+  if (format === "short") {
+    return `${startYear}-${String(endYear).slice(-2)}`;
+  }
+  return `${startYear}-${endYear}`;
+};
+
+const isValidAcademicYear = (value) => Boolean(normalizeAcademicYear(value));
 const getAcademicStartYear = (value) => {
   const raw = String(value || "").trim();
   const match = raw.match(/(\d{4})/);
@@ -64,13 +101,129 @@ const getAcademicYearCandidates = (value) => {
   const raw = String(value || "").trim();
   const set = new Set();
   if (raw) set.add(raw);
-  const start = getAcademicStartYear(raw);
-  if (Number.isFinite(start)) {
-    const next = start + 1;
-    set.add(`${start}-${next}`);
-    set.add(`${start}-${String(next).slice(-2)}`);
+  const normalizedFull = normalizeAcademicYear(raw, { format: "full" });
+  const normalizedShort = normalizeAcademicYear(raw, { format: "short" });
+  if (normalizedFull) set.add(normalizedFull);
+  if (normalizedShort) set.add(normalizedShort);
+
+  if (!normalizedFull) {
+    const start = getAcademicStartYear(raw);
+    if (Number.isFinite(start)) {
+      const next = start + 1;
+      set.add(`${start}-${next}`);
+      set.add(`${start}-${String(next).slice(-2)}`);
+    }
   }
   return Array.from(set);
+};
+
+const normalizeHostelRoomType = (value, { fallback = "GENERAL" } = {}) => {
+  const raw = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ");
+  if (!raw) return fallback;
+
+  const wordsToNumber = {
+    ONE: "1",
+    TWO: "2",
+    THREE: "3",
+    FOUR: "4",
+    FIVE: "5",
+    SIX: "6",
+  };
+  const wordMatch = raw.match(/^(ONE|TWO|THREE|FOUR|FIVE|SIX)(?:\s+(?:SEATER|SEAT|BED|BEDS?))?$/);
+  if (wordMatch) return `${wordsToNumber[wordMatch[1]]} SEATER`;
+
+  const digitMatch = raw.match(/^(\d+)(?:\s*(?:SEATER|SEAT|BED|BEDS?))?$/);
+  if (digitMatch) return `${digitMatch[1]} SEATER`;
+  const digitTierMatch = raw.match(/^(\d+)\s*TIER$/);
+  if (digitTierMatch) return `${digitTierMatch[1]} SEATER`;
+
+  if (/^SINGLE\b/.test(raw) || /\b1\s*SEATER\b/.test(raw)) return "1 SEATER";
+  if (/^TWO\s+TIER\b/.test(raw) || /\b2\s*SEATER\b/.test(raw)) return "2 SEATER";
+  if (/^THREE\s+TIER\b/.test(raw) || /\b3\s*SEATER\b/.test(raw)) return "3 SEATER";
+  if (/^FOUR\s+TIER\b/.test(raw) || /\b4\s*SEATER\b/.test(raw)) return "4 SEATER";
+  if (/^FIVE\s+TIER\b/.test(raw) || /\b5\s*SEATER\b/.test(raw)) return "5 SEATER";
+  if (/^SIX\s+TIER\b/.test(raw) || /\b6\s*SEATER\b/.test(raw)) return "6 SEATER";
+
+  if (raw === "SINGLE" || raw === "SINGLE SEATER") return "1 SEATER";
+  if (raw === "TWO TIER") return "2 SEATER";
+  if (raw === "THREE TIER") return "3 SEATER";
+  if (raw === "FOUR TIER") return "4 SEATER";
+
+  if (!SAFE_TEXT_RE.test(raw)) return fallback;
+  return raw;
+};
+
+const deriveHostelRoomTypeFromRoom = (room) => {
+  const capacity = Number(room?.capacity);
+  if (Number.isFinite(capacity) && capacity > 0) return `${capacity} SEATER`;
+
+  const tier = String(room?.bedTier || "")
+    .trim()
+    .toLowerCase();
+  if (tier === "single") return "1 SEATER";
+  if (tier === "two-tier") return "2 SEATER";
+  if (tier === "three-tier") return "3 SEATER";
+  if (tier === "four-tier") return "4 SEATER";
+
+  return "GENERAL";
+};
+
+const resolveActiveHostelRoomTypeForStudent = async (studentMongoId) => {
+  if (!studentMongoId || !isValidId(studentMongoId)) return "";
+  const allocation = await HostelAllocation.findOne({
+    student: studentMongoId,
+    status: "Active",
+  }).populate("room", "capacity bedTier");
+  if (!allocation?.room) return "";
+  return normalizeHostelRoomType(deriveHostelRoomTypeFromRoom(allocation.room), { fallback: "" });
+};
+
+const getConfiguredHostelYearlyFee = async ({ academicYear, roomType = "" }) => {
+  const year = String(academicYear || "").trim();
+  if (!year) return { hostelYearlyFee: 0, roomType: "", matchedBy: "NONE" };
+  const yearCandidates = getAcademicYearCandidates(year);
+  const normalizedRoomType = normalizeHostelRoomType(roomType, { fallback: "" });
+
+  if (normalizedRoomType) {
+    const roomTypeRow = await FeeHostelYearly.findOne({
+      academicYear: { $in: yearCandidates },
+      roomType: normalizedRoomType,
+    }).select("hostelYearlyFee roomType");
+    if (roomTypeRow) {
+      return {
+        hostelYearlyFee: round2(Number(roomTypeRow.hostelYearlyFee || 0)),
+        roomType: String(roomTypeRow.roomType || normalizedRoomType),
+        matchedBy: "ROOM_TYPE",
+      };
+    }
+  }
+
+  const generalRow = await FeeHostelYearly.findOne({
+    academicYear: { $in: yearCandidates },
+    roomType: "GENERAL",
+  }).select("hostelYearlyFee roomType");
+  if (generalRow) {
+    return {
+      hostelYearlyFee: round2(Number(generalRow.hostelYearlyFee || 0)),
+      roomType: "GENERAL",
+      matchedBy: "GENERAL",
+    };
+  }
+
+  // Backward compatibility for historical documents created before roomType support.
+  const legacyRow = await FeeHostelYearly.findOne({
+    academicYear: { $in: yearCandidates },
+    $or: [{ roomType: { $exists: false } }, { roomType: "" }],
+  }).select("hostelYearlyFee");
+  return {
+    hostelYearlyFee: round2(Number(legacyRow?.hostelYearlyFee || 0)),
+    roomType: normalizedRoomType || "GENERAL",
+    matchedBy: legacyRow ? "LEGACY" : "NONE",
+  };
 };
 
 const PROGRAM_DEFAULTS = {
@@ -114,6 +267,24 @@ const getSemestersPerYear = (program) => {
     return Math.max(1, perYear);
   }
   return 2;
+};
+
+const normalizeDemandScope = (value = "") => {
+  const raw = String(value || "").trim().toUpperCase();
+  if (raw === "YEAR" || raw === "FULL_YEAR" || raw === "ANNUAL") return "YEAR";
+  return "SEMESTER";
+};
+
+const getAcademicYearSemesterRange = ({ currentSemester, program }) => {
+  const semsPerYear = getSemestersPerYear(program);
+  const sem = Number(currentSemester || 1);
+  const safeSem = Number.isFinite(sem) && sem > 0 ? sem : 1;
+  const yearIndex = Math.max(0, Math.floor((safeSem - 1) / semsPerYear));
+  const start = yearIndex * semsPerYear + 1;
+  const totalSemesters = Number(program?.totalSemesters || 0);
+  const endCandidate = start + semsPerYear - 1;
+  const end = totalSemesters > 0 ? Math.min(endCandidate, totalSemesters) : endCandidate;
+  return { start, end, semsPerYear };
 };
 
 const getClientIp = (req) =>
@@ -397,6 +568,13 @@ const getCurrentStudentFeeProfile = async (userId) => {
   }).select("enrollmentNumber");
 
   const normalizedEnrollment = String(student?.enrollmentNumber || "").trim();
+  if (normalizedEnrollment) {
+    const ensured = await ensureStudentFeeProfileForEnrollment(normalizedEnrollment);
+    if (ensured?._id) {
+      return { student: student || null, profile: ensured };
+    }
+  }
+
   const profileQuery = student
     ? { $or: [{ userId }, { studentId: normalizedEnrollment }] }
     : { userId };
@@ -421,31 +599,34 @@ const getDepartmentNameById = async (departmentId) => {
 
 const getSemesterDueDate = async ({ academicYear, semesterNo }) => {
   if (!academicYear || !semesterNo) return null;
+  const academicYearCandidates = getAcademicYearCandidates(academicYear);
   const row = await FeeCalendarEvent.findOne({
     isDeleted: { $ne: true },
     eventType: "Semester Due Date",
-    academicYear: String(academicYear || "").trim(),
+    academicYear: { $in: academicYearCandidates },
     semesterNo: Number(semesterNo),
   }).sort({ eventDate: -1 });
   return row?.eventDate ? new Date(row.eventDate) : null;
 };
 
-const getYearlyAddOnFees = async (academicYear) => {
+const getYearlyAddOnFees = async (academicYear, { hostelRoomType = "" } = {}) => {
   const year = String(academicYear || "").trim();
   if (!year) return { hostelYearlyFee: 0, transportYearlyFee: 0 };
   const yearCandidates = getAcademicYearCandidates(year);
-  const [hostelRow, transportRow] = await Promise.all([
-    FeeHostelYearly.findOne({ academicYear: { $in: yearCandidates } }).select("hostelYearlyFee"),
+  const [hostelCfg, transportRow] = await Promise.all([
+    getConfiguredHostelYearlyFee({ academicYear: year, roomType: hostelRoomType }),
     FeeTransportYearly.findOne({ academicYear: { $in: yearCandidates } }).select("transportYearlyFee"),
   ]);
   return {
-    hostelYearlyFee: round2(Number(hostelRow?.hostelYearlyFee || 0)),
+    hostelYearlyFee: round2(Number(hostelCfg?.hostelYearlyFee || 0)),
     transportYearlyFee: round2(Number(transportRow?.transportYearlyFee || 0)),
   };
 };
 
 const autoGenerateDemandsForProfile = async ({ profile, branch, program, academicYear }) => {
   if (!profile || !branch || !program || !academicYear) return [];
+  const normalizedAcademicYear = normalizeAcademicYear(academicYear, { format: "full" });
+  if (!normalizedAcademicYear) return [];
   const semestersPerYear = getSemestersPerYear(program);
   const totalSemesters = Number(program?.totalSemesters || 0);
   const startSemester = Number(profile.currentSemester || 1);
@@ -454,7 +635,7 @@ const autoGenerateDemandsForProfile = async ({ profile, branch, program, academi
 
   const existing = await FeeDemand.find({
     studentMongoId: profile._id,
-    academicYear: String(academicYear || "").trim(),
+    academicYear: { $in: getAcademicYearCandidates(normalizedAcademicYear) },
     semesterNo: { $in: semesterList },
   }).select("semesterNo");
   const existingSemesters = new Set(existing.map((row) => Number(row.semesterNo)));
@@ -475,7 +656,7 @@ const autoGenerateDemandsForProfile = async ({ profile, branch, program, academi
     const netTuition = round2(grossSemesterFee * ratio);
 
     const heads = [{ head: "TUITION", amount: netTuition }];
-    const { hostelYearlyFee, transportYearlyFee } = await getYearlyAddOnFees(academicYear);
+    const { hostelYearlyFee, transportYearlyFee } = await getYearlyAddOnFees(normalizedAcademicYear);
     const hostelShare = round2(Math.max(0, hostelYearlyFee) / semestersPerYear);
     const transportShare = round2(Math.max(0, transportYearlyFee) / semestersPerYear);
     if (profile.hostelOpted && hostelShare > 0) heads.push({ head: "HOSTEL", amount: hostelShare });
@@ -483,13 +664,13 @@ const autoGenerateDemandsForProfile = async ({ profile, branch, program, academi
 
     const totalAmount = sumBreakdownAmount(heads);
     const dueDate =
-      (await getSemesterDueDate({ academicYear, semesterNo })) ||
+      (await getSemesterDueDate({ academicYear: normalizedAcademicYear, semesterNo })) ||
       new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     const doc = await FeeDemand.create({
       studentMongoId: profile._id,
       studentId: String(profile.studentId || ""),
-      academicYear: String(academicYear || "").trim(),
+      academicYear: normalizedAcademicYear,
       semesterNo: Number(semesterNo),
       breakdown: heads.map((item) => ({
         head: item.head,
@@ -516,6 +697,7 @@ const resolveFeeReferencesFromStudent = async (studentDoc) => {
   const departmentId = studentDoc?.department;
   const departmentName = await getDepartmentNameById(departmentId);
   const departmentNorm = normalizeLoose(departmentName);
+  const groupBranchNorm = normalizeLoose(studentDoc?.group?.branch || "");
 
     const programs = await Program.find().select("_id programName branchIds durationYears totalSemesters");
   const matchedProgram =
@@ -528,41 +710,57 @@ const resolveFeeReferencesFromStudent = async (studentDoc) => {
     null;
   if (!matchedProgram) return null;
 
-    const branches = await Branch.find({ programId: matchedProgram._id }).select(
-      "_id branchName semesterBaseFees programId hostelYearlyFee transportYearlyFee"
-    );
+  const branches = await Branch.find({ programId: matchedProgram._id }).select(
+    "_id branchName semesterBaseFees programId hostelYearlyFee transportYearlyFee"
+  );
   const matchedBranch =
+    (groupBranchNorm
+      ? branches.find((b) => normalizeLoose(b?.branchName || "") === groupBranchNorm)
+      : null) ||
     branches.find(
       (b) => normalizeLoose(b?.branchName || "") === departmentNorm
     ) ||
     branches.find((b) =>
       normalizeLoose(b?.branchName || "").includes(departmentNorm)
     ) ||
-    branches[0] ||
     null;
   if (!matchedBranch) return null;
 
-  const academicYearText = String(studentDoc?.academicYear || "").trim();
-  const batchYearCandidate = getAcademicStartYear(academicYearText);
-  const batchQuery = {
-    departmentId: studentDoc.department,
-    programIds: matchedProgram._id,
-  };
-  if (Number.isFinite(batchYearCandidate)) {
-    batchQuery.batchYear = batchYearCandidate;
+  let matchedBatch = null;
+  if (studentDoc?.batchId && isValidId(studentDoc.batchId)) {
+    matchedBatch = await Batch.findById(studentDoc.batchId).select("_id batchYear programIds departmentId");
+    const hasProgram = matchedBatch?.programIds?.some(
+      (pid) => String(pid) === String(matchedProgram._id)
+    );
+    const hasDepartment = String(matchedBatch?.departmentId || "") === String(studentDoc.department || "");
+    if (!matchedBatch || !hasProgram || !hasDepartment) {
+      matchedBatch = null;
+    }
   }
 
-  let matchedBatch = await Batch.findOne(batchQuery)
-    .sort({ batchYear: -1, createdAt: -1 })
-    .select("_id batchYear programIds");
-
   if (!matchedBatch) {
-    matchedBatch = await Batch.findOne({
+    const academicYearText = String(studentDoc?.academicYear || "").trim();
+    const batchYearCandidate = getAcademicStartYear(academicYearText);
+    const batchQuery = {
       departmentId: studentDoc.department,
       programIds: matchedProgram._id,
-    })
+    };
+    if (Number.isFinite(batchYearCandidate)) {
+      batchQuery.batchYear = batchYearCandidate;
+    }
+
+    matchedBatch = await Batch.findOne(batchQuery)
       .sort({ batchYear: -1, createdAt: -1 })
       .select("_id batchYear programIds");
+
+    if (!matchedBatch) {
+      matchedBatch = await Batch.findOne({
+        departmentId: studentDoc.department,
+        programIds: matchedProgram._id,
+      })
+        .sort({ batchYear: -1, createdAt: -1 })
+        .select("_id batchYear programIds");
+    }
   }
   if (!matchedBatch) return null;
 
@@ -573,21 +771,78 @@ const resolveFeeReferencesFromStudent = async (studentDoc) => {
   };
 };
 
+const reconcileExistingStudentFeeProfile = async ({ student, profile }) => {
+  if (!student || !profile) return profile;
+
+  const refs = await resolveFeeReferencesFromStudent(student);
+  if (!refs?.batch || !refs?.program || !refs?.branch) return profile;
+
+  const needsRefUpdate =
+    String(profile?.batchId || "") !== String(refs.batch._id || "") ||
+    String(profile?.programId || "") !== String(refs.program._id || "") ||
+    String(profile?.branchId || "") !== String(refs.branch._id || "");
+
+  const needsIdentityUpdate =
+    String(profile?.userId || "") !== String(student?.user || "") ||
+    String(profile?.studentId || "") !== String(student?.enrollmentNumber || "");
+
+  const needsSemesterUpdate =
+    Number(profile?.currentSemester || 0) !== Number(student?.semester || 0);
+
+  if (!needsRefUpdate && !needsIdentityUpdate && !needsSemesterUpdate) return profile;
+
+  const scholarship = profile?.scholarship || { type: "NONE", value: 0 };
+  const discount = profile?.discount || { type: "NONE", value: 0 };
+  const computedSummary = computeCourseFeeSummary({
+    branch: refs.branch,
+    scholarship,
+    discount,
+  });
+  const existingPaid = round2(Math.max(0, Number(profile?.feeSummary?.totalPaid || 0)));
+  const cappedPaid = round2(Math.min(existingPaid, Number(computedSummary.courseNetFee || 0)));
+
+  const updated = await StudentFeeDetails.findByIdAndUpdate(
+    profile._id,
+    {
+      userId: student.user,
+      studentId: student.enrollmentNumber,
+      batchId: refs.batch._id,
+      programId: refs.program._id,
+      branchId: refs.branch._id,
+      currentSemester: Number(student.semester || 1),
+      feeSummary: {
+        ...computedSummary,
+        totalPaid: cappedPaid,
+        remainingFee: round2(Math.max(0, Number(computedSummary.courseNetFee || 0) - cappedPaid)),
+      },
+    },
+    { new: true }
+  );
+
+  return updated || profile;
+};
+
 export const ensureStudentFeeProfileForEnrollment = async (studentId) => {
   const enrollment = String(studentId || "").trim();
   if (!enrollment) return null;
 
-  let profile = await StudentFeeDetails.findOne({ studentId: enrollment });
-  if (profile) return profile;
-
   const student = await Student.findOne({
     enrollmentNumber: enrollment,
     isDeleted: { $ne: true },
-  }).select("_id user enrollmentNumber semester program department academicYear");
+  })
+    .select("_id user enrollmentNumber semester program department academicYear batchId group")
+    .populate("group", "branch name department");
   if (!student?.user) return null;
 
+  let profile = await StudentFeeDetails.findOne({ studentId: enrollment });
+  if (profile) {
+    return reconcileExistingStudentFeeProfile({ student, profile });
+  }
+
   profile = await StudentFeeDetails.findOne({ userId: student.user });
-  if (profile) return profile;
+  if (profile) {
+    return reconcileExistingStudentFeeProfile({ student, profile });
+  }
 
   const refs = await resolveFeeReferencesFromStudent(student);
   if (!refs?.batch || !refs?.program || !refs?.branch) return null;
@@ -626,7 +881,7 @@ export const ensureStudentFeeProfileForEnrollment = async (studentId) => {
   return createdProfile;
 };
 
-export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) => {
+export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber, roomType = "" }) => {
   const safeEnrollment = String(enrollmentNumber || "").trim();
   if (!safeEnrollment) {
     return {
@@ -634,6 +889,7 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
       demandsUpdated: 0,
       hostelYearlyFee: 0,
       hostelSharePerSemester: 0,
+      hostelRoomType: "",
       academicYear: "",
       reason: "enrollmentNumber is required",
     };
@@ -649,6 +905,7 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
       demandsUpdated: 0,
       hostelYearlyFee: 0,
       hostelSharePerSemester: 0,
+      hostelRoomType: "",
       academicYear: "",
       reason: "student not found",
     };
@@ -662,6 +919,7 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
       demandsUpdated: 0,
       hostelYearlyFee: 0,
       hostelSharePerSemester: 0,
+      hostelRoomType: "",
       academicYear,
       reason: "fee profile not available",
     };
@@ -674,18 +932,25 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
     profileUpdated = true;
   }
 
-  const hostelFeeRow = await FeeHostelYearly.findOne({
-    academicYear: { $in: getAcademicYearCandidates(academicYear) },
-  }).select("hostelYearlyFee");
-  const hostelYearlyFee = round2(Number(hostelFeeRow?.hostelYearlyFee || 0));
+  const requestedRoomType = normalizeHostelRoomType(roomType, { fallback: "" });
+  const activeRoomType = requestedRoomType || (await resolveActiveHostelRoomTypeForStudent(student._id));
+  const hostelConfig = await getConfiguredHostelYearlyFee({
+    academicYear,
+    roomType: activeRoomType,
+  });
+  const hostelYearlyFee = round2(Number(hostelConfig?.hostelYearlyFee || 0));
+  const hostelRoomType = String(hostelConfig?.roomType || activeRoomType || "GENERAL");
   if (hostelYearlyFee <= 0) {
     return {
       profileUpdated,
       demandsUpdated: 0,
       hostelYearlyFee,
       hostelSharePerSemester: 0,
+      hostelRoomType,
       academicYear,
-      reason: "hostel yearly fee not configured for academic year",
+      reason: activeRoomType
+        ? "hostel yearly fee not configured for selected room type/academic year"
+        : "hostel yearly fee not configured for academic year",
     };
   }
 
@@ -722,6 +987,7 @@ export const syncHostelFeeForStudentAcademicYear = async ({ enrollmentNumber }) 
     demandsUpdated,
     hostelYearlyFee,
     hostelSharePerSemester: hostelShare,
+    hostelRoomType,
     academicYear,
     reason: "",
   };
@@ -916,17 +1182,79 @@ const getNextReceiptNo = async (session) => {
   return `RCPT-${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(seq).padStart(6, "0")}`;
 };
 
-const getNextDemandLetterRefNo = async () => {
-  const now = new Date();
-  const key = `demand-letter:${now.getUTCFullYear()}`;
+const getNextDemandLetterRefNo = async (academicYearValue = "") => {
+  const shortAcademicYear =
+    normalizeAcademicYear(String(academicYearValue || "").trim(), { format: "short" }) ||
+    `${new Date().getUTCFullYear()}-${String(new Date().getUTCFullYear() + 1).slice(-2)}`;
+  const key = `demand-letter:${shortAcademicYear}`;
   const row = await FeeCounter.findOneAndUpdate(
     { key },
     { $inc: { seq: 1 } },
     { new: true, upsert: true, setDefaultsOnInsert: true }
   );
   const seq = Number(row?.seq || 1);
-  return `KIIT/ADM/${now.getUTCFullYear()}/${String(seq).padStart(5, "0")}`;
+  return `HU/ReceiptLetter/${shortAcademicYear}/${seq}`;
 };
+
+const normalizeDemandLetterRefNo = (rawRefNo = "", academicYearValue = "") => {
+  const raw = String(rawRefNo || "").trim();
+  const shortAcademicYear =
+    normalizeAcademicYear(String(academicYearValue || "").trim(), { format: "short" }) ||
+    `${new Date().getUTCFullYear()}-${String(new Date().getUTCFullYear() + 1).slice(-2)}`;
+
+  if (!raw) return `HU/ReceiptLetter/${shortAcademicYear}/1`;
+  if (/^HU\/ReceiptLetter\//i.test(raw)) return raw;
+
+  const legacyMatch = raw.match(/^KIIT\/ADM\/(\d{4})\/(\d+)$/i);
+  if (legacyMatch) {
+    const seq = Number(legacyMatch[2] || 1);
+    const safeSeq = Number.isFinite(seq) && seq > 0 ? seq : 1;
+    return `HU/ReceiptLetter/${shortAcademicYear}/${safeSeq}`;
+  }
+
+  if (/^KIIT/i.test(raw)) {
+    const tailSeqMatch = raw.match(/(\d+)\s*$/);
+    const seq = Number(tailSeqMatch?.[1] || 1);
+    const safeSeq = Number.isFinite(seq) && seq > 0 ? seq : 1;
+    return `HU/ReceiptLetter/${shortAcademicYear}/${safeSeq}`;
+  }
+
+  return raw;
+};
+
+const getHuLogoDataUri = (() => {
+  let cached = null;
+  return () => {
+    if (cached !== null) return cached;
+    const cwd = process.cwd();
+    const candidates = [
+      path.resolve(cwd, "../Frontend/src/assets/HUNAV.jpg.jpeg"),
+      path.resolve(cwd, "../Frontend/src/assets/college-logo.jpg"),
+      path.resolve(cwd, "Frontend/src/assets/HUNAV.jpg.jpeg"),
+      path.resolve(cwd, "Frontend/src/assets/college-logo.jpg"),
+    ];
+    const found = candidates.find((file) => fs.existsSync(file));
+    if (!found) {
+      cached = "";
+      return cached;
+    }
+    try {
+      const buf = fs.readFileSync(found);
+      let mime = "application/octet-stream";
+      if (buf.length >= 4) {
+        const sig = `${buf[0].toString(16)}${buf[1].toString(16)}${buf[2].toString(16)}${buf[3].toString(16)}`.toLowerCase();
+        if (sig.startsWith("ffd8ff")) mime = "image/jpeg";
+        else if (sig === "89504e47") mime = "image/png";
+        else if (sig === "52494646") mime = "image/webp";
+      }
+      cached = `data:${mime};base64,${buf.toString("base64")}`;
+      return cached;
+    } catch {
+      cached = "";
+      return cached;
+    }
+  };
+})();
 
 const buildDemandLetterHtml = ({ snapshot, request, demand }) => {
   const rows = Array.isArray(snapshot?.breakdown)
@@ -934,26 +1262,80 @@ const buildDemandLetterHtml = ({ snapshot, request, demand }) => {
     : Array.isArray(demand?.breakdown)
     ? demand.breakdown
     : [];
-  const issuedAt = request?.demandLetterIssuedAt || request?.approvedAt || new Date();
-  const issuedDateLabel = new Date(issuedAt).toLocaleDateString("en-GB");
+  const now = new Date();
+  const dd = String(now.getDate()).padStart(2, "0");
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const yyyy = String(now.getFullYear());
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  const issuedDateLabel = `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
   const studentName = escapeHtml(snapshot?.studentName || "Student");
   const guardianName = escapeHtml(snapshot?.guardianName || "Parent/Guardian");
   const studentId = escapeHtml(snapshot?.studentId || request?.studentId || "");
   const programName = escapeHtml(snapshot?.programName || "Program");
   const academicYear = escapeHtml(snapshot?.academicYear || request?.academicYear || "-");
+  const demandDueDateValue = snapshot?.dueDate || demand?.dueDate || request?.dueDate || null;
+  const demandDueDateLabel = demandDueDateValue
+    ? new Date(demandDueDateValue).toLocaleDateString("en-GB")
+    : "-";
+  const refNo = escapeHtml(
+    normalizeDemandLetterRefNo(request?.demandLetterRefNo || "", snapshot?.academicYear || request?.academicYear || "")
+  );
+  const scope = normalizeDemandScope(snapshot?.scope || request?.scope || demand?.scope || "");
   const semesterNo = Number(snapshot?.semesterNo || request?.semesterNo || 0);
-  const total = Number(snapshot?.totalAmount || demand?.totalAmount || 0);
-  const due = Number(snapshot?.dueAmount || demand?.dueAmount || 0);
-  const linesHtml = rows
-    .map(
-      (row, index) => `
-      <tr>
-        <td style="padding:6px 0;">${index + 1}.</td>
-        <td style="padding:6px 0;">${escapeHtml(String(row?.head || "FEE"))}</td>
-        <td style="padding:6px 0; text-align:right;">Rs. ${formatInr(Number(row?.amount || 0))}/-</td>
-      </tr>`
-    )
-    .join("");
+  const semesterRange = snapshot?.semesterRange || null;
+  const total = round2(Number(snapshot?.totalAmount || demand?.totalAmount || 0));
+  const due = round2(Number(snapshot?.dueAmount || demand?.dueAmount || 0));
+  const paid = round2(Math.max(0, total - due));
+  const hostelFee = round2(
+    rows.reduce((sum, row) => {
+      const head = String(row?.head || "").toUpperCase();
+      if (head === "HOSTEL") return sum + Number(row?.amount || 0);
+      return sum;
+    }, 0)
+  );
+  const transportFee = round2(
+    rows.reduce((sum, row) => {
+      const head = String(row?.head || "").toUpperCase();
+      if (head === "TRANSPORT") return sum + Number(row?.amount || 0);
+      return sum;
+    }, 0)
+  );
+  const academicFee = round2(Math.max(0, total - hostelFee - transportFee));
+  const semesterWords = [
+    "First",
+    "Second",
+    "Third",
+    "Fourth",
+    "Fifth",
+    "Sixth",
+    "Seventh",
+    "Eighth",
+    "Ninth",
+    "Tenth",
+  ];
+  const isYearScope = scope === "YEAR" || semesterNo === 0;
+  const yearNo = semesterNo > 0 ? Math.ceil(semesterNo / 2) : 0;
+  const yearLabel = isYearScope
+    ? "Academic Year"
+    : yearNo > 0
+    ? `${semesterWords[yearNo - 1] || `${yearNo}th`} Year`
+    : "Academic Year";
+  const semLabel = isYearScope
+    ? "Full Year"
+    : semesterNo > 0
+    ? `${semesterWords[semesterNo - 1] || `${semesterNo}th`} Semester`
+    : "-";
+  const rangeLabel =
+    isYearScope && semesterRange?.start && semesterRange?.end
+      ? `Sem ${semesterRange.start}-${semesterRange.end}`
+      : "";
+  const semLabelWithRange = rangeLabel ? `${semLabel} (${rangeLabel})` : semLabel;
+  const logoDataUri = getHuLogoDataUri();
+  const logoHtml = logoDataUri
+    ? `<img src="${logoDataUri}" alt="Haridwar University" class="logo" />`
+    : `<div class="logo-fallback">HU</div>`;
 
   return `<!doctype html>
 <html>
@@ -961,58 +1343,128 @@ const buildDemandLetterHtml = ({ snapshot, request, demand }) => {
     <meta charset="utf-8" />
     <title>Demand Letter</title>
     <style>
-      body { font-family: "Times New Roman", serif; color: #111; margin: 0; }
-      .page { padding: 26px 34px; font-size: 16px; line-height: 1.5; }
-      .center { text-align: center; }
-      .title { font-size: 34px; color: #167f39; font-weight: 700; margin: 0; }
-      .subtitle { margin: 2px 0; font-weight: 700; }
-      .meta { display:flex; justify-content:space-between; margin-top: 16px; }
-      .block { margin-top: 20px; }
-      .fees-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-      .fees-table td { border-bottom: 1px dashed #bbb; }
-      .total { margin-top: 12px; font-size: 18px; font-weight: 700; }
-      .small { color: #444; font-size: 13px; }
-      .footer { margin-top: 34px; border-top: 1px solid #d0d0d0; padding-top: 10px; font-size: 13px; color: #333; }
+      @page { margin: 8mm 10mm 9mm; size: A4; }
+      body { margin: 0; color: #1f1f1f; font-family: "Times New Roman", serif; background: #fff; }
+      .page { padding: 0; }
+      .header { border-bottom: 1.5px solid #3ca6cc; padding-bottom: 5px; }
+      .brand { display: flex; align-items: center; gap: 10px; }
+      .logo { width: 52px; height: 52px; object-fit: contain; }
+      .logo-fallback {
+        width: 52px; height: 52px; border-radius: 50%;
+        border: 1px solid #9db7cf; display: flex; align-items: center; justify-content: center;
+        font-size: 18px; font-weight: 700; color: #0b3760;
+      }
+      .university {
+        font-size: 20px;
+        line-height: 1;
+        font-weight: 700;
+        letter-spacing: 0.6px;
+        color: #0b3760;
+        white-space: nowrap;
+      }
+      .meta {
+        margin-top: 7px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 12.5px;
+      }
+      .meta span { font-weight: 700; }
+      .letter-title {
+        text-align: center;
+        margin: 20px 0 12px;
+        font-size: 16px;
+        font-weight: 700;
+        text-decoration: underline;
+      }
+      .body { font-size: 12px; line-height: 1.58; text-align: justify; }
+      .body p { margin: 0 0 8px; }
+      .fees-table { width: 100%; border-collapse: collapse; margin: 10px 0 8px; font-size: 10.5px; }
+      .fees-table th, .fees-table td { border: 1px solid #9c9c9c; padding: 5px 6px; }
+      .fees-table th { background: #f5f5f5; text-align: center; font-weight: 700; }
+      .fees-table td { text-align: center; }
+      .lower { page-break-inside: avoid; break-inside: avoid; }
+      .account-title { font-weight: 700; margin-top: 10px; font-size: 12.5px; }
+      .accounts { font-size: 11.5px; line-height: 1.45; }
+      .sign-row { margin-top: 14px; display: flex; justify-content: flex-end; }
+      .sign-box { text-align: right; font-size: 11px; line-height: 1.35; }
+      .sign-line { font-size: 12px; color: #2a3f9d; margin-bottom: 2px; letter-spacing: 0.8px; }
+      .bottom-banner {
+        margin-top: 12px; background: #e5ef45; font-weight: 700; text-align: center;
+        padding: 4px 8px; font-size: 11px;
+      }
+      .bottom-info { text-align: center; margin-top: 5px; font-size: 9px; color: #222; line-height: 1.25; }
     </style>
   </head>
   <body>
     <div class="page">
-      <div class="center">
-        <p class="title">Kalinga Institute of Industrial Technology (KIIT)</p>
-        <p class="subtitle">Deemed to be University</p>
-        <p>(Established U/S 3 of UGC Act, 1956), Bhubaneswar, Odisha, India</p>
+      <div class="header">
+        <div class="brand">
+          ${logoHtml}
+          <div class="university">HARIDWAR UNIVERSITY</div>
+        </div>
       </div>
       <div class="meta">
-        <div>
-          <div><strong>Program:</strong> ${programName}</div>
-          <div><strong>Academic Year:</strong> ${academicYear} &nbsp; <strong>Semester:</strong> ${semesterNo || "-"}</div>
-        </div>
-        <div style="text-align:right;">
-          <div><strong>Ref No:</strong> ${escapeHtml(request?.demandLetterRefNo || "-")}</div>
-          <div><strong>Date:</strong> ${issuedDateLabel}</div>
-        </div>
+        <div>Ref. No. : <span>${refNo}</span></div>
+        <div>Date : <span>${issuedDateLabel}</span></div>
       </div>
-      <div class="block">
-        <p><strong>TO,</strong></p>
-        <p>Mr./Mrs. ${guardianName}<br/>G/O ${studentName} (${studentId})</p>
-      </div>
-      <div class="block">
-        <p>This is to certify that the following fee amount is due for the below mentioned student and may be used for education-loan processing.</p>
-      </div>
-      <div class="block">
+      <div class="letter-title">DEMAND LETTER</div>
+      <div class="body">
+        <p>
+          This is to certify that <strong>${studentName}</strong> S/O <strong>${guardianName}</strong> is a bonafide student
+          of this University in <strong>${programName}</strong>, continuing in current academic session
+          <strong>${academicYear}</strong>.
+        </p>
+        <p>
+          Enrollment No. <strong>${studentId || "-"}</strong>. The fee structure for the current ${
+            isYearScope ? "academic year" : "semester"
+          } is as given below:
+        </p>
+        <p><strong>Due Date:</strong> ${escapeHtml(demandDueDateLabel)}</p>
         <table class="fees-table">
+          <thead>
+            <tr>
+              <th>${yearLabel}<br/>(${academicYear})<br/>${semLabelWithRange}</th>
+              <th>Academic Fees</th>
+              <th>Hostel Fee</th>
+              <th>Total</th>
+              <th>Submitted Fee</th>
+              <th>Due Fee</th>
+            </tr>
+          </thead>
           <tbody>
-            ${linesHtml}
+            <tr>
+              <td>${semLabelWithRange}</td>
+              <td>${formatInr(academicFee)}/-</td>
+              <td>${formatInr(hostelFee)}/-</td>
+              <td>${formatInr(total)}/-</td>
+              <td>${formatInr(paid)}/-</td>
+              <td>${formatInr(due)}/-</td>
+            </tr>
           </tbody>
         </table>
-        <p class="total">Total Fees to be Deposited: Rs. ${formatInr(total)}/-</p>
-        <p><strong>Outstanding / Due Amount as on date: Rs. ${formatInr(due)}/-</strong></p>
       </div>
-      <div class="block small">
-        <p>You can download this Demand Letter from your Student Portal.</p>
-      </div>
-      <div class="footer">
-        KIIT University, Bhubaneswar, Odisha, India | admission@kiit.ac.in | +91-674-2724105
+      <div class="lower">
+        <div class="account-title">College Account Details:</div>
+        <div class="accounts">
+          <div><strong>Account Name:</strong> Haridwar University</div>
+          <div><strong>Bank Name:</strong> Punjab National Bank (PNB)</div>
+          <div><strong>Branch:</strong> Roorkee, Civil Lines</div>
+          <div><strong>Account Number:</strong> 0924001200000011</div>
+          <div><strong>IFSC Code:</strong> PUNB0092400</div>
+        </div>
+        <div class="sign-row">
+          <div class="sign-box">
+            <div class="sign-line">________________</div>
+            <div><strong>Registrar</strong></div>
+            <div>Haridwar University</div>
+            <div>Email: registrar@huroorkee.ac.in</div>
+          </div>
+        </div>
+        <div class="bottom-banner">COMMITTED TO EXCELLENCE IN EDUCATION</div>
+        <div class="bottom-info">
+          Address: 5th Km. Roorkee-Haridwar Canal Road, Bajuhari, Roorkee-247667 (Uttarakhand)<br/>
+          e-mail : info@huroorkee.ac.in &nbsp; | &nbsp; www.huroorkee.ac.in
+        </div>
       </div>
     </div>
   </body>
@@ -1090,9 +1542,9 @@ export const createFeeBatch = async (req, res) => {
     if (!isValidId(departmentId) || programIds.some((p) => !isValidId(p))) {
       return res.status(400).json({ message: "Invalid ids in request" });
     }
-    const normalizedBatchYear = toNum(batchYear);
+    const normalizedBatchYear = getAcademicStartYear(batchYear);
     if (Number.isNaN(normalizedBatchYear) || normalizedBatchYear < 2000 || normalizedBatchYear > 2100) {
-      return res.status(400).json({ message: "Invalid batchYear" });
+      return res.status(400).json({ message: "Invalid batchYear. Use format like 2024-2028" });
     }
     const uniqueProgramIds = [...new Set(programIds.map((id) => String(id)))];
 
@@ -1170,7 +1622,7 @@ export const getFeeBatches = async (req, res) => {
       query.departmentId = departmentId;
     }
     if (batchYear) {
-      const year = toNum(batchYear);
+      const year = getAcademicStartYear(batchYear);
       if (Number.isNaN(year)) return res.status(400).json({ message: "Invalid batchYear" });
       query.batchYear = year;
     }
@@ -1181,7 +1633,7 @@ export const getFeeBatches = async (req, res) => {
     const rows = await Batch.find(query)
       .sort({ batchYear: -1, createdAt: -1 })
       .limit(limit)
-      .populate("programIds", "programName")
+      .populate("programIds", "programName durationYears")
       .populate("departmentId", "name code");
 
     return res.status(200).json({ message: "Fee batches retrieved", data: rows });
@@ -1351,6 +1803,7 @@ export const upsertHostelYearlyFee = async (req, res) => {
   try {
     const academicYear = String(req.body?.academicYear || "").trim();
     const hostelYearlyFee = Number(req.body?.hostelYearlyFee);
+    const roomType = normalizeHostelRoomType(req.body?.roomType);
     if (!academicYear || !/^\d{4}-\d{4}$/.test(academicYear)) {
       return res.status(400).json({ message: "academicYear must be in YYYY-YYYY format" });
     }
@@ -1359,8 +1812,8 @@ export const upsertHostelYearlyFee = async (req, res) => {
     }
 
     const row = await FeeHostelYearly.findOneAndUpdate(
-      { academicYear },
-      { hostelYearlyFee: round2(hostelYearlyFee) },
+      { academicYear, roomType },
+      { hostelYearlyFee: round2(hostelYearlyFee), roomType },
       { new: true, upsert: true, setDefaultsOnInsert: true }
     );
 
@@ -1368,7 +1821,7 @@ export const upsertHostelYearlyFee = async (req, res) => {
       action: "FEE_HOSTEL_YEARLY_UPSERT",
       entityType: "FeeHostelYearly",
       entityId: row._id,
-      metadata: { academicYear, hostelYearlyFee: row.hostelYearlyFee },
+      metadata: { academicYear, roomType: row.roomType, hostelYearlyFee: row.hostelYearlyFee },
     });
 
     return res.status(200).json({ message: "Hostel yearly fee saved", data: row });
@@ -1380,8 +1833,11 @@ export const upsertHostelYearlyFee = async (req, res) => {
 export const getHostelYearlyFees = async (req, res) => {
   try {
     const academicYear = String(req.query?.academicYear || "").trim();
-    const query = academicYear ? { academicYear } : {};
-    const rows = await FeeHostelYearly.find(query).sort({ academicYear: -1, createdAt: -1 });
+    const roomType = String(req.query?.roomType || "").trim();
+    const query = {};
+    if (academicYear) query.academicYear = academicYear;
+    if (roomType) query.roomType = normalizeHostelRoomType(roomType);
+    const rows = await FeeHostelYearly.find(query).sort({ academicYear: -1, roomType: 1, createdAt: -1 });
     return res.status(200).json({ message: "Hostel yearly fees retrieved", data: rows });
   } catch (error) {
     return res.status(500).json({ message: sanitizeError(error) });
@@ -1702,9 +2158,9 @@ export const createFeeDemand = async (req, res) => {
       });
     }
     const safeStudentId = ensureSafeText(studentId, "student_id");
-    const safeAcademicYear = sanitizeText(academicYear, 16);
-    if (!ACADEMIC_YEAR_RE.test(safeAcademicYear)) {
-      return res.status(400).json({ message: "Invalid academicYear format. Use YYYY-YY" });
+    const safeAcademicYear = normalizeAcademicYear(sanitizeText(academicYear, 16), { format: "full" });
+    if (!safeAcademicYear) {
+      return res.status(400).json({ message: ACADEMIC_YEAR_ERROR_MESSAGE });
     }
     const semester = toNum(semesterNo);
     if (Number.isNaN(semester) || semester < 1 || semester > 20) {
@@ -1795,9 +2251,9 @@ export const generateFeeDemandFromProfile = async (req, res) => {
     }
 
     const safeStudentId = ensureSafeText(studentId, "student_id");
-    const safeAcademicYear = sanitizeText(academicYear, 16);
-    if (!ACADEMIC_YEAR_RE.test(safeAcademicYear)) {
-      return res.status(400).json({ message: "Invalid academicYear format. Use YYYY-YY" });
+    const safeAcademicYear = normalizeAcademicYear(sanitizeText(academicYear, 16), { format: "full" });
+    if (!safeAcademicYear) {
+      return res.status(400).json({ message: ACADEMIC_YEAR_ERROR_MESSAGE });
     }
     const semester = toNum(semesterNo);
     if (Number.isNaN(semester) || semester < 1 || semester > 20) {
@@ -1886,7 +2342,7 @@ export const getFeeDemandRequests = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit)
       .populate("approvedByUserId", "name email")
-      .populate("linkedDemandId", "academicYear semesterNo totalAmount dueAmount status");
+      .populate("linkedDemandId", "academicYear semesterNo totalAmount dueAmount dueDate status");
     return res.status(200).json({ message: "Fee demand requests retrieved", data: rows });
   } catch (error) {
     return res.status(500).json({ message: sanitizeError(error) });
@@ -1904,33 +2360,69 @@ export const approveFeeDemandRequest = async (req, res) => {
       return res.status(400).json({ message: "Only pending request can be approved" });
     }
 
-    const dueDate = req.body?.dueDate || request.dueDate || new Date();
-    const generated = await (async () => {
+    const dueDateInput = String(req.body?.dueDate || "").trim();
+    if (!dueDateInput) {
+      return res.status(400).json({ message: "dueDate is required while approving request" });
+    }
+    const dueDateObj = new Date(dueDateInput);
+    if (Number.isNaN(dueDateObj.getTime())) {
+      return res.status(400).json({ message: "Invalid dueDate" });
+    }
+
+    const { generated, semesterRange, demandScope } = await (async () => {
       const safeStudentId = String(request.studentId || "").trim();
       const profile = await ensureStudentFeeProfileForEnrollment(safeStudentId);
       if (!profile) throw new Error("PROFILE_NOT_FOUND");
 
       const branch = await Branch.findById(profile.branchId).select("semesterBaseFees branchName");
       if (!branch) throw new Error("BRANCH_NOT_FOUND");
-      const semesterRow = (Array.isArray(branch?.semesterBaseFees) ? branch.semesterBaseFees : []).find(
-        (row) => Number(row?.semesterNo) === Number(request.semesterNo)
-      );
-      if (!semesterRow) {
-        const err = new Error("SEMESTER_FEE_NOT_CONFIGURED");
-        err.details = { branchName: branch.branchName || "Unknown", semesterNo: request.semesterNo };
-        throw err;
-      }
-
-      const grossSemesterFee = round2(Number(semesterRow.baseFee || 0));
+      const semesterRows = Array.isArray(branch?.semesterBaseFees) ? branch.semesterBaseFees : [];
       const courseGross = round2(
-        (Array.isArray(branch?.semesterBaseFees) ? branch.semesterBaseFees : []).reduce(
-          (sum, row) => sum + Number(row?.baseFee || 0),
-          0
-        )
+        semesterRows.reduce((sum, row) => sum + Number(row?.baseFee || 0), 0)
       );
       const courseNet = round2(Number(profile?.feeSummary?.courseNetFee || 0));
       const ratio = courseGross > 0 ? Math.min(1, Math.max(0, courseNet / courseGross)) : 1;
-      const netTuition = round2(grossSemesterFee * ratio);
+
+      const reqScope = normalizeDemandScope(request?.scope || (Number(request.semesterNo) === 0 ? "YEAR" : "SEMESTER"));
+      const isYearScope = reqScope === "YEAR";
+      let netTuition = 0;
+      let semesterNo = Number(request.semesterNo);
+      let computedRange = null;
+
+      if (isYearScope) {
+        const program = await Program.findById(profile.programId).select("durationYears totalSemesters");
+        const { start, end } = getAcademicYearSemesterRange({
+          currentSemester: profile.currentSemester,
+          program,
+        });
+        const missing = [];
+        let grossYearFee = 0;
+        for (let sem = start; sem <= end; sem += 1) {
+          const row = semesterRows.find((item) => Number(item?.semesterNo) === Number(sem));
+          if (!row) {
+            missing.push(sem);
+          } else {
+            grossYearFee += Number(row?.baseFee || 0);
+          }
+        }
+        if (missing.length) {
+          const err = new Error("SEMESTER_FEE_NOT_CONFIGURED");
+          err.details = { branchName: branch.branchName || "Unknown", semesterNo: missing.join(", ") };
+          throw err;
+        }
+        netTuition = round2(round2(grossYearFee) * ratio);
+        semesterNo = 0;
+        computedRange = { start, end };
+      } else {
+        const semesterRow = semesterRows.find((row) => Number(row?.semesterNo) === Number(request.semesterNo));
+        if (!semesterRow) {
+          const err = new Error("SEMESTER_FEE_NOT_CONFIGURED");
+          err.details = { branchName: branch.branchName || "Unknown", semesterNo: request.semesterNo };
+          throw err;
+        }
+        const grossSemesterFee = round2(Number(semesterRow.baseFee || 0));
+        netTuition = round2(grossSemesterFee * ratio);
+      }
 
       const heads = [{ head: "TUITION", amount: netTuition }];
       const hostelFee = round2(Math.max(0, Number(request.hostelAmount || 0)));
@@ -1938,13 +2430,13 @@ export const approveFeeDemandRequest = async (req, res) => {
       if (profile.hostelOpted && hostelFee > 0) heads.push({ head: "HOSTEL", amount: hostelFee });
       if (profile.transportOpted && transportFee > 0) heads.push({ head: "TRANSPORT", amount: transportFee });
 
-      const dueDateObj = new Date(dueDate);
       const totalAmount = sumBreakdownAmount(heads);
-      return FeeDemand.create({
+      const doc = await FeeDemand.create({
         studentMongoId: profile._id,
         studentId: safeStudentId,
         academicYear: String(request.academicYear || "").trim(),
-        semesterNo: Number(request.semesterNo),
+        semesterNo,
+        scope: reqScope,
         breakdown: heads.map((item) => ({
           head: item.head,
           amount: round2(Number(item.amount || 0)),
@@ -1956,19 +2448,24 @@ export const approveFeeDemandRequest = async (req, res) => {
         dueDate: dueDateObj,
         status: "PENDING",
       });
+      return { generated: doc, semesterRange: computedRange, demandScope: reqScope };
     })();
 
     request.status = "APPROVED";
     request.approvedByUserId = req.userId || null;
     request.approvedAt = new Date();
+    request.dueDate = dueDateObj;
     request.linkedDemandId = generated._id;
+    request.scope = demandScope;
     const [studentDoc, profileDoc] = await Promise.all([
       Student.findOne({ enrollmentNumber: request.studentId, isDeleted: { $ne: true } })
         .populate("user", "name")
         .select("enrollmentNumber fatherName program academicYear"),
       StudentFeeDetails.findById(request.studentMongoId).populate("programId", "programName"),
     ]);
-    request.demandLetterRefNo = await getNextDemandLetterRefNo();
+    request.demandLetterRefNo = await getNextDemandLetterRefNo(
+      String(generated?.academicYear || request?.academicYear || "")
+    );
     request.demandLetterIssuedAt = new Date();
     request.demandLetterSnapshot = {
       studentId: request.studentId,
@@ -1977,6 +2474,8 @@ export const approveFeeDemandRequest = async (req, res) => {
       programName: String(profileDoc?.programId?.programName || studentDoc?.program || ""),
       academicYear: String(generated?.academicYear || request.academicYear || studentDoc?.academicYear || ""),
       semesterNo: Number(generated?.semesterNo || request.semesterNo || 0),
+      scope: demandScope,
+      semesterRange: semesterRange,
       breakdown: Array.isArray(generated?.breakdown)
         ? generated.breakdown.map((row) => ({
             head: String(row?.head || ""),
@@ -1985,6 +2484,7 @@ export const approveFeeDemandRequest = async (req, res) => {
         : [],
       totalAmount: round2(Number(generated?.totalAmount || 0)),
       dueAmount: round2(Number(generated?.dueAmount || 0)),
+      dueDate: dueDateObj,
     };
     await request.save();
 
@@ -1996,6 +2496,7 @@ export const approveFeeDemandRequest = async (req, res) => {
         studentId: request.studentId,
         academicYear: request.academicYear,
         semesterNo: request.semesterNo,
+        scope: demandScope,
         demandId: generated._id,
       },
     });
@@ -2048,7 +2549,53 @@ export const getFeeDemands = async (req, res) => {
 
     const rawLimit = Number(req.query?.limit || 150);
     const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, Math.floor(rawLimit))) : 150;
-    const demands = await FeeDemand.find(filter).sort({ createdAt: -1 }).limit(limit);
+    const demands = await FeeDemand.find(filter)
+      .populate({
+        path: "studentMongoId",
+        select: "studentId userId",
+        populate: { path: "userId", select: "name" },
+      })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+
+    const userIds = new Set();
+    const enrollmentNumbers = new Set();
+    demands.forEach((demand) => {
+      const userId = demand?.studentMongoId?.userId?._id;
+      if (userId) userIds.add(String(userId));
+      if (demand?.studentId) enrollmentNumbers.add(String(demand.studentId));
+    });
+
+    if (userIds.size || enrollmentNumbers.size) {
+      const students = await Student.find({
+        $or: [
+          userIds.size ? { user: { $in: Array.from(userIds) } } : null,
+          enrollmentNumbers.size ? { enrollmentNumber: { $in: Array.from(enrollmentNumbers) } } : null,
+        ].filter(Boolean),
+      })
+        .select("user enrollmentNumber fatherName")
+        .lean();
+
+      const fatherByUser = new Map();
+      const fatherByEnrollment = new Map();
+      students.forEach((student) => {
+        if (student?.user) fatherByUser.set(String(student.user), student.fatherName || "");
+        if (student?.enrollmentNumber) {
+          fatherByEnrollment.set(String(student.enrollmentNumber), student.fatherName || "");
+        }
+      });
+
+      demands.forEach((demand) => {
+        const userId = demand?.studentMongoId?.userId?._id;
+        const fatherName =
+          (userId && fatherByUser.get(String(userId))) ||
+          (demand?.studentId && fatherByEnrollment.get(String(demand.studentId))) ||
+          "";
+        demand.studentFatherName = fatherName;
+      });
+    }
+
     return res.status(200).json({ message: "Fee demands retrieved", data: demands });
   } catch (error) {
     return res.status(500).json({ message: sanitizeError(error) });
@@ -2343,6 +2890,26 @@ export const getMyFeeProfile = async (req, res) => {
 
     if (!profile) return res.status(404).json({ message: "Student fee profile not found" });
 
+    // Self-heal stale feeSummary values from historical/incorrect mappings.
+    const computedSummary = computeCourseFeeSummary({
+      branch: profile.branchId,
+      scholarship: profile.scholarship,
+      discount: profile.discount,
+    });
+    const existingPaid = round2(Math.max(0, Number(profile?.feeSummary?.totalPaid || 0)));
+    const cappedPaid = round2(Math.min(existingPaid, Number(computedSummary.courseNetFee || 0)));
+    const normalizedSummary = {
+      ...computedSummary,
+      totalPaid: cappedPaid,
+      remainingFee: round2(Math.max(0, Number(computedSummary.courseNetFee || 0) - cappedPaid)),
+    };
+    const prevNet = round2(Number(profile?.feeSummary?.courseNetFee || 0));
+    const nextNet = round2(Number(normalizedSummary.courseNetFee || 0));
+    if (Math.abs(prevNet - nextNet) >= 1) {
+      profile.feeSummary = normalizedSummary;
+      await profile.save();
+    }
+
     const semRows = Array.isArray(profile?.branchId?.semesterBaseFees)
       ? profile.branchId.semesterBaseFees
       : [];
@@ -2356,10 +2923,13 @@ export const getMyFeeProfile = async (req, res) => {
       yearlyMap.set(yearNo, current);
     });
     const studentRow = await Student.findOne({ user: req.userId, isDeleted: { $ne: true } }).select(
-      "academicYear"
+      "_id academicYear"
     );
     const studentAcademicYear = String(studentRow?.academicYear || "").trim();
-    const { hostelYearlyFee, transportYearlyFee } = await getYearlyAddOnFees(studentAcademicYear);
+    const hostelRoomType = await resolveActiveHostelRoomTypeForStudent(studentRow?._id);
+    const { hostelYearlyFee, transportYearlyFee } = await getYearlyAddOnFees(studentAcademicYear, {
+      hostelRoomType,
+    });
     const yearWise = Array.from(yearlyMap.values())
       .sort((a, b) => a.yearNo - b.yearNo)
       .map((row) => {
@@ -2481,7 +3051,7 @@ export const getMyFeeDemandRequests = async (req, res) => {
     const rows = await FeeDemandRequest.find(query)
       .sort({ createdAt: -1 })
       .limit(limit)
-      .populate("linkedDemandId", "academicYear semesterNo totalAmount dueAmount status");
+      .populate("linkedDemandId", "academicYear semesterNo totalAmount dueAmount dueDate status");
 
     return res.status(200).json({ message: "My demand requests retrieved", data: rows });
   } catch (error) {
@@ -2494,16 +3064,20 @@ export const createMyFeeDemandRequest = async (req, res) => {
     const current = await getCurrentStudentFeeProfile(req.userId);
     if (!current || !current.profile) return res.status(404).json({ message: "Student fee profile not found" });
 
-    const { academicYear, semesterNo, dueDate, hostelAmount = 0, transportAmount = 0, note = "" } = req.body || {};
-    if (!academicYear || !semesterNo) {
-      return res.status(400).json({ message: "academicYear and semesterNo are required" });
+    const { academicYear, semesterNo, hostelAmount = 0, transportAmount = 0, note = "" } = req.body || {};
+    const requestScope = normalizeDemandScope(req.body?.scope || req.body?.requestScope || req.body?.applyFor);
+    const isYearScope = requestScope === "YEAR";
+    if (!academicYear || (!isYearScope && !semesterNo)) {
+      return res.status(400).json({
+        message: isYearScope ? "academicYear is required" : "academicYear and semesterNo are required",
+      });
     }
-    const safeAcademicYear = sanitizeText(academicYear, 16);
-    if (!ACADEMIC_YEAR_RE.test(safeAcademicYear)) {
-      return res.status(400).json({ message: "Invalid academicYear format. Use YYYY-YY" });
+    const safeAcademicYear = normalizeAcademicYear(sanitizeText(academicYear, 16), { format: "full" });
+    if (!safeAcademicYear) {
+      return res.status(400).json({ message: ACADEMIC_YEAR_ERROR_MESSAGE });
     }
-    const semester = toNum(semesterNo);
-    if (Number.isNaN(semester) || semester < 1 || semester > 20) {
+    const semester = isYearScope ? 0 : toNum(semesterNo);
+    if (!isYearScope && (Number.isNaN(semester) || semester < 1 || semester > 20)) {
       return res.status(400).json({ message: "Invalid semesterNo" });
     }
 
@@ -2511,16 +3085,28 @@ export const createMyFeeDemandRequest = async (req, res) => {
     if (!branch) {
       return res.status(400).json({ message: "Fee branch is not configured for your profile. Please contact administration." });
     }
-    const semesterRow = (Array.isArray(branch.semesterBaseFees) ? branch.semesterBaseFees : []).find(
-      (row) => Number(row?.semesterNo) === Number(semester)
-    );
-    if (!semesterRow) {
-      return res.status(400).json({ message: `Semester ${semester} base fee is not configured for your branch. Please contact administration.` });
-    }
-
-    const dueDateObj = dueDate ? new Date(dueDate) : null;
-    if (dueDate && Number.isNaN(dueDateObj.getTime())) {
-      return res.status(400).json({ message: "Invalid dueDate" });
+    const semesterRows = Array.isArray(branch.semesterBaseFees) ? branch.semesterBaseFees : [];
+    if (isYearScope) {
+      const program = await Program.findById(current.profile.programId).select("durationYears totalSemesters");
+      const { start, end } = getAcademicYearSemesterRange({
+        currentSemester: current.profile.currentSemester,
+        program,
+      });
+      const missing = [];
+      for (let sem = start; sem <= end; sem += 1) {
+        const row = semesterRows.find((item) => Number(item?.semesterNo) === Number(sem));
+        if (!row) missing.push(sem);
+      }
+      if (missing.length) {
+        return res.status(400).json({
+          message: `Semester ${missing.join(", ")} base fee is not configured for your branch. Please contact administration.`,
+        });
+      }
+    } else {
+      const semesterRow = semesterRows.find((row) => Number(row?.semesterNo) === Number(semester));
+      if (!semesterRow) {
+        return res.status(400).json({ message: `Semester ${semester} base fee is not configured for your branch. Please contact administration.` });
+      }
     }
 
     const doc = await FeeDemandRequest.create({
@@ -2528,7 +3114,8 @@ export const createMyFeeDemandRequest = async (req, res) => {
       studentId: current.profile.studentId,
       academicYear: safeAcademicYear,
       semesterNo: semester,
-      dueDate: dueDateObj || null,
+      scope: requestScope,
+      dueDate: null,
       hostelAmount: round2(Math.max(0, Number(hostelAmount || 0))),
       transportAmount: round2(Math.max(0, Number(transportAmount || 0))),
       note: sanitizeText(note, 500),
@@ -2559,7 +3146,7 @@ const getApprovedDemandRequestForStudent = async ({ requestId, userId }) => {
 
   const row = await FeeDemandRequest.findById(requestId).populate(
     "linkedDemandId",
-    "breakdown totalAmount dueAmount academicYear semesterNo"
+    "breakdown totalAmount dueAmount dueDate academicYear semesterNo"
   );
   if (!row) {
     const error = new Error("REQUEST_NOT_FOUND");
@@ -2588,8 +3175,9 @@ const sendDemandLetterPdf = async ({ res, request, demand, disposition = "inline
     printBackground: true,
   });
   const safeStudentId = String(request?.studentId || "student").replace(/[^a-zA-Z0-9_-]/g, "_");
-  const safeSem = Number(request?.semesterNo || 0) || "sem";
-  const fileName = `${safeStudentId}_demand_letter_${safeSem}.pdf`;
+  const scope = normalizeDemandScope(request?.scope || (Number(request?.semesterNo || 0) === 0 ? "YEAR" : "SEMESTER"));
+  const suffix = scope === "YEAR" ? "year" : `sem_${Number(request?.semesterNo || 0) || "sem"}`;
+  const fileName = `${safeStudentId}_demand_letter_${suffix}.pdf`;
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `${disposition}; filename=\"${fileName}\"`);
   return res.status(200).send(pdfBuffer);
@@ -3204,14 +3792,14 @@ export const createMyRazorpayOrderForYear = async (req, res) => {
     const current = await getCurrentStudentFeeProfile(req.userId);
     if (!current || !current.profile) return res.status(404).json({ message: "Student fee profile not found" });
 
-    const academicYear = String(req.body?.academicYear || "").trim();
+    const academicYear = normalizeAcademicYear(String(req.body?.academicYear || "").trim(), { format: "full" });
     if (!isValidAcademicYear(academicYear)) {
-      return res.status(400).json({ message: "Invalid academicYear format. Use YYYY-YY" });
+      return res.status(400).json({ message: ACADEMIC_YEAR_ERROR_MESSAGE });
     }
 
     const demands = await FeeDemand.find({
       studentMongoId: current.profile._id,
-      academicYear,
+      academicYear: { $in: getAcademicYearCandidates(academicYear) },
       dueAmount: { $gt: 0 },
     }).sort({ semesterNo: 1 });
     if (!demands.length) {
@@ -3616,11 +4204,13 @@ export const createFeeCalendarEvent = async (req, res) => {
       return res.status(400).json({ message: "Valid date and time are required" });
     }
     const eventType = String(type || "General");
-    const safeAcademicYear = String(academicYear || "").trim();
+    const safeAcademicYear = normalizeAcademicYear(String(academicYear || "").trim(), {
+      format: "full",
+    });
     const sem = semesterNo != null ? toNum(semesterNo) : null;
     if (eventType === "Semester Due Date") {
       if (!isValidAcademicYear(safeAcademicYear)) {
-        return res.status(400).json({ message: "Invalid academicYear format. Use YYYY-YY" });
+        return res.status(400).json({ message: ACADEMIC_YEAR_ERROR_MESSAGE });
       }
       if (Number.isNaN(sem) || sem < 1 || sem > 20) {
         return res.status(400).json({ message: "Invalid semesterNo" });
@@ -3662,7 +4252,15 @@ export const updateFeeCalendarEvent = async (req, res) => {
     if (title) update.title = ensureSafeText(title, "title");
     if (description != null) update.description = sanitizeText(description, 500);
     if (type) update.eventType = String(type);
-    if (academicYear != null) update.academicYear = String(academicYear || "").trim();
+    if (academicYear != null) {
+      const normalizedYear = normalizeAcademicYear(String(academicYear || "").trim(), {
+        format: "full",
+      });
+      if (!normalizedYear) {
+        return res.status(400).json({ message: ACADEMIC_YEAR_ERROR_MESSAGE });
+      }
+      update.academicYear = normalizedYear;
+    }
     if (semesterNo != null) update.semesterNo = toNum(semesterNo);
     if (eventDate || (date && time)) {
       const resolvedDate = eventDate ? new Date(eventDate) : new Date(`${date}T${time}`);

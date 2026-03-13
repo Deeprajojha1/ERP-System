@@ -25,6 +25,12 @@ const groupSchema = new mongoose.Schema(
       required: true,
     },
 
+    branch: {
+      type: String,
+      trim: true,
+      default: "",
+    },
+
     coordinator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Faculty",

@@ -18,13 +18,15 @@ const roomSchema = new mongoose.Schema(
 
     bedTier: {
       type: String,
-      enum: ["single", "two-tier", "three-tier", "four-tier"],
+      trim: true,
+      lowercase: true,
       default: "single",
     },
 
     capacity: {
       type: Number,
-      enum: [1, 2, 3, 4],
+      min: 1,
+      max: 20,
       required: true,
     },
 

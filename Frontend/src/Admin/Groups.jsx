@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import axios from "../utils/axiosInstance";
 import {
   FiEdit2,
   FiLoader,
@@ -31,6 +32,24 @@ import {
   updateAdminGroup,
 } from "../redux/groupSlice";
 
+const normalizeLoose = (value = "") =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const extractBranchName = (branch) => {
+  if (!branch) return "";
+  if (typeof branch === "string") return branch.trim();
+  return String(branch?.branchName || branch?.name || "").trim();
+};
+
+const getErrorMessage = (error, fallback) => {
+  if (typeof error === "string" && error.trim()) return error;
+  const message = error?.response?.data?.message || error?.message;
+  return String(message || fallback);
+};
+
 const Groups = () => {
   const dispatch = useDispatch();
   const [search, setSearch] = useState("");
@@ -54,9 +73,12 @@ const Groups = () => {
   const [formData, setFormData] = useState({
     name: "",
     department: "",
+    selectedProgramId: "",
+    branch: "",
     coordinator: "",
     roomNo: "",
   });
+  const [feePrograms, setFeePrograms] = useState([]);
   const cardGradients = [
     "linear-gradient(145deg, #dbeafe 0%, #f8fbff 45%, #ffffff 100%)",
     "linear-gradient(145deg, #dcfce7 0%, #f2fff7 45%, #ffffff 100%)",
@@ -84,10 +106,24 @@ const Groups = () => {
     setFormData({
       name: "",
       department: "",
+      selectedProgramId: "",
+      branch: "",
       coordinator: "",
       roomNo: "",
     });
   }, []);
+
+  const loadFeePrograms = useCallback(async () => {
+    if (!apiBase) return;
+    const res = await axios.get(`${apiBase}/admin/fee/program`, {
+      withCredentials: true,
+      skipNetworkRedirect: true,
+      params: { noCache: "true" },
+    });
+    const list = Array.isArray(res.data?.data) ? res.data.data : [];
+    setFeePrograms(list);
+    return list;
+  }, [apiBase]);
 
   const loadGroups = useCallback(
     async ({ silent = false, noCache = false } = {}) => {
@@ -96,7 +132,7 @@ const Groups = () => {
         await dispatch(fetchAdminGroups({ apiBase, noCache })).unwrap();
       } catch (error) {
         if (!silent) {
-          toast.error(error || "Failed to load groups");
+          toast.error(getErrorMessage(error, "Failed to load groups"));
         }
       }
     },
@@ -143,11 +179,12 @@ const Groups = () => {
     setIsOpeningAdd(true);
     try {
       await dispatch(fetchGroupModalDependencies({ apiBase })).unwrap();
+      await loadFeePrograms();
       setEditTarget(null);
       resetForm();
       setIsOpen(true);
     } catch (error) {
-      toast.error(error || "Failed to load form data");
+      toast.error(getErrorMessage(error, "Failed to load form data"));
     } finally {
       setIsOpeningAdd(false);
     }
@@ -161,17 +198,40 @@ const Groups = () => {
     if (!apiBase || modalLoadState === ADMIN_LOAD_STATES.PENDING || !group?._id) return;
     setOpeningEditId(group._id);
     try {
-      await dispatch(fetchGroupModalDependencies({ apiBase })).unwrap();
+      const deps = await dispatch(fetchGroupModalDependencies({ apiBase })).unwrap();
+      const loadedPrograms = (await loadFeePrograms()) || [];
+      const existingBranch = String(group.branch || "").trim();
+      const dependencyDepartments = Array.isArray(deps?.departments) ? deps.departments : departments;
+      const departmentObj = dependencyDepartments.find(
+        (d) => String(d._id) === String(group.department?._id || group.department || "")
+      );
+      const departmentProgramList = Array.isArray(departmentObj?.program)
+        ? departmentObj.program
+        : Array.isArray(departmentObj?.programs)
+        ? departmentObj.programs
+        : [];
+      const departmentProgramSet = new Set(
+        departmentProgramList.map((item) => normalizeLoose(item)).filter(Boolean)
+      );
+      const matchedProgram = loadedPrograms.find((program) => {
+        const programNorm = normalizeLoose(program?.programName);
+        if (!programNorm || !departmentProgramSet.has(programNorm)) return false;
+        return (program?.branchIds || []).some(
+          (branch) => normalizeLoose(extractBranchName(branch)) === normalizeLoose(existingBranch)
+        );
+      });
       setEditTarget(group);
       setFormData({
         name: group.name || "",
         department: group.department?._id || group.department || "",
+        selectedProgramId: matchedProgram?._id || "",
+        branch: group.branch || "",
         coordinator: group.coordinator?._id || group.coordinator || "",
         roomNo: group.roomNo || "",
       });
       setIsOpen(true);
     } catch (error) {
-      toast.error(error || "Failed to load form data");
+      toast.error(getErrorMessage(error, "Failed to load form data"));
     } finally {
       setOpeningEditId(null);
     }
@@ -189,7 +249,7 @@ const Groups = () => {
       await dispatch(deleteAdminGroup({ apiBase, id: group._id })).unwrap();
       toast.success("Group deleted successfully");
     } catch (error) {
-      toast.error(error || "Failed to delete group");
+      toast.error(getErrorMessage(error, "Failed to delete group"));
     }
   };
 
@@ -198,8 +258,10 @@ const Groups = () => {
     if (submitLoadState === ADMIN_LOAD_STATES.PENDING) return;
 
     const payload = {
-      ...formData,
       name: String(formData.name || "").trim(),
+      department: formData.department,
+      branch: String(formData.branch || "").trim(),
+      coordinator: formData.coordinator,
       roomNo: String(formData.roomNo || "").trim(),
     };
 
@@ -221,7 +283,7 @@ const Groups = () => {
       setEditTarget(null);
       resetForm();
     } catch (error) {
-      toast.error(error || "Failed to save group");
+      toast.error(getErrorMessage(error, "Failed to save group"));
     }
   };
 
@@ -364,6 +426,7 @@ const Groups = () => {
                   <p className="groups-code">
                     {g.department?.name || "Department"}
                   </p>
+                  {g.branch ? <p className="groups-code">Branch: {g.branch}</p> : null}
                 </div>
 
                 <div className="groups-meta">
@@ -429,6 +492,8 @@ const Groups = () => {
                     setFormData((prev) => ({
                       ...prev,
                       department: e.target.value,
+                      selectedProgramId: "",
+                      branch: "",
                     }))
                   }
                 >
@@ -438,6 +503,100 @@ const Groups = () => {
                       {d.name}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label>
+                Program
+                <select
+                  value={formData.selectedProgramId}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      selectedProgramId: e.target.value,
+                      branch: "",
+                    }))
+                  }
+                  disabled={!formData.department}
+                  required
+                >
+                  <option value="">
+                    {formData.department ? "Select Program" : "Select Department first"}
+                  </option>
+                  {(() => {
+                    const selectedDepartment = departments.find(
+                      (d) => String(d._id) === String(formData.department)
+                    );
+                    const departmentProgramList = Array.isArray(selectedDepartment?.program)
+                      ? selectedDepartment.program
+                      : Array.isArray(selectedDepartment?.programs)
+                      ? selectedDepartment.programs
+                      : [];
+                    const departmentProgramSet = new Set(
+                      departmentProgramList.map((item) => normalizeLoose(item)).filter(Boolean)
+                    );
+                    return feePrograms
+                      .filter((program) =>
+                        departmentProgramSet.has(normalizeLoose(program?.programName))
+                      )
+                      .map((program) => (
+                        <option key={program._id} value={program._id}>
+                          {program.programName}
+                        </option>
+                      ));
+                  })()}
+                </select>
+              </label>
+              <label>
+                Branch
+                <select
+                  value={formData.branch}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, branch: e.target.value }))
+                  }
+                  disabled={!formData.department}
+                  required
+                >
+                  <option value="">
+                    {formData.department ? "Select Branch" : "Select Department first"}
+                  </option>
+                  {(() => {
+                    const selectedDepartment = departments.find(
+                      (d) => String(d._id) === String(formData.department)
+                    );
+                    const departmentProgramList = Array.isArray(selectedDepartment?.program)
+                      ? selectedDepartment.program
+                      : Array.isArray(selectedDepartment?.programs)
+                      ? selectedDepartment.programs
+                      : [];
+                    const departmentProgramSet = new Set(
+                      departmentProgramList.map((item) => normalizeLoose(item)).filter(Boolean)
+                    );
+                    const allowedPrograms = feePrograms.filter((program) =>
+                      departmentProgramSet.has(normalizeLoose(program?.programName))
+                    );
+                    const scopedPrograms = formData.selectedProgramId
+                      ? allowedPrograms.filter(
+                          (program) => String(program._id) === String(formData.selectedProgramId)
+                        )
+                      : allowedPrograms;
+                    const branchSet = new Set();
+                    scopedPrograms.forEach((program) => {
+                      (program?.branchIds || []).forEach((branch) => {
+                        const name = extractBranchName(branch);
+                        if (name) branchSet.add(name);
+                      });
+                    });
+                    if (formData.branch && !branchSet.has(formData.branch)) {
+                      branchSet.add(formData.branch);
+                    }
+                    return Array.from(branchSet)
+                      .sort((a, b) => a.localeCompare(b))
+                      .map((branchName) => (
+                        <option key={branchName} value={branchName}>
+                          {branchName}
+                        </option>
+                      ));
+                  })()}
                 </select>
               </label>
               <label>

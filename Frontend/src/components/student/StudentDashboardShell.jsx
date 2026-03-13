@@ -56,6 +56,7 @@ import {
   selectMyFeeProfile,
   selectMyDemands,
   selectMyPayments,
+  selectMyYearlyBreakdown,
 } from "../../redux/feeSlice";
 import { downloadPdfFromHtml } from "../../utils/pdfDownload";
 import "./StudentDashboardShell.css";
@@ -103,6 +104,7 @@ const StudentDashboardShell = ({
   const myFeeProfile = useSelector(selectMyFeeProfile);
   const myDemands = useSelector(selectMyDemands);
   const myPayments = useSelector(selectMyPayments);
+  const myYearlyBreakdown = useSelector(selectMyYearlyBreakdown);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => (typeof window !== "undefined" ? window.innerWidth >= 769 : true)
@@ -139,11 +141,12 @@ const StudentDashboardShell = ({
   const [demandRequestForm, setDemandRequestForm] = useState({
     academicYear: defaultAcademicYear,
     semesterNo: String(roleDetails?.semester || 1),
-    dueDate: "",
+    scope: "SEMESTER",
     hostelAmount: "0",
     transportAmount: "0",
     note: "",
   });
+  const [useYearlyHostelFee, setUseYearlyHostelFee] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -257,6 +260,14 @@ const StudentDashboardShell = ({
       return { total: demandTotal, paid: demandPaid, remaining: Math.max(demandTotal - demandPaid, 0) };
     }
 
+    const yearlyTotal = (myYearlyBreakdown || []).reduce(
+      (sum, row) => sum + Number(row?.totalFee || 0),
+      0
+    );
+    if (yearlyTotal > 0) {
+      return { total: yearlyTotal, paid: 0, remaining: yearlyTotal };
+    }
+
     const total =
       Number(roleDetails?.totalAcademicFee) ||
       Number(roleDetails?.fees?.academic?.total) ||
@@ -267,7 +278,7 @@ const StudentDashboardShell = ({
       0;
     const remaining = Math.max(total - paid, 0);
     return { total, paid, remaining };
-  }, [myFeeProfile, myDemands, roleDetails]);
+  }, [myFeeProfile, myDemands, myYearlyBreakdown, roleDetails]);
 
   const formatAmount = (value) =>
     new Intl.NumberFormat("en-IN", {
@@ -275,6 +286,39 @@ const StudentDashboardShell = ({
       currency: "INR",
       maximumFractionDigits: 0,
     }).format(Number(value) || 0);
+
+  const demandScope = String(demandRequestForm.scope || "SEMESTER").toUpperCase();
+  const isYearRequest = demandScope === "YEAR";
+  useEffect(() => {
+    if (!isYearRequest && useYearlyHostelFee) {
+      setUseYearlyHostelFee(false);
+    }
+  }, [isYearRequest, useYearlyHostelFee]);
+  const rawSemesterNo = Number(
+    myFeeProfile?.currentSemester || roleDetails?.semester || demandRequestForm.semesterNo || 1
+  );
+  const currentSemesterNo = Number.isFinite(rawSemesterNo) && rawSemesterNo > 0 ? rawSemesterNo : 1;
+  const semsPerYear = Number(roleDetails?.durationYears) && Number(roleDetails?.totalSemesters)
+    ? Math.max(1, Math.round(Number(roleDetails.totalSemesters) / Number(roleDetails.durationYears)))
+    : 2;
+  const yearStartSemester = Math.max(1, Math.floor((currentSemesterNo - 1) / semsPerYear) * semsPerYear + 1);
+  const yearEndSemester = yearStartSemester + semsPerYear - 1;
+  const yearRangeLabel = `Sem ${yearStartSemester}-${yearEndSemester}`;
+  const currentYearNo = Math.ceil(currentSemesterNo / semsPerYear);
+  const currentYearBreakdown = (myYearlyBreakdown || []).find(
+    (row) => Number(row?.yearNo) === Number(currentYearNo)
+  );
+  const suggestedHostelYearFee = Number(currentYearBreakdown?.hostelFee || 0);
+  const canSuggestHostelYearFee = suggestedHostelYearFee > 0;
+  const lockHostelAmount = useYearlyHostelFee && canSuggestHostelYearFee;
+
+  const formatSemesterLabel = (semesterNo, scope) => {
+    const normalizedScope = String(scope || "").toUpperCase();
+    const sem = Number(semesterNo);
+    if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+    if (Number.isFinite(sem) && sem > 0) return `Sem ${sem}`;
+    return "-";
+  };
 
   const handleMenuClick = (item) => {
     navigate(item.path);
@@ -285,8 +329,8 @@ const StudentDashboardShell = ({
 
   const submitDemandRequest = async (event) => {
     event.preventDefault();
-    if (!demandRequestForm.academicYear || !demandRequestForm.semesterNo) {
-      toast.error("Academic year and semester are required");
+    if (!demandRequestForm.academicYear || (!isYearRequest && !demandRequestForm.semesterNo)) {
+      toast.error(isYearRequest ? "Academic year is required" : "Academic year and semester are required");
       return;
     }
 
@@ -294,15 +338,15 @@ const StudentDashboardShell = ({
       await dispatch(
         createMyDemandRequest({
           academicYear: String(demandRequestForm.academicYear || "").trim(),
-          semesterNo: Number(demandRequestForm.semesterNo),
-          dueDate: demandRequestForm.dueDate || null,
+          semesterNo: isYearRequest ? 0 : Number(demandRequestForm.semesterNo),
+          scope: isYearRequest ? "YEAR" : "SEMESTER",
           hostelAmount: Number(demandRequestForm.hostelAmount || 0),
           transportAmount: Number(demandRequestForm.transportAmount || 0),
           note: String(demandRequestForm.note || "").trim(),
         })
       ).unwrap();
       toast.success("Demand request sent to admin");
-      setDemandRequestForm((prev) => ({ ...prev, note: "", dueDate: "" }));
+      setDemandRequestForm((prev) => ({ ...prev, note: "" }));
     } catch (error) {
       toast.error(error || "Failed to submit demand request");
     }
@@ -1035,6 +1079,7 @@ const StudentDashboardShell = ({
                 <tr className="border-b border-slate-200 text-left text-xs font-medium uppercase tracking-wide text-slate-500">
                   <th className="pb-2 pr-4">Year</th>
                   <th className="pb-2 pr-4">Sem</th>
+                  <th className="pb-2 pr-4">Type</th>
                   <th className="pb-2 pr-4">Total</th>
                   <th className="pb-2 pr-4">Paid</th>
                   <th className="pb-2 pr-4">Due</th>
@@ -1046,7 +1091,12 @@ const StudentDashboardShell = ({
                 {demandsList.map((d) => (
                   <tr key={d._id} className="border-t border-slate-50 transition hover:bg-slate-50">
                     <td className="py-2.5 pr-4 text-slate-700">{d.academicYear || "-"}</td>
-                    <td className="py-2.5 pr-4 text-slate-700">{d.semesterNo || "-"}</td>
+                    <td className="py-2.5 pr-4 text-slate-700">{formatSemesterLabel(d.semesterNo, d.scope)}</td>
+                    <td className="py-2.5 pr-4 text-slate-700">
+                      {(Array.isArray(d.breakdown) ? d.breakdown : []).some((row) => String(row?.head || "").toUpperCase() === "HOSTEL")
+                        ? "Academic + Hostel"
+                        : "Academic"}
+                    </td>
                     <td className="py-2.5 pr-4 font-medium text-slate-800">{formatAmount(d.totalAmount)}</td>
                     <td className="py-2.5 pr-4 text-emerald-600">{formatAmount(d.paidAmount)}</td>
                     <td className="py-2.5 pr-4 text-red-500">{formatAmount(d.dueAmount)}</td>
@@ -1116,7 +1166,7 @@ const StudentDashboardShell = ({
                     </td>
                     <td className="py-2.5 pr-4 text-slate-500">{p.receiptNo || "-"}</td>
                     <td className="py-2.5 text-slate-500">
-                      {p.demandId?.semesterNo ? `Sem ${p.demandId.semesterNo}` : "-"}
+                      {formatSemesterLabel(p.demandId?.semesterNo, p.demandId?.scope)}
                     </td>
                   </tr>
                 ))}
@@ -1143,6 +1193,41 @@ const StudentDashboardShell = ({
               <HiOutlineAcademicCap size={16} className="text-indigo-500" />
               Academic Details
             </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs font-medium text-slate-500">
+              <span>Apply For</span>
+              <button
+                type="button"
+                className={`rounded-full border px-3 py-1 transition ${
+                  demandScope === "SEMESTER"
+                    ? "border-blue-200 bg-blue-50 text-blue-700"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+                onClick={() =>
+                  setDemandRequestForm((prev) => ({
+                    ...prev,
+                    scope: "SEMESTER",
+                  }))
+                }
+              >
+                Semester
+              </button>
+              <button
+                type="button"
+                className={`rounded-full border px-3 py-1 transition ${
+                  demandScope === "YEAR"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+                onClick={() =>
+                  setDemandRequestForm((prev) => ({
+                    ...prev,
+                    scope: "YEAR",
+                  }))
+                }
+              >
+                Full Year
+              </button>
+            </div>
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="text-sm text-slate-700">
                 <span className="flex items-center gap-1.5">
@@ -1163,44 +1248,36 @@ const StudentDashboardShell = ({
                   required
                 />
               </label>
-              <label className="text-sm text-slate-700">
-                <span className="flex items-center gap-1.5">
-                  <FiHash size={14} className="text-slate-400" />
-                  Semester
-                </span>
-                <input
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-                  type="number"
-                  min="1"
-                  max="20"
-                  value={demandRequestForm.semesterNo}
-                  onChange={(event) =>
-                    setDemandRequestForm((prev) => ({
-                      ...prev,
-                      semesterNo: event.target.value,
-                    }))
-                  }
-                  required
-                />
-              </label>
-              <label className="text-sm text-slate-700">
-                <span className="flex items-center gap-1.5">
-                  <FiCalendar size={14} className="text-slate-400" />
-                  Due Date (optional)
-                </span>
-                <input
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
-                  type="date"
-                  value={demandRequestForm.dueDate}
-                  onChange={(event) =>
-                    setDemandRequestForm((prev) => ({
-                      ...prev,
-                      dueDate: event.target.value,
-                    }))
-                  }
-                />
-              </label>
+              {isYearRequest ? (
+                <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                  Full year request will cover {yearRangeLabel} based on your current semester.
+                </div>
+              ) : (
+                <label className="text-sm text-slate-700">
+                  <span className="flex items-center gap-1.5">
+                    <FiHash size={14} className="text-slate-400" />
+                    Semester
+                  </span>
+                  <input
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={demandRequestForm.semesterNo}
+                    onChange={(event) =>
+                      setDemandRequestForm((prev) => ({
+                        ...prev,
+                        semesterNo: event.target.value,
+                      }))
+                    }
+                    required
+                  />
+                </label>
+              )}
             </div>
+            <p className="mt-2 text-xs text-slate-500">
+              Due date will be assigned by admin during approval and shown on the demand letter.
+            </p>
           </div>
 
           {/* Fee Amounts */}
@@ -1216,10 +1293,13 @@ const StudentDashboardShell = ({
                   Hostel Amount
                 </span>
                 <input
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  className={`mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100 ${
+                    lockHostelAmount ? "bg-slate-50 text-slate-500" : ""
+                  }`}
                   type="number"
                   min="0"
                   value={demandRequestForm.hostelAmount}
+                  readOnly={lockHostelAmount}
                   onChange={(event) =>
                     setDemandRequestForm((prev) => ({
                       ...prev,
@@ -1227,6 +1307,32 @@ const StudentDashboardShell = ({
                     }))
                   }
                 />
+                {isYearRequest ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <label className="inline-flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={useYearlyHostelFee}
+                        onChange={(event) => {
+                          const checked = event.target.checked;
+                          setUseYearlyHostelFee(checked);
+                          if (checked && canSuggestHostelYearFee) {
+                            setDemandRequestForm((prev) => ({
+                              ...prev,
+                              hostelAmount: String(suggestedHostelYearFee),
+                            }));
+                          }
+                        }}
+                      />
+                      Use full-year hostel fee
+                    </label>
+                    {canSuggestHostelYearFee ? (
+                      <span>Suggested: Rs.{suggestedHostelYearFee.toLocaleString("en-IN")}</span>
+                    ) : (
+                      <span className="text-amber-600">Full-year hostel fee not configured.</span>
+                    )}
+                  </div>
+                ) : null}
               </label>
               <label className="text-sm text-slate-700">
                 <span className="flex items-center gap-1.5">
@@ -1310,7 +1416,7 @@ const StudentDashboardShell = ({
                 {(myDemandRequests || []).map((row) => (
                   <tr key={row._id} className="border-t border-slate-100">
                     <td className="py-2 pr-4">{row.academicYear || "-"}</td>
-                    <td className="py-2 pr-4">{row.semesterNo || "-"}</td>
+                    <td className="py-2 pr-4">{formatSemesterLabel(row.semesterNo, row.scope)}</td>
                     <td className="py-2 pr-4">{row.status || "-"}</td>
                     <td className="max-w-[220px] truncate py-2 pr-4">{row.note || "-"}</td>
                     <td className="py-2">

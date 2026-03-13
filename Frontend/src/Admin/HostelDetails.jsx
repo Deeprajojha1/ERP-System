@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   FiAlertTriangle,
@@ -18,6 +19,7 @@ import {
 } from "react-icons/fi";
 import { ThreeDots } from "react-loader-spinner";
 import toast from "react-hot-toast";
+import axiosInstance from "../utils/axiosInstance";
 import ClipLoader from "./components/ClipLoader";
 import "./HostelDetails.css";
 import {
@@ -34,6 +36,7 @@ import {
 import { allocateStudentApi } from "./constants/allocationApi";
 import { createRoomApi, updateRoomApi } from "./constants/roomApi";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
+import { fetchHostelYearlyFees, selectHostelYearlyFees } from "../redux/feeSlice";
 
 const INITIAL_STUDENT_FORM = {
   studentName: "",
@@ -63,10 +66,59 @@ const BED_TIER_OPTIONS = [
   { value: "four-tier", label: "Four Tier", capacity: 4 },
 ];
 
+const toTierNumber = (value = "") => {
+  const raw = String(value || "").trim().toLowerCase();
+  if (!raw) return NaN;
+  const digit = raw.match(/(\d+)/);
+  if (digit) return Number(digit[1]);
+  if (raw.includes("single")) return 1;
+  if (raw.includes("two")) return 2;
+  if (raw.includes("three")) return 3;
+  if (raw.includes("four")) return 4;
+  if (raw.includes("five")) return 5;
+  if (raw.includes("six")) return 6;
+  return NaN;
+};
+
+const normalizeBedTierValue = (value = "") => {
+  const raw = String(value || "").trim().toLowerCase().replace(/\s+/g, "-");
+  if (!raw) return "single";
+  if (raw === "single" || raw === "1-seater" || raw === "1-tier") return "single";
+  if (raw === "two-tier" || raw === "2-tier" || raw === "2-seater") return "two-tier";
+  if (raw === "three-tier" || raw === "3-tier" || raw === "3-seater") return "three-tier";
+  if (raw === "four-tier" || raw === "4-tier" || raw === "4-seater") return "four-tier";
+  const n = toTierNumber(raw);
+  if (Number.isFinite(n) && n > 0) return `${n}-tier`;
+  return raw;
+};
+
+const formatTierLabel = (value = "", capacity = null) => {
+  const normalized = normalizeBedTierValue(value);
+  const n = Number.isFinite(Number(capacity)) && Number(capacity) > 0 ? Number(capacity) : toTierNumber(normalized);
+  if (!Number.isFinite(n) || n <= 0) return "Single";
+  if (n === 1) return "Single";
+  if (n === 2) return "Two Tier";
+  if (n === 3) return "Three Tier";
+  if (n === 4) return "Four Tier";
+  return `${n} Tier`;
+};
+
+const createTierOption = (value = "") => {
+  const normalized = normalizeBedTierValue(value);
+  const n = toTierNumber(normalized);
+  const capacity = Number.isFinite(n) && n > 0 ? n : 1;
+  return {
+    value: normalized,
+    label: formatTierLabel(normalized, capacity),
+    capacity,
+  };
+};
+
 const INITIAL_ROOM_FORM = {
   roomNumber: "",
   floorId: "",
   bedTier: "two-tier",
+  academicYear: "",
   price: "",
   priceType: "Yearly",
 };
@@ -113,28 +165,44 @@ const getFloorOptionIdByNumber = (options = [], floorNumber) => {
   return options.find((option) => Number(option.floorNumber) === numericFloor)?.id || "";
 };
 
-const getBedTierMeta = (tierValue) =>
-  BED_TIER_OPTIONS.find((option) => option.value === tierValue) || BED_TIER_OPTIONS[0];
+const getBedTierMeta = (tierValue, options = BED_TIER_OPTIONS) =>
+  options.find((option) => option.value === normalizeBedTierValue(tierValue)) ||
+  createTierOption(tierValue);
 
 const getBedTierFromCapacity = (capacity) => {
+  const cap = Number(capacity);
+  if (Number.isInteger(cap) && cap > 4) return `${cap}-tier`;
   if (Number(capacity) === 4) return "four-tier";
   if (Number(capacity) === 3) return "three-tier";
   if (Number(capacity) === 2) return "two-tier";
   return "single";
 };
 
+const normalizeRoomType = (value = "") =>
+  String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+
+const getRoomTypeFromCapacity = (capacity) => {
+  const cap = Number(capacity);
+  if (!Number.isFinite(cap) || cap <= 0) return "";
+  if (cap === 1) return "1 SEATER";
+  if (cap === 2) return "2 SEATER";
+  if (cap === 3) return "3 SEATER";
+  if (cap === 4) return "4 SEATER";
+  return `${cap} SEATER`;
+};
+
 const formatBedTierLabel = (tierValue, capacity) => {
-  const label = BED_TIER_OPTIONS.find((option) => option.value === tierValue)?.label;
-  if (label) return label;
-  if (Number(capacity) === 2) return "Two Tier";
-  if (Number(capacity) === 3) return "Three Tier";
-  if (Number(capacity) === 4) return "Four Tier";
-  return "Single";
+  return formatTierLabel(tierValue, capacity);
 };
 
 const HostelDetails = () => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { hostelId } = useParams();
+  const hostelYearlyFees = useSelector(selectHostelYearlyFees);
 
   const [hostelData, setHostelData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -150,6 +218,7 @@ const HostelDetails = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showAddRoomModal, setShowAddRoomModal] = useState(false);
   const [roomForm, setRoomForm] = useState(INITIAL_ROOM_FORM);
+  const [bedTierOptions, setBedTierOptions] = useState(BED_TIER_OPTIONS);
   const [creatingRoom, setCreatingRoom] = useState(false);
   const [showEditRoomModal, setShowEditRoomModal] = useState(false);
   const [editRoomForm, setEditRoomForm] = useState(INITIAL_EDIT_ROOM_FORM);
@@ -269,6 +338,40 @@ const HostelDetails = () => {
     fetchHostelData();
   }, [fetchHostelData]);
 
+  useEffect(() => {
+    dispatch(fetchHostelYearlyFees());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const rows = Array.isArray(hostelYearlyFees) ? hostelYearlyFees : [];
+    const optionMap = new Map(BED_TIER_OPTIONS.map((item) => [item.value, item]));
+    rows.forEach((row) => {
+      const type = String(row?.roomType || "").trim();
+      if (!type || String(type).toUpperCase() === "GENERAL") return;
+      const option = createTierOption(type);
+      optionMap.set(option.value, option);
+    });
+    setBedTierOptions(Array.from(optionMap.values()).sort((a, b) => a.capacity - b.capacity));
+  }, [hostelYearlyFees]);
+
+  useEffect(() => {
+    const existingRoomTiers = [];
+    (Array.isArray(floors) ? floors : []).forEach((floor) => {
+      (Array.isArray(floor?.rooms) ? floor.rooms : []).forEach((room) => {
+        if (room?.bedTier) existingRoomTiers.push(room.bedTier);
+      });
+    });
+    if (!existingRoomTiers.length) return;
+    setBedTierOptions((prev) => {
+      const map = new Map((Array.isArray(prev) ? prev : []).map((item) => [item.value, item]));
+      existingRoomTiers.forEach((tier) => {
+        const option = createTierOption(tier);
+        map.set(option.value, option);
+      });
+      return Array.from(map.values()).sort((a, b) => a.capacity - b.capacity);
+    });
+  }, [floors]);
+
   const hostel = useMemo(
     () => ({
       ...(hostelData || {}),
@@ -362,6 +465,39 @@ const HostelDetails = () => {
 
   const loadStateText =
     ADMIN_LOAD_STATE_OPTIONS.find((option) => option.id === loadState)?.text || "Unknown";
+
+  const academicYearOptions = useMemo(() => {
+    const set = new Set();
+    (hostelYearlyFees || []).forEach((row) => {
+      const year = String(row?.academicYear || "").trim();
+      if (year) set.add(year);
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [hostelYearlyFees]);
+
+  const hostelFeeLookup = useMemo(() => {
+    const map = new Map();
+    (hostelYearlyFees || []).forEach((row) => {
+      const year = String(row?.academicYear || "").trim();
+      const roomType = normalizeRoomType(row?.roomType);
+      if (!year || !roomType) return;
+      const fee = Number(row?.hostelYearlyFee || 0);
+      if (!Number.isFinite(fee) || fee <= 0) return;
+      map.set(`${year}__${roomType}`, fee);
+    });
+    return map;
+  }, [hostelYearlyFees]);
+
+  useEffect(() => {
+    const year = String(roomForm.academicYear || "").trim();
+    if (!year) return;
+    const tierMeta = getBedTierMeta(roomForm.bedTier, bedTierOptions);
+    const roomType = normalizeRoomType(getRoomTypeFromCapacity(tierMeta.capacity));
+    if (!roomType) return;
+    const fee = hostelFeeLookup.get(`${year}__${roomType}`);
+    if (!Number.isFinite(fee) || fee <= 0) return;
+    setRoomForm((prev) => ({ ...prev, price: String(fee) }));
+  }, [roomForm.academicYear, roomForm.bedTier, bedTierOptions, hostelFeeLookup]);
 
   useEffect(() => {
     const selectedMenu = hostel?.foodMenu?.[selectedDay];
@@ -598,6 +734,7 @@ const HostelDetails = () => {
     setRoomForm({
       ...INITIAL_ROOM_FORM,
       floorId: assignFloorOptions[0]?.id || "",
+      academicYear: academicYearOptions[0] || "",
     });
     setShowAddRoomModal(true);
   };
@@ -666,7 +803,7 @@ const HostelDetails = () => {
       toast.error("Invalid floor selected.");
       return;
     }
-    const bedTierMeta = getBedTierMeta(editRoomForm.bedTier);
+    const bedTierMeta = getBedTierMeta(editRoomForm.bedTier, bedTierOptions);
 
     try {
       setUpdatingRoom(true);
@@ -718,7 +855,7 @@ const HostelDetails = () => {
       toast.error("Invalid floor selected.");
       return;
     }
-    const bedTierMeta = getBedTierMeta(roomForm.bedTier);
+    const bedTierMeta = getBedTierMeta(roomForm.bedTier, bedTierOptions);
 
     try {
       setCreatingRoom(true);
@@ -1155,13 +1292,33 @@ const HostelDetails = () => {
                     onChange={handleRoomFormChange}
                     required
                   >
-                    {BED_TIER_OPTIONS.map((tier) => (
+                    {bedTierOptions.map((tier) => (
                       <option key={tier.value} value={tier.value}>
                         {tier.label} ({tier.capacity} Seater)
                       </option>
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="hd-form-group">
+                <label>Academic Year *</label>
+                <select
+                  name="academicYear"
+                  value={roomForm.academicYear}
+                  onChange={handleRoomFormChange}
+                  required
+                >
+                  <option value="">-- Select Academic Year --</option>
+                  {academicYearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                {academicYearOptions.length === 0 ? (
+                  <small className="hd-form-hint">Add hostel yearly fees first to enable auto pricing.</small>
+                ) : null}
               </div>
 
               <div className="hd-form-row">
@@ -1389,7 +1546,7 @@ const HostelDetails = () => {
                     onChange={handleEditRoomFormChange}
                     required
                   >
-                    {BED_TIER_OPTIONS.map((tier) => (
+                    {bedTierOptions.map((tier) => (
                       <option key={tier.value} value={tier.value}>
                         {tier.label} ({tier.capacity} Seater)
                       </option>
