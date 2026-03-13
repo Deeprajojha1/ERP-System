@@ -5,6 +5,7 @@ import AttendanceSession from "../models/AttendanceSession.js";
 import Submission from "../models/Submission.js";
 import Result from "../models/Result.js";
 import HostelAllocation from "../models/hostelAllocationModel.js";
+import Room from "../models/roomModel.js";
 import StudentFeeDetails from "../models/feeStudentDetails.js";
 import FeeDemand from "../models/feeDemand.js";
 import FeePaymentHistory from "../models/feePaymentHistory.js";
@@ -130,7 +131,24 @@ const buildHostelDailyAttendance = async (studentId) => {
     student: studentId,
     status: "Active",
   })
-    .populate("hostel", "name type")
+    .populate({
+      path: "hostel",
+      select: "name type wardenName wardens warden",
+      populate: [
+        {
+          path: "wardens",
+          select: "name email phoneNumber",
+        },
+        {
+          path: "warden",
+          select: "user",
+          populate: {
+            path: "user",
+            select: "name email phoneNumber",
+          },
+        },
+      ],
+    })
     .populate("room", "roomNumber floorNumber")
     .lean();
 
@@ -139,8 +157,74 @@ const buildHostelDailyAttendance = async (studentId) => {
       isHosteller: false,
       hostel: null,
       room: null,
+      wardenContact: null,
+      wardenContacts: [],
       dailyAttendance: [],
     };
+  }
+
+  const roomDetails = allocation.room?._id
+    ? await Room.findById(allocation.room._id)
+        .select("roomNumber floorNumber price priceType occupants")
+        .populate({
+          path: "occupants",
+          select: "enrollmentNumber user",
+          populate: {
+            path: "user",
+            select: "name email",
+          },
+        })
+        .lean()
+    : null;
+
+  const roommates = Array.isArray(roomDetails?.occupants)
+    ? roomDetails.occupants
+        .filter((occupant) => String(occupant?._id || "") !== String(studentId || ""))
+        .map((occupant) => ({
+          id: occupant?._id || null,
+          enrollmentNumber: occupant?.enrollmentNumber || "",
+          name: occupant?.user?.name || "",
+          email: occupant?.user?.email || "",
+        }))
+    : [];
+
+  const hostelWardens = Array.isArray(allocation?.hostel?.wardens)
+    ? allocation.hostel.wardens
+        .filter((warden) => Boolean(warden?._id || warden?.name || warden?.phoneNumber || warden?.email))
+        .map((warden) => ({
+          id: warden?._id || null,
+          name: warden?.name || "",
+          phoneNumber: warden?.phoneNumber || "",
+          email: warden?.email || "",
+        }))
+    : [];
+
+  const legacyWardenUser = allocation?.hostel?.warden?.user;
+  if (legacyWardenUser?._id || legacyWardenUser?.name) {
+    hostelWardens.push({
+      id: legacyWardenUser?._id || null,
+      name: legacyWardenUser?.name || "",
+      phoneNumber: legacyWardenUser?.phoneNumber || "",
+      email: legacyWardenUser?.email || "",
+    });
+  }
+
+  if (!hostelWardens.length && allocation?.hostel?.wardenName) {
+    hostelWardens.push({
+      id: null,
+      name: allocation.hostel.wardenName,
+      phoneNumber: "",
+      email: "",
+    });
+  }
+
+  const uniqueWardenContacts = [];
+  const seenWardenKeys = new Set();
+  for (const contact of hostelWardens) {
+    const key = String(contact?.id || "") || `${contact?.name || ""}|${contact?.phoneNumber || ""}|${contact?.email || ""}`;
+    if (!key || seenWardenKeys.has(key)) continue;
+    seenWardenKeys.add(key);
+    uniqueWardenContacts.push(contact);
   }
 
   const sessions = await AttendanceSession.find({
@@ -201,13 +285,18 @@ const buildHostelDailyAttendance = async (studentId) => {
           type: allocation.hostel.type || "",
         }
       : null,
-    room: allocation.room
+    room: roomDetails || allocation.room
       ? {
-          id: allocation.room._id,
-          roomNumber: allocation.room.roomNumber || "",
-          floorNumber: allocation.room.floorNumber ?? null,
+          id: roomDetails?._id || allocation.room?._id,
+          roomNumber: roomDetails?.roomNumber || allocation.room?.roomNumber || "",
+          floorNumber: roomDetails?.floorNumber ?? allocation.room?.floorNumber ?? null,
+          price: Number(roomDetails?.price || 0),
+          priceType: roomDetails?.priceType || "Yearly",
+          roommates,
         }
       : null,
+    wardenContact: uniqueWardenContacts[0] || null,
+    wardenContacts: uniqueWardenContacts,
     dailyAttendance,
   };
 };

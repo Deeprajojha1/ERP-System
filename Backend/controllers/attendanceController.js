@@ -34,6 +34,25 @@ const toDateKey = (value) => {
   ].join("-");
 };
 
+const isSameCalendarDay = (left, right) => {
+  return toDateKey(left) === toDateKey(right);
+};
+
+const normalizeLectureNumber = (value) => {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+  return Math.trunc(parsed);
+};
+
+const buildSessionDateByLecture = (value, lectureNumber = 1) => {
+  const date = new Date(value || new Date());
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  const minuteOffset = Math.max(0, normalizeLectureNumber(lectureNumber) - 1);
+  date.setMinutes(minuteOffset);
+  return date;
+};
+
 const resolveGroupStudentIdsForCourse = async ({ group, courseId }) => {
   const groupStudentIds = Array.isArray(group?.studentIds)
     ? group.studentIds.map((id) => normalizeId(id)).filter(Boolean)
@@ -78,7 +97,7 @@ const resolveGroupStudentIdsForCourse = async ({ group, courseId }) => {
 export const getGroupAttendancePage = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { courseId, date } = req.query;
+    const { courseId, date, lectureNumber } = req.query;
 
     const group = await Group.findById(groupId);
     if (!group) return res.status(404).json({ message: "Group not found" });
@@ -104,8 +123,11 @@ export const getGroupAttendancePage = async (req, res) => {
       .select("enrollmentNumber fatherName user");
 
     /* Check if attendance was already marked today for this group + course */
-    const targetDate = new Date(date || new Date());
-    targetDate.setHours(0, 0, 0, 0);
+    const lectureNo = normalizeLectureNumber(lectureNumber);
+    const targetDate = buildSessionDateByLecture(date, lectureNo);
+    if (!targetDate) {
+      return res.status(400).json({ message: "Invalid attendance date" });
+    }
 
     let existingSession = null;
     if (courseId) {
@@ -135,6 +157,7 @@ export const getGroupAttendancePage = async (req, res) => {
       message: "Group attendance page",
       group: { _id: group._id, name: group.name, roomNo: group.roomNo },
       date: targetDate,
+      lectureNumber: lectureNo,
       courseId: courseId || null,
       alreadyMarked: !!existingSession,
       sessionId: existingSession?._id || null,
@@ -306,7 +329,7 @@ export const getCourseGroupsForFaculty = async (req, res) => {
 export const markGroupAttendance = async (req, res) => {
   try {
     const { groupId } = req.params;
-    const { courseId, date, records } = req.body;
+    const { courseId, date, records, lectureNumber } = req.body;
 
     if (!courseId || !records || !Array.isArray(records)) {
       return res.status(400).json({ message: "courseId & records[] are required" });
@@ -334,13 +357,22 @@ export const markGroupAttendance = async (req, res) => {
     }
 
     /* Normalise date to start-of-day */
-    const sessionDate = new Date(date || new Date());
-    sessionDate.setHours(0, 0, 0, 0);
+    const lectureNo = normalizeLectureNumber(lectureNumber);
+    const sessionDate = buildSessionDateByLecture(date || new Date(), lectureNo);
+    if (!sessionDate) {
+      return res.status(400).json({ message: "Invalid attendance date" });
+    }
+
+    if (req.role === "faculty" && !isSameCalendarDay(sessionDate, new Date())) {
+      return res.status(403).json({
+        message: "Faculty can mark attendance only for today.",
+      });
+    }
 
     /* Upsert — create if new, overwrite if re-submitted */
     const session = await AttendanceSession.findOneAndUpdate(
       { date: sessionDate, group: groupId, course: courseId },
-      { date: sessionDate, group: groupId, course: courseId, records },
+      { date: sessionDate, group: groupId, course: courseId, lectureNumber: lectureNo, records },
       { new: true, upsert: true, runValidators: true }
     );
 
@@ -362,7 +394,7 @@ export const markGroupAttendance = async (req, res) => {
    ================================================================ */
 export const markAttendance = async (req, res) => {
   try {
-    const { groupId, courseId, date, records } = req.body;
+    const { groupId, courseId, date, records, lectureNumber } = req.body;
 
     if (!groupId || !courseId || !date || !records || !Array.isArray(records)) {
       return res.status(400).json({ message: "groupId, courseId, date & records[] are required" });
@@ -391,13 +423,16 @@ export const markAttendance = async (req, res) => {
     }
 
     /* Normalise the date to start-of-day so the unique index works correctly */
-    const sessionDate = new Date(date);
-    sessionDate.setHours(0, 0, 0, 0);
+    const lectureNo = normalizeLectureNumber(lectureNumber);
+    const sessionDate = buildSessionDateByLecture(date, lectureNo);
+    if (!sessionDate) {
+      return res.status(400).json({ message: "Invalid attendance date" });
+    }
 
     /* Upsert — create if new, overwrite records if faculty re-submits */
     const session = await AttendanceSession.findOneAndUpdate(
       { date: sessionDate, group: groupId, course: courseId },
-      { date: sessionDate, group: groupId, course: courseId, records },
+      { date: sessionDate, group: groupId, course: courseId, lectureNumber: lectureNo, records },
       { new: true, upsert: true, runValidators: true }
     );
 
@@ -429,6 +464,12 @@ export const updateAttendance = async (req, res) => {
 
     const session = await AttendanceSession.findById(sessionId);
     if (!session) return res.status(404).json({ message: "Attendance session not found" });
+
+    if (req.role === "faculty" && isSameCalendarDay(session.date, new Date())) {
+      return res.status(403).json({
+        message: "Faculty cannot update attendance on the same day once submitted.",
+      });
+    }
 
     /* Faculty authorisation check */
     if (req.role === "faculty") {

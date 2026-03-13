@@ -21,10 +21,12 @@ import {
 import { ClipLoader } from "react-spinners";
 import toast from "react-hot-toast";
 import ModernDatePicker from "../common/ModernDatePicker";
+import axios from "../../utils/axiosInstance";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
 import { facultyUi } from "./uiTokens";
 import { EmptyState, LoadingState } from "./SectionState";
 import {
+  fetchAttendanceByGroupCourse,
   fetchStudentsByGroup,
   fetchFacultyAttendancePage,
   markAttendance as markAttendanceThunk,
@@ -39,6 +41,24 @@ import {
   resetUpdateAttendanceState,
 } from "../../redux/facultyDashboardSlice";
 
+const DAYS_OF_WEEK = [
+  { id: "monday", label: "Monday" },
+  { id: "tuesday", label: "Tuesday" },
+  { id: "wednesday", label: "Wednesday" },
+  { id: "thursday", label: "Thursday" },
+  { id: "friday", label: "Friday" },
+  { id: "saturday", label: "Saturday" },
+];
+
+const getDayIdFromDate = (dateValue) => {
+  if (!dateValue) return null;
+  const parsed = new Date(`${dateValue}T12:00:00`);
+  if (Number.isNaN(parsed.getTime())) return null;
+  const day = parsed.getDay();
+  if (day === 0) return null;
+  return DAYS_OF_WEEK[Math.max(0, Math.min(day - 1, DAYS_OF_WEEK.length - 1))]?.id || null;
+};
+
 export default function AttendanceSection({ facultyData }) {
   const dispatch = useDispatch();
   const apiBase = useSelector((state) => state.config.apiBase);
@@ -51,6 +71,9 @@ export default function AttendanceSection({ facultyData }) {
 
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedCourse, setSelectedCourse] = useState("");
+  const [selectedLecture, setSelectedLecture] = useState("1");
+  const [apiLectureOptions, setApiLectureOptions] = useState([]);
+  const [assignedGroupsFromApi, setAssignedGroupsFromApi] = useState([]);
   const [attendanceDate, setAttendanceDate] = useState(
     new Date().toISOString().split("T")[0]
   );
@@ -66,62 +89,151 @@ export default function AttendanceSection({ facultyData }) {
     markAttendanceState === ADMIN_LOAD_STATES.PENDING ||
     updateAttendanceState === ADMIN_LOAD_STATES.PENDING;
 
-  const isLocked = Boolean(activeSessionId);
+  const todayValue = new Date().toISOString().slice(0, 10);
+  const isToday = attendanceDate === todayValue;
+  const hasExistingSession = Boolean(activeSessionId);
+  const isSameDayLocked = hasExistingSession && isToday;
+  const nextEditableAt = useMemo(() => {
+    const base = new Date(`${todayValue}T00:00:00`);
+    base.setDate(base.getDate() + 1);
+    return base.toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }, [todayValue]);
 
-  const groups = useMemo(() => {
-    const todaySchedule = facultyData?.todaySchedule || [];
+  const routineAssignedGroups = useMemo(() => {
+    const todaySchedule = Array.isArray(facultyData?.todaySchedule) ? facultyData.todaySchedule : [];
     const routine =
       facultyData?.roleDetails?.routine || facultyData?.facultyDetails?.routine || {};
 
     const groupMap = new Map();
 
-    todaySchedule.forEach((lecture) => {
-      if (lecture?.group?._id && !groupMap.has(lecture.group._id)) {
-        groupMap.set(lecture.group._id, {
-          _id: lecture.group._id,
-          name: lecture.group.name,
-          roomNo: lecture.group.roomNo,
+    const addEntry = (groupData, courseData) => {
+      const groupId = groupData?._id;
+      const courseId = courseData?._id;
+      if (!groupId || !courseId) return;
+      if (!groupMap.has(groupId)) {
+        groupMap.set(groupId, {
+          _id: groupId,
+          name: groupData?.name,
+          roomNo: groupData?.roomNo,
           courses: [],
         });
       }
-      if (lecture?.group?._id && lecture?.course) {
-        const group = groupMap.get(lecture.group._id);
-        if (!group.courses.find((c) => c._id === lecture.course._id)) {
-          group.courses.push(lecture.course);
-        }
+      const group = groupMap.get(groupId);
+      if (group && !group.courses.find((course) => course._id === courseId)) {
+        group.courses.push(courseData);
       }
-    });
+    };
 
-    Object.values(routine).forEach((daySlots) => {
-      Object.values(daySlots || {}).forEach((item) => {
-        if (item?.group?._id && !groupMap.has(item.group._id)) {
-          groupMap.set(item.group._id, {
-            _id: item.group._id,
-            name: item.group.name,
-            roomNo: item.group.roomNo,
-            courses: [],
-          });
-        }
-        if (item?.group?._id && item?.course) {
-          const group = groupMap.get(item.group._id);
-          if (group && !group.courses.find((c) => c._id === item.course._id)) {
-            group.courses.push(item.course);
-          }
-        }
-      });
+    todaySchedule.forEach((lecture) => addEntry(lecture?.group, lecture?.course));
+    Object.values(routine || {}).forEach((daySlots) => {
+      Object.values(daySlots || {}).forEach((item) => addEntry(item?.group, item?.course));
     });
 
     return Array.from(groupMap.values());
   }, [facultyData]);
 
   useEffect(() => {
-    if (groups.length > 0 && !selectedGroup) {
-      setSelectedGroup(groups[0]._id);
-      if (groups[0].courses.length > 0) {
-        setSelectedCourse(groups[0].courses[0]._id);
+    const fetchAssignedGroupsFromApi = async () => {
+      if (!apiBase) {
+        setAssignedGroupsFromApi([]);
+        return;
       }
+
+      const routine =
+        facultyData?.roleDetails?.routine || facultyData?.facultyDetails?.routine || {};
+      const courseById = new Map();
+      const groupRoomById = new Map();
+
+      Object.values(routine || {}).forEach((daySlots) => {
+        Object.values(daySlots || {}).forEach((item) => {
+          const courseId = String(item?.course?._id || "").trim();
+          const groupId = String(item?.group?._id || "").trim();
+          if (courseId && !courseById.has(courseId)) {
+            courseById.set(courseId, item.course);
+          }
+          if (groupId && item?.group?.roomNo && !groupRoomById.has(groupId)) {
+            groupRoomById.set(groupId, item.group.roomNo);
+          }
+        });
+      });
+
+      const courseEntries = Array.from(courseById.entries());
+      if (courseEntries.length === 0) {
+        setAssignedGroupsFromApi([]);
+        return;
+      }
+
+      try {
+        const groupMap = new Map();
+        await Promise.all(
+          courseEntries.map(async ([courseId, courseObj]) => {
+            const response = await axios.get(
+              `${apiBase}/faculty/courses/${courseId}/groups`,
+              { withCredentials: true }
+            );
+            const groups = response?.data?.groups || [];
+            groups.forEach((group) => {
+              const groupId = String(group?.id || group?._id || "").trim();
+              if (!groupId) return;
+              if (!groupMap.has(groupId)) {
+                groupMap.set(groupId, {
+                  _id: groupId,
+                  name: group?.name || "Group",
+                  roomNo: group?.roomNo || groupRoomById.get(groupId) || "N/A",
+                  courses: [],
+                });
+              }
+              const target = groupMap.get(groupId);
+              if (
+                target &&
+                !target.courses.some((course) => String(course?._id || "") === String(courseId))
+              ) {
+                target.courses.push(courseObj);
+              }
+            });
+          })
+        );
+
+        const apiGroups = Array.from(groupMap.values());
+        setAssignedGroupsFromApi(apiGroups);
+      } catch {
+        setAssignedGroupsFromApi([]);
+      }
+    };
+
+    fetchAssignedGroupsFromApi();
+  }, [apiBase, facultyData]);
+
+  const groups = useMemo(() => {
+    if (assignedGroupsFromApi.length > 0) return assignedGroupsFromApi;
+    return routineAssignedGroups;
+  }, [assignedGroupsFromApi, routineAssignedGroups]);
+
+  useEffect(() => {
+    if (groups.length === 0) {
+      setSelectedGroup("");
+      setSelectedCourse("");
+      return;
     }
-  }, [groups, selectedGroup]);
+
+    const currentGroup = groups.find((group) => group._id === selectedGroup);
+    if (!currentGroup) {
+      setSelectedGroup(groups[0]._id);
+      setSelectedCourse(groups[0].courses?.[0]?._id || "");
+      return;
+    }
+
+    const courseExists = currentGroup.courses?.some((course) => course._id === selectedCourse);
+    if (!courseExists) {
+      setSelectedCourse(currentGroup.courses?.[0]?._id || "");
+    }
+  }, [groups, selectedGroup, selectedCourse]);
 
   useEffect(() => {
     if (!apiBase || !selectedGroup) return;
@@ -135,8 +247,52 @@ export default function AttendanceSection({ facultyData }) {
         groupId: selectedGroup,
         courseId: selectedCourse,
         date: attendanceDate,
+        lectureNumber: Number(selectedLecture || 1),
       })
     );
+  }, [apiBase, selectedGroup, selectedCourse, selectedLecture, attendanceDate, dispatch]);
+
+  useEffect(() => {
+    const fetchLectureSlotsFromApi = async () => {
+      if (!apiBase || !selectedGroup || !selectedCourse) {
+        setApiLectureOptions([]);
+        return;
+      }
+      try {
+        const payload = await dispatch(
+          fetchAttendanceByGroupCourse({
+            apiBase,
+            groupId: selectedGroup,
+            courseId: selectedCourse,
+            params: { from: attendanceDate, to: attendanceDate },
+          })
+        ).unwrap();
+
+        const sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
+        const slotMap = new Map();
+        sessions.forEach((session) => {
+          let lectureNo = Number(session?.lectureNumber);
+          if (!Number.isFinite(lectureNo) || lectureNo <= 0) {
+            const sessionDate = new Date(session?.date);
+            const minutes = Number.isFinite(sessionDate.getMinutes()) ? sessionDate.getMinutes() : 0;
+            lectureNo = Math.max(1, minutes + 1);
+          }
+          const key = String(Math.trunc(lectureNo));
+          if (!slotMap.has(key)) {
+            slotMap.set(key, { value: key, label: `Lecture ${key}` });
+          }
+        });
+
+        const apiOptions = Array.from(slotMap.values()).sort(
+          (a, b) => Number(a.value) - Number(b.value)
+        );
+        setApiLectureOptions(apiOptions);
+      } catch {
+        setApiLectureOptions([]);
+      }
+    };
+
+    fetchLectureSlotsFromApi();
   }, [apiBase, selectedGroup, selectedCourse, attendanceDate, dispatch]);
 
   useEffect(() => {
@@ -200,6 +356,7 @@ export default function AttendanceSection({ facultyData }) {
               groupId: selectedGroup,
               courseId: selectedCourse,
               date: attendanceDate,
+              lectureNumber: Number(selectedLecture || 1),
             })
           ).unwrap();
         } else {
@@ -217,12 +374,16 @@ export default function AttendanceSection({ facultyData }) {
   };
 
   const handleSubmit = async () => {
-    if (isLocked) {
-      toast.error("Attendance already submitted for this date. Edits are disabled.");
+    if (isSameDayLocked) {
+      toast.error("Today's attendance is locked after submission. You can update it from next day.");
       return;
     }
     if (!selectedGroup || !selectedCourse) {
       toast.error("Please select group and course");
+      return;
+    }
+    if (lectureOptions.length === 0) {
+      toast.error("No lecture slot found from API or routine for selected group/course/date");
       return;
     }
 
@@ -257,12 +418,13 @@ export default function AttendanceSection({ facultyData }) {
       markAttendanceThunk({
         apiBase,
         groupId: selectedGroup,
-        payload: {
-          courseId: selectedCourse,
-          date: attendanceDate,
-          records,
-        },
-      })
+          payload: {
+            courseId: selectedCourse,
+            date: attendanceDate,
+            lectureNumber: Number(selectedLecture || 1),
+            records,
+          },
+        })
     );
   };
 
@@ -273,6 +435,69 @@ export default function AttendanceSection({ facultyData }) {
 
   const selectedGroupData = groups.find((g) => g._id === selectedGroup);
   const availableCourses = selectedGroupData?.courses || [];
+  const routineLectureOptions = useMemo(() => {
+    if (!selectedGroup || !selectedCourse) return [];
+    const routine =
+      facultyData?.roleDetails?.routine || facultyData?.facultyDetails?.routine || {};
+    const selectedDayId = getDayIdFromDate(attendanceDate);
+    const selectedDayLabel = DAYS_OF_WEEK.find((day) => day.id === selectedDayId)?.label;
+    const selectedDayRoutine = selectedDayId
+      ? routine[selectedDayId] ||
+        routine[selectedDayLabel] ||
+        routine[String(selectedDayLabel || "").toLowerCase()] ||
+        {}
+      : {};
+    const optionsMap = new Map();
+
+    const pushLecture = (value) => {
+      const lectureNo = Number(value);
+      if (!Number.isFinite(lectureNo) || lectureNo <= 0) return;
+      const key = String(Math.trunc(lectureNo));
+      if (!optionsMap.has(key)) {
+        optionsMap.set(key, { value: key, label: `Lecture ${key}` });
+      }
+    };
+
+    if (attendanceDate === todayValue) {
+      const todaySchedule = Array.isArray(facultyData?.todaySchedule) ? facultyData.todaySchedule : [];
+      todaySchedule.forEach((lecture) => {
+        if (
+          String(lecture?.group?._id || "") === String(selectedGroup) &&
+          String(lecture?.course?._id || "") === String(selectedCourse)
+        ) {
+          pushLecture(lecture?.lectureNumber);
+        }
+      });
+    }
+
+    Object.entries(selectedDayRoutine || {}).forEach(([slot, item]) => {
+      if (
+        String(item?.group?._id || "") === String(selectedGroup) &&
+        String(item?.course?._id || "") === String(selectedCourse)
+      ) {
+        pushLecture(slot);
+      }
+    });
+
+    return Array.from(optionsMap.values()).sort(
+      (a, b) => Number(a.value) - Number(b.value)
+    );
+  }, [facultyData, attendanceDate, selectedGroup, selectedCourse, todayValue]);
+
+  const lectureOptions = useMemo(() => {
+    if (apiLectureOptions.length > 0) return apiLectureOptions;
+    return routineLectureOptions;
+  }, [apiLectureOptions, routineLectureOptions]);
+
+  useEffect(() => {
+    if (lectureOptions.length === 0) {
+      setSelectedLecture("1");
+      return;
+    }
+    if (!lectureOptions.some((option) => option.value === selectedLecture)) {
+      setSelectedLecture(lectureOptions[0].value);
+    }
+  }, [lectureOptions, selectedLecture]);
   const filteredByQuery = useMemo(() => {
     const query = studentQuery.trim().toLowerCase();
     if (!query) return reduxStudents;
@@ -307,7 +532,7 @@ export default function AttendanceSection({ facultyData }) {
     Math.round(presentPercent * 0.82 + (reduxStudents.length > 0 ? 18 : 0))
   );
   const controlBtnClass =
-    "inline-flex items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60";
+    "inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-all duration-200 disabled:cursor-not-allowed disabled:opacity-60";
 
   return (
     <section className={facultyUi.page}>
@@ -358,16 +583,22 @@ export default function AttendanceSection({ facultyData }) {
               <span className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-slate-600">
                 {attendanceDate}
               </span>
-              {isLocked ? (
-                <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] text-amber-700">
+              {hasExistingSession ? (
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.08em] ${
+                    isSameDayLocked
+                      ? "border border-amber-200 bg-amber-50 text-amber-700"
+                      : "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                  }`}
+                >
                   <ShieldCheck size={12} />
-                  Locked
+                  {isSameDayLocked ? "Locked" : "Update Mode"}
                 </span>
               ) : null}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
             <div className="flex flex-col gap-1.5">
               <label className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
                 <Layers3 size={14} /> Select Group
@@ -382,7 +613,7 @@ export default function AttendanceSection({ facultyData }) {
                       setSelectedCourse(group.courses[0]._id);
                     }
                   }}
-                  className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  className="w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                   disabled={groups.length === 0}
                 >
                   {groups.length === 0 ? (
@@ -409,7 +640,7 @@ export default function AttendanceSection({ facultyData }) {
                 <select
                   value={selectedCourse}
                   onChange={(e) => setSelectedCourse(e.target.value)}
-                  className="w-full appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  className="w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100"
                   disabled={availableCourses.length === 0}
                 >
                   {availableCourses.length === 0 ? (
@@ -427,6 +658,38 @@ export default function AttendanceSection({ facultyData }) {
                   className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
                 />
               </div>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
+                <Activity size={14} /> Lecture Slot
+              </label>
+              <div className="relative">
+                <select
+                  value={selectedLecture}
+                  onChange={(e) => setSelectedLecture(e.target.value)}
+                  className="w-full cursor-pointer appearance-none rounded-lg border border-slate-300 bg-white px-3 py-2 pr-10 text-sm font-medium text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  disabled={lectureOptions.length === 0}
+                >
+                  {lectureOptions.length === 0 ? (
+                    <option value="1">No lecture slot available</option>
+                  ) : (
+                    lectureOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))
+                  )}
+                </select>
+                <ChevronDown
+                  size={16}
+                  className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-500"
+                />
+              </div>
+              <p className="m-0 text-xs text-slate-500">
+                {apiLectureOptions.length > 0
+                  ? "Lecture slots loaded from API."
+                  : "No API slot found, showing routine slots."}
+              </p>
             </div>
             <div className="flex flex-col gap-1.5">
               <label className="inline-flex items-center gap-1.5 text-sm font-semibold text-slate-700">
@@ -492,9 +755,17 @@ export default function AttendanceSection({ facultyData }) {
         </div>
 
         {activeSessionId ? (
-          <div className="relative mt-4 inline-flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs font-semibold text-amber-800">
+          <div
+            className={`relative mt-4 inline-flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold ${
+              isSameDayLocked
+                ? "border border-amber-200 bg-amber-50 text-amber-800"
+                : "border border-emerald-200 bg-emerald-50 text-emerald-800"
+            }`}
+          >
             <ShieldAlert size={14} />
-            Attendance already submitted for selected date - edits are disabled.
+            {isSameDayLocked
+              ? `Attendance for today is locked. Next editable time: ${nextEditableAt}`
+              : "Existing attendance found for this date - you can update and resubmit."}
           </div>
         ) : null}
       </div>
@@ -606,12 +877,12 @@ export default function AttendanceSection({ facultyData }) {
                     <button
                       type="button"
                       onClick={() => handleMarkAttendance(studentId, "present")}
-                      className={`relative z-[1] inline-flex h-[32px] w-[var(--toggle-w)] items-center justify-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-150 sm:h-[34px] sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60 ${
+                      className={`relative z-[1] inline-flex h-[32px] w-[var(--toggle-w)] cursor-pointer items-center justify-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-150 sm:h-[34px] sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60 ${
                         attendance[studentId] === "present"
                           ? "text-white"
                           : "text-slate-700"
                       }`}
-                      disabled={isLocked}
+                      disabled={isSameDayLocked}
                     >
                       <CheckCircle size={12} className="sm:h-[13px] sm:w-[13px]" />
                       Present
@@ -619,12 +890,12 @@ export default function AttendanceSection({ facultyData }) {
                     <button
                       type="button"
                       onClick={() => handleMarkAttendance(studentId, "absent")}
-                      className={`relative z-[1] inline-flex h-[32px] w-[var(--toggle-w)] items-center justify-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-150 sm:h-[34px] sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60 ${
+                      className={`relative z-[1] inline-flex h-[32px] w-[var(--toggle-w)] cursor-pointer items-center justify-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold transition-colors duration-150 sm:h-[34px] sm:gap-1.5 sm:px-3.5 sm:py-1.5 sm:text-sm disabled:cursor-not-allowed disabled:opacity-60 ${
                         attendance[studentId] === "absent"
                           ? "text-white"
                           : "text-slate-700"
                       }`}
-                      disabled={isLocked}
+                      disabled={isSameDayLocked}
                     >
                       <XCircle size={12} className="sm:h-[13px] sm:w-[13px]" />
                       Absent
@@ -649,7 +920,7 @@ export default function AttendanceSection({ facultyData }) {
               type="button"
               onClick={() => markAll("present")}
               className={`${controlBtnClass} shrink-0 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100`}
-              disabled={isStudentsLoading || reduxStudents.length === 0 || isLocked}
+              disabled={isStudentsLoading || reduxStudents.length === 0 || isSameDayLocked}
             >
               <CheckCircle size={18} />
               Mark All Present
@@ -658,7 +929,7 @@ export default function AttendanceSection({ facultyData }) {
               type="button"
               onClick={() => markAll("absent")}
               className={`${controlBtnClass} shrink-0 border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-100`}
-              disabled={isStudentsLoading || reduxStudents.length === 0 || isLocked}
+              disabled={isStudentsLoading || reduxStudents.length === 0 || isSameDayLocked}
             >
               <XCircle size={18} />
               Mark All Absent
@@ -667,7 +938,7 @@ export default function AttendanceSection({ facultyData }) {
               type="button"
               onClick={resetAttendance}
               className={`${controlBtnClass} shrink-0 border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200`}
-              disabled={isStudentsLoading || reduxStudents.length === 0 || isLocked}
+              disabled={isStudentsLoading || reduxStudents.length === 0 || isSameDayLocked}
             >
               Reset
             </button>
@@ -675,8 +946,8 @@ export default function AttendanceSection({ facultyData }) {
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={isSubmitting || reduxStudents.length === 0 || isLocked}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isSubmitting || reduxStudents.length === 0 || isSameDayLocked}
+            className="inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:from-cyan-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSubmitting ? (
               <>
@@ -686,7 +957,13 @@ export default function AttendanceSection({ facultyData }) {
             ) : (
               <>
                 <WandSparkles size={16} />
-                <span>{activeSessionId ? "Attendance Locked" : "Submit Attendance"}</span>
+                <span>
+                  {isSameDayLocked
+                    ? "Attendance Locked"
+                    : activeSessionId
+                    ? "Update Attendance"
+                    : "Submit Attendance"}
+                </span>
               </>
             )}
           </button>

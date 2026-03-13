@@ -109,6 +109,14 @@
   box-sizing: border-box;
 }
 
+.student-admin-layout button {
+  cursor: pointer;
+}
+
+.student-admin-layout button:disabled {
+  cursor: not-allowed;
+}
+
 .student-admin-layout {
   position: relative;
   display: flex;

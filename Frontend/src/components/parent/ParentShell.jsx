@@ -12,6 +12,7 @@ import {
 } from "react-icons/fi";
 import toast from "react-hot-toast";
 import axiosInstance from "../../utils/axiosInstance";
+import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
 import "./ParentPortal.css";
 
 const menuItems = [
@@ -22,7 +23,7 @@ const menuItems = [
     path: "/parent/dashboard/daily-subject-attendance",
     icon: FiActivity,
   },
-  { key: "hostel", label: "Hostel Attendance", path: "/parent/dashboard/hostel", icon: FiMapPin },
+  { key: "hostel", label: "Hostel", path: "/parent/dashboard/hostel", icon: FiMapPin },
   { key: "assignments", label: "Assignments", path: "/parent/dashboard/assignments", icon: FiBookOpen },
   { key: "exams", label: "Exams", path: "/parent/dashboard/exams", icon: FiClipboard },
   { key: "fees", label: "Fees", path: "/parent/dashboard/fees", icon: FiDollarSign },
@@ -34,8 +35,9 @@ const ParentShell = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => (typeof window !== "undefined" ? window.innerWidth >= 1024 : true)
   );
-  const [loading, setLoading] = useState(true);
+  const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
   const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     const token = String(localStorage.getItem("authToken") || localStorage.getItem("token") || "").trim();
@@ -44,12 +46,23 @@ const ParentShell = () => {
       return;
     }
 
+    const controller = new AbortController();
+
     const fetchDashboard = async () => {
       try {
-        setLoading(true);
-        const response = await axiosInstance.get("/api/parent/dashboard");
-        setData(response.data || null);
+        setLoadError("");
+        setLoadState(ADMIN_LOAD_STATES.PENDING);
+        const response = await axiosInstance.get("/api/parent/dashboard", {
+          signal: controller.signal,
+        });
+        const nextData = response.data || null;
+        setData(nextData);
+        setLoadState(nextData ? ADMIN_LOAD_STATES.SUCCESS : ADMIN_LOAD_STATES.FAILURE);
+        if (!nextData) {
+          setLoadError("No dashboard data found.");
+        }
       } catch (error) {
+        if (error?.name === "CanceledError" || error?.code === "ERR_CANCELED") return;
         const status = Number(error?.response?.status || 0);
         if (status === 401 || status === 403) {
           localStorage.removeItem("authToken");
@@ -58,13 +71,16 @@ const ParentShell = () => {
           navigate("/parent/login", { replace: true });
           return;
         }
-        toast.error(error?.response?.data?.message || "Failed to fetch parent dashboard");
-      } finally {
-        setLoading(false);
+        const message = error?.response?.data?.message || "Failed to fetch parent dashboard";
+        setLoadError(message);
+        setLoadState(ADMIN_LOAD_STATES.FAILURE);
+        toast.error(message);
       }
     };
 
     fetchDashboard();
+
+    return () => controller.abort();
   }, [navigate]);
 
   useEffect(() => {
@@ -122,18 +138,62 @@ const ParentShell = () => {
     return location.pathname.startsWith(itemPath);
   };
 
-  if (loading) {
+  const retryFetch = async () => {
+    try {
+      setLoadError("");
+      setLoadState(ADMIN_LOAD_STATES.PENDING);
+      const response = await axiosInstance.get("/api/parent/dashboard");
+      const nextData = response.data || null;
+      setData(nextData);
+      setLoadState(nextData ? ADMIN_LOAD_STATES.SUCCESS : ADMIN_LOAD_STATES.FAILURE);
+      if (!nextData) setLoadError("No dashboard data found.");
+    } catch (error) {
+      const status = Number(error?.response?.status || 0);
+      if (status === 401 || status === 403) {
+        localStorage.removeItem("authToken");
+        localStorage.removeItem("token");
+        localStorage.removeItem("parentStudent");
+        navigate("/parent/login", { replace: true });
+        return;
+      }
+      const message = error?.response?.data?.message || "Failed to fetch parent dashboard";
+      setLoadError(message);
+      setLoadState(ADMIN_LOAD_STATES.FAILURE);
+      toast.error(message);
+    }
+  };
+
+  if (loadState === ADMIN_LOAD_STATES.INITIAL || loadState === ADMIN_LOAD_STATES.PENDING) {
     return (
       <div className="parent-portal parent-portal--dashboard">
-        <div className="parent-card parent-state">Loading parent dashboard...</div>
+        <div className="parent-card parent-state">
+          <div className="parent-spinner" aria-hidden="true" />
+          <p className="parent-state-title">Loading parent dashboard...</p>
+          <p className="parent-state-subtitle">Please wait while we fetch the latest updates.</p>
+        </div>
       </div>
     );
   }
 
-  if (!data) {
+  if (loadState === ADMIN_LOAD_STATES.FAILURE) {
     return (
       <div className="parent-portal parent-portal--dashboard">
-        <div className="parent-card parent-state">No dashboard data found.</div>
+        <div className="parent-card parent-state">
+          <p className="parent-state-title">Unable to load dashboard</p>
+          <p className="parent-state-subtitle">{loadError || "Something went wrong."}</p>
+          <div className="parent-state-actions">
+            <button type="button" className="parent-btn parent-btn--primary" onClick={retryFetch}>
+              Retry
+            </button>
+            <button
+              type="button"
+              className="parent-btn parent-btn--ghost"
+              onClick={() => navigate("/parent/login", { replace: true })}
+            >
+              Go to Login
+            </button>
+          </div>
+        </div>
       </div>
     );
   }

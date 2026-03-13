@@ -32,6 +32,11 @@ const attendanceSessionSchema = new mongoose.Schema(
       ref: "Course",
       required: true,
     },
+    lectureNumber: {
+      type: Number,
+      default: 1,
+      min: 1,
+    },
 
     records: { type: [attendanceRecordSchema], default: [], index : true },
     isDeleted: {

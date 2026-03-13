@@ -84,11 +84,11 @@ export const fetchStudentsByGroup = createAsyncThunk(
 // Fetch attendance page with existing session (if already marked)
 export const fetchFacultyAttendancePage = createAsyncThunk(
   "facultyDashboard/fetchAttendancePage",
-  async ({ apiBase, groupId, courseId, date }, { rejectWithValue }) => {
+  async ({ apiBase, groupId, courseId, date, lectureNumber }, { rejectWithValue }) => {
     try {
       const response = await axios.get(`${apiBase}/faculty/attendance/${groupId}`, {
         withCredentials: true,
-        params: { courseId, date },
+        params: { courseId, date, lectureNumber },
       });
       return response.data || {};
     } catch (error) {

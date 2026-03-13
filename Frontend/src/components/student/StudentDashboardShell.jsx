@@ -214,7 +214,7 @@ const StudentDashboardShell = ({
   }, [location.pathname]);
 
   useEffect(() => {
-    if (currentSection !== "fees") return;
+    if (currentSection !== "fees" && currentSection !== "home") return;
     dispatch(fetchMyDemandRequests());
     dispatch(fetchMyFeeProfile());
     dispatch(fetchMyFeeDemands());
