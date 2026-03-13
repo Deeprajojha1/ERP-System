@@ -26,6 +26,46 @@ const normalizeProgram = (value) => {
 const isForbiddenError = (error) =>
   Number(error?.response?.status) === 403;
 
+const getProgramDurationYears = ({ batch, selectedProgramNorm = "", feePrograms = [] }) => {
+  if (!selectedProgramNorm) return NaN;
+  const batchPrograms = Array.isArray(batch?.programIds) ? batch.programIds : [];
+  const fromBatch = batchPrograms.find(
+    (program) => normalizeProgram(program?.programName) === selectedProgramNorm
+  );
+  const durationFromBatch = Number(fromBatch?.durationYears);
+  if (Number.isFinite(durationFromBatch) && durationFromBatch > 0) {
+    return durationFromBatch;
+  }
+
+  const fromPrograms = (feePrograms || []).find(
+    (program) => normalizeProgram(program?.programName) === selectedProgramNorm
+  );
+  const durationFromPrograms = Number(fromPrograms?.durationYears);
+  if (Number.isFinite(durationFromPrograms) && durationFromPrograms > 0) {
+    return durationFromPrograms;
+  }
+
+  return NaN;
+};
+
+const getBatchLabel = (batch, selectedProgramNorm = "", feePrograms = []) => {
+  const startYear = Number(batch?.batchYear);
+  if (!Number.isFinite(startYear) || startYear <= 0) return String(batch?.batchYear || "");
+
+  const programs = Array.isArray(batch?.programIds) ? batch.programIds : [];
+  let durationYears = getProgramDurationYears({ batch, selectedProgramNorm, feePrograms });
+
+  if (!Number.isFinite(durationYears) || durationYears <= 0) {
+    durationYears = programs.reduce(
+      (max, program) => Math.max(max, Number(program?.durationYears || 0)),
+      0
+    );
+  }
+
+  if (!Number.isFinite(durationYears) || durationYears <= 0) durationYears = 1;
+  return `${startYear}-${startYear + durationYears}`;
+};
+
 const Student = () => {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All Departments");
@@ -33,6 +73,8 @@ const Student = () => {
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
   const [groups, setGroups] = useState([]);
+  const [feeBatches, setFeeBatches] = useState([]);
+  const [feePrograms, setFeePrograms] = useState([]);
   const [isOpeningAdd, setIsOpeningAdd] = useState(false);
   const [openingEditId, setOpeningEditId] = useState("");
   const [modalDependenciesLoading, setModalDependenciesLoading] = useState(false);
@@ -60,6 +102,7 @@ const Student = () => {
     fatherPhoneNumber: "",
     collegeEmail: "",
     group: "",
+    batchId: "",
   });
   const [submitting, setSubmitting] = useState(false);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
@@ -140,13 +183,23 @@ const Student = () => {
     if (!apiBase || modalDependenciesLoading) return;
     setModalDependenciesLoading(true);
     try {
-      const [deptRes, groupRes] = await Promise.allSettled([
+      const [deptRes, groupRes, batchRes, programRes] = await Promise.allSettled([
         axios.get(`${apiBase}/admin/department`, {
           withCredentials: true,
           skipNetworkRedirect: true,
           params: { noCache: "true" },
         }),
         axios.get(`${apiBase}/admin/group`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+          params: { noCache: "true" },
+        }),
+        axios.get(`${apiBase}/admin/fee/batch`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+          params: { noCache: "true", limit: 500 },
+        }),
+        axios.get(`${apiBase}/admin/fee/program`, {
           withCredentials: true,
           skipNetworkRedirect: true,
           params: { noCache: "true" },
@@ -167,6 +220,22 @@ const Student = () => {
         setGroups([]);
       } else {
         throw groupRes.reason;
+      }
+
+      if (batchRes.status === "fulfilled") {
+        setFeeBatches(batchRes.value.data?.data || []);
+      } else if (isForbiddenError(batchRes.reason)) {
+        setFeeBatches([]);
+      } else {
+        setFeeBatches([]);
+      }
+
+      if (programRes.status === "fulfilled") {
+        setFeePrograms(programRes.value.data?.data || []);
+      } else if (isForbiddenError(programRes.reason)) {
+        setFeePrograms([]);
+      } else {
+        setFeePrograms([]);
       }
     } finally {
       setModalDependenciesLoading(false);
@@ -203,12 +272,27 @@ const Student = () => {
 
   const filteredGroups = useMemo(() => {
     if (!formData.department) return groups;
-    return groups.filter(
-      (g) =>
+    const selectedProgram = normalizeProgram(formData.program);
+    const departmentGroups = groups.filter((g) => {
+      const matchesDepartment =
         g.department?._id === formData.department ||
-        g.department === formData.department
-    );
-  }, [groups, formData.department]);
+        g.department === formData.department;
+      return matchesDepartment;
+    });
+
+    if (!selectedProgram) return departmentGroups;
+
+    const programMatchedGroups = departmentGroups.filter((g) => {
+      if (String(g._id) === String(formData.group)) return true;
+      const groupBranch = normalizeProgram(g.branch || "");
+      return groupBranch === selectedProgram;
+    });
+
+    // Backward-compatible fallback: if groups are not tagged with branch yet,
+    // show department groups instead of an empty list.
+    if (programMatchedGroups.length === 0) return departmentGroups;
+    return programMatchedGroups;
+  }, [groups, formData.department, formData.program]);
 
   const selectedDepartmentPrograms = useMemo(() => {
     const selectedDept = departments.find((d) => d._id === formData.department);
@@ -217,6 +301,22 @@ const Student = () => {
     return [...new Set(deptPrograms.map((prog) => normalizeProgram(prog)).filter(Boolean))];
   }, [departments, formData.department]);
 
+  const filteredBatches = useMemo(() => {
+    if (!formData.department) return [];
+    const selectedProgram = normalizeProgram(formData.program);
+    return feeBatches.filter((batch) => {
+      if (String(batch?._id || "") === String(formData.batchId || "")) return true;
+      const batchDepartmentId = batch?.departmentId?._id || batch?.departmentId;
+      if (String(batchDepartmentId || "") !== String(formData.department)) return false;
+      if (!selectedProgram) return true;
+      const batchPrograms = Array.isArray(batch?.programIds) ? batch.programIds : [];
+      return batchPrograms.some((program) => {
+        const programName = program?.programName || "";
+        return normalizeProgram(programName) === selectedProgram;
+      });
+    });
+  }, [feeBatches, formData.department, formData.program, formData.batchId]);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name === "department") {
@@ -224,6 +324,9 @@ const Student = () => {
         ...prev,
         department: value,
         program: "",
+        group: "",
+        batchId: "",
+        academicYear: "",
       }));
       return;
     }
@@ -231,6 +334,27 @@ const Student = () => {
       setFormData((prev) => ({
         ...prev,
         program: normalizeProgram(value),
+        group: "",
+        batchId: "",
+        academicYear: "",
+      }));
+      return;
+    }
+    if (name === "batchId") {
+      const selectedBatch = feeBatches.find((batch) => String(batch?._id) === String(value));
+      const year = Number(selectedBatch?.batchYear);
+      const durationYears = getProgramDurationYears({
+        batch: selectedBatch,
+        selectedProgramNorm: normalizeProgram(formData.program),
+        feePrograms,
+      });
+      setFormData((prev) => ({
+        ...prev,
+        batchId: value,
+        academicYear:
+          Number.isFinite(year) && year > 0
+            ? `${year}-${year + (Number.isFinite(durationYears) && durationYears > 0 ? durationYears : 1)}`
+            : "",
       }));
       return;
     }
@@ -270,6 +394,7 @@ const Student = () => {
         fatherPhoneNumber: "",
         collegeEmail: "",
         group: "",
+        batchId: "",
       });
       setIsOpen(true);
     } catch (error) {
@@ -318,6 +443,7 @@ const Student = () => {
         fatherPhoneNumber: fullStudent.fatherPhoneNumber || "",
         collegeEmail: fullStudent.collegeEmail || "",
         group: fullStudent.group?._id || fullStudent.group || "",
+        batchId: fullStudent.batchId?._id || fullStudent.batchId || "",
       });
       setIsOpen(true);
     } catch (error) {
@@ -372,6 +498,7 @@ const Student = () => {
       fatherPhoneNumber: formData.fatherPhoneNumber,
       collegeEmail: formData.collegeEmail,
       group: formData.group || null,
+      batchId: formData.batchId || null,
     };
 
     if (editTarget) return base;
@@ -457,6 +584,7 @@ const Student = () => {
         fatherPhoneNumber: "",
         collegeEmail: "",
         group: "",
+        batchId: "",
       });
     } catch (error) {
       console.error(
@@ -811,7 +939,7 @@ const Student = () => {
                       </option>
                       {filteredGroups.map((g) => (
                         <option key={g._id} value={g._id}>
-                          {g.name}
+                          {g.branch ? `${g.name} (${g.branch})` : g.name}
                         </option>
                       ))}
                     </select>
@@ -819,6 +947,27 @@ const Student = () => {
                 </label>
               </div>
               <div className="student-form-row">
+                <label>
+                  Batch
+                  <select
+                    name="batchId"
+                    value={formData.batchId}
+                    onChange={handleChange}
+                    disabled={!formData.department || !formData.program}
+                    required
+                  >
+                    <option value="">
+                      {formData.department && formData.program
+                        ? "Select Batch"
+                        : "Select Department and Program first"}
+                    </option>
+                    {filteredBatches.map((batch) => (
+                      <option key={batch._id} value={batch._id}>
+                        {getBatchLabel(batch, normalizeProgram(formData.program), feePrograms)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label>
                   Academic Year
                   <input
@@ -829,6 +978,8 @@ const Student = () => {
                     onChange={handleChange}
                   />
                 </label>
+              </div>
+              <div className="student-form-row">
                 <label>
                   Father Name
                   <input

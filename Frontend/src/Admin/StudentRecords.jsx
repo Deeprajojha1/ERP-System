@@ -19,6 +19,14 @@ import "./StudentRecords.css";
 const formatCurrency = (value = 0) =>
   `Rs ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
+const formatSemesterLabel = (semesterNo, scope) => {
+  const normalizedScope = String(scope || "").toUpperCase();
+  const sem = Number(semesterNo);
+  if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+  if (Number.isFinite(sem) && sem > 0) return `Semester ${sem}`;
+  return "-";
+};
+
 const PAYMENT_MODES = ["UPI", "NETBANKING", "CARD", "CASH", "CHEQUE", "DD", "BANK_TRANSFER"];
 
 const StudentRecords = () => {
@@ -399,7 +407,7 @@ const StudentRecords = () => {
                       </div>
                       <div>
                         <p>{demand.academicYear}</p>
-                        <span className="sr-pill">Semester {demand.semesterNo}</span>
+                        <span className="sr-pill">{formatSemesterLabel(demand.semesterNo, demand.scope)}</span>
                       </div>
                       <p className="sr-text-strong">{formatCurrency(demand.totalAmount)}</p>
                       <p>{formatCurrency(demand.paidAmount)}</p>

@@ -22,6 +22,7 @@ const FeeDemandRequests = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [approveModal, setApproveModal] = useState(null);
   const [dueDate, setDueDate] = useState("");
+  const todayDate = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
     dispatch(fetchDemandRequests());
@@ -47,13 +48,25 @@ const FeeDemandRequests = () => {
     return { total: requests.length, pending, approved, rejected };
   }, [requests]);
 
+  const formatSemesterLabel = (semesterNo, scope) => {
+    const normalizedScope = String(scope || "").toUpperCase();
+    const sem = Number(semesterNo);
+    if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
+    if (Number.isFinite(sem) && sem > 0) return `Sem ${sem}`;
+    return "-";
+  };
+
   const handleApprove = async () => {
     if (!approveModal) return;
+    if (!dueDate) {
+      toast.error("Due date is required");
+      return;
+    }
     try {
       await dispatch(
         approveDemandRequest({
           id: approveModal._id,
-          dueDate: dueDate || undefined,
+          dueDate,
         })
       ).unwrap();
       toast.success("Request approved & demand generated");
@@ -177,7 +190,7 @@ const FeeDemandRequests = () => {
                   <tr key={req._id}>
                     <td className="fees-name">{req.studentId}</td>
                     <td>{req.academicYear}</td>
-                    <td>{req.semesterNo}</td>
+                    <td>{formatSemesterLabel(req.semesterNo, req.scope)}</td>
                     <td>{req.hostelAmount > 0 ? `₹${req.hostelAmount.toLocaleString("en-IN")}` : "—"}</td>
                     <td>{req.transportAmount > 0 ? `₹${req.transportAmount.toLocaleString("en-IN")}` : "—"}</td>
                     <td>{req.note || "—"}</td>
@@ -196,7 +209,7 @@ const FeeDemandRequests = () => {
                             disabled={actionLoading}
                             onClick={() => {
                               setApproveModal(req);
-                              setDueDate("");
+                              setDueDate(todayDate);
                             }}
                           >
                             <FiCheck /> Approve
@@ -237,13 +250,14 @@ const FeeDemandRequests = () => {
             <div className="fdr-modal-body">
               <p>
                 Student: <strong>{approveModal.studentId}</strong> &bull;{" "}
-                {approveModal.academicYear} Sem {approveModal.semesterNo}
+                {approveModal.academicYear} {formatSemesterLabel(approveModal.semesterNo, approveModal.scope)}
               </p>
               <label className="fdr-modal-field">
-                <span>Due Date (optional, defaults to today)</span>
+                <span>Due Date (required)</span>
                 <ModernDatePicker
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
+                  min={todayDate}
                 />
               </label>
             </div>

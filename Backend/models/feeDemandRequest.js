@@ -15,12 +15,17 @@ const FeeDemandRequestSchema = new mongoose.Schema(
     academicYear: {
       type: String,
       required: true,
-      match: /^\d{4}-\d{2}$/,
+      match: /^\d{4}-(?:\d{2}|\d{4})$/,
+    },
+    scope: {
+      type: String,
+      enum: ["SEMESTER", "YEAR"],
+      default: "SEMESTER",
     },
     semesterNo: {
       type: Number,
       required: true,
-      min: 1,
+      min: 0,
       max: 20,
     },
     dueDate: {
@@ -89,7 +94,7 @@ const FeeDemandRequestSchema = new mongoose.Schema(
 );
 
 FeeDemandRequestSchema.index(
-  { studentMongoId: 1, academicYear: 1, semesterNo: 1, status: 1 },
+  { studentMongoId: 1, academicYear: 1, scope: 1, semesterNo: 1, status: 1 },
   { unique: true, partialFilterExpression: { status: "PENDING" } }
 );
 

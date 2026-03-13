@@ -16,13 +16,19 @@ const FeeDemandSchema = new mongoose.Schema({
   academicYear: {
     type: String,
     required: true,
-    match: /^\d{4}-\d{2}$/ // "2025-26"
+    match: /^\d{4}-(?:\d{2}|\d{4})$/ // "2025-26" or "2025-2026"
+  },
+
+  scope: {
+    type: String,
+    enum: ["SEMESTER", "YEAR"],
+    default: "SEMESTER"
   },
 
   semesterNo: {
     type: Number,
     required: true,
-    min: 1,
+    min: 0,
     max: 20
   },
 
@@ -59,7 +65,7 @@ const FeeDemandSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 FeeDemandSchema.index(
-  { studentId: 1, academicYear: 1, semesterNo: 1 },
+  { studentId: 1, academicYear: 1, scope: 1, semesterNo: 1 },
   { unique: true }
 );
 FeeDemandSchema.index({ studentMongoId: 1, createdAt: -1 });

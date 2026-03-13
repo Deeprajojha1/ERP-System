@@ -6,6 +6,10 @@ import FeeHostelYearly from "../models/feeHostelYearly.js";
 
 dotenv.config();
 
+const MONGO_RETRY_DELAY_MS = Number(process.env.MONGO_RETRY_DELAY_MS || 5000);
+let retryCount = 0;
+let retryTimer = null;
+
 const ensureRoomIndexes = async () => {
   try {
     const indexes = await Room.collection.indexes().catch(() => []);

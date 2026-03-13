@@ -1,4 +1,5 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   FiAlertTriangle,
@@ -35,6 +36,7 @@ import {
 import { allocateStudentApi } from "./constants/allocationApi";
 import { createRoomApi, updateRoomApi } from "./constants/roomApi";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
+import { fetchHostelYearlyFees, selectHostelYearlyFees } from "../redux/feeSlice";
 
 const INITIAL_STUDENT_FORM = {
   studentName: "",
@@ -116,6 +118,7 @@ const INITIAL_ROOM_FORM = {
   roomNumber: "",
   floorId: "",
   bedTier: "two-tier",
+  academicYear: "",
   price: "",
   priceType: "Yearly",
 };
@@ -175,13 +178,31 @@ const getBedTierFromCapacity = (capacity) => {
   return "single";
 };
 
+const normalizeRoomType = (value = "") =>
+  String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ");
+
+const getRoomTypeFromCapacity = (capacity) => {
+  const cap = Number(capacity);
+  if (!Number.isFinite(cap) || cap <= 0) return "";
+  if (cap === 1) return "1 SEATER";
+  if (cap === 2) return "2 SEATER";
+  if (cap === 3) return "3 SEATER";
+  if (cap === 4) return "4 SEATER";
+  return `${cap} SEATER`;
+};
+
 const formatBedTierLabel = (tierValue, capacity) => {
   return formatTierLabel(tierValue, capacity);
 };
 
 const HostelDetails = () => {
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const { hostelId } = useParams();
+  const hostelYearlyFees = useSelector(selectHostelYearlyFees);
 
   const [hostelData, setHostelData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -318,23 +339,20 @@ const HostelDetails = () => {
   }, [fetchHostelData]);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const response = await axiosInstance.get("/api/admin/fee/hostel-yearly");
-        const rows = Array.isArray(response.data?.data) ? response.data.data : [];
-        const optionMap = new Map(BED_TIER_OPTIONS.map((item) => [item.value, item]));
-        rows.forEach((row) => {
-          const type = String(row?.roomType || "").trim();
-          if (!type || String(type).toUpperCase() === "GENERAL") return;
-          const option = createTierOption(type);
-          optionMap.set(option.value, option);
-        });
-        setBedTierOptions(Array.from(optionMap.values()).sort((a, b) => a.capacity - b.capacity));
-      } catch {
-        setBedTierOptions(BED_TIER_OPTIONS);
-      }
-    })();
-  }, []);
+    dispatch(fetchHostelYearlyFees());
+  }, [dispatch]);
+
+  useEffect(() => {
+    const rows = Array.isArray(hostelYearlyFees) ? hostelYearlyFees : [];
+    const optionMap = new Map(BED_TIER_OPTIONS.map((item) => [item.value, item]));
+    rows.forEach((row) => {
+      const type = String(row?.roomType || "").trim();
+      if (!type || String(type).toUpperCase() === "GENERAL") return;
+      const option = createTierOption(type);
+      optionMap.set(option.value, option);
+    });
+    setBedTierOptions(Array.from(optionMap.values()).sort((a, b) => a.capacity - b.capacity));
+  }, [hostelYearlyFees]);
 
   useEffect(() => {
     const existingRoomTiers = [];
@@ -447,6 +465,39 @@ const HostelDetails = () => {
 
   const loadStateText =
     ADMIN_LOAD_STATE_OPTIONS.find((option) => option.id === loadState)?.text || "Unknown";
+
+  const academicYearOptions = useMemo(() => {
+    const set = new Set();
+    (hostelYearlyFees || []).forEach((row) => {
+      const year = String(row?.academicYear || "").trim();
+      if (year) set.add(year);
+    });
+    return Array.from(set).sort((a, b) => b.localeCompare(a));
+  }, [hostelYearlyFees]);
+
+  const hostelFeeLookup = useMemo(() => {
+    const map = new Map();
+    (hostelYearlyFees || []).forEach((row) => {
+      const year = String(row?.academicYear || "").trim();
+      const roomType = normalizeRoomType(row?.roomType);
+      if (!year || !roomType) return;
+      const fee = Number(row?.hostelYearlyFee || 0);
+      if (!Number.isFinite(fee) || fee <= 0) return;
+      map.set(`${year}__${roomType}`, fee);
+    });
+    return map;
+  }, [hostelYearlyFees]);
+
+  useEffect(() => {
+    const year = String(roomForm.academicYear || "").trim();
+    if (!year) return;
+    const tierMeta = getBedTierMeta(roomForm.bedTier, bedTierOptions);
+    const roomType = normalizeRoomType(getRoomTypeFromCapacity(tierMeta.capacity));
+    if (!roomType) return;
+    const fee = hostelFeeLookup.get(`${year}__${roomType}`);
+    if (!Number.isFinite(fee) || fee <= 0) return;
+    setRoomForm((prev) => ({ ...prev, price: String(fee) }));
+  }, [roomForm.academicYear, roomForm.bedTier, bedTierOptions, hostelFeeLookup]);
 
   useEffect(() => {
     const selectedMenu = hostel?.foodMenu?.[selectedDay];
@@ -683,6 +734,7 @@ const HostelDetails = () => {
     setRoomForm({
       ...INITIAL_ROOM_FORM,
       floorId: assignFloorOptions[0]?.id || "",
+      academicYear: academicYearOptions[0] || "",
     });
     setShowAddRoomModal(true);
   };
@@ -1247,6 +1299,26 @@ const HostelDetails = () => {
                     ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="hd-form-group">
+                <label>Academic Year *</label>
+                <select
+                  name="academicYear"
+                  value={roomForm.academicYear}
+                  onChange={handleRoomFormChange}
+                  required
+                >
+                  <option value="">-- Select Academic Year --</option>
+                  {academicYearOptions.map((year) => (
+                    <option key={year} value={year}>
+                      {year}
+                    </option>
+                  ))}
+                </select>
+                {academicYearOptions.length === 0 ? (
+                  <small className="hd-form-hint">Add hostel yearly fees first to enable auto pricing.</small>
+                ) : null}
               </div>
 
               <div className="hd-form-row">

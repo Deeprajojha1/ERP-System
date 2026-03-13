@@ -1030,6 +1030,24 @@ select.fee-setup-input {
   font-size: 12px;
 }
 
+.fee-batch-year-inline {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.fee-setup-input--compact {
+  min-height: 38px;
+  padding: 6px 10px;
+  font-size: 14px;
+}
+
+@media (max-width: 640px) {
+  .fee-batch-year-inline {
+    grid-template-columns: 1fr;
+  }
+}
+
 .fee-structure-add-btn {
   border: none;
   border-radius: 999px;
