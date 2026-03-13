@@ -91,6 +91,12 @@ const hashText = (value = "") => {
   return Math.abs(hash);
 };
 
+const stripQuestionNumberPrefix = (value = "") =>
+  String(value || "")
+    .replace(/^\s*#+\s*/, "")
+    .replace(/^\s*(?:q(?:uestion)?\s*)?#?\d+\s*[:.)-]?\s*/i, "")
+    .trim();
+
 const StudentExamCenter = ({ onExamFocusModeChange }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -475,6 +481,7 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
       questionIndex: Number.isFinite(Number(question?.questionIndex))
         ? Number(question.questionIndex)
         : idx,
+      displayQuestionText: stripQuestionNumberPrefix(question?.questionText),
     }));
     const seed = String(activeAttempt?._id || workspaceBlueprintId || activeBlueprintId || "exam");
     return [...normalized].sort((a, b) => {
@@ -1226,33 +1233,49 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
           <header className="student-exam-workspace-head">
             <div>
               <h4>{workspaceExam?.title || "Exam Session"}</h4>
-              <p>{workspaceExam?.subject || "Subject N/A"}</p>
+              {workspaceStep === "attempt" && isAttemptInProgress ? (
+                <p>
+                  {workspaceExam?.subject || "Subject N/A"} | Attempt #{Number(
+                    activeAttempt?.attemptNumber || 1
+                  )} | {answeredCount}/{totalQuestions} answered
+                </p>
+              ) : (
+                <p>{workspaceExam?.subject || "Subject N/A"}</p>
+              )}
             </div>
-            <button
-              type="button"
-              className="student-exam-workspace-back"
-              onClick={
-                workspaceStep === "face"
-                  ? () => {
-                      setWorkspaceStep("instructions");
-                      setFaceError("");
-                      setIsFaceChecking(false);
-                      setIsFaceVerified(false);
-                      stopFaceStream();
-                    }
-                  : closeWorkspace
-              }
-              disabled={isAttemptInProgress && workspaceStep === "attempt"}
-            >
-              <FiArrowLeft />
-              <span>
-                {workspaceStep === "face"
-                  ? "Back to Instructions"
-                  : isAttemptInProgress && workspaceStep === "attempt"
-                  ? "Exam Running"
-                  : "Back to Exams"}
-              </span>
-            </button>
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "center" }}>
+              {workspaceStep === "attempt" && isAttemptInProgress && (
+                <div className={`student-exam-timer ${isTimeExpired ? "expired" : ""}`}>
+                  <FiClock />
+                  <span>{isTimeExpired ? "Time up" : formatTimer(remainingMs)}</span>
+                </div>
+              )}
+              <button
+                type="button"
+                className="student-exam-workspace-back"
+                onClick={
+                  workspaceStep === "face"
+                    ? () => {
+                        setWorkspaceStep("instructions");
+                        setFaceError("");
+                        setIsFaceChecking(false);
+                        setIsFaceVerified(false);
+                        stopFaceStream();
+                      }
+                    : closeWorkspace
+                }
+                disabled={isAttemptInProgress && workspaceStep === "attempt"}
+              >
+                <FiArrowLeft />
+                <span>
+                  {workspaceStep === "face"
+                    ? "Back to Instructions"
+                    : isAttemptInProgress && workspaceStep === "attempt"
+                    ? "Exam Running"
+                    : "Back to Exams"}
+                </span>
+              </button>
+            </div>
           </header>
           <video
             ref={proctorVideoRef}
@@ -1387,32 +1410,40 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                       const result = await verifyFaceWithBackend({ imageData });
                       let effectiveResult = result;
                       if (!result.ok && result.error === "OPENCV_NOT_AVAILABLE") {
-                        const fallback = await verifyFaceWithBrowserDetector(videoRef.current);
-                        effectiveResult = fallback.ok
-                          ? fallback
-                          : {
-                              ...fallback,
-                              message:
-                                fallback.message ||
-                                "Face verification failed. Keep your face visible and retry.",
-                            };
+                        const canUseBrowserFaceDetector =
+                          typeof window !== "undefined" &&
+                          typeof window.FaceDetector === "function";
+                        if (canUseBrowserFaceDetector) {
+                          const fallback = await verifyFaceWithBrowserDetector(videoRef.current);
+                          effectiveResult = fallback.ok
+                            ? fallback
+                            : {
+                                ...fallback,
+                                message:
+                                  fallback.message ||
+                                  "Face verification failed. Keep your face visible and retry.",
+                              };
+                        } else {
+                          effectiveResult = {
+                            ok: false,
+                            error: "OPENCV_NOT_AVAILABLE",
+                            message:
+                              "Automatic face verification service is temporarily unavailable.",
+                          };
+                        }
                       }
                       setIsFaceChecking(false);
                       if (!effectiveResult.ok) {
                         const canUseManualFallback =
+                          effectiveResult.error === "OPENCV_NOT_AVAILABLE" ||
                           effectiveResult.error === "BROWSER_FACE_DETECTOR_UNAVAILABLE" ||
                           effectiveResult.error === "BROWSER_FACE_DETECTOR_FAILED";
                         if (canUseManualFallback) {
-                          const confirmed = window.confirm(
-                            "Automatic face verification is unavailable on this device/browser. Continue with manual verification?"
+                          setIsFaceVerified(true);
+                          setFaceError(
+                            "Automatic face verification is unavailable. Manual verification enabled for this attempt."
                           );
-                          if (confirmed) {
-                            setIsFaceVerified(true);
-                            setFaceError(
-                              "Automatic face verification is unavailable. Manual verification enabled."
-                            );
-                            return;
-                          }
+                          return;
                         }
                         setIsFaceVerified(false);
                         setFaceError(effectiveResult.message || "Face verification failed.");
@@ -1468,20 +1499,6 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
             <>
               {isAttemptInProgress && activePaper?._id && totalQuestions > 0 ? (
                 <section className="student-exam-attempt-panel">
-                  <header className="student-exam-attempt-header">
-                    <div>
-                      <h4>{activeExam?.title || "Live Exam Attempt"}</h4>
-                      <p>
-                        Attempt #{Number(activeAttempt?.attemptNumber || 1)} - {answeredCount}/
-                        {totalQuestions} answered
-                      </p>
-                    </div>
-                    <div className={`student-exam-timer ${isTimeExpired ? "expired" : ""}`}>
-                      <FiClock />
-                      <span>{isTimeExpired ? "Time up" : formatTimer(remainingMs)}</span>
-                    </div>
-                  </header>
-
                   <div className="student-exam-integrity-note">
                     <FiShield />
                     <span>
@@ -1529,7 +1546,7 @@ const StudentExamCenter = ({ onExamFocusModeChange }) => {
                       </div>
 
                       <p className="student-question-text">
-                        {currentQuestion?.questionText || "N/A"}
+                        {currentQuestion?.displayQuestionText || currentQuestion?.questionText || "N/A"}
                       </p>
 
                       {isCurrentMcq ? (
