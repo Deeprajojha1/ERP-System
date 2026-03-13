@@ -2342,7 +2342,69 @@ export const getFeeDemandRequests = async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(limit)
       .populate("approvedByUserId", "name email")
-      .populate("linkedDemandId", "academicYear semesterNo totalAmount dueAmount dueDate status");
+      .populate("linkedDemandId", "academicYear semesterNo totalAmount dueAmount dueDate status")
+      .lean();
+
+    const profileIds = rows
+      .map((row) => String(row?.studentMongoId || ""))
+      .filter((id) => isValidId(id));
+    const profiles = profileIds.length
+      ? await StudentFeeDetails.find({ _id: { $in: profileIds } })
+          .select("programId branchId currentSemester feeSummary courseNetFee")
+          .lean()
+      : [];
+    const profileMap = new Map(profiles.map((p) => [String(p._id), p]));
+
+    const branchIds = Array.from(new Set(profiles.map((p) => String(p.branchId || "")).filter((id) => isValidId(id))));
+    const programIds = Array.from(new Set(profiles.map((p) => String(p.programId || "")).filter((id) => isValidId(id))));
+    const branches = branchIds.length
+      ? await Branch.find({ _id: { $in: branchIds } }).select("semesterBaseFees").lean()
+      : [];
+    const programs = programIds.length
+      ? await Program.find({ _id: { $in: programIds } }).select("durationYears totalSemesters").lean()
+      : [];
+    const branchMap = new Map(branches.map((b) => [String(b._id), b]));
+    const programMap = new Map(programs.map((p) => [String(p._id), p]));
+
+    rows.forEach((row) => {
+      if (Number(row?.academicAmount || 0) > 0) {
+        row.academicAmountComputed = round2(Number(row.academicAmount));
+        return;
+      }
+      const profile = profileMap.get(String(row?.studentMongoId || ""));
+      if (!profile) return;
+      const branch = branchMap.get(String(profile.branchId || ""));
+      if (!branch) return;
+      const semesterRows = Array.isArray(branch.semesterBaseFees) ? branch.semesterBaseFees : [];
+      const courseGross = round2(semesterRows.reduce((sum, r) => sum + Number(r?.baseFee || 0), 0));
+      const courseNet = round2(Number(profile?.feeSummary?.courseNetFee || 0));
+      const ratio = courseGross > 0 ? Math.min(1, Math.max(0, courseNet / courseGross)) : 1;
+
+      const reqScope = normalizeDemandScope(row?.scope || (Number(row?.semesterNo) === 0 ? "YEAR" : "SEMESTER"));
+      const isYearScope = reqScope === "YEAR";
+      let netTuition = 0;
+      if (isYearScope) {
+        const program = programMap.get(String(profile.programId || ""));
+        const { start, end } = getAcademicYearSemesterRange({
+          currentSemester: profile.currentSemester,
+          program,
+        });
+        let grossYearFee = 0;
+        for (let sem = start; sem <= end; sem += 1) {
+          const rowFee = semesterRows.find((item) => Number(item?.semesterNo) === Number(sem));
+          if (rowFee) grossYearFee += Number(rowFee?.baseFee || 0);
+        }
+        netTuition = round2(round2(grossYearFee) * ratio);
+      } else {
+        const semesterRow = semesterRows.find((r) => Number(r?.semesterNo) === Number(row?.semesterNo));
+        if (semesterRow) {
+          const grossSemesterFee = round2(Number(semesterRow?.baseFee || 0));
+          netTuition = round2(grossSemesterFee * ratio);
+        }
+      }
+      if (netTuition > 0) row.academicAmountComputed = netTuition;
+    });
+
     return res.status(200).json({ message: "Fee demand requests retrieved", data: rows });
   } catch (error) {
     return res.status(500).json({ message: sanitizeError(error) });
@@ -2422,6 +2484,11 @@ export const approveFeeDemandRequest = async (req, res) => {
         }
         const grossSemesterFee = round2(Number(semesterRow.baseFee || 0));
         netTuition = round2(grossSemesterFee * ratio);
+      }
+
+      const requestedAcademic = round2(Math.max(0, Number(request.academicAmount || 0)));
+      if (requestedAcademic > 0) {
+        netTuition = Math.min(netTuition, requestedAcademic);
       }
 
       const heads = [{ head: "TUITION", amount: netTuition }];
@@ -3064,7 +3131,14 @@ export const createMyFeeDemandRequest = async (req, res) => {
     const current = await getCurrentStudentFeeProfile(req.userId);
     if (!current || !current.profile) return res.status(404).json({ message: "Student fee profile not found" });
 
-    const { academicYear, semesterNo, hostelAmount = 0, transportAmount = 0, note = "" } = req.body || {};
+    const {
+      academicYear,
+      semesterNo,
+      hostelAmount = 0,
+      transportAmount = 0,
+      academicAmount = 0,
+      note = "",
+    } = req.body || {};
     const requestScope = normalizeDemandScope(req.body?.scope || req.body?.requestScope || req.body?.applyFor);
     const isYearScope = requestScope === "YEAR";
     if (!academicYear || (!isYearScope && !semesterNo)) {
@@ -3117,6 +3191,7 @@ export const createMyFeeDemandRequest = async (req, res) => {
       scope: requestScope,
       dueDate: null,
       hostelAmount: round2(Math.max(0, Number(hostelAmount || 0))),
+      academicAmount: round2(Math.max(0, Number(academicAmount || 0))),
       transportAmount: round2(Math.max(0, Number(transportAmount || 0))),
       note: sanitizeText(note, 500),
       status: "PENDING",

@@ -142,11 +142,14 @@ const StudentDashboardShell = ({
     academicYear: defaultAcademicYear,
     semesterNo: String(roleDetails?.semester || 1),
     scope: "SEMESTER",
+    academicAmount: "0",
     hostelAmount: "0",
     transportAmount: "0",
     note: "",
   });
   const [useYearlyHostelFee, setUseYearlyHostelFee] = useState(false);
+  const [usePartialAcademic, setUsePartialAcademic] = useState(false);
+  const [useFullTransportFee, setUseFullTransportFee] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -311,6 +314,40 @@ const StudentDashboardShell = ({
   const suggestedHostelYearFee = Number(currentYearBreakdown?.hostelFee || 0);
   const canSuggestHostelYearFee = suggestedHostelYearFee > 0;
   const lockHostelAmount = useYearlyHostelFee && canSuggestHostelYearFee;
+  const suggestedTransportYearFee = Number(currentYearBreakdown?.transportFee || 0);
+  const canSuggestTransportYearFee = suggestedTransportYearFee > 0;
+  const lockTransportAmount = useFullTransportFee && canSuggestTransportYearFee;
+  const isHostelOpted = Boolean(myFeeProfile?.hostelOpted);
+  const isTransportOpted = Boolean(myFeeProfile?.transportOpted);
+
+  useEffect(() => {
+    if (!usePartialAcademic) {
+      setDemandRequestForm((prev) => ({ ...prev, academicAmount: "0" }));
+    }
+  }, [usePartialAcademic]);
+
+  useEffect(() => {
+    if (!isHostelOpted) {
+      setUseYearlyHostelFee(false);
+      setDemandRequestForm((prev) => ({ ...prev, hostelAmount: "0" }));
+    }
+  }, [isHostelOpted]);
+
+  useEffect(() => {
+    if (!isTransportOpted) {
+      setUseFullTransportFee(false);
+      setDemandRequestForm((prev) => ({ ...prev, transportAmount: "0" }));
+    }
+  }, [isTransportOpted]);
+
+  useEffect(() => {
+    if (useFullTransportFee && canSuggestTransportYearFee) {
+      setDemandRequestForm((prev) => ({
+        ...prev,
+        transportAmount: String(suggestedTransportYearFee),
+      }));
+    }
+  }, [useFullTransportFee, canSuggestTransportYearFee, suggestedTransportYearFee]);
 
   const formatSemesterLabel = (semesterNo, scope) => {
     const normalizedScope = String(scope || "").toUpperCase();
@@ -341,6 +378,7 @@ const StudentDashboardShell = ({
           semesterNo: isYearRequest ? 0 : Number(demandRequestForm.semesterNo),
           scope: isYearRequest ? "YEAR" : "SEMESTER",
           hostelAmount: Number(demandRequestForm.hostelAmount || 0),
+          academicAmount: Number(demandRequestForm.academicAmount || 0),
           transportAmount: Number(demandRequestForm.transportAmount || 0),
           note: String(demandRequestForm.note || "").trim(),
         })
@@ -1289,6 +1327,57 @@ const StudentDashboardShell = ({
             <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="text-sm text-slate-700">
                 <span className="flex items-center gap-1.5">
+                  <FiDollarSign size={14} className="text-slate-400" />
+                  Academic Amount
+                </span>
+              <input
+                className={`mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100 ${
+                  usePartialAcademic ? "" : "bg-slate-50 text-slate-500"
+                }`}
+                type="number"
+                min="0"
+                value={demandRequestForm.academicAmount}
+                readOnly={!usePartialAcademic}
+                onChange={(event) =>
+                  setDemandRequestForm((prev) => ({
+                    ...prev,
+                    academicAmount: event.target.value,
+                  }))
+                }
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                <button
+                  type="button"
+                  className={`rounded-full border px-3 py-1 transition ${
+                    !usePartialAcademic
+                      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                  onClick={() => setUsePartialAcademic(false)}
+                >
+                  Full Academic
+                </button>
+                <button
+                  type="button"
+                  className={`rounded-full border px-3 py-1 transition ${
+                    usePartialAcademic
+                      ? "border-blue-200 bg-blue-50 text-blue-700"
+                      : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                  }`}
+                  onClick={() => setUsePartialAcademic(true)}
+                >
+                  Partial Academic
+                </button>
+                <span>
+                  {usePartialAcademic
+                    ? "Enter the academic amount you want to request."
+                    : "Full academic fee will be applied by admin."}
+                </span>
+              </div>
+            </label>
+            {isHostelOpted ? (
+              <label className="text-sm text-slate-700">
+                <span className="flex items-center gap-1.5">
                   <HiOutlineBuildingOffice size={14} className="text-slate-400" />
                   Hostel Amount
                 </span>
@@ -1334,16 +1423,21 @@ const StudentDashboardShell = ({
                   </div>
                 ) : null}
               </label>
+            ) : null}
+            {isTransportOpted ? (
               <label className="text-sm text-slate-700">
                 <span className="flex items-center gap-1.5">
                   <FiTruck size={14} className="text-slate-400" />
                   Transport Amount
                 </span>
                 <input
-                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  className={`mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100 ${
+                    lockTransportAmount ? "bg-slate-50 text-slate-500" : ""
+                  }`}
                   type="number"
                   min="0"
                   value={demandRequestForm.transportAmount}
+                  readOnly={lockTransportAmount}
                   onChange={(event) =>
                     setDemandRequestForm((prev) => ({
                       ...prev,
@@ -1351,7 +1445,32 @@ const StudentDashboardShell = ({
                     }))
                   }
                 />
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <label className="inline-flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={useFullTransportFee}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setUseFullTransportFee(checked);
+                        if (checked && canSuggestTransportYearFee) {
+                          setDemandRequestForm((prev) => ({
+                            ...prev,
+                            transportAmount: String(suggestedTransportYearFee),
+                          }));
+                        }
+                      }}
+                    />
+                    Use full-year transport fee
+                  </label>
+                  {canSuggestTransportYearFee ? (
+                    <span>Suggested: Rs.{suggestedTransportYearFee.toLocaleString("en-IN")}</span>
+                  ) : (
+                    <span className="text-amber-600">Full-year transport fee not configured.</span>
+                  )}
+                </div>
               </label>
+            ) : null}
             </div>
           </div>
 
