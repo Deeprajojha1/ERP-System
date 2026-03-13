@@ -164,6 +164,7 @@ const FeeDemandRequests = () => {
                 <th>Student ID</th>
                 <th>Academic Year</th>
                 <th>Semester</th>
+                <th>Academic</th>
                 <th>Hostel</th>
                 <th>Transport</th>
                 <th>Note</th>
@@ -175,13 +176,13 @@ const FeeDemandRequests = () => {
             <tbody>
               {loading && filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: "center", padding: "24px" }}>
+                  <td colSpan={10} style={{ textAlign: "center", padding: "24px" }}>
                     Loading requests...
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={9} style={{ textAlign: "center", padding: "24px", color: "#64748b" }}>
+                  <td colSpan={10} style={{ textAlign: "center", padding: "24px", color: "#64748b" }}>
                     No demand requests found
                   </td>
                 </tr>
@@ -191,6 +192,17 @@ const FeeDemandRequests = () => {
                     <td className="fees-name">{req.studentId}</td>
                     <td>{req.academicYear}</td>
                     <td>{formatSemesterLabel(req.semesterNo, req.scope)}</td>
+                    <td>
+                      {(() => {
+                        const amount =
+                          Number(req.academicAmount || 0) ||
+                          Number(req.academicAmountComputed || 0) ||
+                          0;
+                        return amount > 0
+                          ? `₹${amount.toLocaleString("en-IN")}`
+                          : "Full";
+                      })()}
+                    </td>
                     <td>{req.hostelAmount > 0 ? `₹${req.hostelAmount.toLocaleString("en-IN")}` : "—"}</td>
                     <td>{req.transportAmount > 0 ? `₹${req.transportAmount.toLocaleString("en-IN")}` : "—"}</td>
                     <td>{req.note || "—"}</td>

@@ -37,6 +37,11 @@ const FeeDemandRequestSchema = new mongoose.Schema(
       default: 0,
       min: 0,
     },
+    academicAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     transportAmount: {
       type: Number,
       default: 0,
