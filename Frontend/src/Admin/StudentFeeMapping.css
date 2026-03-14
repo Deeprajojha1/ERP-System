@@ -15,6 +15,55 @@
   gap: 22px;
 }
 
+.sfm-search {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.sfm-search-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: #ffffff;
+  border: 1px solid #dbe4f0;
+  border-radius: 14px;
+  padding: 10px 12px;
+  min-width: min(420px, 70vw);
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.06);
+}
+
+.sfm-search-box svg {
+  color: #64748b;
+}
+
+.sfm-search-box input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 14px;
+  color: #0f172a;
+}
+
+.sfm-search-btn {
+  border: none;
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0 16px;
+  background: #0f172a;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.14s ease, opacity 0.14s ease;
+}
+
+.sfm-search-btn:hover {
+  transform: translateY(-1px);
+  opacity: 0.92;
+}
+
 .sfm-eyebrow {
   margin: 0 0 8px;
   font-size: 0.84rem;
@@ -395,6 +444,14 @@
   .student-fee-mapping-page {
     padding: 20px 14px 72px;
     gap: 16px;
+  }
+
+  .sfm-search-box {
+    min-width: 100%;
+  }
+
+  .sfm-search-btn {
+    width: 100%;
   }
 
   .sfm-hero h1 {

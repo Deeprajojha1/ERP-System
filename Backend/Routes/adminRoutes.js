@@ -132,7 +132,7 @@ import {
   deleteLibrarian,
   hardDeleteLibrarian,
 } from "../controllers/librarianController.js";
-import { addWarden, deleteWarden } from "../controllers/wardenController.js";
+import { addWarden, deleteWarden, updateWarden } from "../controllers/wardenController.js";
 import {
   backfillAdminPermissionMetadata,
   changePassword,
@@ -195,6 +195,7 @@ import {
   approveFeeDemandRequest,
   rejectFeeDemandRequest,
   getFeeDemands,
+  lookupFeeStudentByEnrollment,
   updateFeeDemand,
   createPayment,
   updatePaymentStatus,
@@ -411,6 +412,7 @@ router.put("/librarian/:id", isAdmin, canLibrary, updateLibrarian);
 router.patch("/librarian/:id/delete", isAdmin, canLibrary, deleteLibrarian);
 router.delete("/librarian/:id", isAdmin, canLibrary, hardDeleteLibrarian);
 	router.post("/warden", isAdmin, canWardenSupport, addWarden);
+	router.patch("/warden/:id", isAdmin, canWardenSupport, updateWarden);
 	router.delete("/warden/:id", isAdmin, canWardenSupport, deleteWarden);
 
 router.get("/library/statistics", isAdmin, canLibrary, getStatistics);
@@ -541,6 +543,7 @@ router.post("/fee/demand/generate", isAdmin, canFees, feeSecurityHeaders, feeRat
 router.get("/fee/demand-request", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeDemandRequests);
 router.patch("/fee/demand-request/:id/approve", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, approveFeeDemandRequest);
 router.patch("/fee/demand-request/:id/reject", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, rejectFeeDemandRequest);
+router.get("/fee/student-lookup/:enrollmentNumber", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, lookupFeeStudentByEnrollment);
 router.get("/fee/demand", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, getFeeDemands);
 router.patch("/fee/demand/:id", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, updateFeeDemand);
 router.post("/fee/payment", isAdmin, canFees, feeSecurityHeaders, feeRateLimit, verifyGatewaySignature, createPayment);

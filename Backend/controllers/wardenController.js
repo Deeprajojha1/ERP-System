@@ -106,6 +106,84 @@ export const addWarden = async (req, res) => {
   }
 };
 
+/* ================= UPDATE WARDEN (ADMIN) ================= */
+export const updateWarden = async (req, res) => {
+  try {
+    const wardenId = String(req.params?.id || "").trim();
+    if (!wardenId) {
+      return res.status(400).json({ message: "Warden id is required" });
+    }
+
+    const warden = await User.findById(wardenId).select("_id role email name phoneNumber status");
+    if (!warden?._id) {
+      return res.status(404).json({ message: "Warden not found" });
+    }
+
+    const normalizedRole = String(warden.role || "").toLowerCase();
+    if (normalizedRole !== "warden" && normalizedRole !== "gatesecurity") {
+      return res.status(400).json({ message: "Only warden or gate security users can be updated here" });
+    }
+
+    const hasName = Object.prototype.hasOwnProperty.call(req.body || {}, "name");
+    const hasPhoneNumber = Object.prototype.hasOwnProperty.call(req.body || {}, "phoneNumber");
+    const hasStatus = Object.prototype.hasOwnProperty.call(req.body || {}, "status");
+
+    const name = hasName ? String(req.body?.name || "").trim() : undefined;
+    const phoneNumberRaw = hasPhoneNumber ? String(req.body?.phoneNumber || "").trim() : undefined;
+    const status = hasStatus ? String(req.body?.status || "").trim().toLowerCase() : undefined;
+
+    if (hasName && !name) {
+      return res.status(400).json({ message: "Name cannot be empty" });
+    }
+
+    if (hasPhoneNumber && phoneNumberRaw && !/^[0-9]{10}$/.test(phoneNumberRaw)) {
+      return res.status(400).json({ message: "Phone number must be 10 digits" });
+    }
+
+    if (hasStatus && status && !["active", "inactive", "leave"].includes(status)) {
+      return res.status(400).json({ message: "Invalid status" });
+    }
+
+    const update = {};
+    const unset = {};
+
+    if (hasName) update.name = name;
+    if (hasPhoneNumber) {
+      if (phoneNumberRaw) update.phoneNumber = phoneNumberRaw;
+      else unset.phoneNumber = 1;
+    }
+    if (hasStatus) update.status = status || warden.status;
+
+    if (Object.keys(update).length) {
+      warden.set(update);
+    }
+    if (Object.keys(unset).length) {
+      Object.keys(unset).forEach((key) => warden.set(key, undefined));
+    }
+
+    await warden.save();
+    await bumpNamespaceVersion("hostels");
+
+    return res.status(200).json({
+      message: normalizedRole === "gatesecurity" ? "Gate security updated successfully" : "Warden updated successfully",
+      warden: {
+        _id: warden._id,
+        name: warden.name,
+        email: warden.email,
+        role: warden.role,
+        status: warden.status,
+        phoneNumber: warden.phoneNumber,
+        createdAt: warden.createdAt,
+        updatedAt: warden.updatedAt,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: error.message || "Failed to update warden",
+    });
+  }
+};
+
 export const deleteWarden = async (req, res) => {
   try {
     const wardenId = String(req.params?.id || "").trim();

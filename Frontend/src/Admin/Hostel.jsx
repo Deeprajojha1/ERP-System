@@ -17,7 +17,7 @@ import {
 } from "./constants/roomApi";
 import { allocateStudentApi, vacateStudentApi } from "./constants/allocationApi";
 import { getStudentByEnrollmentApi } from "./constants/studentApi";
-import { deleteWardenApi } from "./constants/wardenApi";
+import { deleteWardenApi, updateWardenApi } from "./constants/wardenApi";
 import ClipLoader from "./components/ClipLoader";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import "./Hostel.css";
@@ -29,13 +29,14 @@ const INITIAL_HOSTEL_FORM = {
   // legacy (optional): faculty warden display/id
   warden: "",
   // new: warden accounts attached to hostel (max 5)
-  wardens: [{ id: "", name: "", email: "", password: "" }],
+  wardens: [{ id: "", name: "", email: "", phoneNumber: "", password: "" }],
 };
 
 const INITIAL_ROOM_FORM = {
   roomNumber: "",
   floorNumber: "",
   capacity: 1,
+  bedTier: "single",
   price: "",
   priceType: "Yearly",
 };
@@ -57,6 +58,7 @@ const Hostel = () => {
 
   const [studentEnrollmentNumber, setStudentEnrollmentNumber] = useState("");
   const [newHostel, setNewHostel] = useState(INITIAL_HOSTEL_FORM);
+  const [wardenSnapshot, setWardenSnapshot] = useState({});
   const [newRoom, setNewRoom] = useState(INITIAL_ROOM_FORM);
 
   const [createHostelLoading, setCreateHostelLoading] = useState(false);
@@ -103,11 +105,13 @@ const Hostel = () => {
     setShowHostelModal(false);
     setEditingHostel(null);
     setNewHostel(INITIAL_HOSTEL_FORM);
+    setWardenSnapshot({});
   };
 
   const handleOpenCreateHostelModal = () => {
     setEditingHostel(null);
     setNewHostel(INITIAL_HOSTEL_FORM);
+    setWardenSnapshot({});
     setShowHostelModal(true);
   };
 
@@ -118,6 +122,19 @@ const Hostel = () => {
       setEditHostelLoading(hostelId);
       const hostelDetails = await getSingleHostelApi(hostelId);
       setEditingHostel({ id: hostelId });
+      setWardenSnapshot(
+        Array.isArray(hostelDetails?.wardens)
+          ? hostelDetails.wardens.reduce((acc, w) => {
+              const id = String(w?._id || "").trim();
+              if (!id) return acc;
+              acc[id] = {
+                name: String(w?.name || "").trim(),
+                phoneNumber: String(w?.phoneNumber || "").trim(),
+              };
+              return acc;
+            }, {})
+          : {}
+      );
       setNewHostel({
         name: hostelDetails?.name || "",
         type: hostelDetails?.type || "Boys",
@@ -132,9 +149,15 @@ const Hostel = () => {
           String(hostelDetails?.warden?.user?.name || "").trim(),
         wardens: Array.isArray(hostelDetails?.wardens) && hostelDetails.wardens.length
           ? hostelDetails.wardens
-              .map((w) => ({ id: w?._id || "", name: w?.name || "", email: w?.email || "", password: "" }))
+              .map((w) => ({
+                id: w?._id || "",
+                name: w?.name || "",
+                email: w?.email || "",
+                phoneNumber: w?.phoneNumber || "",
+                password: "",
+              }))
               .slice(0, 5)
-          : [{ id: "", name: "", email: "", password: "" }],
+          : [{ id: "", name: "", email: "", phoneNumber: "", password: "" }],
       });
       setShowHostelModal(true);
     } catch (error) {
@@ -157,6 +180,7 @@ const Hostel = () => {
         id: String(item?.id || "").trim(),
         name: String(item?.name || "").trim(),
         email: String(item?.email || "").toLowerCase().trim(),
+        phoneNumber: String(item?.phoneNumber || "").trim(),
         password: String(item?.password || ""),
       }))
       .filter((item) => !item.id)
@@ -181,6 +205,24 @@ const Hostel = () => {
     const invalidWarden = wardenAccounts.find((w) => !w.name || !w.email || !w.password);
     if (invalidWarden) {
       alert("Each warden must have Name, Email (Login ID) and Password.");
+      return;
+    }
+    const invalidPhoneExisting = wardens
+      .filter((w) => String(w?.id || "").trim())
+      .find((w) => {
+        const phone = String(w?.phoneNumber || "").trim();
+        return phone && !/^[0-9]{10}$/.test(phone);
+      });
+    if (invalidPhoneExisting) {
+      alert("Warden contact number must be exactly 10 digits.");
+      return;
+    }
+    const invalidPhoneNew = wardenAccounts.find((w) => {
+      const phone = String(w?.phoneNumber || "").trim();
+      return phone && !/^[0-9]{10}$/.test(phone);
+    });
+    if (invalidPhoneNew) {
+      alert("Warden contact number must be exactly 10 digits.");
       return;
     }
     const shortPassword = wardenAccounts.find((w) => String(w.password).length < 8);
@@ -214,6 +256,49 @@ const Hostel = () => {
 
       if (editingHostel?.id) {
         await updateHostelApi(editingHostel.id, payload);
+
+        const existingEdits = wardens
+          .map((row) => {
+            const id = String(row?.id || "").trim();
+            if (!id) return null;
+            const snapshot = wardenSnapshot?.[id] || null;
+            if (!snapshot) return null;
+
+            const nextName = String(row?.name || "").trim();
+            const nextPhone = String(row?.phoneNumber || "").trim();
+            const nameChanged = nextName && nextName !== String(snapshot.name || "").trim();
+            const phoneChanged = nextPhone !== String(snapshot.phoneNumber || "").trim();
+            if (!nameChanged && !phoneChanged) return null;
+
+            const updatePayload = {};
+            if (nameChanged) updatePayload.name = nextName;
+            if (phoneChanged) updatePayload.phoneNumber = nextPhone;
+            return { id, payload: updatePayload };
+          })
+          .filter(Boolean);
+
+        if (existingEdits.length) {
+          const results = await Promise.allSettled(
+            existingEdits.map((item) => updateWardenApi(item.id, item.payload))
+          );
+          const failures = results
+            .map((result, idx) => ({ result, idx }))
+            .filter((entry) => entry.result.status === "rejected")
+            .map((entry) => {
+              const failedId = existingEdits[entry.idx]?.id || "";
+              const reason = entry.result.reason;
+              const serverMsg =
+                reason?.response?.data?.message ||
+                reason?.message ||
+                "Request failed";
+              return `${failedId ? `Warden ${failedId}: ` : ""}${serverMsg}`;
+            });
+          if (failures.length) {
+            alert(`Hostel updated, but warden contact update failed:\n\n${failures.join("\n")}`);
+            await fetchHostels();
+            return;
+          }
+        }
       } else {
         await createHostelApi(payload);
       }
@@ -232,7 +317,15 @@ const Hostel = () => {
   const updateWardenRow = (idx, key, value) => {
     setNewHostel((prev) => {
       const current = Array.isArray(prev.wardens) ? prev.wardens : [];
-      const next = current.map((row, i) => (i === idx ? { ...row, [key]: value } : row));
+      const next = current.map((row, i) => {
+        if (i !== idx) return row;
+        if (key !== "phoneNumber") return { ...row, [key]: value };
+
+        // Keep only digits; if country code pasted, keep last 10 digits.
+        let digits = String(value || "").replace(/\D/g, "");
+        if (digits.length > 10) digits = digits.slice(-10);
+        return { ...row, phoneNumber: digits };
+      });
       return { ...prev, wardens: next };
     });
   };
@@ -241,7 +334,7 @@ const Hostel = () => {
     setNewHostel((prev) => {
       const current = Array.isArray(prev.wardens) ? prev.wardens : [];
       if (current.length >= 5) return prev;
-      return { ...prev, wardens: [...current, { id: "", name: "", email: "", password: "" }] };
+      return { ...prev, wardens: [...current, { id: "", name: "", email: "", phoneNumber: "", password: "" }] };
     });
   };
 
@@ -249,7 +342,7 @@ const Hostel = () => {
     setNewHostel((prev) => {
       const current = Array.isArray(prev.wardens) ? prev.wardens : [];
       const next = current.filter((_, i) => i !== idx);
-      return { ...prev, wardens: next.length ? next : [{ id: "", name: "", email: "", password: "" }] };
+      return { ...prev, wardens: next.length ? next : [{ id: "", name: "", email: "", phoneNumber: "", password: "" }] };
     });
   };
 
@@ -267,7 +360,7 @@ const Hostel = () => {
       setNewHostel((prev) => {
         const current = Array.isArray(prev.wardens) ? prev.wardens : [];
         const next = current.filter((row) => String(row?.id || "").trim() !== id);
-        return { ...prev, wardens: next.length ? next : [{ id: "", name: "", email: "", password: "" }] };
+        return { ...prev, wardens: next.length ? next : [{ id: "", name: "", email: "", phoneNumber: "", password: "" }] };
       });
       alert("Warden deleted successfully.");
     } catch (error) {
@@ -607,6 +700,7 @@ const Hostel = () => {
                       roomNumber: room.roomNumber,
                       floorNumber: room.floorNumber,
                       capacity: room.capacity,
+                      bedTier: room.bedTier || "single",
                       price: room.price,
                       priceType: room.priceType,
                     });
@@ -710,7 +804,7 @@ const Hostel = () => {
               </div>
               {(Array.isArray(newHostel.wardens)
                 ? newHostel.wardens
-                : [{ id: "", name: "", email: "", password: "" }]
+                : [{ id: "", name: "", email: "", phoneNumber: "", password: "" }]
               ).map((row, idx) => {
                 const isExisting = Boolean(String(row?.id || "").trim());
                 return (
@@ -730,6 +824,14 @@ const Hostel = () => {
                         value={row.email}
                         onChange={(e) => updateWardenRow(idx, "email", e.target.value)}
                         disabled={isExisting}
+                      />
+                    </label>
+                    <label>
+                      Contact Number
+                      <input
+                        placeholder="10-digit mobile"
+                        value={row.phoneNumber || ""}
+                        onChange={(e) => updateWardenRow(idx, "phoneNumber", e.target.value)}
                       />
                     </label>
                     <label>
@@ -802,6 +904,20 @@ const Hostel = () => {
               value={newRoom.floorNumber}
               onChange={(e) => setNewRoom({ ...newRoom, floorNumber: e.target.value })}
             />
+            <select
+              value={newRoom.bedTier || "single"}
+              onChange={(e) => {
+                const nextTier = e.target.value;
+                const capacityMap = { single: 1, "two-tier": 2, "three-tier": 3, "four-tier": 4 };
+                const nextCapacity = capacityMap[nextTier] || newRoom.capacity;
+                setNewRoom({ ...newRoom, bedTier: nextTier, capacity: nextCapacity });
+              }}
+            >
+              <option value="single">Single</option>
+              <option value="two-tier">2 Seater</option>
+              <option value="three-tier">3 Seater</option>
+              <option value="four-tier">4 Seater</option>
+            </select>
             <select
               value={newRoom.capacity}
               onChange={(e) => setNewRoom({ ...newRoom, capacity: Number(e.target.value) })}

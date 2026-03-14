@@ -32,6 +32,7 @@ import {
   selectFeePayments,
 } from "../redux/feeSlice";
 import toast from "react-hot-toast";
+import axios from "../utils/axiosInstance";
 import "./StudentRecords.css";
 
 const formatCurrency = (value = 0) =>
@@ -53,16 +54,25 @@ const StudentRecords = () => {
   const payments = useSelector(selectFeePayments);
   const loading = useSelector(selectFeeLoading);
   const actionLoading = useSelector(selectFeeActionLoading);
+  const apiBase = useSelector((state) => state.config.apiBase);
+  // Keep a draft input for the UI, and apply the filter only when the admin clicks Search (or presses Enter).
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("demands");
   const [demandForm, setDemandForm] = useState({
-    studentMongoId: "",
     studentId: "",
     academicYear: "",
     semesterNo: "1",
     dueDate: "",
-    breakdown: "TUITION:0",
+    tuitionAmount: "",
+    hostelAmount: "",
+  });
+  const [manualStudentMeta, setManualStudentMeta] = useState({
+    loading: false,
+    name: "",
+    fatherName: "",
+    email: "",
   });
   const [generateForm, setGenerateForm] = useState({
     studentId: "",
@@ -86,6 +96,35 @@ const StudentRecords = () => {
     dispatch(fetchFeePayments());
   }, [dispatch]);
 
+  useEffect(() => {
+    const enrollment = String(demandForm.studentId || "").trim();
+    if (!apiBase || !enrollment) {
+      setManualStudentMeta({ loading: false, name: "", fatherName: "", email: "" });
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      try {
+        setManualStudentMeta((prev) => ({ ...prev, loading: true }));
+        const response = await axios.get(
+          `${apiBase}/admin/fee/student-lookup/${encodeURIComponent(enrollment)}`,
+          { withCredentials: true }
+        );
+        const data = response.data?.data || {};
+        setManualStudentMeta({
+          loading: false,
+          name: String(data.name || ""),
+          fatherName: String(data.fatherName || ""),
+          email: String(data.email || ""),
+        });
+      } catch (error) {
+        setManualStudentMeta({ loading: false, name: "", fatherName: "", email: "" });
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [apiBase, demandForm.studentId]);
+
   const paymentByDemand = useMemo(() => {
     const map = new Map();
     payments.forEach((payment) => {
@@ -102,7 +141,18 @@ const StudentRecords = () => {
     const needle = search.trim().toLowerCase();
     return demands.filter((demand) => {
       const matchesSearch = needle
-        ? String(demand.studentId || "").toLowerCase().includes(needle)
+        ? [
+            demand?.studentMongoId?.userId?.name,
+            demand.studentId,
+            demand.academicYear,
+            demand.status,
+            demand.semesterNo,
+            demand.scope,
+            demand._id,
+          ]
+            .filter(Boolean)
+            .map((value) => String(value).toLowerCase())
+            .some((value) => value.includes(needle))
         : true;
       const matchesStatus =
         statusFilter === "all" || String(demand.status) === String(statusFilter);
@@ -114,33 +164,45 @@ const StudentRecords = () => {
     const needle = search.trim().toLowerCase();
     return payments.filter((p) => {
       return needle
-        ? String(p.studentId || "").toLowerCase().includes(needle)
+        ? [
+            p.studentName,
+            p?.demandId?.studentMongoId?.userId?.name,
+            p.studentId,
+            p.status,
+            p.mode,
+            p.transactionId,
+            p._id,
+            p.demandId?._id || p.demandId,
+          ]
+            .filter(Boolean)
+            .map((value) => String(value).toLowerCase())
+            .some((value) => value.includes(needle))
         : true;
     });
   }, [payments, search]);
 
   const submitDemand = async (event) => {
     event.preventDefault();
-    const breakdown = String(demandForm.breakdown || "")
-      .split(",")
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map((part) => {
-        const [head, amount] = part.split(":").map((token) => token.trim());
-        return {
-          head: String(head || "").toUpperCase(),
-          amount: Number(amount || 0),
-        };
-      })
-      .filter((row) => row.head && Number.isFinite(row.amount));
+
+    const tuitionAmount = Number(demandForm.tuitionAmount || 0);
+    const hostelAmount = Number(demandForm.hostelAmount || 0);
+    if (!Number.isFinite(tuitionAmount) || tuitionAmount < 0) {
+      toast.error("Invalid tuition amount");
+      return;
+    }
+    if (!Number.isFinite(hostelAmount) || hostelAmount < 0) {
+      toast.error("Invalid hostel amount");
+      return;
+    }
+
+    const breakdown = [{ head: "TUITION", amount: tuitionAmount }];
+    if (hostelAmount > 0) breakdown.push({ head: "HOSTEL", amount: hostelAmount });
 
     if (
-      !demandForm.studentMongoId ||
       !demandForm.studentId ||
       !demandForm.academicYear ||
       !demandForm.semesterNo ||
-      !demandForm.dueDate ||
-      breakdown.length === 0
+      !demandForm.dueDate
     ) {
       toast.error("All demand fields are required");
       return;
@@ -149,7 +211,6 @@ const StudentRecords = () => {
     try {
       await dispatch(
         createFeeDemand({
-          studentMongoId: demandForm.studentMongoId,
           studentId: demandForm.studentId,
           academicYear: demandForm.academicYear,
           semesterNo: Number(demandForm.semesterNo),
@@ -159,12 +220,12 @@ const StudentRecords = () => {
       ).unwrap();
       toast.success("Fee demand created");
       setDemandForm({
-        studentMongoId: "",
         studentId: "",
         academicYear: "",
         semesterNo: "1",
         dueDate: "",
-        breakdown: "TUITION:0",
+        tuitionAmount: "",
+        hostelAmount: "",
       });
     } catch (error) {
       toast.error(error || "Failed to create demand");
@@ -278,11 +339,38 @@ const StudentRecords = () => {
           </span>
           <input
             type="search"
-            placeholder="Search by student id..."
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Search by enrollment, name, academic year, status, demand id..."
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                event.preventDefault();
+                setSearch(searchInput);
+              }
+            }}
           />
         </div>
+        <button
+          type="button"
+          className="sr-primary-btn sr-control-btn"
+          onClick={() => setSearch(searchInput)}
+          disabled={!searchInput.trim()}
+          title="Apply search"
+        >
+          <FiSearch /> Search
+        </button>
+        <button
+          type="button"
+          className="sr-ghost-btn sr-control-btn"
+          onClick={() => {
+            setSearchInput("");
+            setSearch("");
+          }}
+          disabled={!searchInput.trim() && !search.trim()}
+          title="Clear search"
+        >
+          Clear
+        </button>
         {activeTab === "demands" && (
           <select
             className="sr-select"
@@ -324,15 +412,24 @@ const StudentRecords = () => {
 
             {demandMode === "manual" ? (
               <form onSubmit={submitDemand} className="sr-demand-form">
-                <input className="sr-demand-input" type="text" placeholder="studentMongoId"
-                  value={demandForm.studentMongoId}
-                  onChange={(e) => setDemandForm((p) => ({ ...p, studentMongoId: e.target.value }))}
-                  required
-                />
                 <input className="sr-demand-input" type="text" placeholder="studentId (enrollment)"
                   value={demandForm.studentId}
                   onChange={(e) => setDemandForm((p) => ({ ...p, studentId: e.target.value }))}
                   required
+                />
+                <input
+                  className="sr-demand-input"
+                  type="text"
+                  placeholder={manualStudentMeta.loading ? "Fetching student name..." : "Student name (auto)"}
+                  value={manualStudentMeta.name}
+                  disabled
+                />
+                <input
+                  className="sr-demand-input"
+                  type="text"
+                  placeholder={manualStudentMeta.loading ? "Fetching father name..." : "Father name (auto)"}
+                  value={manualStudentMeta.fatherName}
+                  disabled
                 />
                 <input className="sr-demand-input" type="text" placeholder="academicYear (e.g. 2025-26)"
                   value={demandForm.academicYear}
@@ -349,10 +446,22 @@ const StudentRecords = () => {
                   onChange={(e) => setDemandForm((p) => ({ ...p, dueDate: e.target.value }))}
                   required
                 />
-                <input className="sr-demand-input" type="text" placeholder="breakdown (TUITION:50000,HOSTEL:10000)"
-                  value={demandForm.breakdown}
-                  onChange={(e) => setDemandForm((p) => ({ ...p, breakdown: e.target.value }))}
+                <input
+                  className="sr-demand-input"
+                  type="number"
+                  min="0"
+                  placeholder="Tuition amount"
+                  value={demandForm.tuitionAmount}
+                  onChange={(e) => setDemandForm((p) => ({ ...p, tuitionAmount: e.target.value }))}
                   required
+                />
+                <input
+                  className="sr-demand-input"
+                  type="number"
+                  min="0"
+                  placeholder="Hostel amount (optional)"
+                  value={demandForm.hostelAmount}
+                  onChange={(e) => setDemandForm((p) => ({ ...p, hostelAmount: e.target.value }))}
                 />
                 <div className="sr-demand-actions">
                   <button type="submit" className="sr-primary-btn" disabled={actionLoading}>
@@ -437,11 +546,15 @@ const StudentRecords = () => {
               ) : (
                 filteredDemands.map((demand) => {
                   const relatedPayments = paymentByDemand.get(String(demand._id)) || [];
+                  const studentName = demand?.studentMongoId?.userId?.name || "";
                   return (
                     <article key={demand._id} className="sr-table-row">
                       <div>
-                        <p className="sr-student-name">{demand.studentId}</p>
-                        <span className="sr-student-id">{relatedPayments.length} payment(s)</span>
+                        <p className="sr-student-name">{studentName || "Unknown Student"}</p>
+                        <span className="sr-student-id">
+                          {demand.studentId}
+                          {` • ${relatedPayments.length} payment(s)`}
+                        </span>
                       </div>
                       <div>
                         <p>{demand.academicYear}</p>
@@ -549,7 +662,10 @@ const StudentRecords = () => {
                 filteredPayments.map((p) => (
                   <article key={p._id} className="sr-table-row">
                     <div>
-                      <p className="sr-student-name">{p.studentId}</p>
+                      <p className="sr-student-name">
+                        {p.studentName || p?.demandId?.studentMongoId?.userId?.name || "Unknown Student"}
+                      </p>
+                      <span className="sr-student-id">{p.studentId}</span>
                     </div>
                     <p className="sr-text-strong">{formatCurrency(p.amount)}</p>
                     <p>{p.mode || "N/A"}</p>

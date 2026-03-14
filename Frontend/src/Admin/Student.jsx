@@ -343,17 +343,12 @@ const Student = () => {
     if (name === "batchId") {
       const selectedBatch = feeBatches.find((batch) => String(batch?._id) === String(value));
       const year = Number(selectedBatch?.batchYear);
-      const durationYears = getProgramDurationYears({
-        batch: selectedBatch,
-        selectedProgramNorm: normalizeProgram(formData.program),
-        feePrograms,
-      });
       setFormData((prev) => ({
         ...prev,
         batchId: value,
         academicYear:
           Number.isFinite(year) && year > 0
-            ? `${year}-${year + (Number.isFinite(durationYears) && durationYears > 0 ? durationYears : 1)}`
+            ? `${year}-${year + 1}`
             : "",
       }));
       return;
@@ -523,6 +518,33 @@ const Student = () => {
     try {
       setSubmitting(true);
       const payload = buildPayload();
+
+      const missing = [];
+      const requireValue = (label, value) => {
+        const v = value == null ? "" : String(value).trim();
+        if (!v) missing.push(label);
+      };
+
+      // Common required fields (backend enforces these for create).
+      requireValue("Enrollment Number", payload.enrollmentNumber);
+      requireValue("Department", payload.department);
+      requireValue("Program", payload.program);
+      requireValue("Batch", payload.batchId);
+      if (!Number.isFinite(Number(payload.semester)) || Number(payload.semester) <= 0) {
+        missing.push("Semester");
+      }
+      requireValue("Academic Year", payload.academicYear);
+
+      if (!editTarget) {
+        requireValue("Name", payload.name);
+        requireValue("Email", payload.email);
+        requireValue("Password", payload.password);
+      }
+
+      if (missing.length) {
+        toast.error(`${missing[0]} is required`);
+        return;
+      }
 
       if (editTarget?._id) {
         const res = await axios.put(
@@ -916,6 +938,7 @@ const Student = () => {
                       name="semester"
                       value={formData.semester}
                       onChange={handleChange}
+                      required
                     >
                       <option value="" disabled>
                         Sem
@@ -976,6 +999,7 @@ const Student = () => {
                     name="academicYear"
                     value={formData.academicYear}
                     onChange={handleChange}
+                    required
                   />
                 </label>
               </div>

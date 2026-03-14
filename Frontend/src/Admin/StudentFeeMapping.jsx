@@ -15,6 +15,7 @@ import {
   FiPercent,
   FiPlusCircle,
   FiSave,
+  FiSearch,
   FiTruck,
   FiUser,
   FiUserCheck,
@@ -34,6 +35,37 @@ import {
 } from "../redux/feeSlice";
 import "./StudentFeeMapping.css";
 
+const normalizeLoose = (value = "") =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+
+const getBatchWindowLabel = (batch, { programId, programs }) => {
+  const startYear = Number(batch?.batchYear);
+  if (!Number.isFinite(startYear) || startYear <= 0) return "Unknown batch";
+
+  let durationYears = 0;
+  if (programId) {
+    const hit = Array.isArray(programs)
+      ? programs.find((p) => String(p?._id || "") === String(programId))
+      : null;
+    durationYears = Number(hit?.durationYears || 0);
+  }
+  if (!Number.isFinite(durationYears) || durationYears <= 0) {
+    const programRows = Array.isArray(batch?.programIds) ? batch.programIds : [];
+    durationYears = programRows.reduce(
+      (max, row) => Math.max(max, Number(row?.durationYears || 0)),
+      0
+    );
+  }
+  if (!Number.isFinite(durationYears) || durationYears <= 0) durationYears = 1;
+
+  const endYear = startYear + durationYears;
+  const deptName = String(batch?.departmentId?.name || "").trim();
+  return `${startYear}-${endYear}${deptName ? ` ${deptName}` : ""}`;
+};
+
 const defaultForm = {
   studentMongoId: "",
   userId: "",
@@ -42,6 +74,7 @@ const defaultForm = {
   programId: "",
   branchId: "",
   currentSemester: "1",
+  academicYear: "",
   hostelOpted: false,
   transportOpted: false,
   scholarshipType: "NONE",
@@ -60,6 +93,8 @@ const StudentFeeMapping = () => {
   const [students, setStudents] = useState([]);
   const [form, setForm] = useState(defaultForm);
   const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [studentSearch, setStudentSearch] = useState("");
+  const [studentSearchApplied, setStudentSearchApplied] = useState("");
   const [editProfileId, setEditProfileId] = useState("");
   const [editHostelOpted, setEditHostelOpted] = useState(false);
   const [editTransportOpted, setEditTransportOpted] = useState(false);
@@ -95,6 +130,39 @@ const StudentFeeMapping = () => {
     [selectedProgram]
   );
 
+  const resolvedAcademicYear = useMemo(() => {
+    const batch = batches.find((row) => String(row?._id) === String(form.batchId));
+    const start = Number(batch?.batchYear);
+    if (!Number.isFinite(start) || start <= 0) return "";
+    return `${start}-${start + 1}`;
+  }, [batches, form.batchId]);
+
+  useEffect(() => {
+    if (form.academicYear) return;
+    if (!resolvedAcademicYear) return;
+    setForm((prev) => ({ ...prev, academicYear: resolvedAcademicYear }));
+  }, [form.academicYear, resolvedAcademicYear]);
+
+  const visibleStudents = useMemo(() => {
+    const query = normalizeLoose(studentSearchApplied);
+    if (!query) return students.slice(0, 20);
+
+    const matches = (student) => {
+      const enrollment = String(student?.enrollmentNumber || student?.rollNo || "");
+      const name = String(student?.user?.name || student?.studentName || "");
+      const email = String(student?.user?.email || "");
+      const department = String(student?.department?.name || student?.department || "");
+      const program = String(student?.program || student?.programme || "");
+      const semester = String(student?.semester || "");
+      const haystack = [enrollment, name, email, department, program, semester]
+        .filter(Boolean)
+        .join(" ");
+      return normalizeLoose(haystack).includes(query);
+    };
+
+    return students.filter(matches).slice(0, 100);
+  }, [students, studentSearchApplied]);
+
   const selectStudent = (student) => {
     const resolvedUserId =
       typeof student.user === "object" ? student.user?._id || "" : student.user || "";
@@ -109,6 +177,7 @@ const StudentFeeMapping = () => {
       userId: resolvedUserId,
       studentId: student.enrollmentNumber || student.rollNo || "",
       currentSemester: String(student.semester || prev.currentSemester || "1"),
+      academicYear: prev.academicYear || String(student.academicYear || "").trim(),
     }));
     setSelectedStudentId(String(student._id || ""));
     toast.success("Student selected");
@@ -130,6 +199,7 @@ const StudentFeeMapping = () => {
           programId: form.programId,
           branchId: form.branchId,
           currentSemester: Number(form.currentSemester || 1),
+          academicYear: form.academicYear || resolvedAcademicYear,
           hostelOpted: Boolean(form.hostelOpted),
           transportOpted: Boolean(form.transportOpted),
           scholarship: {
@@ -186,6 +256,30 @@ const StudentFeeMapping = () => {
             <FiUserCheck /> Create student fee profile
           </h1>
         </div>
+        <div className="sfm-search">
+          <div className="sfm-search-box">
+            <FiSearch />
+            <input
+              type="text"
+              placeholder="Search by enrollment, name, email..."
+              value={studentSearch}
+              onChange={(e) => setStudentSearch(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  setStudentSearchApplied(studentSearch.trim());
+                }
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            className="sfm-search-btn"
+            onClick={() => setStudentSearchApplied(studentSearch.trim())}
+          >
+            Search
+          </button>
+        </div>
       </header>
 
       <section className="sfm-table-card">
@@ -198,7 +292,7 @@ const StudentFeeMapping = () => {
           <p><FiCheckCircle /> Action</p>
         </div>
         <div className="sfm-table-body">
-          {students.slice(0, 20).map((student) => (
+          {visibleStudents.map((student) => (
             <article key={student._id} className="sfm-table-row">
               <div className="sfm-student-cell">
                 <p className="sfm-student-name">
@@ -228,7 +322,7 @@ const StudentFeeMapping = () => {
               </div>
             </article>
           ))}
-          {students.length === 0 && (
+          {visibleStudents.length === 0 && (
             <div className="sfm-detail-empty">No students found</div>
           )}
         </div>
@@ -298,7 +392,7 @@ const StudentFeeMapping = () => {
               <option value="">Select batch</option>
               {batches.map((batch) => (
                 <option key={batch._id} value={batch._id}>
-                  {batch.batchYear} {batch.departmentId?.name || ""}
+                  {getBatchWindowLabel(batch, { programId: form.programId, programs })}
                 </option>
               ))}
             </select>
@@ -348,6 +442,17 @@ const StudentFeeMapping = () => {
                 setForm((prev) => ({ ...prev, currentSemester: event.target.value }))
               }
               required
+            />
+          </label>
+          <label className="sfm-form-field">
+            <span><FiLayers /> Academic Year</span>
+            <input
+              type="text"
+              placeholder="2024-2025"
+              value={form.academicYear}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, academicYear: event.target.value }))
+              }
             />
           </label>
           <label className="sfm-form-field">

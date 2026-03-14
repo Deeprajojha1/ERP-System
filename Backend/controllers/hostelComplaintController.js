@@ -315,8 +315,12 @@ export const getStudentHostelContext = async (req, res) => {
       student: studentProfile._id,
       status: "Active",
     })
-      .populate("hostel", "name type")
-      .populate("room", "roomNumber floorNumber")
+      .populate({
+        path: "hostel",
+        select: "name type wardens wardenName",
+        populate: { path: "wardens", select: "name email phoneNumber role status" },
+      })
+      .populate("room", "roomNumber floorNumber bedTier capacity price priceType")
       .select("hostel room status");
 
     if (!activeAllocation?._id) {
@@ -326,7 +330,7 @@ export const getStudentHostelContext = async (req, res) => {
     }
 
     const room = await Room.findById(activeAllocation.room)
-      .select("roomNumber floorNumber occupants")
+      .select("roomNumber floorNumber bedTier capacity price priceType occupants")
       .populate({
         path: "occupants",
         select: "enrollmentNumber user",
@@ -351,6 +355,17 @@ export const getStudentHostelContext = async (req, res) => {
               id: activeAllocation.hostel._id,
               name: activeAllocation.hostel.name,
               type: activeAllocation.hostel.type,
+              wardenName: activeAllocation.hostel.wardenName || "",
+              wardens: Array.isArray(activeAllocation.hostel.wardens)
+                ? activeAllocation.hostel.wardens
+                    .filter((w) => String(w?.role || "").toLowerCase() === "warden")
+                    .map((w) => ({
+                      id: w?._id || null,
+                      name: w?.name || "",
+                      email: w?.email || "",
+                      phoneNumber: w?.phoneNumber || "",
+                    }))
+                : [],
             }
           : null,
         room: room
@@ -358,6 +373,10 @@ export const getStudentHostelContext = async (req, res) => {
               id: room._id,
               roomNumber: room.roomNumber,
               floorNumber: room.floorNumber,
+              bedTier: room.bedTier || "",
+              capacity: Number.isFinite(Number(room.capacity)) ? Number(room.capacity) : null,
+              price: Number.isFinite(Number(room.price)) ? Number(room.price) : 0,
+              priceType: room.priceType || "Yearly",
               roommates,
             }
           : null,
