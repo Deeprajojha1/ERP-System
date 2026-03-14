@@ -6,4 +6,4 @@ node_modules*
 tmpclaude-*
 .prettierrc
 render.yaml
- docs
+docs*

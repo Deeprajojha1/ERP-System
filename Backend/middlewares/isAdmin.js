@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
-import { hasPermission, resolvePermissionsForUser } from "../utils/rolePermissions.js";
+import { getPermissionsByRole, hasPermission, resolvePermissionsForUser } from "../utils/rolePermissions.js";
 
 const isAdmin = async (req, res, next) => {
   try {
@@ -30,6 +30,19 @@ const isAdmin = async (req, res, next) => {
 
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      if (decoded?.masterAdmin) {
+        const permissions = getPermissionsByRole("admin");
+        req.userId = decoded.userId;
+        req.role = "admin";
+        req.permissions = permissions;
+
+        console.log("[isAdmin] Master admin authorized", {
+          userId: req.userId,
+          role: req.role,
+        });
+
+        return next();
+      }
       const currentUser = await User.findById(decoded.userId).select(
         "role permissions"
       );
