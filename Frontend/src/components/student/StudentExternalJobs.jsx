@@ -187,9 +187,11 @@ const StudentExternalJobs = () => {
               <FiBriefcase />
             </div>
             <div>
-              <h1 className="student-external-jobs-title">Job Opportunities</h1>
+              <div className="student-external-jobs-title-container">
+                <h1 className="student-external-jobs-title">Job Opportunities</h1>
+              </div>
               <p className="student-external-jobs-subtitle">
-                {filtered.length} jobs from Indeed, JSearch and other sources
+                {filtered.length} jobs from external sources
               </p>
             </div>
           </div>

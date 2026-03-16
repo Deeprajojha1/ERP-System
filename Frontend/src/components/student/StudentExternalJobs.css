@@ -38,6 +38,23 @@
   margin: 0;
 }
 
+.student-external-jobs-title-container {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.student-external-jobs-personalized-badge {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 .student-external-jobs-subtitle {
   font-size: 0.9rem;
   color: #64748b;

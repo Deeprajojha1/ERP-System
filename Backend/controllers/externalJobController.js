@@ -86,7 +86,13 @@ export const getExternalJobsFromSource = async (req, res) => {
 /* ================= GET PERSONALIZED EXTERNAL JOBS (STUDENT) ================= */
 export const getPersonalizedExternalJobs = async (req, res) => {
   try {
-    const studentId = req.user.studentId;
+    // Try to get studentId from authenticated user, fallback to query param for testing
+    const studentId = req.user?.studentId || req.query.studentId;
+    
+    if (!studentId) {
+      return res.status(400).json({ message: "Student ID is required" });
+    }
+
     const { keywords, location, page = 1 } = req.query;
 
     // Get student profile
@@ -94,22 +100,51 @@ export const getPersonalizedExternalJobs = async (req, res) => {
     const student = await Student.findById(studentId).populate("department");
 
     // Build filters based on student profile
+    let baseKeywords = "software developer";
+    const keywordParts = [];
+
+    if (profile?.skills?.length > 0) {
+      keywordParts.push(...profile.skills);
+    }
+    if (student?.department?.name) {
+      keywordParts.push(student.department.name);
+    }
+
+    if (keywordParts.length > 0) {
+      baseKeywords = keywordParts.join(" ");
+    }
+
+    console.log("Student profile:", {
+      studentId,
+      department: student?.department?.name,
+      skills: profile?.skills,
+      baseKeywords
+    });
+
     const filters = {
-      keywords: keywords || profile?.skills?.join(" ") || "software developer",
+      keywords: keywords || baseKeywords,
       location: location || profile?.preferences?.preferredLocations?.[0] || "India",
       page: parseInt(page),
     };
 
     // Fetch from all external sources
     const externalJobs = await aggregateJobsFromAllSources(filters);
+    console.log(`Fetched ${externalJobs.length} external jobs with keywords: "${filters.keywords}"`);
 
     // Filter based on student profile
     const filteredJobs = profile
-      ? filterExternalJobs(externalJobs, profile)
+      ? filterExternalJobs(externalJobs, profile, student?.department?.name)
       : externalJobs;
 
+    // Fallback: if no jobs match filters, return some jobs anyway
+    let finalJobs = filteredJobs;
+    if (filteredJobs.length === 0 && externalJobs.length > 0) {
+      console.log("No jobs matched filters, returning top 10 unfiltered jobs as fallback");
+      finalJobs = externalJobs.slice(0, 10); // Return top 10 jobs
+    }
+
     // Normalize jobs
-    const normalizedJobs = filteredJobs.map(normalizeExternalJob);
+    const normalizedJobs = finalJobs.map(normalizeExternalJob);
 
     res.json({
       message: "Personalized external jobs fetched successfully",
@@ -117,6 +152,8 @@ export const getPersonalizedExternalJobs = async (req, res) => {
       jobs: normalizedJobs,
       filters,
       profileUsed: !!profile,
+      department: student?.department?.name,
+      skills: profile?.skills,
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -259,15 +296,23 @@ export const getCombinedEligibleJobs = async (req, res) => {
 
     // Add external jobs if requested
     if (includeExternal === "true") {
+      let baseKeywords = "software developer";
+      if (profile?.skills?.length > 0) {
+        baseKeywords = profile.skills.join(" ");
+      }
+      if (student?.department?.name) {
+        baseKeywords += ` ${student.department.name}`;
+      }
+
       const filters = {
-        keywords: profile?.skills?.join(" ") || "software developer",
+        keywords: baseKeywords,
         location: profile?.preferences?.preferredLocations?.[0] || "India",
         page: 1,
       };
 
       const externalJobs = await aggregateJobsFromAllSources(filters);
       const filteredExternalJobs = profile
-        ? filterExternalJobs(externalJobs, profile)
+        ? filterExternalJobs(externalJobs, profile, student?.department?.name)
         : externalJobs;
       const normalizedExternalJobs = filteredExternalJobs.map(normalizeExternalJob);
 

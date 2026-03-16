@@ -141,7 +141,7 @@ router.get("/external-jobs", isAuth, getExternalJobs);
 router.get("/external-jobs/source/:source", isAuth, getExternalJobsFromSource);
 
 // Get personalized external jobs for student
-router.get("/external-jobs/personalized", isAuth, isStudent, getPersonalizedExternalJobs);
+router.get("/external-jobs/personalized", isAuth, getPersonalizedExternalJobs);
 
 // Get combined jobs (internal + external)
 router.get("/jobs/combined", isAuth, getCombinedJobs);

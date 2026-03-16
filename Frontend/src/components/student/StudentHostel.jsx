@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { FiAlertCircle, FiHome, FiRefreshCw, FiSend, FiUsers } from "react-icons/fi";
+import { FiAlertCircle, FiHome, FiPhone, FiRefreshCw, FiSend, FiUsers } from "react-icons/fi";
 import axiosInstance from "../../utils/axiosInstance";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "../../Admin/constants/loadStates";
 import emptyStateImg from "../../assets/empty-state.svg";
@@ -52,6 +52,30 @@ const formatDateTime = (value) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatRoomTier = (value = "") => {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "—";
+  if (normalized === "single") return "Single";
+  if (normalized === "two-tier" || normalized === "2-tier") return "2 Seater";
+  if (normalized === "three-tier" || normalized === "3-tier") return "3 Seater";
+  if (normalized === "four-tier" || normalized === "4-tier") return "4 Seater";
+  return normalized.replace(/-/g, " ");
+};
+
+const formatInr = (value) => {
+  const amount = Number(value);
+  if (!Number.isFinite(amount) || amount <= 0) return "—";
+  try {
+    return new Intl.NumberFormat("en-IN", {
+      style: "currency",
+      currency: "INR",
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `₹${Math.round(amount)}`;
+  }
 };
 
 const StudentHostel = () => {
@@ -376,6 +400,12 @@ const StudentHostel = () => {
   }
 
   const roommates = Array.isArray(allocation?.room?.roommates) ? allocation.room.roommates : [];
+  const wardens = Array.isArray(allocation?.hostel?.wardens) ? allocation.hostel.wardens : [];
+  const formattedRoomPrice = formatInr(allocation?.room?.price);
+  const roomPriceLabel =
+    formattedRoomPrice === "—"
+      ? "—"
+      : `${formattedRoomPrice}${allocation?.room?.priceType ? `/${allocation.room.priceType}` : ""}`;
 
   return (
     <section className="student-hostel-page">
@@ -419,6 +449,14 @@ const StudentHostel = () => {
               <span>Floor</span>
               <strong>{allocation.room?.floorNumber || "—"}</strong>
             </div>
+            <div>
+              <span>Room Type</span>
+              <strong>{formatRoomTier(allocation.room?.bedTier)}</strong>
+            </div>
+            <div>
+              <span>Price</span>
+              <strong>{roomPriceLabel}</strong>
+            </div>
           </div>
           <div className="student-hostel-roommates">
             <div className="student-hostel-roommates-head">
@@ -448,6 +486,47 @@ const StudentHostel = () => {
                       <div className="student-hostel-roommate-copy">
                         <strong>{name || mate?.enrollmentNumber || "Student"}</strong>
                         <span>{mate?.email || mate?.enrollmentNumber || ""}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className="student-hostel-roommates">
+            <div className="student-hostel-roommates-head">
+              <div className="student-hostel-roommates-title">
+                <FiPhone />
+                <span>Warden Contacts</span>
+              </div>
+              <span className="student-hostel-chip">{wardens.length}</span>
+            </div>
+            {wardens.length === 0 ? (
+              <p className="student-hostel-muted">No warden contact available for this hostel.</p>
+            ) : (
+              <div className="student-hostel-roommates-list">
+                {wardens.map((warden) => {
+                  const name = String(warden?.name || "").trim() || "Warden";
+                  const initials = name
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((w) => w[0]?.toUpperCase())
+                    .join("") || "WD";
+                  return (
+                    <div key={warden?.id || warden?.email || name} className="student-hostel-roommate">
+                      <div className="student-hostel-roommate-avatar">{initials}</div>
+                      <div className="student-hostel-roommate-copy">
+                        <strong>{name}</strong>
+                        <span>
+                          {warden?.phoneNumber ? (
+                            <a href={`tel:${String(warden.phoneNumber)}`}>{warden.phoneNumber}</a>
+                          ) : (
+                            "Phone: -"
+                          )}
+                          {warden?.email ? ` | ${warden.email}` : ""}
+                        </span>
                       </div>
                     </div>
                   );

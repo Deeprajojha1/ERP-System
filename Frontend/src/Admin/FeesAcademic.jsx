@@ -165,8 +165,36 @@ const FeesAcademic = () => {
 
   useEffect(() => {
     if (!branchForm.programId) return;
-    dispatch(fetchFeeBranches({ programId: branchForm.programId }));
-  }, [dispatch, branchForm.programId]);
+    const batchYear = parseYear(batchForm.batchStartYear);
+    const query = { programId: branchForm.programId };
+    if (Number.isFinite(batchYear)) query.batchYear = batchYear;
+    dispatch(fetchFeeBranches(query));
+  }, [dispatch, branchForm.programId, batchForm.batchStartYear]);
+
+  useEffect(() => {
+    const batchYear = parseYear(batchForm.batchStartYear);
+    if (!branchForm.programId || !branchForm.branchName.trim() || !Number.isFinite(batchYear)) return;
+
+    const targetProgramId = String(branchForm.programId);
+    const targetBranchNorm = normalizeLoose(branchForm.branchName);
+    const match = feeBranches.find((branch) => {
+      const branchProgramId =
+        typeof branch?.programId === "object" && branch.programId?._id
+          ? String(branch.programId._id)
+          : String(branch?.programId || "");
+      return (
+        branchProgramId === targetProgramId &&
+        normalizeLoose(branch?.branchName || "") === targetBranchNorm &&
+        Number(branch?.batchYear) === Number(batchYear)
+      );
+    });
+
+    if (!match || !Array.isArray(match?.semesterBaseFees) || !match.semesterBaseFees.length) return;
+    const total = match.semesterBaseFees.reduce((sum, row) => sum + Number(row?.baseFee || 0), 0);
+    if (!Number.isFinite(total) || total <= 0) return;
+
+    setBranchForm((prev) => ({ ...prev, totalCourseFee: String(total) }));
+  }, [feeBranches, branchForm.programId, branchForm.branchName, batchForm.batchStartYear]);
 
   useEffect(() => {
     if (!apiBase) return;
@@ -220,6 +248,7 @@ const FeesAcademic = () => {
         createFeeBranch({
           programId: branchForm.programId,
           branchName: branchForm.branchName.trim(),
+          batchYear: parsedBatchStartYear,
           totalCourseFee,
         })
       ).unwrap();

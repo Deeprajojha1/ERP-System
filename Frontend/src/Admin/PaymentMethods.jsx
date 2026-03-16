@@ -23,11 +23,8 @@ import {
   selectFeeActionLoading,
   selectFeeDemands,
   selectFeePayments,
-  updateFeePaymentStatus,
 } from "../redux/feeSlice";
 import "./PaymentMethods.css";
-
-const STATUS_OPTIONS = ["SUCCESS", "FAILED", "CANCELLED", "REFUNDED"];
 
 const formatSemesterLabel = (semesterNo, scope) => {
   const normalizedScope = String(scope || "").toUpperCase();
@@ -92,7 +89,6 @@ const PaymentMethods = () => {
     receiptNo: "",
   });
   const [demandSearch, setDemandSearch] = useState("");
-  const [statusForm, setStatusForm] = useState({});
 
   useEffect(() => {
     dispatch(fetchFeeDemands());
@@ -177,17 +173,6 @@ const PaymentMethods = () => {
       setDemandSearch("");
     } catch (error) {
       toast.error(error || "Failed to record payment");
-    }
-  };
-
-  const updateStatus = async (paymentId) => {
-    const status = statusForm[paymentId];
-    if (!status) return;
-    try {
-      await dispatch(updateFeePaymentStatus({ paymentId, status })).unwrap();
-      toast.success("Payment status updated");
-    } catch (error) {
-      toast.error(error || "Failed to update status");
     }
   };
 
@@ -334,9 +319,6 @@ const PaymentMethods = () => {
             <FiActivity /> Status
           </p>
           <p className="pm-head-cell">
-            <FiRefreshCw /> Update Status
-          </p>
-          <p className="pm-head-cell">
             <FiCalendar /> Created
           </p>
         </div>
@@ -364,36 +346,6 @@ const PaymentMethods = () => {
                   <span>{payment.status}</span>
                 </span>
               </p>
-              <div className="pm-status-actions">
-                <select
-                  disabled={
-                    String(payment.mode || "").toUpperCase() !== "CASH" ||
-                    String(payment.createdBy || "").toUpperCase() !== "ACCOUNTS"
-                  }
-                  value={statusForm[payment._id] || ""}
-                  onChange={(event) =>
-                    setStatusForm((prev) => ({ ...prev, [payment._id]: event.target.value }))
-                  }
-                >
-                  <option value="">Select</option>
-                  {STATUS_OPTIONS.map((status) => (
-                    <option key={status} value={status}>
-                      {status}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  type="button"
-                  className="pm-toggle-btn"
-                  disabled={
-                    String(payment.mode || "").toUpperCase() !== "CASH" ||
-                    String(payment.createdBy || "").toUpperCase() !== "ACCOUNTS"
-                  }
-                  onClick={() => updateStatus(payment._id)}
-                >
-                  Update
-                </button>
-              </div>
               <p>{new Date(payment.createdAt).toLocaleString()}</p>
             </article>
           ))}
