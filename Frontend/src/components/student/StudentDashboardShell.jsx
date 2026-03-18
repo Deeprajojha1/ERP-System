@@ -46,10 +46,14 @@ import axiosInstance from "../../utils/axiosInstance";
 import toast from "react-hot-toast";
 import {
   createMyDemandRequest,
+  createMyRazorpayOrder,
+  createMyRazorpayOrderForYear,
   fetchMyDemandRequests,
   fetchMyFeeProfile,
   fetchMyFeeDemands,
   fetchMyPayments,
+  verifyMyRazorpayPayment,
+  verifyMyRazorpayPaymentForYear,
   selectFeeActionLoading,
   selectFeeLoading,
   selectMyDemandRequests,
@@ -143,6 +147,11 @@ const StudentDashboardShell = ({
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDownloadingAttendanceReport, setIsDownloadingAttendanceReport] = useState(false);
   const [nowTime, setNowTime] = useState(() => new Date());
+  const [selectedDemandForPayment, setSelectedDemandForPayment] = useState(null);
+  const [payAmountInput, setPayAmountInput] = useState("");
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [isRazorpayProcessing, setIsRazorpayProcessing] = useState(false);
+  const [yearPaymentAcademicYear, setYearPaymentAcademicYear] = useState("");
 
   // Keep existing profile image resolution behavior.
   const profileImage = buildProfileImageUrl(
@@ -180,6 +189,12 @@ const StudentDashboardShell = ({
   const [useYearlyHostelFee, setUseYearlyHostelFee] = useState(false);
   const [usePartialAcademic, setUsePartialAcademic] = useState(false);
   const [useFullTransportFee, setUseFullTransportFee] = useState(false);
+
+  useEffect(() => {
+    if (!yearPaymentAcademicYear) {
+      setYearPaymentAcademicYear(defaultAcademicYear);
+    }
+  }, [defaultAcademicYear, yearPaymentAcademicYear]);
 
   useEffect(() => {
     let isMounted = true;
@@ -385,6 +400,189 @@ const StudentDashboardShell = ({
     if (normalizedScope === "YEAR" || sem === 0) return "Full Year";
     if (Number.isFinite(sem) && sem > 0) return `Sem ${sem}`;
     return "-";
+  };
+
+  const parseAmountForPayment = (value) => {
+    const cleaned = String(value || "").replace(/,/g, "").trim();
+    const num = Number(cleaned);
+    if (!Number.isFinite(num)) return NaN;
+    return Math.round(num * 100) / 100;
+  };
+
+  const closeDemandPaymentModal = () => {
+    setIsPaymentModalOpen(false);
+    setSelectedDemandForPayment(null);
+    setPayAmountInput("");
+  };
+
+  const openDemandPaymentModal = (demand) => {
+    const dueAmount = Number(demand?.dueAmount || 0);
+    if (dueAmount <= 0) {
+      toast.error("No pending amount left for this demand");
+      return;
+    }
+    setSelectedDemandForPayment(demand);
+    setPayAmountInput(String(dueAmount));
+    setIsPaymentModalOpen(true);
+  };
+
+  const launchRazorpayCheckout = ({
+    keyId,
+    order,
+    amount,
+    currency,
+    onSuccess,
+    onDismiss,
+  }) => {
+    const RazorpayCheckout = window.Razorpay;
+    const options = {
+      key: keyId,
+      amount: Math.round(Number(amount || 0) * 100),
+      currency: currency || "INR",
+      order_id: order?.id,
+      name: "HU ERP",
+      description: "Fee payment",
+      prefill: {
+        name: String(studentName || "Student").trim(),
+        email: String(studentEmail || "").trim(),
+      },
+      notes: {
+        studentId: String(userData?.user?.studentId || ""),
+      },
+      theme: {
+        color: "#1d4ed8",
+      },
+      modal: {
+        ondismiss: onDismiss,
+      },
+      handler: onSuccess,
+    };
+
+    const paymentObject = new RazorpayCheckout(options);
+    paymentObject.on("payment.failed", (response) => {
+      const message =
+        response?.error?.description ||
+        response?.error?.reason ||
+        "Payment failed. Please try again.";
+      toast.error(message);
+      if (typeof onDismiss === "function") onDismiss();
+    });
+    paymentObject.open();
+  };
+
+  const paySelectedDemandWithRazorpay = async () => {
+    if (!selectedDemandForPayment?._id) {
+      toast.error("Please select a demand first");
+      return;
+    }
+
+    const dueAmount = Number(selectedDemandForPayment?.dueAmount || 0);
+    const amount = parseAmountForPayment(payAmountInput);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid amount greater than zero");
+      return;
+    }
+    if (amount > dueAmount) {
+      toast.error("Amount cannot be greater than due amount");
+      return;
+    }
+
+    setIsRazorpayProcessing(true);
+    try {
+      const orderPayload = await dispatch(
+        createMyRazorpayOrder({
+          demandId: selectedDemandForPayment._id,
+          amount,
+        })
+      ).unwrap();
+
+      const scriptReady = await loadRazorpayCheckoutScript();
+      if (!scriptReady || !window.Razorpay) {
+        throw new Error("Unable to load Razorpay checkout");
+      }
+
+      launchRazorpayCheckout({
+        keyId: orderPayload?.keyId,
+        order: orderPayload?.order,
+        amount: orderPayload?.amount,
+        currency: orderPayload?.currency,
+        onDismiss: () => {
+          setIsRazorpayProcessing(false);
+        },
+        onSuccess: async (response) => {
+          try {
+            await dispatch(
+              verifyMyRazorpayPayment({
+                demandId: selectedDemandForPayment._id,
+                razorpay_order_id: response?.razorpay_order_id,
+                razorpay_payment_id: response?.razorpay_payment_id,
+                razorpay_signature: response?.razorpay_signature,
+              })
+            ).unwrap();
+            toast.success("Fee payment successful");
+            closeDemandPaymentModal();
+          } catch (error) {
+            toast.error(error || "Payment verification failed");
+          } finally {
+            setIsRazorpayProcessing(false);
+          }
+        },
+      });
+    } catch (error) {
+      setIsRazorpayProcessing(false);
+      toast.error(error || "Failed to start Razorpay checkout");
+    }
+  };
+
+  const payFullYearWithRazorpay = async () => {
+    const selectedYear = String(yearPaymentAcademicYear || "").trim();
+    if (!selectedYear) {
+      toast.error("Select an academic year to continue");
+      return;
+    }
+
+    setIsRazorpayProcessing(true);
+    try {
+      const orderPayload = await dispatch(
+        createMyRazorpayOrderForYear({
+          academicYear: selectedYear,
+        })
+      ).unwrap();
+
+      const scriptReady = await loadRazorpayCheckoutScript();
+      if (!scriptReady || !window.Razorpay) {
+        throw new Error("Unable to load Razorpay checkout");
+      }
+
+      launchRazorpayCheckout({
+        keyId: orderPayload?.keyId,
+        order: orderPayload?.order,
+        amount: orderPayload?.amount,
+        currency: orderPayload?.currency,
+        onDismiss: () => {
+          setIsRazorpayProcessing(false);
+        },
+        onSuccess: async (response) => {
+          try {
+            await dispatch(
+              verifyMyRazorpayPaymentForYear({
+                razorpay_order_id: response?.razorpay_order_id,
+                razorpay_payment_id: response?.razorpay_payment_id,
+                razorpay_signature: response?.razorpay_signature,
+              })
+            ).unwrap();
+            toast.success("Full-year fee payment successful");
+          } catch (error) {
+            toast.error(error || "Yearly payment verification failed");
+          } finally {
+            setIsRazorpayProcessing(false);
+          }
+        },
+      });
+    } catch (error) {
+      setIsRazorpayProcessing(false);
+      toast.error(error || "Failed to start yearly Razorpay checkout");
+    }
   };
 
   const handleMenuClick = (item) => {
@@ -1066,6 +1264,21 @@ const StudentDashboardShell = ({
     const demandsList = sortedMyDemands || [];
     const paymentsList = myPayments || [];
     const profile = myFeeProfile;
+    const payableDemands = demandsList.filter((d) => {
+      const status = String(d?.status || "").toUpperCase();
+      return (status === "PENDING" || status === "PARTIAL") && Number(d?.dueAmount || 0) > 0;
+    });
+    const payableAcademicYears = Array.from(
+      new Set(
+        payableDemands
+          .map((row) => String(row?.academicYear || "").trim())
+          .filter(Boolean)
+      )
+    );
+    const effectiveYear = String(yearPaymentAcademicYear || defaultAcademicYear || "").trim();
+    const selectedYearPendingTotal = payableDemands
+      .filter((row) => String(row?.academicYear || "").trim() === effectiveYear)
+      .reduce((sum, row) => sum + Number(row?.dueAmount || 0), 0);
 
     const pendingDemands = demandsList.filter((d) => d.status === "PENDING" || d.status === "PARTIAL").length;
     const paidDemands = demandsList.filter((d) => d.status === "PAID").length;
@@ -1086,7 +1299,7 @@ const StudentDashboardShell = ({
 
       {/* Admin-style info cards */}
       <div className="relative z-10 mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-blue-50 to-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-linear-to-br from-blue-50 to-white p-4 shadow-sm">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
             <FiFileText size={18} />
           </div>
@@ -1095,7 +1308,7 @@ const StudentDashboardShell = ({
           <span className="text-xs text-slate-400">{formatAmount(totalDemandAmount)} generated</span>
         </div>
 
-        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-amber-50 to-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-linear-to-br from-amber-50 to-white p-4 shadow-sm">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-600">
             <FiClock size={18} />
           </div>
@@ -1104,7 +1317,7 @@ const StudentDashboardShell = ({
           <span className="text-xs text-slate-400">{pendingDemands === 1 ? "demand" : "demands"} unpaid</span>
         </div>
 
-        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-emerald-50 to-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-linear-to-br from-emerald-50 to-white p-4 shadow-sm">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600">
             <FiCheckCircle size={18} />
           </div>
@@ -1113,7 +1326,7 @@ const StudentDashboardShell = ({
           <span className="text-xs text-slate-400">{formatAmount(totalPaidAmount)} collected</span>
         </div>
 
-        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-violet-50 to-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-linear-to-br from-violet-50 to-white p-4 shadow-sm">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-100 text-violet-600">
             <FiCreditCard size={18} />
           </div>
@@ -1122,7 +1335,7 @@ const StudentDashboardShell = ({
           <span className="text-xs text-slate-400">{paymentsList.length} total transactions</span>
         </div>
 
-        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-gradient-to-br from-cyan-50 to-white p-4 shadow-sm">
+        <div className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-linear-to-br from-cyan-50 to-white p-4 shadow-sm">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-100 text-cyan-600">
             <FiPercent size={18} />
           </div>
@@ -1131,6 +1344,46 @@ const StudentDashboardShell = ({
           <span className="text-xs text-slate-400">
             {profile?.programId?.programName || profile?.branchId?.branchName || ""}
           </span>
+        </div>
+      </div>
+
+      <div className="relative z-10 mt-6 rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h4 className="text-base font-semibold text-slate-800">Pay Pending Fees</h4>
+            <p className="mt-1 text-sm text-slate-500">
+              Pay per semester demand from the table below, or pay all pending dues for one academic year.
+            </p>
+          </div>
+          <div className="grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-[1fr_auto]">
+            <label className="text-sm text-slate-700">
+              <span className="mb-1 block">Academic Year</span>
+              <select
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                value={effectiveYear}
+                onChange={(event) => setYearPaymentAcademicYear(event.target.value)}
+              >
+                {(payableAcademicYears.length ? payableAcademicYears : [defaultAcademicYear]).map((year) => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              className="rounded-lg bg-emerald-600 px-4 py-2 font-medium text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={payFullYearWithRazorpay}
+              disabled={
+                feeActionLoading ||
+                isRazorpayProcessing ||
+                !effectiveYear ||
+                selectedYearPendingTotal <= 0
+              }
+            >
+              {feeActionLoading || isRazorpayProcessing
+                ? "Processing..."
+                : `Pay Full Year (${formatAmount(selectedYearPendingTotal)})`}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1152,7 +1405,8 @@ const StudentDashboardShell = ({
                   <th className="pb-2 pr-4">Paid</th>
                   <th className="pb-2 pr-4">Due</th>
                   <th className="pb-2 pr-4">Status</th>
-                  <th className="pb-2">Due Date</th>
+                  <th className="pb-2 pr-4">Due Date</th>
+                  <th className="pb-2">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -1184,6 +1438,27 @@ const StudentDashboardShell = ({
                     <td className="py-2.5 text-slate-500">
                       {d.dueDate ? new Date(d.dueDate).toLocaleDateString("en-IN") : "-"}
                     </td>
+                    <td className="py-2.5">
+                      {(() => {
+                        const canPay =
+                          (String(d?.status || "").toUpperCase() === "PENDING" ||
+                            String(d?.status || "").toUpperCase() === "PARTIAL") &&
+                          Number(d?.dueAmount || 0) > 0;
+                        if (!canPay) {
+                          return <span className="text-xs text-slate-400">-</span>;
+                        }
+                        return (
+                          <button
+                            type="button"
+                            className="rounded-md bg-blue-600 px-3 py-1 text-xs font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            onClick={() => openDemandPaymentModal(d)}
+                            disabled={feeActionLoading || isRazorpayProcessing}
+                          >
+                            Pay Now
+                          </button>
+                        );
+                      })()}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1191,6 +1466,92 @@ const StudentDashboardShell = ({
           </div>
         </div>
       )}
+
+      {isPaymentModalOpen && selectedDemandForPayment ? (
+        <div className="fixed inset-0 z-80 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h4 className="text-lg font-semibold text-slate-800">Pay Pending Demand</h4>
+                <p className="mt-1 text-sm text-slate-500">
+                  {selectedDemandForPayment.academicYear || "-"} • {formatSemesterLabel(selectedDemandForPayment.semesterNo, selectedDemandForPayment.scope)}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                onClick={closeDemandPaymentModal}
+                disabled={isRazorpayProcessing}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-3 text-sm text-slate-700">
+              <div className="flex items-center justify-between">
+                <span>Due Amount</span>
+                <span className="font-semibold text-red-600">{formatAmount(selectedDemandForPayment.dueAmount)}</span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span>Already Paid</span>
+                <span className="font-medium text-emerald-600">{formatAmount(selectedDemandForPayment.paidAmount)}</span>
+              </div>
+            </div>
+
+            <label className="mt-4 block text-sm text-slate-700">
+              <span>Amount to Pay</span>
+              <input
+                type="number"
+                min="1"
+                step="0.01"
+                max={Number(selectedDemandForPayment?.dueAmount || 0)}
+                className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                value={payAmountInput}
+                onChange={(event) => setPayAmountInput(event.target.value)}
+                disabled={isRazorpayProcessing}
+              />
+            </label>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                onClick={() => setPayAmountInput(String(Number(selectedDemandForPayment?.dueAmount || 0)))}
+                disabled={isRazorpayProcessing}
+              >
+                Full Due
+              </button>
+              <button
+                type="button"
+                className="rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                onClick={() => setPayAmountInput("")}
+                disabled={isRazorpayProcessing}
+              >
+                Reset
+              </button>
+            </div>
+
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                onClick={closeDemandPaymentModal}
+                disabled={isRazorpayProcessing}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={paySelectedDemandWithRazorpay}
+                disabled={feeActionLoading || isRazorpayProcessing}
+              >
+                {feeActionLoading || isRazorpayProcessing ? "Processing..." : "Continue to Razorpay"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {/* Payment History */}
       {paymentsList.length > 0 && (
@@ -1512,7 +1873,7 @@ const StudentDashboardShell = ({
                 Message to Admin
               </span>
               <textarea
-                className="mt-1 min-h-[96px] w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                className="mt-1 min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 transition focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
                 placeholder="Write your request details..."
                 value={demandRequestForm.note}
                 onChange={(event) =>
@@ -1567,7 +1928,7 @@ const StudentDashboardShell = ({
                     <td className="py-2 pr-4">{row.academicYear || "-"}</td>
                     <td className="py-2 pr-4">{formatSemesterLabel(row.semesterNo, row.scope)}</td>
                     <td className="py-2 pr-4">{row.status || "-"}</td>
-                    <td className="max-w-[220px] truncate py-2 pr-4">{row.note || "-"}</td>
+                    <td className="max-w-55 truncate py-2 pr-4">{row.note || "-"}</td>
                     <td className="py-2">
                       {row.createdAt
                         ? new Date(row.createdAt).toLocaleDateString("en-IN")

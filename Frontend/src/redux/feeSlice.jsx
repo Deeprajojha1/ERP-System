@@ -821,6 +821,108 @@ export const fetchMyPayments = createAsyncThunk(
   }
 );
 
+export const createMyRazorpayOrder = createAsyncThunk(
+  "fee/createMyRazorpayOrder",
+  async (payload, { getState, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const idempotencyKey = payload?.idempotencyKey || buildIdempotencyKey();
+      const response = await axios.post(
+        `${apiBase}/student/fee/me/payment/razorpay/order`,
+        payload,
+        {
+          headers: { "x-idempotency-key": idempotencyKey },
+          withCredentials: true,
+        }
+      );
+      return extractDataObject(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to create Razorpay order"
+      );
+    }
+  }
+);
+
+export const verifyMyRazorpayPayment = createAsyncThunk(
+  "fee/verifyMyRazorpayPayment",
+  async (payload, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const idempotencyKey = payload?.idempotencyKey || buildIdempotencyKey();
+      const response = await axios.post(
+        `${apiBase}/student/fee/me/payment/razorpay/verify`,
+        payload,
+        {
+          headers: { "x-idempotency-key": idempotencyKey },
+          withCredentials: true,
+        }
+      );
+      await Promise.all([
+        dispatch(fetchMyFeeProfile()).unwrap(),
+        dispatch(fetchMyFeeDemands()).unwrap(),
+        dispatch(fetchMyPayments()).unwrap(),
+      ]);
+      return extractDataObject(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to verify Razorpay payment"
+      );
+    }
+  }
+);
+
+export const createMyRazorpayOrderForYear = createAsyncThunk(
+  "fee/createMyRazorpayOrderForYear",
+  async (payload, { getState, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const idempotencyKey = payload?.idempotencyKey || buildIdempotencyKey();
+      const response = await axios.post(
+        `${apiBase}/student/fee/me/payment/razorpay/order-year`,
+        payload,
+        {
+          headers: { "x-idempotency-key": idempotencyKey },
+          withCredentials: true,
+        }
+      );
+      return extractDataObject(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to create yearly Razorpay order"
+      );
+    }
+  }
+);
+
+export const verifyMyRazorpayPaymentForYear = createAsyncThunk(
+  "fee/verifyMyRazorpayPaymentForYear",
+  async (payload, { getState, dispatch, rejectWithValue }) => {
+    try {
+      const apiBase = getState().config.apiBase;
+      const idempotencyKey = payload?.idempotencyKey || buildIdempotencyKey();
+      const response = await axios.post(
+        `${apiBase}/student/fee/me/payment/razorpay/verify-year`,
+        payload,
+        {
+          headers: { "x-idempotency-key": idempotencyKey },
+          withCredentials: true,
+        }
+      );
+      await Promise.all([
+        dispatch(fetchMyFeeProfile()).unwrap(),
+        dispatch(fetchMyFeeDemands()).unwrap(),
+        dispatch(fetchMyPayments()).unwrap(),
+      ]);
+      return extractDataArray(response.data);
+    } catch (error) {
+      return rejectWithValue(
+        error.response?.data?.message || "Failed to verify yearly Razorpay payment"
+      );
+    }
+  }
+);
+
 export const fetchMyDemandRequests = createAsyncThunk(
   "fee/fetchMyDemandRequests",
   async (query = {}, { getState, rejectWithValue }) => {
@@ -1265,6 +1367,50 @@ const feeSlice = createSlice({
       .addCase(fetchMyPayments.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload || "Failed to fetch my payments";
+      })
+      .addCase(createMyRazorpayOrder.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(createMyRazorpayOrder.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(createMyRazorpayOrder.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload || "Failed to create Razorpay order";
+      })
+      .addCase(verifyMyRazorpayPayment.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(verifyMyRazorpayPayment.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(verifyMyRazorpayPayment.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload || "Failed to verify Razorpay payment";
+      })
+      .addCase(createMyRazorpayOrderForYear.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(createMyRazorpayOrderForYear.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(createMyRazorpayOrderForYear.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload || "Failed to create yearly Razorpay order";
+      })
+      .addCase(verifyMyRazorpayPaymentForYear.pending, (state) => {
+        state.actionLoading = true;
+        state.actionError = null;
+      })
+      .addCase(verifyMyRazorpayPaymentForYear.fulfilled, (state) => {
+        state.actionLoading = false;
+      })
+      .addCase(verifyMyRazorpayPaymentForYear.rejected, (state, action) => {
+        state.actionLoading = false;
+        state.actionError = action.payload || "Failed to verify yearly Razorpay payment";
       })
       .addCase(fetchFeeBulkJobs.fulfilled, (state, action) => {
         state.loading = false;
