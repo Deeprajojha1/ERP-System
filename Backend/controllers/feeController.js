@@ -3160,7 +3160,7 @@ export const getMyFeeDemands = async (req, res) => {
     const rawLimit = Number(req.query?.limit || 100);
     const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(300, Math.floor(rawLimit))) : 100;
     const demands = await FeeDemand.find({ studentMongoId: current.profile._id })
-      .sort({ createdAt: -1 })
+      .sort({ academicYear: -1, semesterNo: 1, dueDate: 1, createdAt: 1 })
       .limit(limit);
     return res.status(200).json({ message: "My fee demands retrieved", data: demands });
   } catch (error) {

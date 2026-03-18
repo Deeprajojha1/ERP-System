@@ -82,6 +82,35 @@ const buildProfileImageUrl = (apiBase, fileUrl, fileName) => {
   return normalizePath(fileUrl) || normalizePath(fileName);
 };
 
+const sortDemandsForDisplay = (demands = []) => {
+  const rows = Array.isArray(demands) ? [...demands] : [];
+  const parseAcademicYearStart = (value) => {
+    const raw = String(value || "").trim();
+    const start = Number(raw.split("-")[0]);
+    return Number.isFinite(start) ? start : 0;
+  };
+
+  rows.sort((a, b) => {
+    const yearA = parseAcademicYearStart(a?.academicYear);
+    const yearB = parseAcademicYearStart(b?.academicYear);
+    if (yearA !== yearB) return yearB - yearA; // latest year first
+
+    const semA = Number(a?.semesterNo || 0);
+    const semB = Number(b?.semesterNo || 0);
+    if (semA !== semB) return semA - semB; // Sem 1 before Sem 2
+
+    const dueA = a?.dueDate ? new Date(a.dueDate).getTime() : 0;
+    const dueB = b?.dueDate ? new Date(b.dueDate).getTime() : 0;
+    if (dueA !== dueB) return dueA - dueB;
+
+    const createdA = a?.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const createdB = b?.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return createdA - createdB;
+  });
+
+  return rows;
+};
+
 const StudentDashboardShell = ({
   resolvedStudentData,
   roleDetails,
@@ -105,6 +134,7 @@ const StudentDashboardShell = ({
   const myDemands = useSelector(selectMyDemands);
   const myPayments = useSelector(selectMyPayments);
   const myYearlyBreakdown = useSelector(selectMyYearlyBreakdown);
+  const sortedMyDemands = useMemo(() => sortDemandsForDisplay(myDemands), [myDemands]);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(
     () => (typeof window !== "undefined" ? window.innerWidth >= 769 : true)
@@ -1033,7 +1063,7 @@ const StudentDashboardShell = ({
   };
 
   const renderFees = () => {
-    const demandsList = myDemands || [];
+    const demandsList = sortedMyDemands || [];
     const paymentsList = myPayments || [];
     const profile = myFeeProfile;
 
