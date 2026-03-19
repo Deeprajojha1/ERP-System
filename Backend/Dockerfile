@@ -1,7 +1,7 @@
 # Backend Dockerfile
 # node:20-slim is Debian Bookworm slim — required because opencv-python-headless
 # PyPI wheels are built against glibc and do NOT run on Alpine (musl libc).
-FROM node:20-slim
+FROM node:20.20.1-trixie-slim
 
 WORKDIR /app
 ENV PUPPETEER_SKIP_DOWNLOAD=true
