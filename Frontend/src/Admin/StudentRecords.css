@@ -100,6 +100,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
+  align-items: center;
 }
 
 .sr-search {
@@ -139,6 +140,17 @@
   padding: 10px 14px;
   background: #fff;
   font-weight: 600;
+}
+
+.sr-control-btn {
+  padding: 10px 16px;
+  font-size: 0.95rem;
+  box-shadow: none;
+  transform: none;
+}
+
+.sr-control-btn:hover {
+  transform: none;
 }
 
 .sr-table-card {

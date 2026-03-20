@@ -1,6 +1,5 @@
 .env*
 node_modules*
-
 !Backend/.env.example
 !Frontend/.env.example
 tmpclaude-*

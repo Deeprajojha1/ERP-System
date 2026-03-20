@@ -15,6 +15,16 @@ const BranchSchema = new mongoose.Schema({
     maxlength: 80
   },
 
+  // Fee depends on the student's batch (start year).
+  // Example: 2024 for batch window 2024-2028
+  batchYear: {
+    type: Number,
+    required: false,
+    min: 2000,
+    max: 2100,
+    default: null,
+  },
+
   semesterBaseFees: [{
     semesterNo: {
       type: Number,
@@ -43,8 +53,9 @@ const BranchSchema = new mongoose.Schema({
 
 }, { timestamps: true });
 
-// Unique branch per program
-BranchSchema.index({ programId: 1, branchName: 1 }, { unique: true });
+// Unique fee branch per program + branch + batch year.
+// Backward-compat: legacy rows may have batchYear=null.
+BranchSchema.index({ programId: 1, branchName: 1, batchYear: 1 }, { unique: true });
 
 // Ensure semesterNo unique inside array
 BranchSchema.pre("validate", function () {

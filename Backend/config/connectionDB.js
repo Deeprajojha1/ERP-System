@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import Room from "../models/roomModel.js";
 import ExamRegistration from "../models/ExamRegistration.js";
 import FeeHostelYearly from "../models/feeHostelYearly.js";
+import FeeBranch from "../models/feeBranch.js";
 
 dotenv.config();
 
@@ -65,6 +66,27 @@ const ensureFeeHostelYearlyIndexes = async () => {
   }
 };
 
+const ensureFeeBranchIndexes = async () => {
+  try {
+    const indexes = await FeeBranch.collection.indexes().catch(() => []);
+    const oldIndex = indexes.find(
+      (idx) =>
+        idx?.unique === true &&
+        idx?.key?.programId === 1 &&
+        idx?.key?.branchName === 1 &&
+        idx?.key?.batchYear !== 1
+    );
+    if (oldIndex?.name) {
+      await FeeBranch.collection.dropIndex(oldIndex.name);
+      console.log(`[DB] Dropped old FeeBranch index: ${oldIndex.name}`);
+    }
+    await FeeBranch.syncIndexes();
+    console.log("[DB] FeeBranch indexes synced");
+  } catch (error) {
+    console.warn("[DB] FeeBranch index check failed:", error?.message || error);
+  }
+};
+
 const connectDB = async () => {
   const uri = String(process.env.MONGODB_URI || "").trim();
   if (!uri) {
@@ -88,6 +110,7 @@ const connectDB = async () => {
     await ensureRoomIndexes();
     await ensureExamRegistrationIndexes();
     await ensureFeeHostelYearlyIndexes();
+    await ensureFeeBranchIndexes();
   } catch (error) {
     retryCount += 1;
     console.error(

@@ -73,6 +73,7 @@ const normalizeWardenAccountsInput = (input) => {
       name: String(entry?.name || "").trim(),
       email: String(entry?.email || "").toLowerCase().trim(),
       password: String(entry?.password || ""),
+      phoneNumber: String(entry?.phoneNumber || "").trim(),
     }))
     .filter((entry) => entry.name || entry.email || entry.password);
 };
@@ -96,6 +97,9 @@ const createWardenAccounts = async (wardenAccounts = []) => {
     if (String(item.password).length < 8) {
       return { ok: false, message: "Warden password must be at least 8 characters." };
     }
+    if (item.phoneNumber && !/^[0-9]{10}$/.test(item.phoneNumber)) {
+      return { ok: false, message: `Invalid warden phone number for ${item.email}` };
+    }
   }
 
   const emails = sanitized.map((item) => item.email);
@@ -116,6 +120,7 @@ const createWardenAccounts = async (wardenAccounts = []) => {
       passwordHash: hashedPassword,
       role: "warden",
       status: "active",
+      ...(item.phoneNumber ? { phoneNumber: item.phoneNumber } : {}),
     });
     createdIds.push(wardenUser._id);
   }
@@ -256,7 +261,7 @@ export const getAllHostels = async (req, res) => {
 		          })
 		          .populate({
 		            path: "wardens",
-		            select: "name email role status",
+		            select: "name email role status phoneNumber",
 		          })
 		          .populate({
 		            path: "rooms",
@@ -296,7 +301,7 @@ export const getSingleHostel = async (req, res) => {
 		          })
 		          .populate({
 		            path: "wardens",
-		            select: "name email role status",
+		            select: "name email role status phoneNumber",
 		          })
 		          .populate({
 		            path: "rooms",
