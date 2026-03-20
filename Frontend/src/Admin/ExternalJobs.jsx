@@ -21,7 +21,7 @@ const ExternalJobs = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
 
   const [filters, setFilters] = useState({
-    keywords: "software developer",
+    keywords: "internship OR jobs",
     location: "India",
   });
 
@@ -38,7 +38,7 @@ const ExternalJobs = () => {
     try {
       if (showLoader) setLoadState(ADMIN_LOAD_STATES.PENDING);
       const response = await axios.get(`${apiBase}/external-jobs`, {
-        params: filters,
+        params: { ...filters, location: "India" },
         withCredentials: true,
       });
       setJobs(response.data?.jobs || []);
@@ -166,7 +166,7 @@ const ExternalJobs = () => {
           <div>
             <h1 className="external-jobs-title">External Job Listings</h1>
             <p className="external-jobs-subtitle">
-              {filtered.length} jobs from Indeed, JSearch and other sources
+              {filtered.length} India-based internships and jobs
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -217,9 +217,9 @@ const ExternalJobs = () => {
             />
             <input
               type="text"
-              placeholder="Location (e.g., India, Remote)"
-              value={filters.location}
-              onChange={(e) => setFilters({ ...filters, location: e.target.value })}
+              placeholder="Location (India only)"
+              value="India"
+              disabled
               className="external-jobs-input"
             />
             <button type="submit" className="btn-primary">

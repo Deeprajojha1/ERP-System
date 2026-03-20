@@ -10,7 +10,13 @@ import {
   setFacultyLoading,
 } from "../redux/facultySlice";
 import emptyStateImg from "../assets/empty-state.svg";
-import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiEdit2,
+  FiSearch,
+  FiTrash2,
+} from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import "./Faculty.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
@@ -42,6 +48,12 @@ const formatStatusLabel = (value) =>
     .split(" ")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+
+const getInitials = (name) => {
+  const letters = String(name || "").match(/[A-Za-z]/g) || [];
+  const initials = letters.slice(0, 2).join("").toUpperCase();
+  return initials || "NA";
+};
 
 const getStatusBadgeClass = (value) => {
   switch (value) {
@@ -84,6 +96,7 @@ const Faculty = () => {
   const [isOpeningAdd, setIsOpeningAdd] = useState(false);
   const [openingEditId, setOpeningEditId] = useState("");
   const [deletingFacultyId, setDeletingFacultyId] = useState("");
+  const [page, setPage] = useState(1);
   const dispatch = useDispatch();
   const { faculty } = useSelector(
     (state) => state.faculty
@@ -411,6 +424,26 @@ const Faculty = () => {
     });
   }, [faculty, search, department, status]);
 
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedFaculty = filtered.slice(
+    pageStartIndex,
+    pageStartIndex + pageSize
+  );
+  const rangeStart = filtered.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, filtered.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, department, status]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const filterDepartments = useMemo(() => {
     const map = new Map();
     faculty.forEach((f) => {
@@ -525,25 +558,20 @@ const Faculty = () => {
             </div>
           ) : (
             <div className="faculty-grid">
-              {filtered.map((f, index) => (
+              {paginatedFaculty.map((f, index) => (
                 <div
                   className="faculty-card"
                   key={f._id || f.user?._id}
                   style={{
                     "--faculty-card-gradient":
-                      cardGradients[index % cardGradients.length],
+                      cardGradients[(pageStartIndex + index) % cardGradients.length],
                     "--faculty-avatar-gradient":
-                      avatarGradients[index % avatarGradients.length],
+                      avatarGradients[(pageStartIndex + index) % avatarGradients.length],
                   }}
                 >
                   <div className="faculty-card-top">
                     <div className="faculty-avatar">
-                      {(f.user?.name || f.name || "NA")
-                        .split(" ")
-                        .map((p) => p[0])
-                        .join("")
-                        .slice(0, 2)
-                        .toUpperCase()}
+                      {getInitials(f.user?.name || f.name)}
                     </div>
                     {(() => {
                       const rawStatus = f.user?.status || f.status || "active";
@@ -626,6 +654,31 @@ const Faculty = () => {
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+          {filtered.length > 0 && (
+            <div className="faculty-pagination">
+              <button
+                type="button"
+                className="faculty-page-btn"
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                disabled={page === 1}
+              >
+                <FiChevronLeft aria-hidden="true" />
+                <span>Prev</span>
+              </button>
+              <div className="faculty-page-info">
+                {rangeStart} to {rangeEnd} of {filtered.length}
+              </div>
+              <button
+                type="button"
+                className="faculty-page-btn"
+                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={page === totalPages}
+              >
+                <span>Next</span>
+                <FiChevronRight aria-hidden="true" />
+              </button>
             </div>
           )}
         </div>

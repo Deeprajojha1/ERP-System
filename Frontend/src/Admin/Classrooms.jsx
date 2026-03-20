@@ -2,7 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
 import axios from "../utils/axiosInstance";
-import { FiCheckCircle, FiRefreshCw, FiSearch, FiXCircle } from "react-icons/fi";
+import {
+  FiCheckCircle,
+  FiChevronLeft,
+  FiChevronRight,
+  FiRefreshCw,
+  FiSearch,
+  FiXCircle,
+} from "react-icons/fi";
 import { ThreeDots } from "react-loader-spinner";
 import { ADMIN_LOAD_STATES, ADMIN_LOAD_STATE_OPTIONS } from "./constants/loadStates";
 import "./Classrooms.css";
@@ -31,6 +38,7 @@ const Classrooms = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [availabilityFilter, setAvailabilityFilter] = useState("ALL");
   const [form, setForm] = useState(defaultForm);
+  const [page, setPage] = useState(1);
 
   const fetchClassrooms = useCallback(async () => {
     if (!apiBase) return;
@@ -112,6 +120,26 @@ const Classrooms = () => {
       return matchesSearch && matchesAvailability;
     });
   }, [classrooms, searchQuery, availabilityFilter]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filteredClassrooms.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedClassrooms = filteredClassrooms.slice(
+    pageStartIndex,
+    pageStartIndex + pageSize
+  );
+  const rangeStart = filteredClassrooms.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, filteredClassrooms.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchQuery, availabilityFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const stats = useMemo(() => {
     const available = classrooms.filter((room) => room?.available).length;
@@ -275,7 +303,7 @@ const Classrooms = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredClassrooms.map((room) => (
+                {paginatedClassrooms.map((room) => (
                   <tr key={room._id}>
                     <td>{room.name}</td>
                     <td>{room.capacity}</td>
@@ -301,6 +329,31 @@ const Classrooms = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+        {loadState === ADMIN_LOAD_STATES.SUCCESS && filteredClassrooms.length > 0 && (
+          <div className="classrooms-pagination">
+            <button
+              type="button"
+              className="classrooms-page-btn"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+            >
+              <FiChevronLeft aria-hidden="true" />
+              <span>Prev</span>
+            </button>
+            <div className="classrooms-page-info">
+              {rangeStart} to {rangeEnd} of {filteredClassrooms.length}
+            </div>
+            <button
+              type="button"
+              className="classrooms-page-btn"
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+            >
+              <span>Next</span>
+              <FiChevronRight aria-hidden="true" />
+            </button>
           </div>
         )}
       </section>

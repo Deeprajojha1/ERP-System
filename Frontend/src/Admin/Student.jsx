@@ -1,7 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
-import { FiEdit2, FiLoader, FiSearch, FiTrash2 } from "react-icons/fi";
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiEdit2,
+  FiLoader,
+  FiSearch,
+  FiTrash2,
+} from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import toast from "react-hot-toast";
 import ModernDatePicker from "../components/common/ModernDatePicker";
@@ -78,6 +85,7 @@ const Student = () => {
   const [isOpeningAdd, setIsOpeningAdd] = useState(false);
   const [openingEditId, setOpeningEditId] = useState("");
   const [modalDependenciesLoading, setModalDependenciesLoading] = useState(false);
+  const [page, setPage] = useState(1);
   const dispatch = useDispatch();
   const { students } = useSelector(
     (state) => state.student
@@ -269,6 +277,26 @@ const Student = () => {
       return matchSearch && matchDept;
     });
   }, [students, search, department]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedStudents = filtered.slice(
+    pageStartIndex,
+    pageStartIndex + pageSize
+  );
+  const rangeStart = filtered.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, filtered.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, department]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const filteredGroups = useMemo(() => {
     if (!formData.department) return groups;
@@ -730,14 +758,14 @@ const Student = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((s, index) => {
+                  {paginatedStudents.map((s, index) => {
                     const numericId =
-                      s.rollNo || s.enrollmentNumber || s.roll || `${index + 1}`;
+                      s.rollNo || s.enrollmentNumber || s.roll || `${pageStartIndex + index + 1}`;
                     return (
                       <tr
                         key={s._id || s.user?._id || `${numericId}-${index}`}
                       >
-                        <td className="student-serial-cell">{index + 1}</td>
+                        <td className="student-serial-cell">{pageStartIndex + index + 1}</td>
                         <td className="student-roll">
                           {s.studentName || s.user?.name || s.name || "N/A"}
                         </td>
@@ -784,6 +812,31 @@ const Student = () => {
               </table>
             )}
           </div>
+          {filtered.length > 0 && (
+            <div className="student-pagination">
+              <button
+                type="button"
+                className="student-page-btn"
+                onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                disabled={page === 1}
+              >
+                <FiChevronLeft aria-hidden="true" />
+                <span>Prev</span>
+              </button>
+              <div className="student-page-info">
+                {rangeStart} to {rangeEnd} of {filtered.length}
+              </div>
+              <button
+                type="button"
+                className="student-page-btn"
+                onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                disabled={page === totalPages}
+              >
+                <span>Next</span>
+                <FiChevronRight aria-hidden="true" />
+              </button>
+            </div>
+          )}
         </div>
       </>
     );

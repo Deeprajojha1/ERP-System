@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import axios from "../utils/axiosInstance";
 import { ThreeDots, TailSpin } from "react-loader-spinner";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 import {
   fetchAssignments,
   fetchSingleAssignment,
@@ -35,6 +36,7 @@ const Assignment = () => {
   const [selectedGroup, setSelectedGroup] = useState("");
   const [selectedFaculty, setSelectedFaculty] = useState("");
   const [deletingId, setDeletingId] = useState(null);
+  const [page, setPage] = useState(1);
 
   /* ================= RESOLVE FILE URL ================= */
   const resolveFileUrl = useCallback((fileUrl) => {
@@ -131,6 +133,26 @@ const Assignment = () => {
       }));
     }
   }, [selectedDept, selectedGroup, selectedFaculty, apiBase, dispatch, fetchFaculty, fetchGroups]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(assignments.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedAssignments = assignments.slice(
+    pageStartIndex,
+    pageStartIndex + pageSize
+  );
+  const rangeStart = assignments.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, assignments.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedDept, selectedGroup, selectedFaculty]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   return (
     <div className="assignment-container">
@@ -229,7 +251,7 @@ const Assignment = () => {
               </tr>
             </thead>
             <tbody>
-              {assignments.map((a) => (
+              {paginatedAssignments.map((a) => (
                 <tr key={a._id}>
                   <td className="assignment-title-cell">{a.title}</td>
                   <td>{a.uploadedBy?.user?.name || a.uploadedBy?.name}</td>
@@ -263,6 +285,29 @@ const Assignment = () => {
               ))}
             </tbody>
           </table>
+          <div className="assignment-pagination">
+            <button
+              type="button"
+              className="assignment-page-btn"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+            >
+              <FiChevronLeft aria-hidden="true" />
+              <span>Prev</span>
+            </button>
+            <div className="assignment-page-info">
+              {rangeStart} to {rangeEnd} of {assignments.length}
+            </div>
+            <button
+              type="button"
+              className="assignment-page-btn"
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+            >
+              <span>Next</span>
+              <FiChevronRight aria-hidden="true" />
+            </button>
+          </div>
         </div>
       ) : selectedDept ? (
         <div className="assignment-empty">

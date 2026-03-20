@@ -4,7 +4,14 @@ import axios from "../utils/axiosInstance";
 import "./Courses.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import { Oval } from "react-loader-spinner";
-import { FiEdit2, FiEye, FiLoader, FiSearch } from "react-icons/fi";
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiEdit2,
+  FiEye,
+  FiLoader,
+  FiSearch,
+} from "react-icons/fi";
 import emptyStateImg from "../assets/empty-state.svg";
 import toast from "react-hot-toast";
 import { selectTimetableRevision } from "../redux/timetableSlice";
@@ -101,6 +108,7 @@ const Courses = () => {
   const [modalDependenciesLoading, setModalDependenciesLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [viewInstructorCourse, setViewInstructorCourse] = useState(null);
+  const [page, setPage] = useState(1);
   const [formData, setFormData] = useState({
     code: "",
     courseName: "",
@@ -383,6 +391,26 @@ const Courses = () => {
     });
   }, [search, activeBranch, courses]);
 
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedCourses = filtered.slice(
+    pageStartIndex,
+    pageStartIndex + pageSize
+  );
+  const rangeStart = filtered.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, filtered.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, activeBranch]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
+
   const resolveItemId = (value) => String(value?._id || value?.id || value || "").trim();
 
   const resolveFacultyName = (faculty = {}) =>
@@ -527,13 +555,14 @@ const Courses = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c, index) => {
-                const numericId = (c.code || "").replace(/\D/g, "") || `${index + 1}`;
+              {paginatedCourses.map((c, index) => {
+                const numericId =
+                  (c.code || "").replace(/\D/g, "") || `${pageStartIndex + index + 1}`;
                 const courseId = resolveItemId(c?.id || c?._id);
                 const instructorCount = instructorAssignmentsByCourse.get(courseId)?.length || 0;
                 return (
                   <tr key={c.id || c.code || numericId}>
-                    <td className="courses-serial-cell">{index + 1}</td>
+                    <td className="courses-serial-cell">{pageStartIndex + index + 1}</td>
                     <td className="courses-code">{c.code}</td>
                     <td>{c.courseName}</td>
                     <td>{c.department}</td>
@@ -579,6 +608,31 @@ const Courses = () => {
             </tbody>
           </table>
         </div>
+        {filtered.length > 0 && (
+          <div className="courses-pagination">
+            <button
+              type="button"
+              className="courses-page-btn"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+            >
+              <FiChevronLeft aria-hidden="true" />
+              <span>Prev</span>
+            </button>
+            <div className="courses-page-info">
+              {rangeStart} to {rangeEnd} of {filtered.length}
+            </div>
+            <button
+              type="button"
+              className="courses-page-btn"
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+            >
+              <span>Next</span>
+              <FiChevronRight aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </>
     );
   };

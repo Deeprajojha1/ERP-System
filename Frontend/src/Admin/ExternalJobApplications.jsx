@@ -1,7 +1,14 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "../utils/axiosInstance";
 import { useSelector } from "react-redux";
-import { FiRefreshCw, FiSearch, FiFilter, FiDownload, FiEye } from "react-icons/fi";
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiDownload,
+  FiEye,
+  FiRefreshCw,
+  FiSearch,
+} from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import toast from "react-hot-toast";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -16,6 +23,7 @@ const ExternalJobApplications = () => {
   const [stats, setStats] = useState(null);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
   const apiBase = useSelector((state) => state.config.apiBase);
 
   const fetchApplications = async (showLoader = true) => {
@@ -79,6 +87,23 @@ const ExternalJobApplications = () => {
       return matchSearch && matchStatus && matchSource;
     });
   }, [applications, search, statusFilter, sourceFilter]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedApps = filtered.slice(pageStartIndex, pageStartIndex + pageSize);
+  const rangeStart = filtered.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, filtered.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, sourceFilter]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const sources = useMemo(() => {
     const uniqueSources = [...new Set(applications.map((a) => a.externalJob?.source))];
@@ -296,7 +321,7 @@ const ExternalJobApplications = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((app) => (
+                {paginatedApps.map((app) => (
                   <tr key={app._id}>
                     <td>
                       <div className="external-apps-student-info">
@@ -350,6 +375,31 @@ const ExternalJobApplications = () => {
             </table>
           )}
         </div>
+        {filtered.length > 0 && (
+          <div className="external-apps-pagination">
+            <button
+              type="button"
+              className="external-apps-page-btn"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+            >
+              <FiChevronLeft aria-hidden="true" />
+              <span>Prev</span>
+            </button>
+            <div className="external-apps-page-info">
+              {rangeStart} to {rangeEnd} of {filtered.length}
+            </div>
+            <button
+              type="button"
+              className="external-apps-page-btn"
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+            >
+              <span>Next</span>
+              <FiChevronRight aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </>
     );
   };

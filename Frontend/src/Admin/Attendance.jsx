@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import axiosInstance from "../utils/axiosInstance";
 import toast from "react-hot-toast";
-import { FiCheckCircle, FiEdit, FiXCircle } from "react-icons/fi";
+import { FiCheckCircle, FiChevronLeft, FiChevronRight, FiEdit, FiXCircle } from "react-icons/fi";
 import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./Attendance.css";
 import {
@@ -48,6 +48,7 @@ const Attendance = () => {
   const [studentReport, setStudentReport] = useState(null);
   const [statusMap, setStatusMap] = useState({});
   const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [studentPage, setStudentPage] = useState(1);
 
   const groupOptions = useMemo(() => groups || [], [groups]);
 
@@ -187,6 +188,25 @@ const Attendance = () => {
   const formatPercentage = (value) => (value != null ? `${Number(value).toFixed(2)}%` : "—");
 
   const totalStudents = useMemo(() => groupStudents.length, [groupStudents]);
+  const studentPageSize = 10;
+  const studentTotalPages = Math.max(1, Math.ceil(totalStudents / studentPageSize));
+  const studentPageStart = (studentPage - 1) * studentPageSize;
+  const paginatedGroupStudents = groupStudents.slice(
+    studentPageStart,
+    studentPageStart + studentPageSize
+  );
+  const studentRangeStart = totalStudents === 0 ? 0 : studentPageStart + 1;
+  const studentRangeEnd = Math.min(studentPageStart + studentPageSize, totalStudents);
+
+  useEffect(() => {
+    setStudentPage(1);
+  }, [selectedGroupId, dailyDate]);
+
+  useEffect(() => {
+    if (studentPage > studentTotalPages) {
+      setStudentPage(studentTotalPages);
+    }
+  }, [studentPage, studentTotalPages]);
 
   const markedRecords = sessionDetails?.records || [];
   const totalMarked = markedRecords.length;
@@ -340,12 +360,12 @@ const Attendance = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {groupStudents.map((student, index) => (
+                  {paginatedGroupStudents.map((student, index) => (
                     <tr
                       key={student.studentId}
                       onClick={() => handleStudentClick(student.studentId)}
                     >
-                      <td>{index + 1}</td>
+                      <td>{studentPageStart + index + 1}</td>
                       <td>{student.name || student.user?.name || "—"}</td>
                       <td>{student.enrollmentNumber || "—"}</td>
                       <td>
@@ -393,6 +413,32 @@ const Attendance = () => {
               </table>
             )}
           </div>
+
+          {groupStudents.length > 0 && (
+            <div className="attendance-pagination">
+              <button
+                type="button"
+                className="attendance-page-btn"
+                onClick={() => setStudentPage((prev) => Math.max(1, prev - 1))}
+                disabled={studentPage === 1}
+              >
+                <FiChevronLeft aria-hidden="true" />
+                <span>Prev</span>
+              </button>
+              <div className="attendance-page-info">
+                {studentRangeStart} to {studentRangeEnd} of {totalStudents}
+              </div>
+              <button
+                type="button"
+                className="attendance-page-btn"
+                onClick={() => setStudentPage((prev) => Math.min(studentTotalPages, prev + 1))}
+                disabled={studentPage === studentTotalPages}
+              >
+                <span>Next</span>
+                <FiChevronRight aria-hidden="true" />
+              </button>
+            </div>
+          )}
 
           <div className="attendance-summary">
             <p>Total students</p>

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSelector } from "react-redux";
 import toast from "react-hot-toast";
-import { FiSearch } from "react-icons/fi";
+import { FiChevronLeft, FiChevronRight, FiSearch } from "react-icons/fi";
 import { ThreeDots } from "react-loader-spinner";
 import axios from "../utils/axiosInstance";
 import ClipLoader from "./components/ClipLoader";
@@ -39,6 +39,7 @@ const StudentIdCardCenter = () => {
   const [selectedIds, setSelectedIds] = useState([]);
   const [downloadingId, setDownloadingId] = useState("");
   const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [page, setPage] = useState(1);
 
   const fetchStudents = useCallback(async () => {
     if (!apiBase) return;
@@ -78,6 +79,23 @@ const StudentIdCardCenter = () => {
       );
     });
   }, [students, search]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedStudents = filtered.slice(pageStartIndex, pageStartIndex + pageSize);
+  const rangeStart = filtered.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, filtered.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const loadState = useMemo(() => {
     if (!hasFetchedOnce && !loading) return ADMIN_LOAD_STATES.INITIAL;
@@ -197,7 +215,7 @@ const StudentIdCardCenter = () => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((student) => (
+              {paginatedStudents.map((student) => (
                 <tr key={student._id}>
                   <td>
                     <input
@@ -226,6 +244,31 @@ const StudentIdCardCenter = () => {
           </table>
         )}
       </section>
+      {loadState === ADMIN_LOAD_STATES.SUCCESS && filtered.length > 0 && (
+        <div className="sid-pagination">
+          <button
+            type="button"
+            className="sid-page-btn"
+            onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+            disabled={page === 1}
+          >
+            <FiChevronLeft aria-hidden="true" />
+            <span>Prev</span>
+          </button>
+          <div className="sid-page-info">
+            {rangeStart} to {rangeEnd} of {filtered.length}
+          </div>
+          <button
+            type="button"
+            className="sid-page-btn"
+            onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+            disabled={page === totalPages}
+          >
+            <span>Next</span>
+            <FiChevronRight aria-hidden="true" />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

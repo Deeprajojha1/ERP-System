@@ -282,6 +282,40 @@
   background: #fee2e2;
 }
 
+.classrooms-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 14px 14px;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.classrooms-page-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.classrooms-page-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.classrooms-page-info {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
+}
+
 .classrooms-state {
   padding: 24px 14px;
   display: flex;

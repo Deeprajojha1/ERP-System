@@ -154,6 +154,38 @@
   max-height: calc(100vh - 310px);
 }
 
+.sdc-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 12px 4px 0;
+}
+
+.sdc-page-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sdc-page-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sdc-page-info {
+  font-size: 0.85rem;
+  color: #334155;
+  font-weight: 600;
+}
+
 .sdc-state {
   padding: 18px;
   color: #475569;

@@ -1,7 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
-import { FiEdit2, FiSearch, FiTrash2 } from "react-icons/fi";
+import {
+  FiChevronLeft,
+  FiChevronRight,
+  FiEdit2,
+  FiSearch,
+  FiTrash2,
+} from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
 import "./Department.css";
@@ -73,6 +79,7 @@ const Department = () => {
   const [isOpeningAdd, setIsOpeningAdd] = useState(false);
   const [openingEditId, setOpeningEditId] = useState("");
   const [deletingDeptId, setDeletingDeptId] = useState("");
+  const [page, setPage] = useState(1);
   const cardGradients = [
     "linear-gradient(145deg, #dbeafe 0%, #f8fbff 45%, #ffffff 100%)",
     "linear-gradient(145deg, #dcfce7 0%, #f2fff7 45%, #ffffff 100%)",
@@ -153,6 +160,26 @@ const Department = () => {
       );
     });
   }, [departments, search]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filteredDepartments.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedDepartments = filteredDepartments.slice(
+    pageStartIndex,
+    pageStartIndex + pageSize
+  );
+  const rangeStart = filteredDepartments.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, filteredDepartments.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const deptCountLabel = useMemo(() => {
     const count = filteredDepartments.length;
@@ -420,7 +447,7 @@ const Department = () => {
 
             {filteredDepartments.length > 0 && (
               <div className="dept-grid">
-                {filteredDepartments.map((dept, index) => {
+                {paginatedDepartments.map((dept, index) => {
                   const hodName =
                     dept.hod?.user?.name ||
                     dept.hod?.name ||
@@ -433,9 +460,9 @@ const Department = () => {
                       key={dept._id}
                       style={{
                         "--dept-card-gradient":
-                          cardGradients[index % cardGradients.length],
+                          cardGradients[(pageStartIndex + index) % cardGradients.length],
                         "--dept-icon-gradient":
-                          iconGradients[index % iconGradients.length],
+                          iconGradients[(pageStartIndex + index) % iconGradients.length],
                       }}
                     >
                       <div className="dept-card-top">
@@ -522,6 +549,31 @@ const Department = () => {
                     </div>
                   );
                 })}
+              </div>
+            )}
+            {filteredDepartments.length > 0 && (
+              <div className="dept-pagination">
+                <button
+                  type="button"
+                  className="dept-page-btn"
+                  onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                  disabled={page === 1}
+                >
+                  <FiChevronLeft aria-hidden="true" />
+                  <span>Prev</span>
+                </button>
+                <div className="dept-page-info">
+                  {rangeStart} to {rangeEnd} of {filteredDepartments.length}
+                </div>
+                <button
+                  type="button"
+                  className="dept-page-btn"
+                  onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={page === totalPages}
+                >
+                  <span>Next</span>
+                  <FiChevronRight aria-hidden="true" />
+                </button>
               </div>
             )}
           </>

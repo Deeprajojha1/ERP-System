@@ -8,6 +8,8 @@ import {
   FiSearch,
   FiTrash2,
   FiUsers,
+  FiChevronLeft,
+  FiChevronRight,
 } from "react-icons/fi";
 import { ThreeDots } from "react-loader-spinner";
 import emptyStateImg from "../assets/empty-state.svg";
@@ -58,6 +60,7 @@ const Groups = () => {
   const [isOpeningAdd, setIsOpeningAdd] = useState(false);
   const [openingEditId, setOpeningEditId] = useState(null);
   const [editTarget, setEditTarget] = useState(null);
+  const [page, setPage] = useState(1);
   const apiBase = useSelector((state) => state.config.apiBase);
   const timetableRevision = useSelector(selectTimetableRevision);
   const groups = useSelector(selectAdminGroups);
@@ -158,6 +161,26 @@ const Groups = () => {
       return matchSearch && matchBranch;
     });
   }, [search, activeDept, groups]);
+
+  const pageSize = 10;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const pageStartIndex = (page - 1) * pageSize;
+  const paginatedGroups = filtered.slice(
+    pageStartIndex,
+    pageStartIndex + pageSize
+  );
+  const rangeStart = filtered.length === 0 ? 0 : pageStartIndex + 1;
+  const rangeEnd = Math.min(pageStartIndex + pageSize, filtered.length);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, activeDept]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   const filterDepartments = useMemo(() => {
     const map = new Map();
@@ -375,15 +398,15 @@ const Groups = () => {
           {filtered.length === 0 ? (
             <div className="groups-empty">No groups found</div>
           ) : (
-            filtered.map((g, index) => (
+            paginatedGroups.map((g, index) => (
               <div
                 className="groups-card"
                 key={g._id}
                 style={{
                   "--groups-card-gradient":
-                    cardGradients[index % cardGradients.length],
+                    cardGradients[(pageStartIndex + index) % cardGradients.length],
                   "--groups-icon-gradient":
-                    iconGradients[index % iconGradients.length],
+                    iconGradients[(pageStartIndex + index) % iconGradients.length],
                 }}
               >
                 <div className="groups-card-head">
@@ -451,6 +474,31 @@ const Groups = () => {
             ))
           )}
         </div>
+        {filtered.length > 0 && (
+          <div className="groups-pagination">
+            <button
+              type="button"
+              className="groups-page-btn"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+            >
+              <FiChevronLeft aria-hidden="true" />
+              <span>Prev</span>
+            </button>
+            <div className="groups-page-info">
+              {rangeStart} to {rangeEnd} of {filtered.length}
+            </div>
+            <button
+              type="button"
+              className="groups-page-btn"
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+            >
+              <span>Next</span>
+              <FiChevronRight aria-hidden="true" />
+            </button>
+          </div>
+        )}
       </>
     );
   };

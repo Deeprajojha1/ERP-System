@@ -712,6 +712,37 @@
   font-size: 16px;
 }
 
+.attendance-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.attendance-page-btn {
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.attendance-page-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.attendance-page-info {
+  font-size: 13px;
+  color: #334155;
+  font-weight: 600;
+}
+
 .attendance-empty,
 .attendance-loading {
   padding: 24px;
