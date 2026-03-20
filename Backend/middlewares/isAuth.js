@@ -1,6 +1,6 @@
 import jwt from "jsonwebtoken";
 import User from "../models/userModel.js";
-import { getPermissionsByRole, resolvePermissionsForUser } from "../utils/rolePermissions.js";
+import { resolvePermissionsForUser } from "../utils/rolePermissions.js";
 
 const isAuth = async (req, res, next) => {
   try {
@@ -25,13 +25,6 @@ const isAuth = async (req, res, next) => {
       try {
         const verifyToken = jwt.verify(token, process.env.JWT_SECRET);
         const tokenRole = String(verifyToken?.role || "").trim().toLowerCase();
-
-        if (verifyToken?.masterAdmin) {
-          req.userId = verifyToken.userId;
-          req.role = "admin";
-          req.permissions = getPermissionsByRole("admin");
-          return next();
-        }
 
         if (tokenRole === "parent") {
           req.userId = verifyToken.userId;

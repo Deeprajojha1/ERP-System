@@ -154,98 +154,6 @@ const comparePlainPassword = (passwordInput, storedSecret) => {
   return Boolean(trimmedPassword) && trimmedPassword === rawStoredSecret;
 };
 
-const resolveMasterAdminConfig = () => {
-  const email = String(process.env.MASTER_ADMIN_EMAIL || "").trim().toLowerCase();
-  const secret = String(
-    process.env.MASTER_ADMIN_PASSWORD_HASH || process.env.MASTER_ADMIN_PASSWORD || ""
-  ).trim();
-
-  return {
-    email,
-    secret,
-    enabled: Boolean(email && secret),
-  };
-};
-
-const verifyMasterAdminPassword = async (passwordInput, storedSecret) => {
-  if (!storedSecret) return false;
-  if (isLikelyBcryptHash(storedSecret)) {
-    try {
-      if (await bcrypt.compare(String(passwordInput ?? ""), storedSecret)) {
-        return true;
-      }
-    } catch (_) {
-      // Continue to fallback below.
-    }
-
-    const trimmedPassword = String(passwordInput ?? "").trim();
-    if (trimmedPassword && trimmedPassword !== String(passwordInput ?? "")) {
-      try {
-        return await bcrypt.compare(trimmedPassword, storedSecret);
-      } catch (_) {
-        return false;
-      }
-    }
-
-    return false;
-  }
-
-  return comparePlainPassword(passwordInput, storedSecret);
-};
-
-const buildAdminDashboardData = async () => {
-  const [
-    totalFaculty,
-    totalActiveFaculty,
-    totalInactiveFaculty,
-    totalOnLeaveFaculty,
-    totalStudentsEnrolled,
-    totalActiveStudents,
-    totalInactiveStudents,
-    totalOnLeaveStudents,
-    totalDepartments,
-  ] = await Promise.all([
-    // Faculty aggregates
-    User.countDocuments({ role: "faculty" }),
-    User.countDocuments({ role: "faculty", status: "active" }),
-    User.countDocuments({ role: "faculty", status: "inactive" }),
-    User.countDocuments({ role: "faculty", status: "onleave" }),
-    // Student aggregates
-    Student.countDocuments(),
-    User.countDocuments({ role: "student", status: "active" }),
-    User.countDocuments({ role: "student", status: "inactive" }),
-    User.countDocuments({ role: "student", status: "leave" }),
-    // Other
-    Department.countDocuments(),
-  ]);
-
-  const departments = await Department.find({}, "name");
-
-  const departmentFacultyStats = await Promise.all(
-    departments.map(async (dept) => {
-      const facultyCount = await Faculty.countDocuments({ department: dept._id });
-      return {
-        id: dept._id,
-        name: dept.name,
-        facultyCount,
-      };
-    })
-  );
-
-  return {
-    totalFaculty,
-    totalActiveFaculty,
-    totalInactiveFaculty,
-    totalOnLeaveFaculty,
-    totalStudentsEnrolled,
-    totalActiveStudents,
-    totalInactiveStudents,
-    totalOnLeaveStudents,
-    totalDepartments,
-    departmentFacultyStats,
-  };
-};
-
 const verifyPasswordForLogin = async (passwordInput, passwordHash) => {
   const rawPassword = String(passwordInput ?? "");
   const hash = String(passwordHash ?? "");
@@ -295,72 +203,6 @@ export const login = async (req, res) => {
     if (!isEmail(normalizedEmail)) {
       return res.status(400).json({
         message: "Invalid email format",
-      });
-    }
-
-    const masterAdmin = resolveMasterAdminConfig();
-    if (masterAdmin.enabled && normalizedEmail === masterAdmin.email) {
-      const isMasterMatch = await verifyMasterAdminPassword(password, masterAdmin.secret);
-      if (!isMasterMatch) {
-        return res.status(401).json({
-          message: "Invalid credentials",
-        });
-      }
-
-      let masterUser = await User.findOne({ email: masterAdmin.email });
-      if (!masterUser) {
-        masterUser = await User.create({
-          name: "Master Admin",
-          email: masterAdmin.email,
-          role: "admin",
-          status: "active",
-        });
-      } else if (masterUser.role !== "admin" || masterUser.status !== "active") {
-        masterUser.role = "admin";
-        masterUser.status = "active";
-        await masterUser.save({ validateBeforeSave: false });
-      }
-
-      const token = jwt.sign(
-        { userId: masterUser._id, role: "admin", masterAdmin: true },
-        process.env.JWT_SECRET,
-        { expiresIn: "1d" }
-      );
-
-      const isProduction = process.env.NODE_ENV === "production";
-      const cookieOptions = {
-        httpOnly: true,
-        secure: isProduction,
-        sameSite: isProduction ? "none" : "lax",
-        maxAge: 24 * 60 * 60 * 1000,
-      };
-
-      res.cookie("token", token, cookieOptions);
-
-      const adminData = await buildAdminDashboardData();
-
-      return res.json({
-        message: "Login successful",
-        permissions: resolvePermissionsForUser({ role: "admin" }),
-        user: {
-          id: masterUser._id,
-          name: masterUser.name || "Master Admin",
-          email: masterUser.email,
-          aadharNumber: masterUser.aadharNumber,
-          phoneNumber: masterUser.phoneNumber,
-          DOB: masterUser.DOB,
-          profileImage: masterUser.profileImage || "",
-          role: "admin",
-          permissionRoles: Array.isArray(masterUser.permissionRoles)
-            ? masterUser.permissionRoles
-            : [],
-          status: masterUser.status || "active",
-          createdAt: masterUser.createdAt,
-          updatedAt: masterUser.updatedAt,
-        },
-        roleDetails: null,
-        ...adminData,
-        token,
       });
     }
 
@@ -676,7 +518,56 @@ export const login = async (req, res) => {
         };
       }
     } else if (user.role === "admin") {
-      additionalData = await buildAdminDashboardData();
+      const [
+        totalFaculty,
+        totalActiveFaculty,
+        totalInactiveFaculty,
+        totalOnLeaveFaculty,
+        totalStudentsEnrolled,
+        totalActiveStudents,
+        totalInactiveStudents,
+        totalOnLeaveStudents,
+        totalDepartments,
+      ] = await Promise.all([
+        // Faculty aggregates
+        User.countDocuments({ role: "faculty" }),
+        User.countDocuments({ role: "faculty", status: "active" }),
+        User.countDocuments({ role: "faculty", status: "inactive" }),
+        User.countDocuments({ role: "faculty", status: "onleave" }),
+        // Student aggregates
+        Student.countDocuments(),
+        User.countDocuments({ role: "student", status: "active" }),
+        User.countDocuments({ role: "student", status: "inactive" }),
+        User.countDocuments({ role: "student", status: "leave" }),
+        // Other
+        Department.countDocuments(),
+      ]);
+
+      const departments = await Department.find({}, "name");
+
+      const departmentFacultyStats = await Promise.all(
+        departments.map(async (dept) => {
+          const facultyCount = await Faculty.countDocuments({ department: dept._id });
+          return {
+            id: dept._id,
+            name: dept.name,
+            facultyCount,
+          };
+        })
+      );
+
+      additionalData = {
+        totalFaculty,
+        totalActiveFaculty,
+        totalInactiveFaculty,
+        totalOnLeaveFaculty,
+        totalStudentsEnrolled,
+        totalActiveStudents,
+        totalInactiveStudents,
+        totalOnLeaveStudents,
+        totalDepartments,
+        departmentFacultyStats,
+      };
     }
 
     res.json({
