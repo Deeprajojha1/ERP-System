@@ -585,8 +585,14 @@ export const getStudentCourses = async (req, res) => {
       });
 
     if (!studentDetails) {
-      return res.status(404).json({
-        message: "Student profile not found",
+      return res.status(200).json({
+        message: "Student profile not found. Returning empty courses.",
+        count: 0,
+        academic: {
+          semester: null,
+          academicYear: null,
+        },
+        courses: [],
       });
     }
 

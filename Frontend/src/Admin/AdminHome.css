@@ -685,7 +685,6 @@
   overflow-y: auto;
   box-sizing: border-box;
   position: relative;
-  z-index: 1;
   background: var(--admin-content-gradient);
 }
 

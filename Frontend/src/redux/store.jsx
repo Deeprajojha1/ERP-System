@@ -20,6 +20,19 @@ import wardenSlice from "./wardenSlice";
 import studentExamRegistrationSlice from "./studentExamRegistrationSlice";
 import { persistStore, persistReducer } from "redux-persist";
 import storage from "redux-persist/lib/storage";
+import { createTransform } from "redux-persist";
+
+const userSliceTransform = createTransform(
+  (inboundState) => ({
+    userData: inboundState?.userData ?? null,
+  }),
+  (outboundState) => ({
+    userData: outboundState?.userData ?? null,
+    loading: false,
+    error: null,
+  }),
+  { whitelist: ["user"] }
+);
 
 const persistConfig = {
   // Bump key to drop any stale persisted state across deployments
@@ -27,6 +40,7 @@ const persistConfig = {
   storage,
   // Only persist authenticated user; other slices are refetched per session
   whitelist: ["user"],
+  transforms: [userSliceTransform],
 };
 
 const rootReducer = combineReducers({

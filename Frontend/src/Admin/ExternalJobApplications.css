@@ -58,6 +58,54 @@
   gap: 1rem;
 }
 
+.app-btn-primary,
+.app-btn-secondary {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 0.65rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: transform 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease,
+    border-color 0.16s ease, color 0.16s ease;
+}
+
+.app-btn-primary {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.22);
+}
+
+.app-btn-primary:hover:not(:disabled) {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.app-btn-secondary {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+.app-btn-secondary:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f8fafc;
+}
+
+.app-btn-primary:disabled,
+.app-btn-secondary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
 .external-apps-filters {
   display: flex;
   gap: 1rem;
@@ -180,6 +228,13 @@
 
 .external-apps-table tbody tr:hover {
   background: #f7fafc;
+}
+
+.external-apps-debug-row td {
+  font-size: 12px;
+  color: #475569;
+  background: #f8fafc;
+  border-top: 1px dashed #e2e8f0;
 }
 
 .external-apps-student-info {

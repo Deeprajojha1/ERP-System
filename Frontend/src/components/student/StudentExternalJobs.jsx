@@ -1,12 +1,13 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "../../utils/axiosInstance";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { FiRefreshCw, FiSearch, FiExternalLink, FiFilter, FiBriefcase } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import toast from "react-hot-toast";
 import emptyStateImg from "../../assets/empty-state.svg";
 import "./StudentExternalJobs.css";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
+import { getUser } from "../../redux/userSlice";
 
 const StudentExternalJobs = () => {
   const [search, setSearch] = useState("");
@@ -16,6 +17,29 @@ const StudentExternalJobs = () => {
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
   const [refreshing, setRefreshing] = useState(false);
   const apiBase = useSelector((state) => state.config.apiBase);
+  const dispatch = useDispatch();
+  const userData = useSelector((state) => state.user.userData);
+  const studentDetails = userData?.roleDetails || userData?.studentDetails || {};
+  const studentDepartmentId =
+    studentDetails?.department?._id || studentDetails?.department || "";
+  const studentSemesterRaw = studentDetails?.semester;
+  const studentSemester =
+    Number.isFinite(Number(studentSemesterRaw))
+      ? Number(studentSemesterRaw)
+      : Number.parseInt(String(studentSemesterRaw || ""), 10) || 0;
+  const studentYear = studentSemester > 0 ? Math.ceil(studentSemester / 2) : 0;
+  const studentYearCandidates = useMemo(() => {
+    const candidates = new Set();
+    if (studentYear) candidates.add(studentYear);
+    // If semester field is actually storing year (1-4/5), allow direct match.
+    if (studentSemester && studentSemester <= 6) {
+      candidates.add(studentSemester);
+    }
+    return Array.from(candidates);
+  }, [studentSemester, studentYear]);
+  const debugEnabled =
+    typeof window !== "undefined" &&
+    String(window.location.search || "").includes("jobDebug=1");
 
   const [filters, setFilters] = useState({
     keywords: "software developer",
@@ -34,14 +58,15 @@ const StudentExternalJobs = () => {
     if (!apiBase) return;
     try {
       if (showLoader) setLoadState(ADMIN_LOAD_STATES.PENDING);
-      const response = await axios.get(`${apiBase}/external-jobs`, {
+      const response = await axios.get(`${apiBase}/placement/external-jobs`, {
         params: filters,
         withCredentials: true,
+        skipNetworkRedirect: true,
       });
       setJobs(response.data?.jobs || []);
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       if (!showLoader) {
-        toast.success("Jobs refreshed successfully", { icon: "?" });
+        toast.success("Jobs refreshed successfully", { icon: "✓" });
       }
     } catch (error) {
       console.error("Fetch jobs failed:", error.response?.data || error.message);
@@ -59,6 +84,12 @@ const StudentExternalJobs = () => {
   useEffect(() => {
     fetchJobs();
   }, [apiBase]);
+
+  useEffect(() => {
+    if (!apiBase) return;
+    if (userData?.roleDetails || userData?.studentDetails) return;
+    dispatch(getUser());
+  }, [apiBase, dispatch, userData]);
 
   const handleApply = async (job) => {
     try {
@@ -87,6 +118,9 @@ const StudentExternalJobs = () => {
           companyLogo: job.companyLogo || (typeof job.company === 'object' ? job.company?.logo : null),
           location: job.location,
           jobType: job.jobType,
+          department: job.department?._id || job.department || null,
+          year: job.year,
+          years: Array.isArray(job.years) ? job.years : [],
           salary: job.salary,
           externalUrl: jobUrl,
           description: job.description,
@@ -138,9 +172,36 @@ const StudentExternalJobs = () => {
         jobType === "All Types" || 
         job.jobType?.toLowerCase() === jobType.toLowerCase();
 
-      return matchSearch && matchSource && matchType;
+      let matchTarget = true;
+      if (job.source === "Campus") {
+        const jobDeptId = job.department?._id || job.department || "";
+        const rawJobYears = Array.isArray(job.years)
+          ? job.years
+          : job.year != null
+          ? [job.year]
+          : [];
+        const jobYears = rawJobYears
+          .map((value) =>
+            Number.isFinite(Number(value))
+              ? Number(value)
+              : Number.parseInt(String(value || ""), 10)
+          )
+          .filter((value) => Number.isFinite(value) && value > 0);
+        if (studentDepartmentId && jobYears.length > 0) {
+          matchTarget =
+            String(jobDeptId) === String(studentDepartmentId) &&
+            studentYearCandidates.some((value) => jobYears.includes(value));
+        }
+      }
+
+      return matchSearch && matchSource && matchType && matchTarget;
     });
-  }, [jobs, search, source, jobType]);
+  }, [jobs, search, source, jobType, studentDepartmentId, studentYearCandidates]);
+
+  const campusJobs = useMemo(
+    () => jobs.filter((job) => job.source === "Campus"),
+    [jobs]
+  );
 
   const sources = useMemo(() => {
     const uniqueSources = [...new Set(jobs.map((j) => j.source))];
@@ -205,6 +266,22 @@ const StudentExternalJobs = () => {
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
+        {debugEnabled && (
+          <div className="student-external-jobs-debug">
+            <div><strong>Debug</strong></div>
+            <div>Student Dept: {studentDepartmentId || "N/A"}</div>
+            <div>Student Semester: {studentSemester || "N/A"}</div>
+            <div>Student Year: {studentYear || "N/A"}</div>
+            <div>Total Jobs: {jobs.length}</div>
+            <div>Campus Jobs: {campusJobs.length}</div>
+            <div>
+              Campus Years Sample: {campusJobs.slice(0, 3).map((job) => {
+                const yrs = Array.isArray(job.years) ? job.years : job.year != null ? [job.year] : [];
+                return `[${yrs.join(",")}]`;
+              }).join(" ")}
+            </div>
+          </div>
+        )}
 
         <div className="student-external-jobs-search-panel">
           <form className="student-external-jobs-search-form" onSubmit={handleSearch}>

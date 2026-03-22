@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import axios from "../utils/axiosInstance";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { FiRefreshCw, FiSearch, FiExternalLink, FiFilter, FiEdit, FiTrash2 } from "react-icons/fi";
 import { Oval } from "react-loader-spinner";
 import toast from "react-hot-toast";
@@ -8,6 +8,7 @@ import emptyStateImg from "../assets/empty-state.svg";
 import "./ExternalJobs.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
 import AddJobModal from "./components/AddJobModal";
+import { setDepartments } from "../redux/departmentSlice";
 
 const ExternalJobs = () => {
   const [search, setSearch] = useState("");
@@ -19,11 +20,16 @@ const ExternalJobs = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingJob, setEditingJob] = useState(null);
   const apiBase = useSelector((state) => state.config.apiBase);
+  const departments = useSelector((state) => state.department?.departments || []);
+  const dispatch = useDispatch();
 
   const [filters, setFilters] = useState({
     keywords: "internship OR jobs",
     location: "India",
   });
+
+  const [departmentFilter, setDepartmentFilter] = useState("All Departments");
+  const [yearFilter, setYearFilter] = useState("All Years");
 
   // Helper function to strip HTML tags from text
   const stripHtmlTags = (html) => {
@@ -64,6 +70,23 @@ const ExternalJobs = () => {
     fetchJobs();
   }, [apiBase]);
 
+  useEffect(() => {
+    if (!apiBase) return;
+    if (departments.length > 0) return;
+    const loadDepartments = async () => {
+      try {
+        const response = await axios.get(`${apiBase}/admin/department`, {
+          params: { noCache: true },
+          withCredentials: true,
+        });
+        dispatch(setDepartments(response.data?.departments || []));
+      } catch (error) {
+        console.error("Failed to load departments:", error);
+      }
+    };
+    loadDepartments();
+  }, [apiBase, departments.length, dispatch]);
+
   const handleRefresh = async () => {
     setRefreshing(true);
     await fetchJobs(false);
@@ -76,7 +99,7 @@ const ExternalJobs = () => {
   };
 
   const handleJobAdded = () => {
-    fetchJobs();
+    fetchJobs(false);
     setShowAddModal(false);
     setEditingJob(null);
   };
@@ -119,14 +142,61 @@ const ExternalJobs = () => {
         jobType === "All Types" || 
         job.jobType?.toLowerCase() === jobType.toLowerCase();
 
-      return matchSearch && matchSource && matchType;
+      const matchesDepartment =
+        departmentFilter === "All Departments" ||
+        String(job.department?._id || job.department || "") ===
+          String(departmentFilter);
+
+      const jobYears = Array.isArray(job.years)
+        ? job.years.map((value) => String(value))
+        : job.year != null
+        ? [String(job.year)]
+        : [];
+      const matchesYear =
+        yearFilter === "All Years" ||
+        jobYears.includes(String(yearFilter));
+
+      return matchSearch && matchSource && matchType && matchesDepartment && matchesYear;
     });
-  }, [jobs, search, source, jobType]);
+  }, [jobs, search, source, jobType, departmentFilter, yearFilter]);
 
   const sources = useMemo(() => {
     const uniqueSources = [...new Set(jobs.map((j) => j.source))];
     return uniqueSources.filter(Boolean);
   }, [jobs]);
+
+  const departmentOptions = useMemo(() => {
+    return departments.map((dept) => ({
+      id: dept._id,
+      name: dept.name,
+      years: Array.isArray(dept.years) ? dept.years : [],
+      yearCount: Number(dept.yearCount || 0),
+    }));
+  }, [departments]);
+
+  const yearOptions = useMemo(() => {
+    if (departmentFilter === "All Departments") return [];
+    const selected = departmentOptions.find((dept) => dept.id === departmentFilter);
+    if (!selected) return [];
+    if (selected.years.length > 0) return selected.years.map((value) => String(value));
+    if (selected.yearCount > 0) {
+      return Array.from({ length: selected.yearCount }, (_, idx) => String(idx + 1));
+    }
+    return [];
+  }, [departmentFilter, departmentOptions]);
+
+  const formatYearLabel = (value) => {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) return `Year ${value}`;
+    if (num === 1) return "1st Year";
+    if (num === 2) return "2nd Year";
+    if (num === 3) return "3rd Year";
+    return `${num}th Year`;
+  };
+
+  const departmentNameMap = useMemo(() => {
+    return new Map(departments.map((dept) => [String(dept._id), dept.name]));
+  }, [departments]);
 
   const renderState = () => {
     if (loadState === ADMIN_LOAD_STATES.PENDING) {
@@ -244,6 +314,36 @@ const ExternalJobs = () => {
             </div>
             <select
               className="external-jobs-select"
+              value={departmentFilter}
+              onChange={(e) => {
+                setDepartmentFilter(e.target.value);
+                setYearFilter("All Years");
+              }}
+            >
+              <option value="All Departments">All Departments</option>
+              {departmentOptions.map((dept) => (
+                <option key={dept.id} value={dept.id}>
+                  {dept.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="external-jobs-select"
+              value={yearFilter}
+              onChange={(e) => setYearFilter(e.target.value)}
+              disabled={departmentFilter === "All Departments" || yearOptions.length === 0}
+            >
+              <option value="All Years">
+                {departmentFilter === "All Departments" ? "Select department first" : "All Years"}
+              </option>
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {formatYearLabel(year)}
+                </option>
+              ))}
+            </select>
+            <select
+              className="external-jobs-select"
               value={source}
               onChange={(e) => setSource(e.target.value)}
             >
@@ -308,6 +408,24 @@ const ExternalJobs = () => {
                         {job.jobType || "Full-time"}
                       </span>
                     </div>
+                    {job.department && (
+                      <div className="external-job-detail-item">
+                        <span className="external-job-detail-label">Department:</span>
+                        <span>
+                          {typeof job.department === "object"
+                            ? job.department?.name
+                            : departmentNameMap.get(String(job.department)) || "N/A"}
+                        </span>
+                      </div>
+                    )}
+                    {Array.isArray(job.years) && job.years.length > 0 && (
+                      <div className="external-job-detail-item">
+                        <span className="external-job-detail-label">Year:</span>
+                        <span>
+                          {job.years.map((year) => formatYearLabel(year)).join(", ")}
+                        </span>
+                      </div>
+                    )}
                     {job.salary && typeof job.salary === 'object' && (job.salary.min || job.salary.max) && (
                       <div className="external-job-detail-item">
                         <span className="external-job-detail-label">Salary:</span>

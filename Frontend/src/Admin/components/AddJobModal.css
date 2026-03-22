@@ -127,6 +127,90 @@
   gap: 16px;
 }
 
+.add-job-year-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+}
+
+.add-job-year-list.error {
+  border-color: #ef4444;
+}
+
+.add-job-year-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #111827;
+  cursor: pointer;
+}
+
+.add-job-year-item input {
+  width: 16px;
+  height: 16px;
+}
+
+.add-job-year-manual {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.add-job-year-add {
+  padding: 10px 14px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-job-year-add:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.add-job-year-add:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.add-job-year-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.add-job-year-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.add-job-year-tag button {
+  border: none;
+  background: transparent;
+  color: #1d4ed8;
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+  line-height: 1;
+}
+
 .error-message {
   display: block;
   color: #ef4444;
@@ -171,6 +255,9 @@
 .add-job-btn-submit {
   background-color: #10b981;
   color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .add-job-btn-submit:hover:not(:disabled) {

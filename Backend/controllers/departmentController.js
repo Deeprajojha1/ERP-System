@@ -1,8 +1,41 @@
 import Department from "../models/Department.js";
+import Program from "../models/feeProgram.js";
 import Faculty from "../models/Faculty.js";
 import User from "../models/userModel.js";
 import redisClient, { DEFAULT_CACHE_TTL } from "../config/redisClient.js";
 import { normalizeProgramList } from "../utils/programNormalization.js";
+
+const buildProgramYearMap = async (programNames = []) => {
+  const unique = Array.from(
+    new Set((Array.isArray(programNames) ? programNames : []).filter(Boolean))
+  );
+  if (!unique.length) return new Map();
+  const programDocs = await Program.find({ programName: { $in: unique } })
+    .select("programName durationYears")
+    .lean();
+  return new Map(
+    programDocs.map((doc) => [String(doc.programName), Number(doc.durationYears || 0)])
+  );
+};
+
+const attachYearInfo = (department, programYearMap) => {
+  const programs = Array.isArray(department.program) ? department.program : [];
+  const durations = programs
+    .map((p) => programYearMap.get(String(p)) || 0)
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const maxYears = durations.length ? Math.max(...durations) : 0;
+  return {
+    ...department,
+    yearCount: maxYears,
+    years: maxYears ? Array.from({ length: maxYears }, (_, idx) => idx + 1) : [],
+    programYears: programs
+      .map((p) => ({
+        program: p,
+        durationYears: programYearMap.get(String(p)) || 0,
+      }))
+      .filter((row) => row.durationYears > 0),
+  };
+};
 /* ================= GET ALL DEPARTMENTS ================= */
 
 export const getAllDepartments = async (req, res) => {
@@ -32,17 +65,24 @@ export const getAllDepartments = async (req, res) => {
 
     const normalizedDepartments = departments.map((dept) => {
       const asObject = typeof dept.toObject === "function" ? dept.toObject() : dept;
+      const normalizedPrograms = normalizeProgramList(asObject.program);
       return {
         ...asObject,
-        program: Array.isArray(asObject.program) ? asObject.program : [],
-        programs: Array.isArray(asObject.program) ? asObject.program : [],
+        program: normalizedPrograms,
+        programs: normalizedPrograms,
       };
     });
 
+    const programNames = normalizedDepartments.flatMap((dept) => dept.program || []);
+    const programYearMap = await buildProgramYearMap(programNames);
+    const withYearInfo = normalizedDepartments.map((dept) =>
+      attachYearInfo(dept, programYearMap)
+    );
+
     const responsePayload = {
       message: "Departments fetched successfully",
-      count: normalizedDepartments.length,
-      departments: normalizedDepartments,
+      count: withYearInfo.length,
+      departments: withYearInfo,
     };
 
     if (!noCache) {
@@ -86,13 +126,18 @@ export const getDepartmentById = async (req, res) => {
     const departmentObj =
       typeof department.toObject === "function" ? department.toObject() : department;
 
+    const normalizedPrograms = normalizeProgramList(departmentObj.program);
+    const normalized = {
+      ...departmentObj,
+      program: normalizedPrograms,
+      programs: normalizedPrograms,
+    };
+    const programYearMap = await buildProgramYearMap(normalized.program || []);
+    const enriched = attachYearInfo(normalized, programYearMap);
+
     res.json({
       message: "Department fetched successfully",
-      department: {
-        ...departmentObj,
-        program: Array.isArray(departmentObj.program) ? departmentObj.program : [],
-        programs: Array.isArray(departmentObj.program) ? departmentObj.program : [],
-      },
+      department: enriched,
     });
   } catch (error) {
     res.status(500).json({

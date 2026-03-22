@@ -1,5 +1,22 @@
 import ManualJob from "../models/ManualJob.js";
+import Department from "../models/Department.js";
+import Program from "../models/feeProgram.js";
 import mongoose from "mongoose";
+
+const getDepartmentYearLimit = async (departmentId) => {
+  const department = await Department.findById(departmentId).select("program");
+  if (!department) return { maxYears: 0, programs: [] };
+  const programs = Array.isArray(department.program) ? department.program : [];
+  if (!programs.length) return { maxYears: 0, programs: [] };
+  const programDocs = await Program.find({ programName: { $in: programs } })
+    .select("programName durationYears")
+    .lean();
+  const durations = programDocs
+    .map((doc) => Number(doc.durationYears || 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const maxYears = durations.length ? Math.max(...durations) : 0;
+  return { maxYears, programs };
+};
 
 /* ================= CREATE MANUAL JOB (ADMIN ONLY) ================= */
 export const createManualJob = async (req, res) => {
@@ -28,10 +45,23 @@ export const createManualJob = async (req, res) => {
       salary,
       skills,
       expirationDate,
+      department,
+      year,
+      years,
     } = req.body;
 
     // Validation
-    if (!title || !company || !description || !location || !jobType || !applicationUrl || !expirationDate) {
+    if (
+      !title ||
+      !company ||
+      !description ||
+      !location ||
+      !jobType ||
+      !applicationUrl ||
+      !expirationDate ||
+      !department ||
+      (!year && (!Array.isArray(years) || years.length === 0))
+    ) {
       return res.status(400).json({
         message: "Missing required fields",
         details: {
@@ -42,6 +72,8 @@ export const createManualJob = async (req, res) => {
           jobType: !jobType ? "Job type is required" : undefined,
           applicationUrl: !applicationUrl ? "Application URL is required" : undefined,
           expirationDate: !expirationDate ? "Expiration date is required" : undefined,
+          department: !department ? "Department is required" : undefined,
+          year: !year && (!Array.isArray(years) || years.length === 0) ? "Year is required" : undefined,
         },
       });
     }
@@ -52,6 +84,44 @@ export const createManualJob = async (req, res) => {
       return res.status(400).json({
         message: "Expiration date must be in the future",
         field: "expirationDate",
+      });
+    }
+
+    const normalizeYears = (value) => {
+      if (Array.isArray(value)) return value;
+      if (value == null) return [];
+      return [value];
+    };
+    const rawYears = normalizeYears(years.length ? years : year);
+    const normalizedYears = rawYears
+      .map((value) => Number(value))
+      .filter((value) => Number.isFinite(value) && value >= 1 && value <= 10);
+    if (!normalizedYears.length) {
+      return res.status(400).json({
+        message: "At least one valid year is required",
+        field: "year",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(department)) {
+      return res.status(400).json({
+        message: "Invalid department",
+        field: "department",
+      });
+    }
+
+    const { maxYears } = await getDepartmentYearLimit(department);
+    if (!maxYears) {
+      return res.status(400).json({
+        message: "Department year configuration not found",
+        field: "department",
+      });
+    }
+    const invalidYear = normalizedYears.find((value) => value > maxYears);
+    if (invalidYear) {
+      return res.status(400).json({
+        message: `Year must be between 1 and ${maxYears}`,
+        field: "year",
       });
     }
 
@@ -81,6 +151,9 @@ export const createManualJob = async (req, res) => {
       applicationUrl,
       salary,
       skills,
+      department,
+      year: normalizedYears[0],
+      years: normalizedYears,
       expirationDate: expiresAt,
       postedBy: postedById,
       source: "Campus",
@@ -183,6 +256,64 @@ export const updateManualJob = async (req, res) => {
         return res.status(400).json({
           message: "Expiration date must be in the future",
           field: "expirationDate",
+        });
+      }
+    }
+
+
+
+    const normalizeYearsInput = (value) => {
+      if (Array.isArray(value)) return value;
+      if (value == null) return [];
+      return [value];
+    };
+
+    if (updates.year != null || updates.years != null) {
+      const rawYears = normalizeYearsInput(
+        updates.years != null ? updates.years : updates.year
+      );
+      const normalizedYears = rawYears
+        .map((value) => Number(value))
+        .filter((value) => Number.isFinite(value) && value >= 1 && value <= 10);
+      if (!normalizedYears.length) {
+        return res.status(400).json({
+          message: "At least one valid year is required",
+          field: "year",
+        });
+      }
+      updates.year = normalizedYears[0];
+      updates.years = normalizedYears;
+    }
+
+    if (updates.department && !mongoose.Types.ObjectId.isValid(updates.department)) {
+      return res.status(400).json({
+        message: "Invalid department",
+        field: "department",
+      });
+    }
+
+    if (updates.department || updates.year != null || updates.years != null) {
+      const deptId = updates.department || manualJob.department;
+      const { maxYears } = await getDepartmentYearLimit(deptId);
+      if (!maxYears) {
+        return res.status(400).json({
+          message: "Department year configuration not found",
+          field: "department",
+        });
+      }
+      const yearsToCheck =
+        Array.isArray(updates.years) && updates.years.length
+          ? updates.years
+          : manualJob.years && manualJob.years.length
+          ? manualJob.years
+          : manualJob.year
+          ? [manualJob.year]
+          : [];
+      const invalidYear = yearsToCheck.find((value) => Number(value) > maxYears);
+      if (invalidYear) {
+        return res.status(400).json({
+          message: `Year must be between 1 and ${maxYears}`,
+          field: "year",
         });
       }
     }

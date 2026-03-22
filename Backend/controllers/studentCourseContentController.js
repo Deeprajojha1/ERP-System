@@ -179,7 +179,12 @@ const resolveStudentAndCourseIds = async (userId) => {
     });
 
   if (!student) {
-    return { status: 404, message: "Student profile not found." };
+    return {
+      user,
+      student: null,
+      courseIds: [],
+      missingProfile: true,
+    };
   }
 
   let courses = [];
@@ -230,6 +235,15 @@ export const getStudentCourseContent = async (req, res) => {
     const context = await resolveStudentAndCourseIds(req.userId);
     if (context?.status) {
       return res.status(context.status).json({ message: context.message });
+    }
+
+    if (context?.missingProfile) {
+      return res.status(200).json({
+        message: "Student profile not found. Returning empty course content.",
+        count: 0,
+        contentByCourse: {},
+        items: [],
+      });
     }
 
     let permittedCourseIds = context.courseIds;

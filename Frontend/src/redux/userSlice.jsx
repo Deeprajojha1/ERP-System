@@ -11,9 +11,12 @@ const userSlice = createSlice({
   reducers: {
     setUserData: (state, action) => {
       state.userData = action.payload;
+      state.loading = false;
+      state.error = null;
     },
     clearUserData: (state) => {
       state.userData = null;
+      state.loading = false;
     },
     setLoading: (state, action) => {
       state.loading = action.payload;

@@ -24,6 +24,9 @@ export const trackExternalJobClick = async (req, res) => {
       companyLogo,
       location,
       jobType,
+      department,
+      year,
+      years,
       salary,
       externalUrl,
       description,
@@ -66,6 +69,11 @@ export const trackExternalJobClick = async (req, res) => {
         companyLogo,
         location,
         jobType,
+        department: department || null,
+        year: year != null ? Number(year) : null,
+        years: Array.isArray(years)
+          ? years.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+          : [],
         salary,
         externalUrl,
         description,
@@ -196,6 +204,7 @@ export const getAllExternalApplications = async (req, res) => {
     const applications = await ExternalJobApplication.find(filter)
       .populate({
         path: "student",
+        select: "semester enrollmentNumber department user",
         populate: [
           { path: "user", select: "name email phoneNumber" },
           { path: "department", select: "name" },
@@ -223,6 +232,7 @@ export const getExternalApplicationById = async (req, res) => {
       isDeleted: { $ne: true },
     }).populate({
       path: "student",
+      select: "semester enrollmentNumber department user",
       populate: [
         { path: "user", select: "name email phoneNumber" },
         { path: "department", select: "name" },
@@ -319,6 +329,7 @@ export const getStudentsForExternalJob = async (req, res) => {
       isDeleted: { $ne: true },
     }).populate({
       path: "student",
+      select: "semester enrollmentNumber department user",
       populate: [
         { path: "user", select: "name email phoneNumber" },
         { path: "department", select: "name" },

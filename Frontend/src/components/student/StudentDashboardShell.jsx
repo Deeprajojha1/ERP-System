@@ -199,8 +199,12 @@ const StudentDashboardShell = ({
   useEffect(() => {
     let isMounted = true;
     const fetchHostelContext = async () => {
+      if (!apiBase) return;
       try {
-        const response = await axiosInstance.get("/api/student/hostel/context");
+        const response = await axiosInstance.get(
+          `${apiBase}/student/hostel/context`,
+          { skipNetworkRedirect: true }
+        );
         if (!isMounted) return;
         setHostelAllocation(response?.data?.allocation || null);
       } catch (error) {
@@ -214,7 +218,7 @@ const StudentDashboardShell = ({
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [apiBase]);
 
   useEffect(() => {
     const handleResize = () => {

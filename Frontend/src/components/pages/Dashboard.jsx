@@ -51,8 +51,8 @@ const Dashboard = () => {
   const roleDetails = userData?.roleDetails;
 
   const dashboardLoadState = useMemo(() => {
-    if (userLoading) return ADMIN_LOAD_STATES.PENDING;
     if (userData) return ADMIN_LOAD_STATES.SUCCESS;
+    if (userLoading) return ADMIN_LOAD_STATES.PENDING;
     if (userError) return ADMIN_LOAD_STATES.FAILURE;
     return ADMIN_LOAD_STATES.INITIAL;
   }, [userLoading, userData, userError]);

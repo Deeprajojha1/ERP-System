@@ -47,6 +47,7 @@ const BulkOperations = () => {
   const apiBase = useSelector((state) => state.config.apiBase);
   const operationLogs = useSelector(selectFeeBulkJobs);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDownloadingTemplate, setIsDownloadingTemplate] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const fileInputRef = useRef(null);
 
@@ -56,6 +57,7 @@ const BulkOperations = () => {
 
   const handleDownloadTemplate = () => {
     if (!apiBase) return;
+    setIsDownloadingTemplate(true);
     axios
       .get(`${apiBase}/admin/fee/bulk/template`, {
         withCredentials: true,
@@ -74,6 +76,9 @@ const BulkOperations = () => {
       })
       .catch((error) => {
         toast.error(error.response?.data?.message || "Failed to download template");
+      })
+      .finally(() => {
+        setIsDownloadingTemplate(false);
       });
   };
 
@@ -132,7 +137,9 @@ const BulkOperations = () => {
               : step.key === "upload"
               ? handleTriggerUpload
               : undefined;
-          const disableAction = step.key === "upload" && isUploading;
+          const disableAction =
+            (step.key === "upload" && isUploading) ||
+            (step.key === "download" && isDownloadingTemplate);
           return (
             <article key={step.title} className="bo-step-card">
               <div className="bo-step-content">
@@ -150,6 +157,11 @@ const BulkOperations = () => {
                     <>
                       <ClipLoader size={15} color="#0f172a" trackColor="rgba(15, 23, 42, 0.2)" />
                       <span>Uploading...</span>
+                    </>
+                  ) : step.key === "download" && isDownloadingTemplate ? (
+                    <>
+                      <ClipLoader size={15} color="#0f172a" trackColor="rgba(15, 23, 42, 0.2)" />
+                      <span>Downloading</span>
                     </>
                   ) : (
                     <>

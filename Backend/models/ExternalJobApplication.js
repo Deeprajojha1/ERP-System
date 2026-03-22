@@ -22,6 +22,13 @@ const externalJobApplicationSchema = new mongoose.Schema(
       companyLogo: { type: String },
       location: { type: String },
       jobType: { type: String },
+      department: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Department",
+        default: null,
+      },
+      year: { type: Number, default: null },
+      years: { type: [Number], default: [] },
       salary: {
         min: { type: Number },
         max: { type: Number },

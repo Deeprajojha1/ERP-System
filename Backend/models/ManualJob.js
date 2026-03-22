@@ -54,6 +54,25 @@ const manualJobSchema = new mongoose.Schema(
     },
     
     skills: [{ type: String, trim: true }],
+
+    department: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Department",
+      default: null,
+    },
+
+    year: {
+      type: Number,
+      min: 1,
+      max: 10,
+      default: null,
+    },
+
+    years: {
+      type: [Number],
+      default: [],
+    },
+
     
     applicationUrl: {
       type: String,
@@ -124,6 +143,10 @@ manualJobSchema.methods.toExternalJobFormat = function () {
     url: this.applicationUrl,
     salary: this.salary,
     skills: this.skills,
+    department: this.department,
+    year: this.year,
+    years: this.years,
+    dueDate: this.dueDate,
     postedDate: this.createdAt,
     expiresAt: this.expirationDate,
     isExpired: this.isExpired,

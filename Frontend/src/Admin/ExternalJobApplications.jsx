@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import axios from "../utils/axiosInstance";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import {
   FiChevronLeft,
   FiChevronRight,
@@ -12,36 +12,55 @@ import {
 import { Oval } from "react-loader-spinner";
 import toast from "react-hot-toast";
 import emptyStateImg from "../assets/empty-state.svg";
+import ClipLoader from "./components/ClipLoader";
 import "./ExternalJobApplications.css";
 import { ADMIN_LOAD_STATES } from "./constants/loadStates";
+import { setDepartments } from "../redux/departmentSlice";
 
 const ExternalJobApplications = () => {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Status");
   const [sourceFilter, setSourceFilter] = useState("All Sources");
+  const [campusJobFilter, setCampusJobFilter] = useState("All Campus Jobs");
+  const [externalJobFilter, setExternalJobFilter] = useState("All External Jobs");
+  const [departmentFilter, setDepartmentFilter] = useState("All Departments");
+  const [yearFilter, setYearFilter] = useState("All Years");
   const [applications, setApplications] = useState([]);
+  const [campusJobsMap, setCampusJobsMap] = useState(new Map());
   const [stats, setStats] = useState(null);
   const [loadState, setLoadState] = useState(ADMIN_LOAD_STATES.INITIAL);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const apiBase = useSelector((state) => state.config.apiBase);
+  const departments = useSelector((state) => state.department?.departments || []);
+  const dispatch = useDispatch();
+  const debugEnabled =
+    typeof window !== "undefined" &&
+    String(window.location.search || "").includes("appDebug=1");
 
   const fetchApplications = async (showLoader = true) => {
     if (!apiBase) return;
     try {
       if (showLoader) setLoadState(ADMIN_LOAD_STATES.PENDING);
       
-      const [appsResponse, statsResponse] = await Promise.all([
+      const [appsResponse, statsResponse, campusJobsResponse] = await Promise.all([
         axios.get(`${apiBase}/placement/external-applications`, {
           withCredentials: true,
         }),
         axios.get(`${apiBase}/placement/external-applications/stats`, {
           withCredentials: true,
         }),
+        axios.get(`${apiBase}/placement/manual-jobs`, {
+          withCredentials: true,
+        }),
       ]);
 
       setApplications(appsResponse.data?.applications || []);
       setStats(statsResponse.data?.stats || null);
+      const campusJobs = campusJobsResponse.data?.jobs || [];
+      setCampusJobsMap(
+        new Map(campusJobs.map((job) => [String(job._id), job]))
+      );
       setLoadState(ADMIN_LOAD_STATES.SUCCESS);
       
       if (!showLoader) {
@@ -57,6 +76,23 @@ const ExternalJobApplications = () => {
   useEffect(() => {
     fetchApplications();
   }, [apiBase]);
+
+  useEffect(() => {
+    if (!apiBase) return;
+    if (departments.length > 0) return;
+    const loadDepartments = async () => {
+      try {
+        const response = await axios.get(`${apiBase}/admin/department`, {
+          params: { noCache: true },
+          withCredentials: true,
+        });
+        dispatch(setDepartments(response.data?.departments || []));
+      } catch (error) {
+        console.error("Failed to load departments:", error);
+      }
+    };
+    loadDepartments();
+  }, [apiBase, departments.length, dispatch]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -84,9 +120,32 @@ const ExternalJobApplications = () => {
       const matchSource =
         sourceFilter === "All Sources" || app.externalJob?.source === sourceFilter;
 
-      return matchSearch && matchStatus && matchSource;
+      const isCampusJob = app.externalJob?.source === "Campus";
+      const matchJob = isCampusJob
+        ? campusJobFilter === "All Campus Jobs" ||
+          String(app.externalJob?.externalId || "") === String(campusJobFilter)
+        : externalJobFilter === "All External Jobs" ||
+          String(app.externalJob?.externalId || "") === String(externalJobFilter);
+
+      const campusJobMeta = isCampusJob
+        ? campusJobsMap.get(String(app.externalJob?.externalId || ""))
+        : null;
+      const resolvedDepartment =
+        app.externalJob?.department ||
+        campusJobMeta?.department ||
+        "";
+      const matchDepartment =
+        departmentFilter === "All Departments" ||
+        String(resolvedDepartment) === String(departmentFilter);
+
+      const studentSemester = Number(app.student?.semester || 0);
+      const studentYear = studentSemester > 0 ? Math.ceil(studentSemester / 2) : 0;
+      const matchYear =
+        yearFilter === "All Years" || String(studentYear) === String(yearFilter);
+
+      return matchSearch && matchStatus && matchSource && matchJob && matchDepartment && matchYear;
     });
-  }, [applications, search, statusFilter, sourceFilter]);
+  }, [applications, search, statusFilter, sourceFilter, campusJobFilter, externalJobFilter, departmentFilter, yearFilter, campusJobsMap]);
 
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -97,7 +156,7 @@ const ExternalJobApplications = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, sourceFilter]);
+  }, [search, statusFilter, sourceFilter, campusJobFilter, externalJobFilter, departmentFilter, yearFilter]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -109,6 +168,65 @@ const ExternalJobApplications = () => {
     const uniqueSources = [...new Set(applications.map((a) => a.externalJob?.source))];
     return uniqueSources.filter(Boolean);
   }, [applications]);
+
+  const departmentOptions = useMemo(() => {
+    return departments.map((dept) => ({
+      id: dept._id,
+      name: dept.name,
+      years: Array.isArray(dept.years) ? dept.years : [],
+      yearCount: Number(dept.yearCount || 0),
+    }));
+  }, [departments]);
+
+  const yearOptions = useMemo(() => {
+    if (departmentFilter === "All Departments") return [];
+    const selected = departmentOptions.find((dept) => dept.id === departmentFilter);
+    if (!selected) return [];
+    if (selected.years.length > 0) return selected.years.map((value) => String(value));
+    if (selected.yearCount > 0) {
+      return Array.from({ length: selected.yearCount }, (_, idx) => String(idx + 1));
+    }
+    return [];
+  }, [departmentFilter, departmentOptions]);
+
+  const formatYearLabel = (value) => {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) return `Year ${value}`;
+    if (num === 1) return "1st Year";
+    if (num === 2) return "2nd Year";
+    if (num === 3) return "3rd Year";
+    return `${num}th Year`;
+  };
+
+  const jobOptions = useMemo(() => {
+    const map = new Map();
+    applications.forEach((app) => {
+      const job = app.externalJob || {};
+      if (!job.externalId) return;
+      const labelParts = [job.title || "Untitled"];
+      if (job.company) labelParts.push(job.company);
+      map.set(String(job.externalId), labelParts.join(" · "));
+    });
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+  }, [applications]);
+  const campusJobOptions = useMemo(() => {
+    return jobOptions.filter((job) =>
+      applications.some(
+        (app) =>
+          app.externalJob?.source === "Campus" &&
+          String(app.externalJob?.externalId || "") === String(job.id)
+      )
+    );
+  }, [jobOptions, applications]);
+  const externalJobOptions = useMemo(() => {
+    return jobOptions.filter((job) =>
+      applications.some(
+        (app) =>
+          app.externalJob?.source !== "Campus" &&
+          String(app.externalJob?.externalId || "") === String(job.id)
+      )
+    );
+  }, [jobOptions, applications]);
 
   const statuses = [
     "interested",
@@ -256,8 +374,21 @@ const ExternalJobApplications = () => {
               onClick={handleRefresh}
               disabled={refreshing}
             >
-              <FiRefreshCw className={refreshing ? "app-spin" : ""} />
-              {refreshing ? "Refreshing..." : "Refresh"}
+              {refreshing ? (
+                <>
+                  <ClipLoader
+                    size={14}
+                    color="#ffffff"
+                    trackColor="rgba(255, 255, 255, 0.25)"
+                  />
+                  Refreshing
+                </>
+              ) : (
+                <>
+                  <FiRefreshCw />
+                  Refresh
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -274,6 +405,60 @@ const ExternalJobApplications = () => {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
+          <select
+            className="external-apps-select"
+            value={campusJobFilter}
+            onChange={(e) => setCampusJobFilter(e.target.value)}
+          >
+            <option value="All Campus Jobs">All Campus Jobs</option>
+            {campusJobOptions.map((job) => (
+              <option key={job.id} value={job.id}>
+                {job.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="external-apps-select"
+            value={externalJobFilter}
+            onChange={(e) => setExternalJobFilter(e.target.value)}
+          >
+            <option value="All External Jobs">All External Jobs</option>
+            {externalJobOptions.map((job) => (
+              <option key={job.id} value={job.id}>
+                {job.label}
+              </option>
+            ))}
+          </select>
+          <select
+            className="external-apps-select"
+            value={departmentFilter}
+            onChange={(e) => {
+              setDepartmentFilter(e.target.value);
+              setYearFilter("All Years");
+            }}
+          >
+            <option value="All Departments">All Departments</option>
+            {departmentOptions.map((dept) => (
+              <option key={dept.id} value={dept.id}>
+                {dept.name}
+              </option>
+            ))}
+          </select>
+          <select
+            className="external-apps-select"
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+            disabled={departmentFilter === "All Departments" || yearOptions.length === 0}
+          >
+            <option value="All Years">
+              {departmentFilter === "All Departments" ? "Select department first" : "All Years"}
+            </option>
+            {yearOptions.map((year) => (
+              <option key={year} value={year}>
+                {formatYearLabel(year)}
+              </option>
+            ))}
+          </select>
           <select
             className="external-apps-select"
             value={statusFilter}
@@ -321,8 +506,19 @@ const ExternalJobApplications = () => {
                 </tr>
               </thead>
               <tbody>
-                {paginatedApps.map((app) => (
-                  <tr key={app._id}>
+                {paginatedApps.map((app) => {
+                  const isCampusJob = app.externalJob?.source === "Campus";
+                  const campusJobMeta = isCampusJob
+                    ? campusJobsMap.get(String(app.externalJob?.externalId || ""))
+                    : null;
+                  const resolvedDepartment =
+                    app.externalJob?.department ||
+                    campusJobMeta?.department ||
+                    "";
+                  const studentSemester = Number(app.student?.semester || 0);
+                  const studentYear = studentSemester > 0 ? Math.ceil(studentSemester / 2) : 0;
+                  const row = (
+                    <tr key={app._id}>
                     <td>
                       <div className="external-apps-student-info">
                         <div className="external-apps-student-name">
@@ -333,6 +529,12 @@ const ExternalJobApplications = () => {
                         </div>
                         <div className="external-apps-student-dept">
                           {app.student?.department?.name || "N/A"}
+                        </div>
+                        <div className="external-apps-student-dept">
+                          Year{" "}
+                          {app.student?.semester
+                            ? Math.ceil(Number(app.student.semester) / 2)
+                            : "N/A"}
                         </div>
                       </div>
                     </td>
@@ -369,8 +571,21 @@ const ExternalJobApplications = () => {
                         <FiEye />
                       </button>
                     </td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                  if (!debugEnabled) return row;
+                  const debugRow = (
+                    <tr className="external-apps-debug-row" key={`${app._id}-debug`}>
+                      <td colSpan={7}>
+                        <strong>Debug:</strong>{" "}
+                        Dept={String(resolvedDepartment || "N/A")} | StudentYear=
+                        {studentYear || "N/A"} | ExternalId=
+                        {String(app.externalJob?.externalId || "N/A")}
+                      </td>
+                    </tr>
+                  );
+                  return [row, debugRow];
+                })}
               </tbody>
             </table>
           )}

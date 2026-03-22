@@ -1,13 +1,16 @@
-import React, { useState, useEffect } from "react";
-import { useSelector } from "react-redux";
+import React, { useState, useEffect, useMemo } from "react";
+import { useDispatch, useSelector } from "react-redux";
 import axios from "../../utils/axiosInstance";
 import toast from "react-hot-toast";
-import { FiX } from "react-icons/fi";
+import { FiCheckCircle, FiX } from "react-icons/fi";
 import ModernDatePicker from "../../components/common/ModernDatePicker";
+import { setDepartments } from "../../redux/departmentSlice";
 import "./AddJobModal.css";
 
 const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
   const apiBase = useSelector((state) => state.config.apiBase);
+  const departments = useSelector((state) => state.department?.departments || []);
+  const dispatch = useDispatch();
   
   const [formData, setFormData] = useState({
     title: "",
@@ -20,18 +23,67 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
     applicationUrl: "",
     salary: { min: "", max: "", currency: "INR" },
     skills: "",
+    department: "",
+    years: [],
+    yearDraft: "",
     expirationDate: "",
     expirationTime: "",
   });
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [departmentsLoading, setDepartmentsLoading] = useState(false);
+  const [hasTriedDepartments, setHasTriedDepartments] = useState(false);
+
+  const selectedDepartment = useMemo(
+    () => departments.find((dept) => dept._id === formData.department) || null,
+    [departments, formData.department]
+  );
+
+  const hasYearData = useMemo(() => {
+    if (!departments.length) return false;
+    return departments.some((dept) => {
+      const yearCount = Number(dept?.yearCount || 0);
+      const years = Array.isArray(dept?.years) ? dept.years : [];
+      return yearCount > 0 || years.length > 0;
+    });
+  }, [departments]);
+
+  const yearOptions = useMemo(() => {
+    const yearsFromApi = Array.isArray(selectedDepartment?.years)
+      ? selectedDepartment.years
+      : [];
+    if (yearsFromApi.length > 0) {
+      return yearsFromApi.map((value) => String(value));
+    }
+    const count = Number(selectedDepartment?.yearCount || 0);
+    if (!Number.isFinite(count) || count <= 0) return [];
+    return Array.from({ length: count }, (_, idx) => String(idx + 1));
+  }, [selectedDepartment]);
+
+  const formatYearLabel = (value) => {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num <= 0) return `Year ${value}`;
+    if (num === 1) return "1st Year";
+    if (num === 2) return "2nd Year";
+    if (num === 3) return "3rd Year";
+    return `${num}th Year`;
+  };
 
   useEffect(() => {
     if (editingJob) {
       const expDate = new Date(editingJob.expirationDate || editingJob.expiresAt);
-      const dateStr = expDate.toISOString().split('T')[0];
-      const timeStr = expDate.toTimeString().slice(0, 5);
+      const dateStr = Number.isNaN(expDate.getTime()) ? "" : expDate.toISOString().split('T')[0];
+      const timeStr = Number.isNaN(expDate.getTime()) ? "" : expDate.toTimeString().slice(0, 5);
+      const editingDepartment =
+        editingJob.department?._id ||
+        editingJob.department ||
+        "";
+      const editingYears = Array.isArray(editingJob.years)
+        ? editingJob.years.map((value) => String(value))
+        : editingJob.year != null
+        ? [String(editingJob.year)]
+        : [];
       
       setFormData({
         title: editingJob.title || "",
@@ -48,6 +100,9 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
           currency: editingJob.salary?.currency || "INR",
         },
         skills: editingJob.skills?.join(", ") || "",
+        department: editingDepartment,
+        years: editingYears,
+        yearDraft: "",
         expirationDate: dateStr,
         expirationTime: timeStr,
       });
@@ -55,6 +110,13 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
       resetForm();
     }
   }, [editingJob, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setHasTriedDepartments(false);
+      setDepartmentsLoading(false);
+    }
+  }, [isOpen]);
 
   const resetForm = () => {
     setFormData({
@@ -68,14 +130,45 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
       applicationUrl: "",
       salary: { min: "", max: "", currency: "INR" },
       skills: "",
+      department: "",
+      years: [],
+      yearDraft: "",
       expirationDate: "",
       expirationTime: "",
     });
     setErrors({});
   };
 
+  useEffect(() => {
+    if (!isOpen || !apiBase) return;
+    if ((departments.length > 0 && hasYearData) || departmentsLoading || hasTriedDepartments) return;
+
+    const loadDepartments = async () => {
+      try {
+        setDepartmentsLoading(true);
+        setHasTriedDepartments(true);
+        const response = await axios.get(`${apiBase}/admin/department`, {
+          params: { noCache: true },
+          withCredentials: true,
+        });
+        dispatch(setDepartments(response.data?.departments || []));
+      } catch (error) {
+        console.error("Failed to load departments:", error);
+        toast.error("Failed to load departments");
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    };
+
+    loadDepartments();
+  }, [apiBase, departments.length, departmentsLoading, dispatch, hasTriedDepartments, isOpen]);
+
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+      ...(field === "department" ? { years: [] } : {}),
+    }));
     // Clear error for this field
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: undefined }));
@@ -114,6 +207,14 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
 
     if (!formData.applicationUrl?.trim()) {
       newErrors.applicationUrl = "Application URL is required";
+    }
+
+    if (!formData.department) {
+      newErrors.department = "Department is required";
+    }
+
+    if (!Array.isArray(formData.years) || formData.years.length === 0) {
+      newErrors.years = "At least one year is required";
     }
 
     if (!formData.expirationDate) {
@@ -164,6 +265,10 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
         workMode: formData.workMode,
         applicationUrl: formData.applicationUrl.trim(),
         expirationDate: expirationDateTime.toISOString(),
+        department: formData.department || undefined,
+        years: Array.isArray(formData.years)
+          ? formData.years.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+          : undefined,
         salary: {
           min: formData.salary.min ? Number(formData.salary.min) : undefined,
           max: formData.salary.max ? Number(formData.salary.max) : undefined,
@@ -336,6 +441,116 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
             </div>
           </div>
 
+          {/* Target Students */}
+          <div className="add-job-form-section">
+            <h3>Target Students</h3>
+
+            <div className="add-job-form-row">
+              <div className="add-job-form-group">
+                <label>Department *</label>
+                <select
+                  value={formData.department}
+                  onChange={(e) => handleInputChange("department", e.target.value)}
+                  className={errors.department ? "error" : ""}
+                  disabled={departmentsLoading}
+                >
+                  <option value="">
+                    {departmentsLoading ? "Loading departments..." : "Select department"}
+                  </option>
+                  {departments.map((dept) => (
+                    <option key={dept._id} value={dept._id}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.department && <span className="error-message">{errors.department}</span>}
+              </div>
+
+              <div className="add-job-form-group">
+                <label>Year *</label>
+                {yearOptions.length > 0 ? (
+                  <div className={`add-job-year-list ${errors.years ? "error" : ""}`}>
+                    {yearOptions.map((year) => {
+                      const checked = formData.years.includes(year);
+                      return (
+                        <label key={year} className="add-job-year-item">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={() => {
+                              const next = checked
+                                ? formData.years.filter((item) => item !== year)
+                                : [...formData.years, year];
+                              handleInputChange("years", next);
+                            }}
+                          />
+                          <span>{formatYearLabel(year)}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="add-job-year-manual">
+                    <input
+                      type="number"
+                      min="1"
+                      max="10"
+                      placeholder={
+                        formData.department
+                          ? "Enter year (e.g., 1, 2, 3)"
+                          : "Select department first"
+                      }
+                      disabled={!formData.department}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        handleInputChange("yearDraft", value);
+                      }}
+                      value={formData.yearDraft || ""}
+                    />
+                    <button
+                      type="button"
+                      className="add-job-year-add"
+                      disabled={!formData.department || !formData.yearDraft}
+                      onClick={() => {
+                        const next = String(formData.yearDraft || "").trim();
+                        if (!next) return;
+                        if (formData.years.includes(next)) {
+                          handleInputChange("yearDraft", "");
+                          return;
+                        }
+                        handleInputChange("years", [...formData.years, next]);
+                        handleInputChange("yearDraft", "");
+                      }}
+                    >
+                      Add
+                    </button>
+                  </div>
+                )}
+                {formData.years.length > 0 && (
+                  <div className="add-job-year-tags">
+                    {formData.years.map((year) => (
+                      <span key={year} className="add-job-year-tag">
+                        {formatYearLabel(year)}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleInputChange(
+                              "years",
+                              formData.years.filter((item) => item !== year)
+                            )
+                          }
+                        >
+                          x
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {errors.years && <span className="error-message">{errors.years}</span>}
+              </div>
+            </div>
+          </div>
+
           {/* Application */}
           <div className="add-job-form-section">
             <h3>Application</h3>
@@ -451,7 +666,14 @@ const AddJobModal = ({ isOpen, onClose, onJobAdded, editingJob }) => {
               className="add-job-btn-submit"
               disabled={isSubmitting}
             >
-              {isSubmitting ? "Saving..." : editingJob ? "Update Job" : "Publish Job"}
+              {isSubmitting ? (
+                "Saving..."
+              ) : (
+                <>
+                  <FiCheckCircle />
+                  {editingJob ? "Update Job" : "Publish Job"}
+                </>
+              )}
             </button>
           </div>
         </form>
