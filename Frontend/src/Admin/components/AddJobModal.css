@@ -89,7 +89,7 @@
   margin-bottom: 6px;
 }
 
-.add-job-form-group input,
+.add-job-form-group input:not([type="checkbox"]),
 .add-job-form-group select,
 .add-job-form-group textarea {
   width: 100%;
@@ -102,7 +102,7 @@
   font-family: inherit;
 }
 
-.add-job-form-group input:focus,
+.add-job-form-group input:not([type="checkbox"]):focus,
 .add-job-form-group select:focus,
 .add-job-form-group textarea:focus {
   outline: none;
@@ -110,7 +110,7 @@
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
-.add-job-form-group input.error,
+.add-job-form-group input:not([type="checkbox"]).error,
 .add-job-form-group select.error,
 .add-job-form-group textarea.error {
   border-color: #ef4444;
@@ -144,7 +144,7 @@
 .add-job-year-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
   font-size: 13px;
   color: #111827;
   cursor: pointer;
@@ -153,6 +153,7 @@
 .add-job-year-item input {
   width: 16px;
   height: 16px;
+  margin-right: 4px;
 }
 
 .add-job-year-manual {
