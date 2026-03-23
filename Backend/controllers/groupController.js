@@ -1,4 +1,5 @@
 import Group from "../models/Group.js";
+import Batch from "../models/feeBatch.js";
 
 const WEEKDAY_ORDER = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
 import Department from "../models/Department.js";
@@ -166,6 +167,62 @@ const clearTimetableCache = async (groupId) => {
   await redisClient.del("admin:faculty:all");
 };
 
+const validateBatchDepartment = async ({ batchId, departmentId }) => {
+  if (!batchId) return { ok: true, batchDoc: null };
+
+  const batchDoc = await Batch.findById(batchId).select("_id departmentId");
+  if (!batchDoc) {
+    return { ok: false, message: "Invalid batchId" };
+  }
+
+  if (departmentId && String(batchDoc.departmentId || "") !== String(departmentId || "")) {
+    return {
+      ok: false,
+      message: "Selected batch does not belong to selected department",
+    };
+  }
+
+  return { ok: true, batchDoc };
+};
+
+const syncBatchGroupLink = async ({ groupId, previousBatchId, nextBatchId }) => {
+  const prev = previousBatchId ? String(previousBatchId) : "";
+  const next = nextBatchId ? String(nextBatchId) : "";
+
+  if (prev && prev !== next) {
+    await Batch.findByIdAndUpdate(prev, { $pull: { groupId } });
+  }
+
+  if (next) {
+    await Batch.findByIdAndUpdate(next, { $addToSet: { groupId } });
+  }
+};
+
+/* ================= GROUP BATCH OPTIONS ================= */
+
+export const getGroupBatchOptions = async (req, res) => {
+  try {
+    const { departmentId } = req.query || {};
+    const query = {};
+
+    if (departmentId) {
+      query.departmentId = departmentId;
+    }
+
+    const batches = await Batch.find(query)
+      .select("_id batchYear departmentId groupId")
+      .sort({ batchStartYear: -1, createdAt: -1 })
+      .populate("departmentId", "name code");
+
+    return res.status(200).json({
+      message: "Group batch options fetched successfully",
+      data: batches,
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
+  }
+};
+
 /* ================= GET ALL GROUPS ================= */
 
 export const getAllGroups = async (req, res) => {
@@ -187,6 +244,7 @@ export const getAllGroups = async (req, res) => {
 
     const groups = await Group.find({ isDeleted: { $ne: true } })
       .populate("department")
+      .populate({ path: "batchId", select: "batchYear departmentId", populate: { path: "departmentId", select: "name code" } })
       .populate({
         path: "coordinator",
         populate: { path: "user", select: "name email" },
@@ -655,6 +713,7 @@ export const getGroupById = async (req, res) => {
 
     const group = await Group.findOne({ _id: id, isDeleted: { $ne: true } })
       .populate("department")
+      .populate({ path: "batchId", select: "batchYear departmentId", populate: { path: "departmentId", select: "name code" } })
       .populate({
         path: "coordinator",
         populate: { path: "user", select: "name email" },
@@ -693,6 +752,7 @@ export const addGroup = async (req, res) => {
       name,
       studentIds,
       department,
+      batchId,
       branch,
       coordinator,
       courseIds,
@@ -701,10 +761,20 @@ export const addGroup = async (req, res) => {
       courseFaculty,
     } = req.body;
 
+    const normalizedBatchId = String(batchId || "").trim() || null;
+    const batchValidation = await validateBatchDepartment({
+      batchId: normalizedBatchId,
+      departmentId: department,
+    });
+    if (!batchValidation.ok) {
+      return res.status(400).json({ message: batchValidation.message });
+    }
+
     const group = await Group.create({
       name,
       studentIds: studentIds || [],
       department,
+      batchId: normalizedBatchId,
       branch: String(branch || "").trim(),
       coordinator,
       courseIds: courseIds || [],
@@ -712,6 +782,14 @@ export const addGroup = async (req, res) => {
       scheduleSlots: scheduleSlots || new Map(),
       courseFaculty: courseFaculty || [],
     });
+
+    if (normalizedBatchId) {
+      await syncBatchGroupLink({
+        groupId: group._id,
+        previousBatchId: null,
+        nextBatchId: normalizedBatchId,
+      });
+    }
 
     /* Sync facultyIds into each Course document */
     if (courseFaculty && courseFaculty.length > 0) {
@@ -787,6 +865,7 @@ export const addGroup = async (req, res) => {
 
     const populatedGroup = await Group.findById(group._id)
       .populate("department")
+      .populate({ path: "batchId", select: "batchYear departmentId", populate: { path: "departmentId", select: "name code" } })
       .populate({
         path: "coordinator",
         populate: { path: "user", select: "name email" },
@@ -820,13 +899,38 @@ export const addGroup = async (req, res) => {
 export const updateGroup = async (req, res) => {
   try {
     const { id } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+
+    const existingGroup = await Group.findById(id).select("_id batchId department");
+    if (!existingGroup) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
+    const hasBatchInPayload = Object.prototype.hasOwnProperty.call(updateData, "batchId");
+    if (hasBatchInPayload) {
+      const normalizedBatchId = String(updateData.batchId || "").trim();
+      updateData.batchId = normalizedBatchId || null;
+    }
+
+    const targetBatchId = hasBatchInPayload ? updateData.batchId : existingGroup.batchId;
+    const targetDepartment = Object.prototype.hasOwnProperty.call(updateData, "department")
+      ? updateData.department
+      : existingGroup.department;
+
+    const batchValidation = await validateBatchDepartment({
+      batchId: targetBatchId,
+      departmentId: targetDepartment,
+    });
+    if (!batchValidation.ok) {
+      return res.status(400).json({ message: batchValidation.message });
+    }
 
     const group = await Group.findByIdAndUpdate(id, updateData, {
       new: true,
       runValidators: true,
     })
       .populate("department")
+      .populate({ path: "batchId", select: "batchYear departmentId", populate: { path: "departmentId", select: "name code" } })
       .populate({
         path: "coordinator",
         populate: { path: "user", select: "name email" },
@@ -844,9 +948,11 @@ export const updateGroup = async (req, res) => {
         populate: { path: "user", select: "name email" },
       });
 
-    if (!group) {
-      return res.status(404).json({ message: "Group not found" });
-    }
+    await syncBatchGroupLink({
+      groupId: group._id,
+      previousBatchId: existingGroup.batchId,
+      nextBatchId: group.batchId,
+    });
 
     /* Sync facultyIds into each Course document on update */
     if (updateData.courseFaculty && updateData.courseFaculty.length > 0) {
@@ -953,15 +1059,22 @@ export const deleteGroup = async (req, res) => {
   try {
     const { id } = req.params;
 
+    const existingGroup = await Group.findById(id).select("_id batchId");
+    if (!existingGroup) {
+      return res.status(404).json({ message: "Group not found" });
+    }
+
     const group = await Group.findByIdAndUpdate(
       id,
       { isDeleted: true },
       { new: true }
     );
 
-    if (!group) {
-      return res.status(404).json({ message: "Group not found" });
-    }
+    await syncBatchGroupLink({
+      groupId: existingGroup._id,
+      previousBatchId: existingGroup.batchId,
+      nextBatchId: null,
+    });
 
     try {
       await redisClient.del("admin:timetable:groups");
@@ -984,11 +1097,18 @@ export const hardDeleteGroup = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const group = await Group.findByIdAndDelete(id);
-
-    if (!group) {
+    const existingGroup = await Group.findById(id).select("_id batchId");
+    if (!existingGroup) {
       return res.status(404).json({ message: "Group not found" });
     }
+
+    const group = await Group.findByIdAndDelete(id);
+
+    await syncBatchGroupLink({
+      groupId: existingGroup._id,
+      previousBatchId: existingGroup.batchId,
+      nextBatchId: null,
+    });
 
     try {
       await redisClient.del("admin:timetable:groups");

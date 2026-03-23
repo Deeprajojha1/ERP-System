@@ -25,6 +25,12 @@ const groupSchema = new mongoose.Schema(
       required: true,
     },
 
+    batchId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Batch",
+      default: null,
+    },
+
     branch: {
       type: String,
       trim: true,

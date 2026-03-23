@@ -25,7 +25,7 @@ export const fetchGroupModalDependencies = createAsyncThunk(
   "group/fetchGroupModalDependencies",
   async ({ apiBase }, { rejectWithValue }) => {
     try {
-      const [deptRes, facRes] = await Promise.all([
+      const [deptRes, facRes, batchRes] = await Promise.all([
         axios.get(`${apiBase}/admin/department`, {
           withCredentials: true,
           skipNetworkRedirect: true,
@@ -36,11 +36,16 @@ export const fetchGroupModalDependencies = createAsyncThunk(
           skipNetworkRedirect: true,
           params: { noCache: "true" },
         }),
+        axios.get(`${apiBase}/admin/group/batches`, {
+          withCredentials: true,
+          skipNetworkRedirect: true,
+        }),
       ]);
 
       return {
         departments: deptRes.data?.departments || [],
         faculty: facRes.data?.faculty || [],
+        batches: batchRes.data?.data || [],
       };
     } catch (error) {
       return rejectWithValue(
@@ -103,6 +108,7 @@ const initialState = {
   groups: [],
   departments: [],
   faculty: [],
+  batches: [],
   listLoadState: ADMIN_LOAD_STATES.INITIAL,
   modalLoadState: ADMIN_LOAD_STATES.INITIAL,
   submitLoadState: ADMIN_LOAD_STATES.INITIAL,
@@ -142,6 +148,7 @@ const groupSlice = createSlice({
         state.modalLoadState = ADMIN_LOAD_STATES.SUCCESS;
         state.departments = action.payload?.departments || [];
         state.faculty = action.payload?.faculty || [];
+        state.batches = action.payload?.batches || [];
       })
       .addCase(fetchGroupModalDependencies.rejected, (state, action) => {
         state.modalLoadState = ADMIN_LOAD_STATES.FAILURE;
@@ -200,6 +207,7 @@ export const selectAdminGroups = (state) => state.group?.groups || [];
 export const selectAdminGroupDepartments = (state) =>
   state.group?.departments || [];
 export const selectAdminGroupFaculty = (state) => state.group?.faculty || [];
+export const selectAdminGroupBatches = (state) => state.group?.batches || [];
 export const selectAdminGroupListLoadState = (state) =>
   state.group?.listLoadState || ADMIN_LOAD_STATES.INITIAL;
 export const selectAdminGroupModalLoadState = (state) =>

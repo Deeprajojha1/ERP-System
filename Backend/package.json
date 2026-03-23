@@ -5,7 +5,15 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "migrate:fee-batch-window": "node scripts/migrateFeeBatchWindow.js",
+    "migrate:fee-batch-window:apply": "node scripts/migrateFeeBatchWindow.js --apply",
+    "migrate:group-batch-links": "node scripts/migrateGroupBatchLinks.js",
+    "migrate:group-batch-links:apply": "node scripts/migrateGroupBatchLinks.js --apply",
+    "seed:dummy-groups": "node scripts/seedDummyGroupsForFilters.js",
+    "seed:dummy-groups:apply": "node scripts/seedDummyGroupsForFilters.js --apply",
+    "cleanup:dummy-groups": "node scripts/cleanupDummyGroups.js",
+    "cleanup:dummy-groups:apply": "node scripts/cleanupDummyGroups.js --apply"
   },
   "author": "",
   "license": "ISC",

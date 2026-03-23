@@ -49,6 +49,7 @@ import {
 
 import {
   getAllGroups,
+  getGroupBatchOptions,
   getGroupById,
   addGroup,
   updateGroup,
@@ -352,6 +353,7 @@ router.delete("/course/:id", isAdmin, canCourses, hardDeleteCourse);
    GROUPS
 ========================= */
 router.get("/group", isAdmin, hasModuleAccess("module.groups", ["exam"]), getAllGroups);
+router.get("/group/batches", isAdmin, canGroups, getGroupBatchOptions);
 router.get("/group/:id", isAdmin, hasModuleAccess("module.groups", ["exam"]), getGroupById);
 router.post("/group", isAdmin, canGroups, addGroup);
 router.put("/group/:id", isAdmin, canGroups, updateGroup);

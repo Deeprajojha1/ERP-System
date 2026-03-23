@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import axios from "../utils/axiosInstance";
 import {
   FiEdit2,
@@ -22,6 +23,7 @@ import {
   deleteAdminGroup,
   fetchAdminGroups,
   fetchGroupModalDependencies,
+  selectAdminGroupBatches,
   selectAdminGroupDeleteLoadState,
   selectAdminGroupDeletingId,
   selectAdminGroupDepartments,
@@ -54,8 +56,10 @@ const getErrorMessage = (error, fallback) => {
 
 const Groups = () => {
   const dispatch = useDispatch();
+  const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [activeDept, setActiveDept] = useState("All Departments");
+  const [activeBatch, setActiveBatch] = useState("All Batches");
   const [isOpen, setIsOpen] = useState(false);
   const [isOpeningAdd, setIsOpeningAdd] = useState(false);
   const [openingEditId, setOpeningEditId] = useState(null);
@@ -66,6 +70,7 @@ const Groups = () => {
   const groups = useSelector(selectAdminGroups);
   const departments = useSelector(selectAdminGroupDepartments);
   const faculty = useSelector(selectAdminGroupFaculty);
+  const batches = useSelector(selectAdminGroupBatches);
   const listLoadState = useSelector(selectAdminGroupListLoadState);
   const modalLoadState = useSelector(selectAdminGroupModalLoadState);
   const submitLoadState = useSelector(selectAdminGroupSubmitLoadState);
@@ -76,6 +81,7 @@ const Groups = () => {
   const [formData, setFormData] = useState({
     name: "",
     department: "",
+    batchId: "",
     selectedProgramId: "",
     branch: "",
     coordinator: "",
@@ -109,6 +115,7 @@ const Groups = () => {
     setFormData({
       name: "",
       department: "",
+      batchId: "",
       selectedProgramId: "",
       branch: "",
       coordinator: "",
@@ -151,6 +158,7 @@ const Groups = () => {
     const term = search.toLowerCase();
     return groups.filter((g) => {
       const departmentId = g.department?._id || g.department;
+      const batchId = g.batchId?._id || g.batchId;
       const matchSearch =
         (g.name || "").toLowerCase().includes(term) ||
         (g.department?.name || "").toLowerCase().includes(term) ||
@@ -158,9 +166,12 @@ const Groups = () => {
       const matchBranch =
         activeDept === "All Departments" ||
         String(departmentId || "") === String(activeDept);
-      return matchSearch && matchBranch;
+      const matchBatch =
+        activeBatch === "All Batches" ||
+        String(batchId || "") === String(activeBatch);
+      return matchSearch && matchBranch && matchBatch;
     });
-  }, [search, activeDept, groups]);
+  }, [search, activeDept, activeBatch, groups]);
 
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -174,7 +185,7 @@ const Groups = () => {
 
   useEffect(() => {
     setPage(1);
-  }, [search, activeDept]);
+  }, [search, activeDept, activeBatch]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -191,6 +202,23 @@ const Groups = () => {
       map.set(String(deptId), { _id: String(deptId), name: deptName });
     });
     return Array.from(map.values());
+  }, [groups]);
+
+  const filterBatches = useMemo(() => {
+    const map = new Map();
+    const extractStartYear = (value) => {
+      const match = String(value || "").match(/\d{4}/);
+      return match ? Number(match[0]) : NaN;
+    };
+    groups.forEach((g) => {
+      const batchId = g.batchId?._id || g.batchId;
+      const batchYear = g.batchId?.batchYear;
+      if (!batchId || !batchYear || map.has(String(batchId))) return;
+      map.set(String(batchId), { _id: String(batchId), batchYear });
+    });
+    return Array.from(map.values()).sort(
+      (a, b) => extractStartYear(b.batchYear) - extractStartYear(a.batchYear)
+    );
   }, [groups]);
 
   const handleOpenAdd = async (event) => {
@@ -247,6 +275,7 @@ const Groups = () => {
       setFormData({
         name: group.name || "",
         department: group.department?._id || group.department || "",
+        batchId: group.batchId?._id || group.batchId || "",
         selectedProgramId: matchedProgram?._id || "",
         branch: group.branch || "",
         coordinator: group.coordinator?._id || group.coordinator || "",
@@ -276,6 +305,20 @@ const Groups = () => {
     }
   };
 
+  const handleCardClick = useCallback(
+    (group) => {
+      const departmentId = String(group?.department?._id || group?.department || "");
+      const groupId = String(group?._id || "");
+      if (!groupId) return;
+
+      const params = new URLSearchParams();
+      if (departmentId) params.set("department", departmentId);
+      params.set("group", groupId);
+      navigate(`/admin/student?${params.toString()}`);
+    },
+    [navigate]
+  );
+
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (submitLoadState === ADMIN_LOAD_STATES.PENDING) return;
@@ -283,6 +326,7 @@ const Groups = () => {
     const payload = {
       name: String(formData.name || "").trim(),
       department: formData.department,
+      batchId: formData.batchId || null,
       branch: String(formData.branch || "").trim(),
       coordinator: formData.coordinator,
       roomNo: String(formData.roomNo || "").trim(),
@@ -392,6 +436,19 @@ const Groups = () => {
               </option>
             ))}
           </select>
+
+          <select
+            className="groups-select"
+            value={activeBatch}
+            onChange={(e) => setActiveBatch(e.target.value)}
+          >
+            <option value="All Batches">All Batches</option>
+            {filterBatches.map((b) => (
+              <option key={b._id} value={b._id}>
+                {b.batchYear}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="groups-grid">
@@ -402,6 +459,16 @@ const Groups = () => {
               <div
                 className="groups-card"
                 key={g._id}
+                role="button"
+                tabIndex={0}
+                aria-label={`View students in ${g.name}`}
+                onClick={() => handleCardClick(g)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    handleCardClick(g);
+                  }
+                }}
                 style={{
                   "--groups-card-gradient":
                     cardGradients[(pageStartIndex + index) % cardGradients.length],
@@ -449,6 +516,9 @@ const Groups = () => {
                   <p className="groups-code">
                     {g.department?.name || "Department"}
                   </p>
+                  {g.batchId?.batchYear ? (
+                    <p className="groups-code">Batch: {g.batchId.batchYear}</p>
+                  ) : null}
                   {g.branch ? <p className="groups-code">Branch: {g.branch}</p> : null}
                 </div>
 
@@ -540,6 +610,7 @@ const Groups = () => {
                     setFormData((prev) => ({
                       ...prev,
                       department: e.target.value,
+                      batchId: "",
                       selectedProgramId: "",
                       branch: "",
                     }))
@@ -551,6 +622,32 @@ const Groups = () => {
                       {d.name}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label>
+                Batch Year
+                <select
+                  value={formData.batchId}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, batchId: e.target.value }))
+                  }
+                  disabled={!formData.department}
+                  required
+                >
+                  <option value="">
+                    {formData.department ? "Select Batch" : "Select Department first"}
+                  </option>
+                  {batches
+                    .filter(
+                      (batch) =>
+                        String(batch?.departmentId?._id || batch?.departmentId || "") ===
+                        String(formData.department)
+                    )
+                    .map((batch) => (
+                      <option key={batch._id} value={batch._id}>
+                        {batch.batchYear}
+                      </option>
+                    ))}
                 </select>
               </label>
               <label>

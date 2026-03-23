@@ -42,7 +42,8 @@ const normalizeLoose = (value = "") =>
     .replace(/[^a-z0-9]/g, "");
 
 const getBatchWindowLabel = (batch, { programId, programs }) => {
-  const startYear = Number(batch?.batchYear);
+  const startYearMatch = String(batch?.batchYear || "").match(/\d{4}/);
+  const startYear = startYearMatch ? Number(startYearMatch[0]) : NaN;
   if (!Number.isFinite(startYear) || startYear <= 0) return "Unknown batch";
 
   let durationYears = 0;
@@ -132,7 +133,8 @@ const StudentFeeMapping = () => {
 
   const resolvedAcademicYear = useMemo(() => {
     const batch = batches.find((row) => String(row?._id) === String(form.batchId));
-    const start = Number(batch?.batchYear);
+    const startMatch = String(batch?.batchYear || "").match(/\d{4}/);
+    const start = startMatch ? Number(startMatch[0]) : NaN;
     if (!Number.isFinite(start) || start <= 0) return "";
     return `${start}-${start + 1}`;
   }, [batches, form.batchId]);

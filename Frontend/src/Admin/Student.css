@@ -200,7 +200,7 @@
 .student-table {
   width: 100%;
   border-collapse: collapse;
-  min-width: 720px;
+  min-width: 860px;
 }
 
 .student-table thead th {

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import axios from "../utils/axiosInstance";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -56,7 +57,8 @@ const getProgramDurationYears = ({ batch, selectedProgramNorm = "", feePrograms 
 };
 
 const getBatchLabel = (batch, selectedProgramNorm = "", feePrograms = []) => {
-  const startYear = Number(batch?.batchYear);
+  const startYearMatch = String(batch?.batchYear || "").match(/\d{4}/);
+  const startYear = startYearMatch ? Number(startYearMatch[0]) : NaN;
   if (!Number.isFinite(startYear) || startYear <= 0) return String(batch?.batchYear || "");
 
   const programs = Array.isArray(batch?.programIds) ? batch.programIds : [];
@@ -73,9 +75,25 @@ const getBatchLabel = (batch, selectedProgramNorm = "", feePrograms = []) => {
   return `${startYear}-${startYear + durationYears}`;
 };
 
+const getStudentGroupMeta = (student = {}) => {
+  const groupObj = student?.group && typeof student.group === "object" ? student.group : null;
+  const groupId = String(groupObj?._id || groupObj?.id || student?.groupId || "");
+  const groupName =
+    groupObj?.name ||
+    groupObj?.groupName ||
+    student?.groupName ||
+    (typeof student?.group === "string" ? student.group : "");
+
+  return {
+    groupId,
+    groupName: String(groupName || "").trim(),
+  };
+};
+
 const Student = () => {
   const [search, setSearch] = useState("");
   const [department, setDepartment] = useState("All Departments");
+  const [groupFilter, setGroupFilter] = useState("All Groups");
   const [isOpen, setIsOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null);
   const [departments, setDepartments] = useState([]);
@@ -86,6 +104,7 @@ const Student = () => {
   const [openingEditId, setOpeningEditId] = useState("");
   const [modalDependenciesLoading, setModalDependenciesLoading] = useState(false);
   const [page, setPage] = useState(1);
+  const [searchParams] = useSearchParams();
   const dispatch = useDispatch();
   const { students } = useSelector(
     (state) => state.student
@@ -123,6 +142,14 @@ const Student = () => {
     return [];
   };
 
+  const extractGroupsFromResponse = (payload) => {
+    if (Array.isArray(payload?.groups)) return payload.groups;
+    if (Array.isArray(payload?.data?.groups)) return payload.data.groups;
+    if (Array.isArray(payload?.data)) return payload.data;
+    if (Array.isArray(payload)) return payload;
+    return [];
+  };
+
   const normalizeStudentRow = (student) => ({
     ...student,
     _id: student?._id || student?.id || student?.studentId || "",
@@ -133,6 +160,11 @@ const Student = () => {
       student?.fullName ||
       "",
     rollNo: student?.rollNo || student?.enrollmentNumber || student?.roll || "",
+    departmentId:
+      student?.department?._id ||
+      student?.departmentId?._id ||
+      student?.departmentId ||
+      "",
     department:
       student?.department?.name ||
       student?.department?.departmentName ||
@@ -149,6 +181,7 @@ const Student = () => {
         dispatch(setStudentsLoading(true));
         const studentRes = await axios.get(`${apiBase}/admin/student`, {
           withCredentials: true,
+          params: { full: "true", noCache: "true" },
         });
         const rows = extractStudentsFromResponse(studentRes.data).map(normalizeStudentRow);
         dispatch(setStudents(rows));
@@ -163,6 +196,18 @@ const Student = () => {
             throw deptError;
           }
           setDepartments([]);
+        }
+
+        try {
+          const groupRes = await axios.get(`${apiBase}/admin/group`, {
+            withCredentials: true,
+          });
+          setGroups(extractGroupsFromResponse(groupRes.data));
+        } catch (groupError) {
+          if (!isForbiddenError(groupError)) {
+            throw groupError;
+          }
+          setGroups([]);
         }
 
         setLoadState(ADMIN_LOAD_STATES.SUCCESS);
@@ -253,13 +298,55 @@ const Student = () => {
   const syncStudentsSilently = async () => {
     const res = await axios.get(`${apiBase}/admin/student`, {
       withCredentials: true,
+      params: { full: "true", noCache: "true" },
     });
     dispatch(setStudents(extractStudentsFromResponse(res.data).map(normalizeStudentRow)));
   };
 
+  const selectedGroup = useMemo(() => {
+    if (groupFilter === "All Groups") return null;
+    return (
+      groups.find(
+        (group) =>
+          String(group?._id || group?.id || "") === String(groupFilter) ||
+          String(group?.name || group?.groupName || "") === String(groupFilter)
+      ) || null
+    );
+  }, [groups, groupFilter]);
+
+  const selectedGroupStudentIdSet = useMemo(() => {
+    if (!selectedGroup) return new Set();
+    const rawStudents = Array.isArray(selectedGroup?.studentIds)
+      ? selectedGroup.studentIds
+      : Array.isArray(selectedGroup?.students)
+        ? selectedGroup.students
+        : [];
+
+    return new Set(
+      rawStudents
+        .map((student) => String(student?._id || student?.id || student || ""))
+        .filter(Boolean)
+    );
+  }, [selectedGroup]);
+
+  const groupNameById = useMemo(() => {
+    const map = new Map();
+    groups.forEach((group) => {
+      const groupId = String(group?._id || group?.id || "");
+      const groupName = String(group?.name || group?.groupName || "").trim();
+      if (groupId && groupName) {
+        map.set(groupId, groupName);
+      }
+    });
+    return map;
+  }, [groups]);
+
   const filtered = useMemo(() => {
     return students.filter((s) => {
       const term = search.toLowerCase();
+      const { groupId, groupName } = getStudentGroupMeta(s);
+      const resolvedGroupName = groupName || groupNameById.get(String(groupId || "")) || "";
+      const studentId = String(s?._id || s?.id || s?.studentId || "");
       const matchSearch =
         (s.studentName || s.user?.name || s.name || "")
           .toLowerCase()
@@ -269,14 +356,82 @@ const Student = () => {
           .includes(term) ||
         (s.department?.name || s.department || "")
           .toLowerCase()
+          .includes(term) ||
+        resolvedGroupName
+          .toLowerCase()
           .includes(term);
       const matchDept =
         department === "All Departments" ||
+        String(s.departmentId || "") === String(department) ||
         s.department?.name === department ||
         s.department === department;
-      return matchSearch && matchDept;
+      const isMemberOfSelectedGroup =
+        selectedGroupStudentIdSet.size > 0 &&
+        selectedGroupStudentIdSet.has(studentId);
+      const matchGroup =
+        groupFilter === "All Groups" ||
+        String(groupId) === String(groupFilter) ||
+        String(resolvedGroupName) === String(groupFilter) ||
+        isMemberOfSelectedGroup;
+      return matchSearch && matchDept && matchGroup;
     });
-  }, [students, search, department]);
+  }, [students, search, department, groupFilter, selectedGroupStudentIdSet, groupNameById]);
+
+  const studentGroupOptions = useMemo(() => {
+    const groupMap = new Map();
+    const selectedDepartment = departments.find(
+      (dept) => String(dept?._id || "") === String(department) || String(dept?.name || "") === String(department)
+    );
+    const selectedDepartmentId = String(selectedDepartment?._id || "");
+
+    groups.forEach((group) => {
+      const groupId = String(group?._id || group?.id || "");
+      const groupName = String(group?.name || group?.groupName || "").trim();
+      if (!groupId || !groupName) return;
+
+      const groupDepartmentId = String(
+        group?.department?._id || group?.departmentId?._id || group?.departmentId || group?.department || ""
+      );
+      const groupDepartmentName = String(
+        group?.department?.name || group?.departmentName || ""
+      );
+
+      const matchesSelectedDepartment =
+        department === "All Departments" ||
+        String(groupDepartmentName) === String(department) ||
+        String(groupDepartmentId) === String(department) ||
+        (selectedDepartmentId && String(groupDepartmentId) === String(selectedDepartmentId));
+
+      if (!matchesSelectedDepartment) return;
+      if (!groupMap.has(groupId)) {
+        groupMap.set(groupId, groupName);
+      }
+    });
+
+    // Fallback for inconsistent API payloads where group master data is missing.
+    if (groupMap.size === 0) {
+      students.forEach((student) => {
+        const studentDepartmentName = student?.department?.name || student?.department || "";
+        const studentDepartmentId = student?.departmentId || "";
+        const matchesSelectedDepartment =
+          department === "All Departments" ||
+          String(studentDepartmentName) === String(department) ||
+          String(studentDepartmentId) === String(department);
+        if (!matchesSelectedDepartment) return;
+
+        const { groupId, groupName } = getStudentGroupMeta(student);
+        if (!groupName) return;
+        const optionValue = groupId || groupName;
+        if (!groupMap.has(optionValue)) {
+          groupMap.set(optionValue, groupName);
+        }
+      });
+    }
+
+    return Array.from(groupMap.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [students, groups, departments, department]);
 
   const pageSize = 10;
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -289,8 +444,40 @@ const Student = () => {
   const rangeEnd = Math.min(pageStartIndex + pageSize, filtered.length);
 
   useEffect(() => {
+    const departmentParam = String(searchParams.get("department") || "").trim();
+    const groupParam = String(searchParams.get("group") || "").trim();
+    if (!departmentParam && !groupParam) return;
+
+    if (departmentParam) {
+      const matchedDepartment = departments.find(
+        (d) =>
+          String(d?._id || "") === departmentParam ||
+          String(d?.name || "") === departmentParam
+      );
+      setDepartment(
+        matchedDepartment ? String(matchedDepartment._id) : departmentParam
+      );
+    }
+
+    if (groupParam) {
+      setGroupFilter(groupParam);
+    }
+  }, [searchParams, departments]);
+
+  useEffect(() => {
     setPage(1);
-  }, [search, department]);
+  }, [search, department, groupFilter]);
+
+  useEffect(() => {
+    if (groupFilter === "All Groups") return;
+    if (!groups.length) return;
+    const isSelectedGroupAvailable = studentGroupOptions.some(
+      (option) => String(option.value) === String(groupFilter)
+    );
+    if (!isSelectedGroupAvailable) {
+      setGroupFilter("All Groups");
+    }
+  }, [groupFilter, studentGroupOptions]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -730,8 +917,20 @@ const Student = () => {
             >
               <option value="All Departments">All Departments</option>
               {departments.map((d) => (
-                <option key={d._id} value={d.name}>
+                <option key={d._id} value={d._id}>
                   {d.name}
+                </option>
+              ))}
+            </select>
+            <select
+              className="student-select"
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+            >
+              <option value="All Groups">All Groups</option>
+              {studentGroupOptions.map((groupOption) => (
+                <option key={groupOption.value} value={groupOption.value}>
+                  {groupOption.label}
                 </option>
               ))}
             </select>
@@ -752,6 +951,7 @@ const Student = () => {
                     <th>STUDENT NAME</th>
                     <th>ROLL NO</th>
                     <th>DEPARTMENT</th>
+                    <th>GROUP</th>
                     <th>SEMESTER</th>
                     <th>STATUS</th>
                     {canStudentWrite ? <th>ACTIONS</th> : null}
@@ -761,6 +961,8 @@ const Student = () => {
                   {paginatedStudents.map((s, index) => {
                     const numericId =
                       s.rollNo || s.enrollmentNumber || s.roll || `${pageStartIndex + index + 1}`;
+                    const { groupId, groupName } = getStudentGroupMeta(s);
+                    const resolvedGroupName = groupName || groupNameById.get(String(groupId || "")) || "-";
                     return (
                       <tr
                         key={s._id || s.user?._id || `${numericId}-${index}`}
@@ -770,44 +972,45 @@ const Student = () => {
                           {s.studentName || s.user?.name || s.name || "N/A"}
                         </td>
                         <td>{s.rollNo || s.enrollmentNumber || s.roll || "N/A"}</td>
-                      <td>{s.department?.name || s.department}</td>
-                      <td>{s.semester}</td>
-                      <td>
-                        <span className="student-status">
-                          {(s.user?.status || s.status || "active").toUpperCase()}
-                        </span>
-                      </td>
-                      {canStudentWrite ? (
+                        <td>{s.department?.name || s.department}</td>
+                        <td>{resolvedGroupName}</td>
+                        <td>{s.semester}</td>
                         <td>
-                          <div className="student-actions">
-                            <button
-                              className="student-action-btn ghost"
-                              type="button"
-                              onClick={(event) => openEditModal(event, s)}
-                              disabled={openingEditId === s._id || modalDependenciesLoading}
-                            >
-                              {openingEditId === s._id ? (
-                                <>
-                                  <FiLoader className="student-spin" />
-                                  Loading...
-                                </>
-                              ) : (
-                                <>
-                                  <FiEdit2 />
-                                  Edit
-                                </>
-                              )}
-                            </button>
-                            <button className="student-action-btn danger" type="button" onClick={() => handleDelete(s)}>
-                              <FiTrash2 />
-                              Delete
-                            </button>
-                          </div>
+                          <span className="student-status">
+                            {(s.user?.status || s.status || "active").toUpperCase()}
+                          </span>
                         </td>
-                      ) : null}
-                    </tr>
-                  );
-                })}
+                        {canStudentWrite ? (
+                          <td>
+                            <div className="student-actions">
+                              <button
+                                className="student-action-btn ghost"
+                                type="button"
+                                onClick={(event) => openEditModal(event, s)}
+                                disabled={openingEditId === s._id || modalDependenciesLoading}
+                              >
+                                {openingEditId === s._id ? (
+                                  <>
+                                    <FiLoader className="student-spin" />
+                                    Loading...
+                                  </>
+                                ) : (
+                                  <>
+                                    <FiEdit2 />
+                                    Edit
+                                  </>
+                                )}
+                              </button>
+                              <button className="student-action-btn danger" type="button" onClick={() => handleDelete(s)}>
+                                <FiTrash2 />
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        ) : null}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

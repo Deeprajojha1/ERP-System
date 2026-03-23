@@ -109,6 +109,34 @@ const getAcademicStartYear = (value) => {
   const year = Number(match[1]);
   return Number.isFinite(year) ? year : NaN;
 };
+
+const normalizeBatchWindow = (value) => {
+  const raw = String(value || "").trim();
+  const full = raw.match(/^(\d{4})-(\d{4})$/);
+  if (full) {
+    const startYear = Number(full[1]);
+    const endYear = Number(full[2]);
+    if (!Number.isFinite(startYear) || !Number.isFinite(endYear)) {
+      return { batchYear: "", batchStartYear: NaN };
+    }
+    if (startYear < 2000 || startYear > 2100 || endYear < startYear || endYear > 2105) {
+      return { batchYear: "", batchStartYear: NaN };
+    }
+    return {
+      batchYear: `${startYear}-${endYear}`,
+      batchStartYear: startYear,
+    };
+  }
+
+  const startYear = getAcademicStartYear(raw);
+  if (!Number.isFinite(startYear) || startYear < 2000 || startYear > 2100) {
+    return { batchYear: "", batchStartYear: NaN };
+  }
+  return {
+    batchYear: `${startYear}-${startYear + 1}`,
+    batchStartYear: startYear,
+  };
+};
 const getAcademicYearCandidates = (value) => {
   const raw = String(value || "").trim();
   const set = new Set();
@@ -765,11 +793,11 @@ const resolveFeeReferencesFromStudent = async (studentDoc) => {
       programIds: matchedProgram._id,
     };
     if (Number.isFinite(batchYearCandidate)) {
-      batchQuery.batchYear = batchYearCandidate;
+      batchQuery.batchStartYear = batchYearCandidate;
     }
 
     matchedBatch = await Batch.findOne(batchQuery)
-      .sort({ batchYear: -1, createdAt: -1 })
+      .sort({ batchStartYear: -1, createdAt: -1 })
       .select("_id batchYear programIds");
 
     if (!matchedBatch) {
@@ -777,7 +805,7 @@ const resolveFeeReferencesFromStudent = async (studentDoc) => {
         departmentId: studentDoc.department,
         programIds: matchedProgram._id,
       })
-        .sort({ batchYear: -1, createdAt: -1 })
+        .sort({ batchStartYear: -1, createdAt: -1 })
         .select("_id batchYear programIds");
     }
   }
@@ -1591,8 +1619,8 @@ export const createFeeBatch = async (req, res) => {
     if (!isValidId(departmentId) || programIds.some((p) => !isValidId(p))) {
       return res.status(400).json({ message: "Invalid ids in request" });
     }
-    const normalizedBatchYear = getAcademicStartYear(batchYear);
-    if (Number.isNaN(normalizedBatchYear) || normalizedBatchYear < 2000 || normalizedBatchYear > 2100) {
+    const { batchYear: normalizedBatchYear, batchStartYear } = normalizeBatchWindow(batchYear);
+    if (!normalizedBatchYear || !Number.isFinite(batchStartYear)) {
       return res.status(400).json({ message: "Invalid batchYear. Use format like 2024-2028" });
     }
     const uniqueProgramIds = [...new Set(programIds.map((id) => String(id)))];
@@ -1625,11 +1653,12 @@ export const createFeeBatch = async (req, res) => {
 
     const created = await Batch.create({
       batchYear: normalizedBatchYear,
+      batchStartYear,
       programIds: uniqueProgramIds,
       departmentId,
     });
     const backfill = await backfillFeeProfilesForBatch({
-      batchYear: normalizedBatchYear,
+      batchYear: batchStartYear,
       departmentId,
       programs: selectedPrograms,
     });
@@ -1639,6 +1668,7 @@ export const createFeeBatch = async (req, res) => {
       entityId: created._id,
       metadata: {
         batchYear: normalizedBatchYear,
+        batchStartYear,
         departmentId,
         programCount: uniqueProgramIds.length,
         backfill,
@@ -1671,16 +1701,18 @@ export const getFeeBatches = async (req, res) => {
       query.departmentId = departmentId;
     }
     if (batchYear) {
-      const year = getAcademicStartYear(batchYear);
-      if (Number.isNaN(year)) return res.status(400).json({ message: "Invalid batchYear" });
-      query.batchYear = year;
+      const { batchYear: normalizedBatchYear, batchStartYear } = normalizeBatchWindow(batchYear);
+      if (!normalizedBatchYear || !Number.isFinite(batchStartYear)) {
+        return res.status(400).json({ message: "Invalid batchYear" });
+      }
+      query.batchStartYear = batchStartYear;
     }
 
     const rawLimit = Number(req.query?.limit || 200);
     const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(500, Math.floor(rawLimit))) : 200;
 
     const rows = await Batch.find(query)
-      .sort({ batchYear: -1, createdAt: -1 })
+      .sort({ batchStartYear: -1, createdAt: -1 })
       .limit(limit)
       .populate("programIds", "programName durationYears")
       .populate("departmentId", "name code");

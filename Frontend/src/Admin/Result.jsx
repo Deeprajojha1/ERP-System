@@ -114,8 +114,18 @@ const Result = () => {
         academicYear: item?.academicYear || "-",
         departmentId: String(item?.department?._id || item?.department || ""),
         departmentName: item?.department?.name || "-",
-        groupId: String(item?.group?._id || item?.group || ""),
-        groupName: item?.group?.name || "-",
+        groupId: String(
+          item?.group?._id ||
+            item?.group ||
+            item?.student?.group?._id ||
+            item?.student?.group ||
+            ""
+        ),
+        groupName:
+          item?.group?.name ||
+          item?.student?.group?.name ||
+          (typeof item?.student?.group === "string" ? item.student.group : "-") ||
+          "-",
         sgpa: round2(item?.semesterSummary?.sgpa),
         cgpa: round2(item?.cumulative?.cgpa),
         totalBack: Number(item?.cumulative?.totalBack ?? item?.semesterSummary?.totalBack ?? 0),
@@ -647,6 +657,7 @@ const Result = () => {
         "S. No",
         "Student Name",
         "Enrollment",
+        "Group",
         "Sem",
         "SGPA",
         "CGPA",
@@ -659,6 +670,7 @@ const Result = () => {
         index + 1,
         resultDoc?.student?.user?.name || "-",
         resultDoc?.student?.enrollmentNumber || "-",
+        resultDoc?.group?.name || resultDoc?.student?.group?.name || "-",
         resultDoc?.semester ?? "-",
         round2(resultDoc?.semesterSummary?.sgpa),
         round2(resultDoc?.cumulative?.cgpa),
@@ -799,6 +811,7 @@ const Result = () => {
                 <th className="result-cell-serial">S. No</th>
                 <th>STUDENT NAME</th>
                 <th>ENROLLMENT</th>
+                <th>GROUP</th>
                 <th>SEM</th>
                 <th>SGPA</th>
                 <th>CGPA</th>
@@ -815,6 +828,7 @@ const Result = () => {
                   <td className="result-serial-cell">{index + 1}</td>
                   <td className="result-name">{item.studentName}</td>
                   <td>{item.enrollmentNumber}</td>
+                  <td>{item.groupName}</td>
                   <td>{item.semester}</td>
                   <td>{item.sgpa}</td>
                   <td>{item.cgpa}</td>
@@ -862,7 +876,7 @@ const Result = () => {
 
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={11} className="result-empty">
+                  <td colSpan={12} className="result-empty">
                     No results found.
                   </td>
                 </tr>
