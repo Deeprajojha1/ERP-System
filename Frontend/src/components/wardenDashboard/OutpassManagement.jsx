@@ -34,6 +34,7 @@ import {
   scanGateSecurityOutpassQrApi,
 } from "./constants/wardenApi";
 import { downloadPdfFromHtml } from "../../utils/pdfDownload";
+import ModernDatePicker from "../common/ModernDatePicker";
 
 const normalizeScannedToken = (decodedText) => {
   const raw = String(decodedText || "").trim();
@@ -831,12 +832,11 @@ function OutpassManagement({ portalRole = "warden" }) {
                         </select>
                       )}
                       {!isGateSecurity && reportRange === "date" ? (
-                        <input
-                          type="date"
+                        <ModernDatePicker
+                          className="w-44"
                           value={reportSpecificDate}
                           onChange={(e) => setReportSpecificDate(e.target.value)}
-                          className="rounded-lg border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-                          aria-label="Select particular report date"
+                          ariaLabel="Select particular report date"
                         />
                       ) : null}
                       <button
@@ -903,12 +903,12 @@ function OutpassManagement({ portalRole = "warden" }) {
                       <CalendarIcon className="h-3.5 w-3.5" aria-hidden="true" />
                       From Date
                     </label>
-                    <input
-                      type="date"
+                    <ModernDatePicker
                       id="date-filter"
+                      className="w-full"
                       value={dateFilter}
                       onChange={(e) => setDateFilter(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      ariaLabel="From date"
                     />
                   </div>
 
@@ -917,12 +917,12 @@ function OutpassManagement({ portalRole = "warden" }) {
                       <CalendarIcon className="h-3.5 w-3.5" aria-hidden="true" />
                       To Date
                     </label>
-                    <input
-                      type="date"
+                    <ModernDatePicker
                       id="to-date-filter"
+                      className="w-full"
                       value={toDateFilter}
                       onChange={(e) => setToDateFilter(e.target.value)}
-                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm transition-colors focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                      ariaLabel="To date"
                     />
                   </div>
                 </div>

@@ -9,6 +9,7 @@ import { downloadPdfFromHtml } from "../utils/pdfDownload";
 import { downloadTabularFile } from "../utils/tabularDownload";
 import axios from "../utils/axiosInstance";
 import toast from "react-hot-toast";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 
 const REPORT_REQUEST_TIMEOUT_MS = 120000;
 
@@ -748,28 +749,20 @@ const GeneralSupport = () => {
             <div className="gs-row">
               <label>
                 From Date
-                <input
-                  type="text"
-                  placeholder="dd-mm-yyyy"
+                <ModernDatePicker
                   value={fromDate}
-                  onFocus={(e) => (e.target.type = "date")}
-                  onBlur={(e) => {
-                    if (!e.target.value) e.target.type = "text";
-                  }}
                   onChange={(e) => setFromDate(e.target.value)}
+                  placeholder="dd-mm-yyyy"
+                  ariaLabel="From date"
                 />
               </label>
               <label>
                 To Date
-                <input
-                  type="text"
-                  placeholder="dd-mm-yyyy"
+                <ModernDatePicker
                   value={toDate}
-                  onFocus={(e) => (e.target.type = "date")}
-                  onBlur={(e) => {
-                    if (!e.target.value) e.target.type = "text";
-                  }}
                   onChange={(e) => setToDate(e.target.value)}
+                  placeholder="dd-mm-yyyy"
+                  ariaLabel="To date"
                 />
               </label>
             </div>

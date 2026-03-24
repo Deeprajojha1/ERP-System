@@ -33,6 +33,7 @@ import {
 } from "../redux/feeSlice";
 import toast from "react-hot-toast";
 import axios from "../utils/axiosInstance";
+import ModernDatePicker from "../components/common/ModernDatePicker";
 import "./StudentRecords.css";
 
 const formatCurrency = (value = 0) =>
@@ -441,10 +442,12 @@ const StudentRecords = () => {
                   onChange={(e) => setDemandForm((p) => ({ ...p, semesterNo: e.target.value }))}
                   required
                 />
-                <input className="sr-demand-input" type="date"
+                <ModernDatePicker
+                  className="sr-demand-input"
                   value={demandForm.dueDate}
                   onChange={(e) => setDemandForm((p) => ({ ...p, dueDate: e.target.value }))}
                   required
+                  ariaLabel="Due date"
                 />
                 <input
                   className="sr-demand-input"
@@ -494,10 +497,13 @@ const StudentRecords = () => {
                   onChange={(e) => setGenerateForm((p) => ({ ...p, semesterNo: e.target.value }))}
                   required
                 />
-                <input className="sr-demand-input" type="date" placeholder="dueDate"
+                <ModernDatePicker
+                  className="sr-demand-input"
                   value={generateForm.dueDate}
                   onChange={(e) => setGenerateForm((p) => ({ ...p, dueDate: e.target.value }))}
+                  placeholder="dueDate"
                   required
+                  ariaLabel="Generate due date"
                 />
                 <input className="sr-demand-input" type="number" min="0" placeholder="hostelAmount (optional)"
                   value={generateForm.hostelAmount}

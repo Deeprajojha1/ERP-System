@@ -1507,29 +1507,21 @@ const Exam = () => {
 
                 <div className="exam-date">
                   <label>From</label>
-                  <input
-                    type="text"
-                    placeholder="dd-mm-yyyy"
+                  <ModernDatePicker
                     value={fromDate}
-                    onFocus={(e) => (e.target.type = "date")}
-                    onBlur={(e) => {
-                      if (!e.target.value) e.target.type = "text";
-                    }}
                     onChange={(e) => setFromDate(e.target.value)}
+                    placeholder="dd-mm-yyyy"
+                    ariaLabel="From date"
                   />
                 </div>
 
                 <div className="exam-date">
                   <label>To</label>
-                  <input
-                    type="text"
-                    placeholder="dd-mm-yyyy"
+                  <ModernDatePicker
                     value={toDate}
-                    onFocus={(e) => (e.target.type = "date")}
-                    onBlur={(e) => {
-                      if (!e.target.value) e.target.type = "text";
-                    }}
                     onChange={(e) => setToDate(e.target.value)}
+                    placeholder="dd-mm-yyyy"
+                    ariaLabel="To date"
                   />
                 </div>
               </div>

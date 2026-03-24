@@ -7,16 +7,86 @@
  */
 
 import { useMemo, useState } from 'react';
-import Calendar from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
+import dayjs from 'dayjs';
+import { PickersDay } from '@mui/x-date-pickers/PickersDay';
+import { DateCalendar } from '@mui/x-date-pickers/DateCalendar';
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import './AttendanceCalendar.css';
 
-const AttendanceCalendar = ({ attendanceData, onClose, selectedCourse }) => {
-  const [selectedDate, setSelectedDate] = useState(new Date());
+const getDayInfo = (dateValue, sessionsByDate, selectedCourse) => {
+  const dayKey = dayjs(dateValue).format('YYYY-MM-DD');
+  const daySessions = sessionsByDate[dayKey] || [];
+  const attendance = selectedCourse
+    ? daySessions.filter((s) => s.courseCode === selectedCourse.courseCode)
+    : daySessions;
 
-  const formatDate = (date) => {
-    return date.toISOString().split('T')[0];
+  const presentCount = attendance.filter((s) => s.status === 'present').length;
+  const absentCount = attendance.filter((s) => s.status === 'absent').length;
+
+  return {
+    attendance,
+    presentCount,
+    absentCount,
+    hasPresent: presentCount > 0,
+    hasAbsent: absentCount > 0,
+    isMixed: presentCount > 0 && absentCount > 0,
+    isAllPresent: presentCount > 0 && absentCount === 0,
+    isAllAbsent: absentCount > 0 && presentCount === 0,
   };
+};
+
+const AttendanceDay = ({ day, outsideCurrentMonth, sessionsByDate, selectedCourse, ...other }) => {
+  const info = getDayInfo(day, sessionsByDate, selectedCourse);
+  const hasAttendance = info.attendance.length > 0 && !outsideCurrentMonth;
+
+  return (
+    <PickersDay
+      {...other}
+      day={day}
+      outsideCurrentMonth={outsideCurrentMonth}
+      sx={{
+        position: 'relative',
+        ...(hasAttendance && info.isAllPresent ? { backgroundColor: 'rgba(76, 175, 80, 0.1)' } : {}),
+        ...(hasAttendance && info.isAllAbsent ? { backgroundColor: 'rgba(244, 67, 54, 0.1)' } : {}),
+        ...(hasAttendance && info.isMixed ? { backgroundColor: 'rgba(255, 152, 0, 0.1)' } : {}),
+        ...(hasAttendance && info.hasPresent
+          ? {
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                bottom: 4,
+                left: info.hasAbsent ? 'calc(50% - 6px)' : '50%',
+                transform: 'translateX(-50%)',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: '#4CAF50',
+              },
+            }
+          : {}),
+        ...(hasAttendance && info.hasAbsent
+          ? {
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                bottom: 4,
+                left: info.hasPresent ? 'calc(50% + 6px)' : '50%',
+                transform: 'translateX(-50%)',
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                backgroundColor: '#F44336',
+              },
+            }
+          : {}),
+      }}
+    />
+  );
+};
+
+const AttendanceCalendar = ({ attendanceData, onClose, selectedCourse }) => {
+  const [selectedDate, setSelectedDate] = useState(dayjs());
 
   const sessionsByDate = useMemo(() => {
     const map = {};
@@ -24,7 +94,7 @@ const AttendanceCalendar = ({ attendanceData, onClose, selectedCourse }) => {
       const course = entry.course || {};
       const sessions = entry.recentSessions || [];
       sessions.forEach((session) => {
-        const dateStr = formatDate(new Date(session.date));
+        const dateStr = dayjs(session.date).format('YYYY-MM-DD');
         if (!map[dateStr]) map[dateStr] = [];
         map[dateStr].push({
           courseId: course._id,
@@ -37,59 +107,15 @@ const AttendanceCalendar = ({ attendanceData, onClose, selectedCourse }) => {
     return map;
   }, [attendanceData]);
 
-  const getAttendanceForDate = (date) => {
-    const dateStr = formatDate(date);
-    const daySessions = sessionsByDate[dateStr] || [];
-    if (selectedCourse) {
-      return daySessions.filter(
-        (s) => s.courseCode === selectedCourse.courseCode
-      );
-    }
-    return daySessions;
-  };
-
-  const getTileContent = ({ date, view }) => {
-    if (view !== 'month') return null;
-
-    const attendance = getAttendanceForDate(date);
-    if (attendance.length === 0) return null;
-
-    const presentCount = attendance.filter((s) => s.status === 'present').length;
-    const absentCount = attendance.filter((s) => s.status === 'absent').length;
-
-    return (
-      <div className="calendar-tile-content">
-        {presentCount > 0 && <div className="present-dot"></div>}
-        {absentCount > 0 && <div className="absent-dot"></div>}
-      </div>
-    );
-  };
-
-  const getTileClassName = ({ date, view }) => {
-    if (view !== 'month') return null;
-
-    const attendance = getAttendanceForDate(date);
-    if (attendance.length === 0) return null;
-
-    const presentCount = attendance.filter((s) => s.status === 'present').length;
-    const absentCount = attendance.filter((s) => s.status === 'absent').length;
-
-    if (absentCount > 0 && presentCount === 0) return 'all-absent';
-    if (presentCount > 0 && absentCount === 0) return 'all-present';
-    if (presentCount > 0 && absentCount > 0) return 'mixed-attendance';
-
-    return null;
-  };
-
   const getSelectedDateDetails = () => {
-    const attendance = getAttendanceForDate(selectedDate);
+    const attendance = getDayInfo(selectedDate, sessionsByDate, selectedCourse).attendance;
     if (attendance.length === 0) {
       return <p className="no-classes">No attendance data for this date</p>;
     }
 
     return (
       <div className="date-details">
-        <h4>Attendance on {selectedDate.toDateString()}</h4>
+        <h4>Attendance on {dayjs(selectedDate).format('ddd, DD MMM YYYY')}</h4>
         <div className="classes-list">
           {attendance.map((entry, index) => (
             <div
@@ -138,13 +164,20 @@ const AttendanceCalendar = ({ attendanceData, onClose, selectedCourse }) => {
               </div>
             )}
 
-            <Calendar
-              onChange={setSelectedDate}
-              value={selectedDate}
-              tileContent={getTileContent}
-              tileClassName={getTileClassName}
-              className="attendance-calendar"
-            />
+            <LocalizationProvider dateAdapter={AdapterDayjs}>
+              <DateCalendar
+                value={selectedDate}
+                onChange={(nextValue) => setSelectedDate(nextValue || dayjs())}
+                className="attendance-calendar attendance-calendar-mui"
+                slots={{ day: AttendanceDay }}
+                slotProps={{
+                  day: {
+                    sessionsByDate,
+                    selectedCourse,
+                  },
+                }}
+              />
+            </LocalizationProvider>
 
             <div className="legend">
               <div className="legend-item">

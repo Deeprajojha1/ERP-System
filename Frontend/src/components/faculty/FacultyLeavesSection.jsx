@@ -14,6 +14,7 @@ import toast from "react-hot-toast";
 import { ADMIN_LOAD_STATES } from "../../Admin/constants/loadStates";
 import { facultyUi } from "./uiTokens";
 import { EmptyState, LoadingState } from "./SectionState";
+import ModernDatePicker from "../common/ModernDatePicker";
 import {
   fetchFacultyLeaves,
   applyFacultyLeave,
@@ -195,8 +196,8 @@ export default function FacultyLeavesSection({ facultyData }) {
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-semibold text-slate-700">From Date</label>
-                  <input
-                    type="date"
+                  <ModernDatePicker
+                    className="w-full"
                     value={formData.dateFrom}
                     onChange={(e) => {
                       const nextFrom = e.target.value;
@@ -206,20 +207,20 @@ export default function FacultyLeavesSection({ facultyData }) {
                         dateTo: prev.dateTo && prev.dateTo < nextFrom ? nextFrom : prev.dateTo,
                       }));
                     }}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                     min={todayIso}
                     required
+                    ariaLabel="Leave from date"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className="text-sm font-semibold text-slate-700">To Date</label>
-                  <input
-                    type="date"
+                  <ModernDatePicker
+                    className="w-full"
                     value={formData.dateTo}
                     onChange={(e) => setFormData({ ...formData, dateTo: e.target.value })}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-cyan-600 focus:ring-2 focus:ring-cyan-100"
                     min={formData.dateFrom || todayIso}
                     required
+                    ariaLabel="Leave to date"
                   />
                 </div>
               </div>

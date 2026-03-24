@@ -22,6 +22,7 @@ import {
   updateMyExamRegistration,
   uploadExamRegImage,
 } from "../../redux/studentExamRegistrationSlice";
+import ModernDatePicker from "../common/ModernDatePicker";
 import "./StudentExamRegistration.css";
 
 const formatDate = (v) => {
@@ -629,7 +630,11 @@ const StudentExamRegistration = () => {
             </div>
             <div className="ser-field">
               <label>D.O.B</label>
-              <input type="date" value={formData.dateOfBirth} onChange={handleChange("dateOfBirth")} />
+              <ModernDatePicker
+                value={formData.dateOfBirth}
+                onChange={handleChange("dateOfBirth")}
+                ariaLabel="Date of birth"
+              />
             </div>
             <div className="ser-field">
               <label>Aadhar Card No.</label>
